@@ -1,0 +1,13 @@
+[package]
+name = "brotli"
+version = "0.0.1"
+authors = ["Daniel Reiter Horn <danielrh@dropbox.com>"]
+license = "MIT license"
+repository = "https://github.com/danielrh/brotli-rust-port"
+
+[[bin]]
+doc = false
+name = "brot"
+
+[dependencies]
+"alloc-no-stdlib" = { git = "https://github.com/dropbox/rust-alloc-no-stdlib.git"}
