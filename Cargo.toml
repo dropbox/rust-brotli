@@ -3,7 +3,7 @@ name = "brotli"
 version = "0.0.1"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>"]
 license = "MIT license"
-repository = "https://github.com/danielrh/brotli-rust-port"
+repository = "https://github.com/dropbox/rust-brotli"
 
 [[bin]]
 doc = false
