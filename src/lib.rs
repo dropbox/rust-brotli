@@ -5,12 +5,16 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
+//#[macro_use] //<-- for debugging, remove println from bit_reader
+//extern crate std;
+
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;
 pub use alloc::{Allocator, SliceWrapperMut, SliceWrapper, StackAllocator, AllocatedStackMemory};
 use core::cell;
 use core::mem;
 mod dictionary;
+#[macro_use]
 mod bit_reader;
 mod huffman;
 mod state;
@@ -61,15 +65,18 @@ const kCodeLengthPrefixValue : [u8;16] = [
   0, 4, 3, 2, 0, 4, 3, 1, 0, 4, 3, 2, 0, 4, 3, 5,
 ];
 
+
 macro_rules! BROTLI_LOG_UINT (
-    ($num : expr) => {};
+    ($num : expr) => {
+       println!("{:?} = {:?}", stringify!($num),  $num)
+    };
 );
 
 macro_rules! BROTLI_LOG (
-    ($str : expr, $num : expr) => {};
-    ($str : expr, $num0 : expr, $num1 : expr) => {};
-    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr) => {};
-    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr, $num3 : expr) => {};
+    ($str : expr, $num : expr) => {println!("{:?} {:?}", $str, $num);};
+    ($str : expr, $num0 : expr, $num1 : expr) => {println!("{:?} {:?} {:?}", $str, $num0, $num1);};
+    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr) => {println!("{:?} {:?} {:?} {:?}", $str, $num0, $num1, $num2);};
+    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr, $num3 : expr) => {println!("{:?} {:?} {:?} {:?} {:?}", $str, $num0, $num1, $num2, $num3);};
 );
 
 #[allow(non_snake_case)]
@@ -77,7 +84,9 @@ fn BROTLI_FAILURE() -> BrotliResult {
     return BrotliResult::ResultFailure;
 }
 macro_rules! BROTLI_LOG_ARRAY_INDEX (
-    ($array : expr, $index : expr) => {};
+    ($array : expr, $index : expr) => {
+       println!("{:?}[{:?}] = {:?}", stringify!($array), $index,  $array[$index as usize])
+    };
 );
 
 
@@ -666,15 +675,16 @@ fn ReadCodeLengthCodeLengths<
         return BrotliResult::NeedsMoreInput;
       }
     }
+    BROTLI_LOG_UINT!(ix);
     let v : u32 = kCodeLengthPrefixValue[ix as usize] as u32;
-    bit_reader::BrotliDropBits(&mut s.br, v);
+    bit_reader::BrotliDropBits(&mut s.br, kCodeLengthPrefixLength[ix as usize] as u32);
     s.code_length_code_lengths[code_len_idx as usize] = v as u8;
     BROTLI_LOG_ARRAY_INDEX!(s.code_length_code_lengths, code_len_idx);
     if v != 0 {
       space = space - (32 >> v);
       num_codes += 1;
       s.code_length_histo[v as usize] += 1;
-      if (space - 1 >= 32) {
+      if space.wrapping_sub(1) >= 32 {
         /* space is 0 or wrapped around */
         break;
       }
@@ -1546,7 +1556,8 @@ pub fn ReadContextModes<'a, AllocU8 : alloc::Allocator<u8>,
       return BrotliResult::NeedsMoreInput;
     }
     *context_mode_iter = (bits << 1) as u8;
-    BROTLI_LOG_ARRAY_INDEX!(s.context_modes, i);
+    BROTLI_LOG_UINT!(i);
+    BROTLI_LOG_UINT!(*context_mode_iter);
     i+=1;
   }
   return BrotliResult::ResultSuccess;
@@ -1854,7 +1865,7 @@ fn ProcessCommandsInternal<
             }
             s.block_type_length_state.block_length[0] -= 1;
             BROTLI_LOG_UINT!(s.literal_htree_index);
-            BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer, pos);
+            BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos);
             pos += 1;
             if (pos == s.ringbuffer_size) {
               mark_unlikely();
@@ -1904,8 +1915,8 @@ fn ProcessCommandsInternal<
             }
             s.ringbuffer.slice_mut()[pos as usize] = p1;
             s.block_type_length_state.block_length[0] -= 1;
-            BROTLI_LOG_UINT!(s.context_map_slice[context as usize]);
-            BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer, pos & s.ringbuffer_mask);
+            BROTLI_LOG_UINT!(s.context_map.slice()[s.context_map_slice_index as usize + context as usize]);
+            BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos & s.ringbuffer_mask);
             pos += 1;
             if (pos == s.ringbuffer_size) {
               mark_unlikely();

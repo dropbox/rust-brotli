@@ -105,7 +105,7 @@ fn test_quickfox_repeated() {
      BrotliResult::ResultSuccess => {},
      _ => assert!(false),
   }
-  assert_eq!(output_offset, 0);
+  assert_eq!(output_offset, 176128);
   assert_eq!(input_offset, input.len());
 
 }

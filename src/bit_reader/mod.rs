@@ -1,5 +1,9 @@
 #![allow(non_snake_case)]
 use core::default::Default;
+macro_rules! println (
+  () => ();
+  ($x : expr $(, $more : expr) *) => ();
+);
 
 pub const BROTLI_SHORT_FILL_BIT_WINDOW_READ : usize = 4;
 
@@ -311,8 +315,8 @@ pub fn BrotliTakeBits(
   br : &mut BrotliBitReader, n_bits : u32, val : &mut u32) {
   *val = (BrotliGetBitsUnmasked(br) as u32) & BitMask(n_bits);
   //if true {
-    //println!("[BrotliReadBits]  {:?} {:?} {:?} val: {:x}\n",
-    //       br.avail_in, br.bit_pos_, n_bits, *val);
+    println!("[BrotliReadBits]  {:?} {:?} {:?} val: {:x}\n",
+           br.avail_in, br.bit_pos_, n_bits, *val);
   //}
   BrotliDropBits(br, n_bits);
 }
