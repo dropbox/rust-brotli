@@ -473,11 +473,12 @@ fn ReadSimpleHuffmanSymbols<
  */
 fn ProcessSingleCodeLength(code_len : u32,
     symbol : &mut u32, repeat : &mut u32, space : &mut u32,
-    prev_code_len : &mut u32, symbol_lists : &mut [u16],
+    prev_code_len : &mut u32, symbol_lists : &mut [u16], symbol_list_index_offset : usize,
     code_length_histo : &mut [u16], next_symbol : &mut [i32]) {
   *repeat = 0;
   if (code_len != 0) { /* code_len == 1..15 */
-    symbol_lists[next_symbol[code_len as usize] as usize] = (*symbol) as u16;
+    // next_symbol may be negative, hence we have to supply offset to function
+    symbol_lists[(symbol_list_index_offset as i32 + next_symbol[code_len as usize]) as usize] = (*symbol) as u16;
     next_symbol[code_len as usize] = (*symbol) as i32;
     *prev_code_len = code_len;
     *space -= 32768 >> code_len;
@@ -498,7 +499,7 @@ fn ProcessSingleCodeLength(code_len : u32,
 fn ProcessRepeatedCodeLength(code_len : u32,
     mut repeat_delta : u32, alphabet_size : u32, symbol : &mut u32,
     repeat : &mut u32, space : &mut u32, prev_code_len : &mut u32,
-    repeat_code_len : &mut u32, symbol_lists : &mut [u16],
+    repeat_code_len : &mut u32, symbol_lists : &mut [u16], symbol_lists_index : usize,
     code_length_histo : &mut [u16], next_symbol : &mut [i32]) {
   let old_repeat : u32;
   let mut new_len : u32 = 0;
@@ -526,7 +527,7 @@ fn ProcessRepeatedCodeLength(code_len : u32,
     let last : u32 = *symbol + repeat_delta;
     let mut next : i32 = next_symbol[*repeat_code_len as usize];
     loop {
-      symbol_lists[next as usize] = (*symbol) as u16;
+      symbol_lists[(symbol_lists_index as i32 + next) as usize] = (*symbol) as u16;
       next = (*symbol) as i32;
       (*symbol) += 1;
       if *symbol == last {
@@ -577,7 +578,7 @@ fn ReadSymbolCodeLengths<
     code_len = p.value as u32; /* code_len == 0..17 */
     if (code_len < kCodeLengthRepeatCode) {
       ProcessSingleCodeLength(code_len, &mut symbol, &mut repeat, &mut space,
-          &mut prev_code_len, &mut s.symbols_lists_array[s.symbol_lists_index as usize..],
+          &mut prev_code_len, &mut s.symbols_lists_array, s.symbol_lists_index as usize,
           &mut s.code_length_histo[..], &mut s.next_symbol[..]);
     } else { /* code_len == 16..17, extra_bits == 2..3 */
       let repeat_delta : u32 =
@@ -585,7 +586,7 @@ fn ReadSymbolCodeLengths<
       bit_reader::BrotliDropBits(&mut s.br, code_len - 14);
       ProcessRepeatedCodeLength(code_len, repeat_delta, alphabet_size,
           &mut symbol, &mut repeat, &mut space, &mut prev_code_len, &mut repeat_code_len,
-          &mut s.symbols_lists_array[s.symbol_lists_index as usize..],
+          &mut s.symbols_lists_array, s.symbol_lists_index as usize,
           &mut s.code_length_histo[..], &mut s.next_symbol[..]);
     }
   }
@@ -621,7 +622,7 @@ fn SafeReadSymbolCodeLengths<
       bit_reader::BrotliDropBits(&mut s.br, p.bits as u32);
       ProcessSingleCodeLength(code_len, &mut s.symbol, &mut s.repeat, &mut s.space,
           &mut s.prev_code_len,
-          &mut s.symbols_lists_array[s.symbol_lists_index as usize..],
+          &mut s.symbols_lists_array, s.symbol_lists_index as usize,
           &mut s.code_length_histo[..], &mut s.next_symbol[..]);
     } else { /* code_len == 16..17, extra_bits == 2..3 */
       let extra_bits : u32 = code_len - 14;
@@ -637,7 +638,7 @@ fn SafeReadSymbolCodeLengths<
       ProcessRepeatedCodeLength(code_len, repeat_delta, alphabet_size,
           &mut s.symbol, &mut s.repeat, &mut s.space, &mut s.prev_code_len,
           &mut s.repeat_code_len,
-          &mut s.symbols_lists_array[s.symbol_lists_index as usize..],
+          &mut s.symbols_lists_array, s.symbol_lists_index as usize,
           &mut s.code_length_histo[..], &mut s.next_symbol[..]);
     }
   }
@@ -796,7 +797,7 @@ fn ReadHuffmanCode<
           BrotliResult::ResultSuccess => {},
           _ => return result,
         }
-        huffman::BrotliBuildCodeLengthsHuffmanTable(&mut table[offset..],
+        huffman::BrotliBuildCodeLengthsHuffmanTable(&mut s.table[offset..],
                                                     &mut s.code_length_code_lengths,
                                                     &mut s.code_length_histo);
         for code_length_histo in s.code_length_histo[0 .. huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize+ 1].iter_mut() {
@@ -806,7 +807,9 @@ fn ReadHuffmanCode<
         let mut i : u32 = 0;
         for next_symbol_mut in s.next_symbol[..huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as usize + 1].iter_mut() {
           *next_symbol_mut = i as i32 - (huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1);
-          s.symbols_lists_array[s.symbol_lists_index + i as usize - (huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as usize + 1)] = 0xFFFF;
+          s.symbols_lists_array[(s.symbol_lists_index as i32
+                                 + i as i32
+                                 - (huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1)) as usize] = 0xFFFF;
           i += 1;
         }
   
@@ -935,15 +938,19 @@ fn InverseMoveToFrontTransform(v : &mut [u8], v_len : u32, mtf : &mut [u8], mtf_
   /* Transform the input. */
   upper_bound = 0;
   for v_i in v[0usize .. (v_len as usize)].iter_mut() {
-    let mut index = *v_i;
+    let mut index = (*v_i) as i32;
     let value = mtf[index as usize];
     upper_bound |= (*v_i) as u32;
     *v_i = value;
     loop {
       index-=1;
-      mtf[index as usize + 1] = mtf[index as usize];
       if index <= 0 {
-        break;
+         if index < 0 {
+             mtf[0] = 0;
+         }
+         break;
+      } else {
+          mtf[(index + 1) as usize] = mtf[index as usize];
       }
     }
     mtf[0] = value;
