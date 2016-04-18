@@ -942,15 +942,15 @@ fn InverseMoveToFrontTransform(v : &mut [u8], v_len : u32, mtf : &mut [u8], mtf_
     let value = mtf[index as usize];
     upper_bound |= (*v_i) as u32;
     *v_i = value;
-    loop {
-      index-=1;
-      if index <= 0 {
-         if index < 0 {
-             mtf[0] = 0;
-         }
-         break;
-      } else {
-          mtf[(index + 1) as usize] = mtf[index as usize];
+    if index <= 0 {
+      mtf[0] = 0;
+    } else {
+      loop {
+        index-=1;
+        mtf[(index + 1) as usize] = mtf[index as usize];
+        if index <= 0 {
+           break;
+        }
       }
     }
     mtf[0] = value;
@@ -1144,12 +1144,14 @@ fn DecodeContextMapInner<
 
             if code == 0 {
               context_map[context_index as usize] = 0;
+              BROTLI_LOG_ARRAY_INDEX!(context_map, context_index as usize);
               context_index += 1;
               continue;
             }
             if code > max_run_length_prefix {
               context_map[context_index as usize] =
                   (code - max_run_length_prefix) as u8;
+              BROTLI_LOG_ARRAY_INDEX!(context_map, context_index as usize);
               context_index += 1;
               continue;
             }
@@ -1170,6 +1172,7 @@ fn DecodeContextMapInner<
             }
             loop {
               context_map[context_index as usize] = 0;
+              BROTLI_LOG_ARRAY_INDEX!(context_map, context_index as usize);
               context_index += 1;
               reps -= 1;
               if reps == 0 {
