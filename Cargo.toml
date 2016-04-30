@@ -1,9 +1,9 @@
 [package]
-name = "brotli"
+name = "brotli-no-stdlib"
 version = "0.0.1"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>"]
 license = "MIT license"
-repository = "https://github.com/dropbox/rust-brotli"
+repository = "https://github.com/dropbox/rust-brotli-no-stdlib"
 
 [[bin]]
 doc = false
