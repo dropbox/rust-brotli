@@ -1,4 +1,4 @@
-extern crate brotli;
+extern crate brotli_no_stdlib as brotli;
 extern crate core;
 
 #[macro_use]

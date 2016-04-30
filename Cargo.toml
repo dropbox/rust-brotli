@@ -11,3 +11,4 @@ name = "brot"
 
 [dependencies]
 "alloc-no-stdlib" = { git = "https://github.com/dropbox/rust-alloc-no-stdlib.git"}
+"brotli-no-stdlib" = { git = "https://github.com/dropbox/rust-brotli-no-stdlib.git"}
