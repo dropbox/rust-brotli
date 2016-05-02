@@ -11,6 +11,8 @@ use alloc::{Allocator, SliceWrapperMut, SliceWrapper, StackAllocator, AllocatedS
 
 
 pub struct Decompressor<'a, R: io::Read> {
+    input_buffer_backing : cell::RefCell<[u8;65536]>,
+    scratch_backing : cell::RefCell<[u8;8]>,
     input_buffer : cell::RefCell<&'a mut[u8]>,
     scratch : cell::RefCell<&'a mut[u8]>,
     total_out : usize,
@@ -22,11 +24,13 @@ pub struct Decompressor<'a, R: io::Read> {
 }
 
 impl<'a, R: io::Read> Decompressor<'a, R> {
-/*
+
     pub fn new(r: R) -> Decompressor<'a, R> {
-        return Decompressor{
-            input_buffer : cell::RefCell<&'a mut[u8]>,
-            scratch : cell::RefCell<&'a mut[u8]>,
+        let mut ret = Decompressor{
+            input_buffer_backing : cell::RefCell::<[u8;65536]>::new([0;65536]),
+            scratch_backing : cell::RefCell::<[u8;8]>::new([0;8]),
+            input_buffer : cell::RefCell::<&'a mut[u8]>::new(&mut[]),
+            scratch : cell::RefCell::<&'a mut[u8]>::new(&mut[]),
             total_out : 0,
             input_offset : 0,
             input_len : 0,
@@ -37,8 +41,11 @@ impl<'a, R: io::Read> Decompressor<'a, R> {
                                      HeapAllocator::<HuffmanCode>{
                                          default_value : HuffmanCode::default()}),
         };
+        ret.input_buffer = cell::RefCell::<&'a mut[u8]>::new(ret.input_buffer_backing.borrow_mut()[..]);
+        ret.scratch = cell::RefCell::<&'a mut[u8]>::new(&mut ret.scratch_backing.borrow_mut()[..]);
+        return ret;
     }
-*/
+
     pub fn copy_to_front(&mut self) {
         if self.input_offset == self.input_buffer.borrow().len() {
             self.input_offset = 0;// FIXME
