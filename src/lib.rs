@@ -11,8 +11,8 @@ use alloc::{Allocator, SliceWrapperMut, SliceWrapper, StackAllocator, AllocatedS
 
 
 pub struct Decompressor<'a, R: io::Read> {
-    input_buffer : [u8; 65536],
-    scratch : [u8; 8],
+    input_buffer : cell::RefCell<&'a mut[u8]>,
+    scratch : cell::RefCell<&'a mut[u8]>,
     total_out : usize,
     input_offset : usize,
     input_len : usize,
@@ -22,10 +22,11 @@ pub struct Decompressor<'a, R: io::Read> {
 }
 
 impl<'a, R: io::Read> Decompressor<'a, R> {
+/*
     pub fn new(r: R) -> Decompressor<'a, R> {
         return Decompressor{
-            input_buffer : [0; 65536],
-            scratch : [0; 8],
+            input_buffer : cell::RefCell<&'a mut[u8]>,
+            scratch : cell::RefCell<&'a mut[u8]>,
             total_out : 0,
             input_offset : 0,
             input_len : 0,
@@ -37,8 +38,9 @@ impl<'a, R: io::Read> Decompressor<'a, R> {
                                          default_value : HuffmanCode::default()}),
         };
     }
+*/
     pub fn copy_to_front(&mut self) {
-        if self.input_offset == self.input_buffer.len() {
+        if self.input_offset == self.input_buffer.borrow().len() {
             self.input_offset = 0;// FIXME
             self.input_len = 0;
         }
@@ -50,21 +52,19 @@ impl<'a, R: io::Read> io::Read for Decompressor<'a, R> {
             let mut avail_out = buf.len() - output_offset;
             let mut avail_in = self.input_len - self.input_offset;
             while avail_out == buf.len() && !self.input_eof {
-                    match self.input.read(&mut self.input_buffer[self.input_len..]) {
+                    match self.input.read(&mut self.input_buffer.borrow_mut()[self.input_len..]) {
                         Err(e) => self.input_eof = true,
                         Ok(size) => self.input_len += size,
                     }
-                    let scratch_ref_cell = cell::RefCell::<&'a mut[u8]>::new(&mut self.scratch[..]);
-                    let input_ref_cell = cell::RefCell::<&'a mut[u8]>::new(&mut self.input_buffer[..]);
                     match BrotliDecompressStream(&mut avail_in,
                                                   &mut self.input_offset,
-                                                  &input_ref_cell,
+                                                  &mut self.input_buffer,
                                                   &mut avail_out,
                                                   &mut output_offset,
                                                   buf,
                                                   &mut self.total_out,
                                                   &mut self.state,
-                                                  &scratch_ref_cell) {
+                                                  &self.scratch) {
                         BrotliResult::NeedsMoreInput => self.copy_to_front(),
                         BrotliResult::NeedsMoreOutput => {},
                         BrotliResult::ResultSuccess => {},
