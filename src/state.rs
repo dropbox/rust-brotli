@@ -104,15 +104,13 @@ pub struct BlockTypeAndLengthState<AllocHC : alloc::Allocator<HuffmanCode> > {
 
 }
 
-pub struct BrotliState<'brotli_state,
-                   AllocU8 : alloc::Allocator<u8>,
-                   AllocU32 : alloc::Allocator<u32>,
-                   AllocHC : alloc::Allocator<HuffmanCode> > {
+pub struct BrotliState<AllocU8 : alloc::Allocator<u8>,
+                       AllocU32 : alloc::Allocator<u32>,
+                       AllocHC : alloc::Allocator<HuffmanCode> > {
   pub state : BrotliRunningState,
 
   /* This counter is reused for several disjoint loops. */
   pub loop_counter : i32,
-  pub fixme : &'brotli_state mut[u8],
   pub br : BrotliBitReader,
   pub alloc_u8 : AllocU8,
   pub alloc_u32 : AllocU32,
@@ -227,14 +225,12 @@ pub struct BrotliState<'brotli_state,
 impl <'brotli_state,
       AllocU8 : alloc::Allocator<u8>,
       AllocU32 : alloc::Allocator<u32>,
-      AllocHC : alloc::Allocator<HuffmanCode> > BrotliState<'brotli_state,
-                                                             AllocU8, AllocU32, AllocHC> {
+      AllocHC : alloc::Allocator<HuffmanCode> > BrotliState<AllocU8, AllocU32, AllocHC> {
     pub fn new(alloc_u8 : AllocU8,
            alloc_u32 : AllocU32,
            alloc_hc : AllocHC) -> Self{
         let mut retval = BrotliState::<AllocU8, AllocU32, AllocHC>{
             state : BrotliRunningState::BROTLI_STATE_UNINITED,
-            fixme : &mut[],
             loop_counter : 0,
             br : BrotliBitReader::default(),
             alloc_u8 : alloc_u8,
