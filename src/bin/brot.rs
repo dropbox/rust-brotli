@@ -5,7 +5,6 @@ extern crate core;
 extern crate alloc_no_stdlib;
 
 use core::ops;
-use core::cell;
 use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
             StackAllocator, AllocatedStackMemory};
 
@@ -57,9 +56,6 @@ where InputType: Read, OutputType: Write {
   let calloc_hc_allocator = MemPool::<HuffmanCode>::new_allocator(&mut calloc_hc_buffer);
   //test(calloc_u8_allocator);
   let mut input = [0u8;FILE_BUFFER_SIZE];
-  let mut scratch = [0u8;8];
-  let input_cell = cell::RefCell::new(&mut input[..]);
-  let scratch_cell = cell::RefCell::new(&mut scratch[..]);
   let mut output = [0u8;FILE_BUFFER_SIZE];
   let mut brotli_state = BrotliState::new(calloc_u8_allocator, calloc_u32_allocator, calloc_hc_allocator);
 
@@ -71,7 +67,7 @@ where InputType: Read, OutputType: Write {
   loop {
       match result {
           BrotliResult::NeedsMoreInput => {
-              match r.read(&mut input_cell.borrow_mut()) {
+              match r.read(&mut input[..]) {
                   Err(e) => {
                       match e.kind() {
                           ErrorKind::Interrupted => continue,
@@ -94,9 +90,9 @@ where InputType: Read, OutputType: Write {
           BrotliResult::ResultFailure => panic!("FAILURE"),
       }
       let mut written :usize = 0;
-      result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input_cell,
+      result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input[..],
                                       &mut available_out, &mut output_offset, &mut output,
-                                      &mut written, &mut brotli_state, &scratch_cell);
+                                      &mut written, &mut brotli_state);
 
   }
   if output_offset != 0 {

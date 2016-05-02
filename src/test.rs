@@ -6,9 +6,6 @@ use alloc::{Allocator, SliceWrapperMut, SliceWrapper,
 
 use core::ops;
 
-#[allow(unused_imports)] // this is actually used, not sure why warn
-use core::cell;
-
 
 pub use super::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
 
@@ -16,7 +13,7 @@ declare_stack_allocator_struct!(MemPool, 4096, stack);
 
 
 
-fn oneshot(mut input : &mut [u8], mut output : &mut [u8]) -> (BrotliResult, usize, usize) {
+fn oneshot(input : &mut [u8], mut output : &mut [u8]) -> (BrotliResult, usize, usize) {
   let mut available_out : usize = output.len();
   define_allocator_memory_pool!(stack_u8_buffer, 4096, u8, [0; 400 * 1024], stack);
   define_allocator_memory_pool!(stack_u32_buffer, 4096, u32, [0; 48 * 1024], stack);
@@ -28,13 +25,10 @@ fn oneshot(mut input : &mut [u8], mut output : &mut [u8]) -> (BrotliResult, usiz
   let mut input_offset : usize = 0;
   let mut output_offset : usize = 0;
   let mut written : usize = 0;
-  let mut scratch = [0u8;8];
-  let input_cell = cell::RefCell::new(&mut input[..]);
-  let scratch_cell = cell::RefCell::new(&mut scratch[..]);
   let mut brotli_state = BrotliState::new(stack_u8_allocator, stack_u32_allocator, stack_hc_allocator);
-  let result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input_cell,
+  let result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input[..],
                                       &mut available_out, &mut output_offset, &mut output,
-                                      &mut written, &mut brotli_state, &scratch_cell);
+                                      &mut written, &mut brotli_state);
   brotli_state.BrotliStateCleanup();
   return (result, input_offset, output_offset);
 }

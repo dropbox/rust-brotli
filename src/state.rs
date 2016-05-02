@@ -112,8 +112,8 @@ pub struct BrotliState<'brotli_state,
 
   /* This counter is reused for several disjoint loops. */
   pub loop_counter : i32,
-
-  pub br : BrotliBitReader<'brotli_state>,
+  pub fixme : &'brotli_state mut[u8],
+  pub br : BrotliBitReader,
   pub alloc_u8 : AllocU8,
   pub alloc_u32 : AllocU32,
   pub alloc_hc : AllocHC,
@@ -234,6 +234,7 @@ impl <'brotli_state,
            alloc_hc : AllocHC) -> Self{
         let mut retval = BrotliState::<AllocU8, AllocU32, AllocHC>{
             state : BrotliRunningState::BROTLI_STATE_UNINITED,
+            fixme : &mut[],
             loop_counter : 0,
             br : BrotliBitReader::default(),
             alloc_u8 : alloc_u8,
