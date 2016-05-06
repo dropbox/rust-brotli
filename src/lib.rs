@@ -3,11 +3,9 @@ extern crate alloc_no_stdlib as alloc;
 extern crate brotli_no_stdlib;
 extern crate core;
 use std::io;
-use core::cell;
 mod heap_alloc;
-use heap_alloc::{HeapAllocator, Mem};
+use heap_alloc::{HeapAllocator};
 use brotli_no_stdlib::{HuffmanCode, BrotliState, BrotliDecompressStream, BrotliResult};
-use alloc::{Allocator, SliceWrapperMut, SliceWrapper, StackAllocator, AllocatedStackMemory};
 
 
 pub struct Decompressor<R: io::Read> {
@@ -19,11 +17,20 @@ pub struct Decompressor<R: io::Read> {
     input: R,
     state : BrotliState<HeapAllocator<u8>, HeapAllocator<u32>, HeapAllocator<HuffmanCode> >,
 }
+macro_rules! stderr {
+    ($($arg:tt)*) => (
+        use std::io::Write;
+        match writeln!(&mut ::std::io::stderr(), $($arg)* ) {
+            Ok(_) => {},
+            Err(x) => panic!("Unable to write to stderr (file handle closed?): {}", x),
+        }
+    )
+}
 
 impl<R: io::Read> Decompressor<R> {
 
     pub fn new(r: R) -> Decompressor<R> {
-        let mut ret = Decompressor{
+        let ret = Decompressor{
             input_buffer : [0; 65536],
             total_out : 0,
             input_offset : 0,
@@ -42,6 +49,11 @@ impl<R: io::Read> Decompressor<R> {
         if self.input_offset == self.input_buffer.len() {
             self.input_offset = 0;// FIXME
             self.input_len = 0;
+        } else if self.input_offset > self.input_buffer.len() / 2 {
+            let (mut first, second) = self.input_buffer[..].split_at_mut(self.input_offset);
+            let avail_in = self.input_len - self.input_offset;
+            first[0..avail_in].clone_from_slice(&second[0..avail_in]);
+            self.input_offset = 0;
         }
     }
 }
@@ -52,8 +64,16 @@ impl<'a, R: io::Read> io::Read for Decompressor<R> {
             let mut avail_in = self.input_len - self.input_offset;
             while avail_out == buf.len() && !self.input_eof {
                     match self.input.read(&mut self.input_buffer[self.input_len..]) {
-                        Err(e) => self.input_eof = true,
-                        Ok(size) => self.input_len += size,
+                        Err(e) => match e.kind() {
+                            io::ErrorKind::Interrupted => continue,
+                            _ => self.input_eof = true,
+                        },
+                        Ok(size) => if size == 0 {
+                            self.input_eof=true;
+                        }else {
+                            self.input_len += size;
+                            avail_in = self.input_len - self.input_offset;
+                        },
                     }
                     match BrotliDecompressStream(&mut avail_in,
                                                   &mut self.input_offset,
@@ -71,6 +91,6 @@ impl<'a, R: io::Read> io::Read for Decompressor<R> {
                                                       "Invalid Data")),
                   }
             }
-            return Ok(buf.len() - output_offset);
+            return Ok(output_offset);
         }
 }
