@@ -1,3 +1,5 @@
+
+mod integration_tests;
 extern crate brotli_no_stdlib as brotli;
 extern crate core;
 
@@ -5,11 +7,13 @@ extern crate core;
 extern crate alloc_no_stdlib;
 
 use core::ops;
+use core::cmp;
 use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
             StackAllocator, AllocatedStackMemory};
 
 //use alloc::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator};
-use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, FILE_BUFFER_SIZE, HuffmanCode};
+use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
+pub use brotli::FILE_BUFFER_SIZE;
 use std::io::{self, Read, Write, ErrorKind, Error};
 extern {
   fn calloc(n_elem : usize, el_size : usize) -> *mut u8;
@@ -44,19 +48,24 @@ where OutputType: Write {
 //trace_macros!(true);
 
 define_allocator_memory_pool!(global_buffer, 16, u8, [0; 1024 * 1024 * 100], global);
-
-fn decompress<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType) -> Result<(), io::Error>
+pub fn decompress<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType) -> Result<(), io::Error>
 where InputType: Read, OutputType: Write {
-  let mut available_out : usize = FILE_BUFFER_SIZE;
-  define_allocator_memory_pool!(calloc_u8_buffer, 4096, u8, [0; 32 * 1024 * 1024], calloc);
-  define_allocator_memory_pool!(calloc_u32_buffer, 4096, u32, [0; 1024 * 1024], calloc);
+    return decompress_internal(r, w, FILE_BUFFER_SIZE, FILE_BUFFER_SIZE);
+}
+pub fn decompress_internal<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType, input_buffer_limit : usize, output_buffer_limit : usize) -> Result<(), io::Error>
+where InputType: Read, OutputType: Write {
+  let mut input_fixed = [0u8;FILE_BUFFER_SIZE];
+  let mut output_fixed = [0u8;FILE_BUFFER_SIZE];
+  let mut input = &mut input_fixed[0 .. cmp::min(FILE_BUFFER_SIZE, input_buffer_limit)];
+  let mut output = &mut output_fixed[0 .. cmp::min(FILE_BUFFER_SIZE, output_buffer_limit)];
+  let mut available_out : usize = output.len();
+  define_allocator_memory_pool!(calloc_u8_buffer, 4096, u8, [0; 32 * 1024 * 1024], heap);
+  define_allocator_memory_pool!(calloc_u32_buffer, 4096, u32, [0; 1024 * 1024], heap);
   define_allocator_memory_pool!(calloc_hc_buffer, 4096, HuffmanCode, [0; 4 * 1024 * 1024], calloc);
   let calloc_u8_allocator = MemPool::<u8>::new_allocator(&mut calloc_u8_buffer);
   let calloc_u32_allocator = MemPool::<u32>::new_allocator(&mut calloc_u32_buffer);
   let calloc_hc_allocator = MemPool::<HuffmanCode>::new_allocator(&mut calloc_hc_buffer);
   //test(calloc_u8_allocator);
-  let mut input = [0u8;FILE_BUFFER_SIZE];
-  let mut output = [0u8;FILE_BUFFER_SIZE];
   let mut brotli_state = BrotliState::new(calloc_u8_allocator, calloc_u32_allocator, calloc_hc_allocator);
 
   //let amount = try!(r.read(&mut buf));
@@ -67,7 +76,7 @@ where InputType: Read, OutputType: Write {
   loop {
       match result {
           BrotliResult::NeedsMoreInput => {
-              match r.read(&mut input[..]) {
+              match r.read(input) {
                   Err(e) => {
                       match e.kind() {
                           ErrorKind::Interrupted => continue,
