@@ -76,6 +76,7 @@ where InputType: Read, OutputType: Write {
   loop {
       match result {
           BrotliResult::NeedsMoreInput => {
+              input_offset = 0;
               match r.read(input) {
                   Err(e) => {
                       match e.kind() {
@@ -103,9 +104,11 @@ where InputType: Read, OutputType: Write {
                                       &mut available_out, &mut output_offset, &mut output,
                                       &mut written, &mut brotli_state);
 
-  }
-  if output_offset != 0 {
-      try!(_write_all(&mut w, &output[..output_offset]));
+      if output_offset != 0 {
+          try!(_write_all(&mut w, &output[..output_offset]));
+          output_offset = 0;
+          available_out = output.len()
+      }
   }
   brotli_state.BrotliStateCleanup();
   Ok(())

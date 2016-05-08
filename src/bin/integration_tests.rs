@@ -54,12 +54,32 @@ fn test_10x_10y() {
     assert_eq!(output.data.len(), 20);
     assert_eq!(input.read_offset, in_buf.len());
 }
+
+#[test]
+fn test_10x_10y_one_out_byte() { // FIXME: this test doesn't pass yet with 1, 1
+    let in_buf : [u8;12] = [0x1b, 0x13, 0x00, 0x00, 0xa4, 0xb0, 0xb2, 0xea, 0x81, 0x47, 0x02, 0x8a];
+    let mut input = Buffer::new(&in_buf);
+    let mut output = Buffer::new(&[]);
+    match super::decompress_internal(&mut input, &mut output, 12, 1) {
+        Ok(_) => {},
+        Err(e) => panic!("Error {:?}", e),
+    }
+    let mut i : usize = 0;
+    while i < 10 {
+      assert_eq!(output.data[i], 'X' as u8);
+      assert_eq!(output.data[i + 10], 'Y' as u8);
+      i += 1;
+    }
+    assert_eq!(output.data.len(), 20);
+    assert_eq!(input.read_offset, in_buf.len());
+}
+
 #[test]
 fn test_10x_10y_byte_by_byte() { // FIXME: this test doesn't pass yet with 1, 1
     let in_buf : [u8;12] = [0x1b, 0x13, 0x00, 0x00, 0xa4, 0xb0, 0xb2, 0xea, 0x81, 0x47, 0x02, 0x8a];
     let mut input = Buffer::new(&in_buf);
     let mut output = Buffer::new(&[]);
-    match super::decompress_internal(&mut input, &mut output, 12, 20) {
+    match super::decompress_internal(&mut input, &mut output, 1, 1) {
         Ok(_) => {},
         Err(e) => panic!("Error {:?}", e),
     }
