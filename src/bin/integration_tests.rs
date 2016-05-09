@@ -56,7 +56,7 @@ fn test_10x_10y() {
 }
 
 #[test]
-fn test_10x_10y_one_out_byte() { // FIXME: this test doesn't pass yet with 1, 1
+fn test_10x_10y_one_out_byte() {
     let in_buf : [u8;12] = [0x1b, 0x13, 0x00, 0x00, 0xa4, 0xb0, 0xb2, 0xea, 0x81, 0x47, 0x02, 0x8a];
     let mut input = Buffer::new(&in_buf);
     let mut output = Buffer::new(&[]);
@@ -75,7 +75,7 @@ fn test_10x_10y_one_out_byte() { // FIXME: this test doesn't pass yet with 1, 1
 }
 
 #[test]
-fn test_10x_10y_byte_by_byte() { // FIXME: this test doesn't pass yet with 1, 1
+fn test_10x_10y_byte_by_byte() {
     let in_buf : [u8;12] = [0x1b, 0x13, 0x00, 0x00, 0xa4, 0xb0, 0xb2, 0xea, 0x81, 0x47, 0x02, 0x8a];
     let mut input = Buffer::new(&in_buf);
     let mut output = Buffer::new(&[]);
@@ -92,3 +92,44 @@ fn test_10x_10y_byte_by_byte() { // FIXME: this test doesn't pass yet with 1, 1
     assert_eq!(output.data.len(), 20);
     assert_eq!(input.read_offset, in_buf.len());
 }
+
+
+fn assert_decompressed_input_matches_output(input_slice : &[u8],
+                                            output_slice : &[u8],
+                                            input_buffer_size : usize,
+                                            output_buffer_size : usize) {
+    let mut input = Buffer::new(input_slice);
+    let mut output = Buffer::new(&[]);
+    match super::decompress_internal(&mut input, &mut output, input_buffer_size, output_buffer_size) {
+       Ok(_) => {}
+       Err(e) => panic!("Error {:?}", e),
+    }
+    assert_eq!(output.data.len(), output_slice.len());
+    assert_eq!(output.data, output_slice)
+}
+
+#[test]
+fn test_64x() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/64x.compressed"),
+                                             include_bytes!("testdata/64x"),
+                                             3,
+                                             3);
+}
+
+#[test]
+fn test_as_you_like_it() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/asyoulik.txt.compressed"),
+                                             include_bytes!("testdata/asyoulik.txt"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+#[should_panic]
+fn test_negative_hypothesis() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/64x"),
+                                             include_bytes!("testdata/64x"),
+                                             3,
+                                             3);
+}
+

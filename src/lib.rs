@@ -489,6 +489,7 @@ fn ProcessSingleCodeLength(code_len : u32,
     *prev_code_len = code_len;
     *space -= 32768 >> code_len;
     code_length_histo[code_len as usize] += 1;
+    BROTLI_LOG!("[ReadHuffmanCode] code_length[{:}]={:} histo[]={:}\n", *symbol, code_len, code_length_histo[code_len as usize]);
   }
   (*symbol) += 1;
 }
@@ -529,6 +530,8 @@ fn ProcessRepeatedCodeLength(code_len : u32,
     *space = 0xFFFFF;
     return;
   }
+  BROTLI_LOG!("[ReadHuffmanCode] code_length[{:}..{:}] = {:}\n",
+              *symbol, *symbol + repeat_delta - 1, *repeat_code_len);
   if (*repeat_code_len != 0) {
     let last : u32 = *symbol + repeat_delta;
     let mut next : i32 = next_symbol[*repeat_code_len as usize];
@@ -746,7 +749,7 @@ fn ReadHuffmanCode<
         if (s.sub_loop_counter != 1) {
           s.space = 32;
           s.repeat = 0; /* num_codes */
-          for code_length_histo in s.code_length_histo[0 .. huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize+ 1].iter_mut() {
+          for code_length_histo in s.code_length_histo[..huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize + 1].iter_mut() {
             *code_length_histo = 0; // memset
           }
           for code_length_code_length in s.code_length_code_lengths[..].iter_mut() {
@@ -807,10 +810,10 @@ fn ReadHuffmanCode<
           BrotliResult::ResultSuccess => {},
           _ => return result,
         }
-        huffman::BrotliBuildCodeLengthsHuffmanTable(&mut s.table[offset..],
+        huffman::BrotliBuildCodeLengthsHuffmanTable(&mut s.table,
                                                     &mut s.code_length_code_lengths,
                                                     &mut s.code_length_histo);
-        for code_length_histo in s.code_length_histo[0 .. huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize+ 1].iter_mut() {
+        for code_length_histo in s.code_length_histo[..].iter_mut() {
           *code_length_histo = 0; // memset
         }
 
@@ -1605,7 +1608,7 @@ pub fn TakeDistanceFromRingBuffer<'a, AllocU8 : alloc::Allocator<u8>,
            AllocHC : alloc::Allocator<HuffmanCode>> (
     s : &mut BrotliState<AllocU8, AllocU32, AllocHC>) {
   if (s.distance_code == 0) {
-    --s.dist_rb_idx;
+    s.dist_rb_idx -= 1;
     s.distance_code = s.dist_rb[(s.dist_rb_idx & 3) as usize];
   } else {
     let distance_code = s.distance_code << 1;
@@ -1858,9 +1861,8 @@ fn ProcessCommandsInternal<
         if (!ReadCommandInternal(safe, s, &mut i, input)) && safe {
             saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
         }
-        BROTLI_LOG_UINT!(i);
-        BROTLI_LOG_UINT!(s.copy_length);
-        BROTLI_LOG_UINT!(s.distance_code);
+        BROTLI_LOG!("[ProcessCommandsInternal] pos = %d insert = %d copy = %d distance_code = %d\n",
+              pos, i, s.copy_length, s.distance_code);
         if (i == 0) {
           s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS;
           continue; // goto CommandPostDecodeLiterals;
@@ -1997,7 +1999,9 @@ fn ProcessCommandsInternal<
            }
         }
         //postReadDistance:
-        BROTLI_LOG_UINT!(s.distance_code);
+        BROTLI_LOG!("[ProcessCommandsInternal] pos = %d distance = %d\n",
+                    pos, s.distance_code);
+
         if (s.max_distance != s.max_backward_distance) {
           if (pos < s.max_backward_distance_minus_custom_dict_size) {
             s.max_distance = pos + s.custom_dict_size;
@@ -2047,8 +2051,6 @@ fn ProcessCommandsInternal<
             return BROTLI_FAILURE();
           }
         } else {
-          let ringbuffer_end_minus_copy_length_index =
-              s.ringbuffer_size - i;
           /* update the recent distances cache */
           s.dist_rb[(s.dist_rb_idx & 3) as usize] = s.distance_code;
           s.dist_rb_idx += 1;
@@ -2063,50 +2065,32 @@ fn ProcessCommandsInternal<
              Also, we have 16 short codes, that make these 16 bytes irrelevant
              in the ringbuffer. Let's copy over them as a first guess.
            */
-          let copy_src_index = ((pos - s.distance_code) & s.ringbuffer_mask) as usize;
-          let copy_dst_index = pos as usize;
-          memmove16(&mut s.ringbuffer.slice_mut(), copy_dst_index, copy_src_index);
+          let src_start = ((pos - s.distance_code) & s.ringbuffer_mask) as usize;
+          let dst_start = pos as usize;
+          let dst_end = pos as usize + i as usize;
+          let src_end = src_start + i as usize;
+          memmove16(&mut s.ringbuffer.slice_mut(), dst_start, src_start);
           /* Now check if the copy extends over the ringbuffer end,
              or if the copy overlaps with itself, if yes, do wrap-copy. */
-          let src_less_dst = copy_src_index < copy_dst_index;
-          if (src_less_dst && copy_dst_index >= ringbuffer_end_minus_copy_length_index as usize) ||
-              (copy_src_index >= ringbuffer_end_minus_copy_length_index as usize && !src_less_dst) {
+          if (src_end > pos as usize && dst_end > src_start) {
             s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
             continue; //goto CommandPostWrapCopy;
           }
-          if (src_less_dst && copy_src_index + i as usize > copy_dst_index) ||
-              (copy_dst_index + i as usize > copy_src_index && !src_less_dst) {
-            //postSelfintersecting:
-            loop {
-              i -= 1;
-              if i < 0 {
-                break;
-              }
-              s.ringbuffer.slice_mut()[pos as usize] =
-                  s.ringbuffer.slice()[((pos - s.distance_code) & s.ringbuffer_mask) as usize];
-              pos += 1;
-            }
-            if (s.meta_block_remaining_len <= 0) {
-              // Next metablock, if any
-              s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
-              saveStateAndReturn!(s, pos, i, result);
-            } else {
-              s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
-              continue; //goto CommandBegin
-            }
-            // unreachable!(); <-- dead code
+          if (dst_end >= s.ringbuffer_size as usize || src_end >= s.ringbuffer_size as usize) {
+            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
+            continue; //goto CommandPostWrapCopy;
           }
           pos += i;
           if (i > 16) {
             if (i > 32) {
               memcpy_within_slice(s.ringbuffer.slice_mut(),
-                                  copy_dst_index + 16,
-                                  copy_src_index + 16,
+                                  dst_start + 16,
+                                  src_start + 16,
                                   (i - 16) as usize);
             } else {
               /* This branch covers about 45% cases.
                  Fixed size short copy allows more compiler optimizations. */
-              memmove16(&mut s.ringbuffer.slice_mut(), copy_dst_index + 16, copy_src_index + 16);
+              memmove16(&mut s.ringbuffer.slice_mut(), dst_start + 16, src_start + 16);
             }
           }
         }
@@ -2120,12 +2104,15 @@ fn ProcessCommandsInternal<
         }
       },
       BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY => {
+        let mut wrap_guard = s.ringbuffer_size - pos;
         while i > 0 {
           i -= 1;
           s.ringbuffer.slice_mut()[pos as usize] =
               s.ringbuffer.slice()[((pos - s.distance_code) & s.ringbuffer_mask) as usize];
           pos += 1;
-          if (pos == s.ringbuffer_size) {
+          wrap_guard -= 1;
+          if (wrap_guard == 0) {
+            mark_unlikely();
             /*s.partial_pos_rb += (size_t)s.ringbuffer_size;*/
             s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRITE_2;
             saveStateAndReturn!(s, pos, i, result);
@@ -2551,8 +2538,7 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
             s.context_map_slice_index = 0;
             s.dist_context_map_slice_index = 0;
             s.context_lookup1 =
-                &kContextLookup[kContextLookupOffsets[context_mode as usize] as usize ..
-                                kContextLookupOffsets[context_mode as usize + 1] as usize];
+                &kContextLookup[kContextLookupOffsets[context_mode as usize] as usize ..];
             s.context_lookup2 =
                 &kContextLookup[kContextLookupOffsets[context_mode as usize + 1] as usize ..];
             s.htree_command_index = 0;
