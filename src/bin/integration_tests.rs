@@ -124,6 +124,7 @@ fn test_as_you_like_it() {
                                              65536);
 }
 
+
 #[test]
 #[should_panic]
 fn test_negative_hypothesis() {
@@ -131,5 +132,304 @@ fn test_negative_hypothesis() {
                                              include_bytes!("testdata/64x"),
                                              3,
                                              3);
+}
+
+#[test]
+fn test_alice29() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/alice29.txt.compressed"),
+                                             include_bytes!("testdata/alice29.txt"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_backward65536() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/backward65536.compressed"),
+                                             include_bytes!("testdata/backward65536"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_compressed_file() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/compressed_file.compressed"),
+                                             include_bytes!("testdata/compressed_file"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_compressed_repeated() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/compressed_repeated.compressed"),
+                                             include_bytes!("testdata/compressed_repeated"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_empty() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty0() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.00"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty1() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.01"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty2() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.02"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty3() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.03"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty4() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.04"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty5() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.05"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty6() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.06"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty7() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.07"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty8() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.08"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty9() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.09"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty10() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.10"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty11() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.11"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty12() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.12"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty13() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.13"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty14() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.14"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty15() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.15"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty16() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.16"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty17() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.17"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_empty18() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.18"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn lcet10() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/lcet10.txt.compressed"),
+                                             include_bytes!("testdata/lcet10.txt"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_mapsdatazrh() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/mapsdatazrh.compressed"),
+                                             include_bytes!("testdata/mapsdatazrh"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_monkey() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/monkey.compressed"),
+                                             include_bytes!("testdata/monkey"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_plrabn12() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/plrabn12.txt.compressed"),
+                                             include_bytes!("testdata/plrabn12.txt"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_random_org_10k() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/random_org_10k.bin.compressed"),
+                                             include_bytes!("testdata/random_org_10k.bin"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_ukkonooa() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/ukkonooa.compressed"),
+                                             include_bytes!("testdata/ukkonooa"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_x() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/x.compressed"),
+                                             include_bytes!("testdata/x"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_x_0() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/x.compressed.00"),
+                                             include_bytes!("testdata/x"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_x_1() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/x.compressed.01"),
+                                             include_bytes!("testdata/x"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_x_2() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/x.compressed.02"),
+                                             include_bytes!("testdata/x"),
+                                             65536,
+                                             65536);
+}
+#[test]
+fn test_x_3() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/x.compressed.03"),
+                                             include_bytes!("testdata/x"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_xyzzy() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/xyzzy.compressed"),
+                                             include_bytes!("testdata/xyzzy"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_zeros() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/zeros.compressed"),
+                                             include_bytes!("testdata/zeros"),
+                                             65536,
+                                             65536);
+}
+
+
+#[test]
+fn test_metablock_reset() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/metablock_reset.compressed"),
+                                             include_bytes!("testdata/metablock_reset"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+#[should_panic]
+fn test_broken_file() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/borked.compressed"),
+                                             include_bytes!("testdata/empty"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_ends_with_truncated_dictionary() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/ends_with_truncated_dictionary.compressed"),
+                                             include_bytes!("testdata/ends_with_truncated_dictionary"),
+                                             65536,
+                                             65536);
 }
 

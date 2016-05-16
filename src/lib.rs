@@ -5,7 +5,7 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-//#[macro_use] //<-- for debugging, remove println from bit_reader
+//#[macro_use] //<-- for debugging, remove xprintln from bit_reader and replace with println
 //extern crate std;
 
 #[macro_use]
@@ -68,15 +68,15 @@ const kCodeLengthPrefixValue : [u8;16] = [
 
 macro_rules! BROTLI_LOG_UINT (
     ($num : expr) => {
-       println!("{:?} = {:?}", stringify!($num),  $num)
+       xprintln!("{:?} = {:?}", stringify!($num),  $num)
     };
 );
 
 macro_rules! BROTLI_LOG (
-    ($str : expr, $num : expr) => {println!("{:?} {:?}", $str, $num);};
-    ($str : expr, $num0 : expr, $num1 : expr) => {println!("{:?} {:?} {:?}", $str, $num0, $num1);};
-    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr) => {println!("{:?} {:?} {:?} {:?}", $str, $num0, $num1, $num2);};
-    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr, $num3 : expr) => {println!("{:?} {:?} {:?} {:?} {:?}", $str, $num0, $num1, $num2, $num3);};
+    ($str : expr, $num : expr) => {xprintln!("{:?} {:?}", $str, $num);};
+    ($str : expr, $num0 : expr, $num1 : expr) => {xprintln!("{:?} {:?} {:?}", $str, $num0, $num1);};
+    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr) => {xprintln!("{:?} {:?} {:?} {:?}", $str, $num0, $num1, $num2);};
+    ($str : expr, $num0 : expr, $num1 : expr, $num2 : expr, $num3 : expr) => {xprintln!("{:?} {:?} {:?} {:?} {:?}", $str, $num0, $num1, $num2, $num3);};
 );
 
 #[allow(non_snake_case)]
@@ -85,7 +85,7 @@ fn BROTLI_FAILURE() -> BrotliResult {
 }
 macro_rules! BROTLI_LOG_ARRAY_INDEX (
     ($array : expr, $index : expr) => {
-       println!("{:?}[{:?}] = {:?}", stringify!($array), $index,  $array[$index as usize])
+       xprintln!("{:?}[{:?}] = {:?}", stringify!($array), $index,  $array[$index as usize])
     };
 );
 
@@ -1061,7 +1061,11 @@ fn HuffmanTreeGroupDecode<
 }
 
 
-
+fn bzero(data : &mut [u8]) {
+  for iter in data.iter_mut() {
+    *iter = 0;
+  }
+}
 
 
 /* Decodes a context map.
@@ -1102,7 +1106,7 @@ fn DecodeContextMapInner<
           return BROTLI_FAILURE();
         }
         if (*num_htrees <= 1) {
-          // NOP -- Rust malloc does it memset(*context_map_arg, 0, (size_t)context_map_size);
+          bzero(context_map_arg.slice_mut());
           return BrotliResult::ResultSuccess;
         }
         s.substate_context_map = BrotliRunningContextMapState::BROTLI_STATE_CONTEXT_MAP_READ_PREFIX;
@@ -1225,7 +1229,7 @@ fn DecodeContextMapInner<
 fn DecodeContextMap<
   'a, AllocU8 : alloc::Allocator<u8>,
   AllocU32 : alloc::Allocator<u32>,
-  AllocHC : alloc::Allocator<HuffmanCode>> (context_map_size : u32,
+  AllocHC : alloc::Allocator<HuffmanCode>> (context_map_size : usize,
                                             is_dist_context_map : bool,
                                             mut s : &mut BrotliState<AllocU8, AllocU32, AllocHC>,
                                             input : &[u8])
@@ -1248,7 +1252,7 @@ fn DecodeContextMap<
                                    AllocU8::AllocatedMemory::default());
   }
 
-  let retval = DecodeContextMapInner(context_map_size, &mut num_htrees, &mut context_map_arg, &mut s, input);
+  let retval = DecodeContextMapInner(context_map_size as u32, &mut num_htrees, &mut context_map_arg, &mut s, input);
   if is_dist_context_map {
     s.num_dist_htrees = num_htrees;
     mem::replace(&mut s.dist_context_map, mem::replace(&mut context_map_arg,
@@ -2473,19 +2477,19 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
               _ => break,
           }
           s.state = BrotliRunningState::BROTLI_STATE_CONTEXT_MAP_1;
-          // No break, continue to next state 
+          // No break, continue to next state
         },
         BrotliRunningState::BROTLI_STATE_CONTEXT_MAP_1 => {
-          result = DecodeContextMap(s.block_type_length_state.num_block_types[0] << kLiteralContextBits,
+          result = DecodeContextMap((s.block_type_length_state.num_block_types[0] as usize) << kLiteralContextBits as usize,
                                     false, &mut s, local_input);
           match result {
               BrotliResult::ResultSuccess => {},
               _ => break,
           }
           let mut is_trivial_context = 1;
-          let mut j = 0;
-          for context_map_item in s.context_map.slice()[0 .. (s.block_type_length_state.num_block_types[0] << kLiteralContextBits) as usize].iter() {
-            if (*context_map_item != j >> kLiteralContextBits) {
+          let mut j : usize = 0;
+          for context_map_item in s.context_map.slice()[0 .. (s.block_type_length_state.num_block_types[0] as usize) << (kLiteralContextBits as usize)].iter() {
+            if (*context_map_item != (j >> kLiteralContextBits) as u8) {
               is_trivial_context = 0;
               break;
             }
@@ -2493,14 +2497,14 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
           }
           s.trivial_literal_context = is_trivial_context;
           s.state = BrotliRunningState::BROTLI_STATE_CONTEXT_MAP_2;
-          // No break, continue to next state 
+          // No break, continue to next state
         },
         BrotliRunningState::BROTLI_STATE_CONTEXT_MAP_2 => {
           {
             let num_distance_codes : u32 =
                 s.num_direct_distance_codes + (48u32 << s.distance_postfix_bits);
             result = DecodeContextMap(
-                s.block_type_length_state.num_block_types[2] << kDistanceContextBits,
+                (s.block_type_length_state.num_block_types[2] as usize) << kDistanceContextBits as usize,
                 true, s, local_input);
             match result {
               BrotliResult::ResultSuccess => {},
