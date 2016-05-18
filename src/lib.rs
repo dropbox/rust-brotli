@@ -1106,7 +1106,7 @@ fn DecodeContextMapInner<
           return BROTLI_FAILURE();
         }
         if (*num_htrees <= 1) {
-          bzero(context_map_arg.slice_mut());
+          bzero(context_map_arg.slice_mut()); // This happens automatically but we do it to retain C++ similarity
           return BrotliResult::ResultSuccess;
         }
         s.substate_context_map = BrotliRunningContextMapState::BROTLI_STATE_CONTEXT_MAP_READ_PREFIX;

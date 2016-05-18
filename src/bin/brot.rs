@@ -9,7 +9,7 @@ extern crate alloc_no_stdlib;
 use core::ops;
 use core::cmp;
 use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
-            StackAllocator, AllocatedStackMemory};
+            StackAllocator, AllocatedStackMemory, bzero};
 
 //use alloc::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator};
 use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
@@ -62,9 +62,9 @@ where InputType: Read, OutputType: Write {
   define_allocator_memory_pool!(calloc_u8_buffer, 4096, u8, [0; 32 * 1024 * 1024], heap);
   define_allocator_memory_pool!(calloc_u32_buffer, 4096, u32, [0; 1024 * 1024], heap);
   define_allocator_memory_pool!(calloc_hc_buffer, 4096, HuffmanCode, [0; 4 * 1024 * 1024], calloc);
-  let calloc_u8_allocator = MemPool::<u8>::new_allocator(&mut calloc_u8_buffer);
-  let calloc_u32_allocator = MemPool::<u32>::new_allocator(&mut calloc_u32_buffer);
-  let calloc_hc_allocator = MemPool::<HuffmanCode>::new_allocator(&mut calloc_hc_buffer);
+  let calloc_u8_allocator = MemPool::<u8>::new_allocator(&mut calloc_u8_buffer, bzero);
+  let calloc_u32_allocator = MemPool::<u32>::new_allocator(&mut calloc_u32_buffer, bzero);
+  let calloc_hc_allocator = MemPool::<HuffmanCode>::new_allocator(&mut calloc_hc_buffer, bzero);
   //test(calloc_u8_allocator);
   let mut brotli_state = BrotliState::new(calloc_u8_allocator, calloc_u32_allocator, calloc_hc_allocator);
 

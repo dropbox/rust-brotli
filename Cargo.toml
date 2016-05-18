@@ -10,4 +10,4 @@ doc = false
 name = "brot"
 
 [dependencies]
-"alloc-no-stdlib" = { git = "https://github.com/dropbox/rust-alloc-no-stdlib.git"}
+"alloc-no-stdlib" = {rev="04e34bda2a0609666f8b17f594eb565aa9175a41", git = "https://github.com/dropbox/rust-alloc-no-stdlib.git"}
