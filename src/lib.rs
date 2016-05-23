@@ -5,8 +5,8 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-#[macro_use] //<-- for debugging, remove xxprintln from bit_reader and replace with xprintln
-extern crate std;
+//#[macro_use] //<-- for debugging, remove xprintln from bit_reader and replace with println
+//extern crate std;
 
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;
@@ -975,7 +975,6 @@ fn InverseMoveToFrontTransform(v : &mut [u8], v_len : u32, mtf : &mut [u8], mtf_
   /* Remember amount of elements to be reinitialized. */
   *mtf_upper_bound = upper_bound;
 }
-
 /* Decodes a series of Huffman table using ReadHuffmanCode function. */
 fn HuffmanTreeGroupDecode<
   'a,
@@ -2155,16 +2154,6 @@ fn SafeProcessCommands<
 }
 
 
-fn restore_saved_buffer<
-    'a, AllocU8 : alloc::Allocator<u8>,
-    AllocU32 : alloc::Allocator<u32>,
-    AllocHC : alloc::Allocator<HuffmanCode> > (
-        saved_buffer : &[u8;8],
-        s : &mut BrotliState<AllocU8, AllocU32, AllocHC>) {
-    //s.buffer.clone_from_slice(&saved_buffer[..]);
-}
-
-
 
 
 pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
@@ -2384,13 +2373,11 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
             break;
           }
           // Reads 1..11 bits. 
-          let mut value = 0u32;
-          result = DecodeVarLenUint8(&mut s.substate_decode_uint8, &mut s.br, &mut value, local_input);
+          result = DecodeVarLenUint8(&mut s.substate_decode_uint8, &mut s.br, &mut s.block_type_length_state.num_block_types[s.loop_counter as usize], local_input);
           match result {
             BrotliResult::ResultSuccess => {},
             _ => break,
           }
-          s.block_type_length_state.num_block_types[s.loop_counter as usize] = value;
           s.block_type_length_state.num_block_types[s.loop_counter as usize] += 1;
           BROTLI_LOG_UINT!(s.block_type_length_state.num_block_types[s.loop_counter as usize]);
           if (s.block_type_length_state.num_block_types[s.loop_counter as usize] < 2) {
@@ -2524,7 +2511,6 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
             if (s.literal_hgroup.codes.slice().len() == 0 ||
                 s.insert_copy_hgroup.codes.slice().len() == 0 ||
                 s.distance_hgroup.codes.slice().len() == 0) {
-              restore_saved_buffer(&saved_buffer, s);
               return BROTLI_FAILURE();
             }
           }
@@ -2643,14 +2629,11 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
               _ => break,
             }
           }
-          restore_saved_buffer(&saved_buffer, s);
           return result;
         }
       }
     }
   }
 
-  restore_saved_buffer(&saved_buffer, s);
   return result;
-
 }

@@ -456,7 +456,7 @@ fn test_metablock_reset() {
                                              65536,
                                              65536);
 }
-/*
+
 #[test]
 fn test_metablock_reset1_65536() {
     assert_decompressed_input_matches_output(include_bytes!("testdata/metablock_reset.compressed"),
@@ -480,7 +480,7 @@ fn test_metablock_reset1() {
                                              1,
                                              1);
 }
-*/
+
 #[test]
 fn test_metablock_reset3() {
     assert_decompressed_input_matches_output(include_bytes!("testdata/metablock_reset.compressed"),
