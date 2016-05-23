@@ -143,12 +143,21 @@ fn test_alice29() {
 }
 
 #[test]
+fn test_alice1() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/alice29.txt.compressed"),
+                                             include_bytes!("testdata/alice29.txt"),
+                                             1,
+                                             65536);
+}
+
+#[test]
 fn test_backward65536() {
     assert_decompressed_input_matches_output(include_bytes!("testdata/backward65536.compressed"),
                                              include_bytes!("testdata/backward65536"),
                                              65536,
                                              65536);
 }
+
 
 #[test]
 fn test_compressed_file() {
@@ -332,6 +341,22 @@ fn test_monkey() {
 }
 
 #[test]
+fn test_monkey1() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/monkey.compressed"),
+                                             include_bytes!("testdata/monkey"),
+                                             1,
+                                             1);
+}
+
+#[test]
+fn test_monkey3() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/monkey.compressed"),
+                                             include_bytes!("testdata/monkey"),
+                                             3,
+                                             65536);
+}
+
+#[test]
 fn test_plrabn12() {
     assert_decompressed_input_matches_output(include_bytes!("testdata/plrabn12.txt.compressed"),
                                              include_bytes!("testdata/plrabn12.txt"),
@@ -353,6 +378,22 @@ fn test_ukkonooa() {
                                              include_bytes!("testdata/ukkonooa"),
                                              65536,
                                              65536);
+}
+
+#[test]
+fn test_ukkonooa3() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/ukkonooa.compressed"),
+                                             include_bytes!("testdata/ukkonooa"),
+                                             3,
+                                             3);
+}
+
+#[test]
+fn test_ukkonooa1() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/ukkonooa.compressed"),
+                                             include_bytes!("testdata/ukkonooa"),
+                                             1,
+                                             1);
 }
 
 #[test]
@@ -415,6 +456,38 @@ fn test_metablock_reset() {
                                              65536,
                                              65536);
 }
+/*
+#[test]
+fn test_metablock_reset1_65536() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/metablock_reset.compressed"),
+                                             include_bytes!("testdata/metablock_reset"),
+                                             1,
+                                             65536);
+}
+
+#[test]
+fn test_metablock_reset65536_1() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/metablock_reset.compressed"),
+                                             include_bytes!("testdata/metablock_reset"),
+                                             65536,
+                                             1);
+}
+
+#[test]
+fn test_metablock_reset1() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/metablock_reset.compressed"),
+                                             include_bytes!("testdata/metablock_reset"),
+                                             1,
+                                             1);
+}
+*/
+#[test]
+fn test_metablock_reset3() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/metablock_reset.compressed"),
+                                             include_bytes!("testdata/metablock_reset"),
+                                             3,
+                                             3);
+}
 
 #[test]
 #[should_panic]
@@ -429,6 +502,14 @@ fn test_broken_file() {
 fn test_ends_with_truncated_dictionary() {
     assert_decompressed_input_matches_output(include_bytes!("testdata/ends_with_truncated_dictionary.compressed"),
                                              include_bytes!("testdata/ends_with_truncated_dictionary"),
+                                             65536,
+                                             65536);
+}
+
+#[test]
+fn test_random_then_unicode() {
+    assert_decompressed_input_matches_output(include_bytes!("testdata/random_then_unicode.compressed"),
+                                             include_bytes!("testdata/random_then_unicode"),
                                              65536,
                                              65536);
 }

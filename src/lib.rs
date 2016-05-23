@@ -5,8 +5,8 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-//#[macro_use] //<-- for debugging, remove xprintln from bit_reader and replace with println
-//extern crate std;
+#[macro_use] //<-- for debugging, remove xxprintln from bit_reader and replace with xprintln
+extern crate std;
 
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;
@@ -667,7 +667,7 @@ fn ReadCodeLengthCodeLengths<
 
   let mut num_codes : u32 = s.repeat;
   let mut space : u32 = s.space;
-  let i = s.sub_loop_counter;
+  let mut i = s.sub_loop_counter;
   for code_length_code_order in kCodeLengthCodeOrder[s.sub_loop_counter as usize.. CODE_LENGTH_CODES as usize].iter() {
     let code_len_idx = *code_length_code_order;
     let mut ix : u32 = 0;
@@ -702,6 +702,7 @@ fn ReadCodeLengthCodeLengths<
         break;
       }
     }
+    i += 1;
   }
   if (!(num_codes == 1 || space == 0)) {
     return BROTLI_FAILURE();
@@ -1015,7 +1016,7 @@ fn HuffmanTreeGroupDecode<
     BrotliRunningTreeGroupState::BROTLI_STATE_TREE_GROUP_LOOP => {},
   }
   let mut result : BrotliResult = BrotliResult::ResultSuccess;
-  for mut htree_iter in htrees.slice_mut()[s.htree_index as usize .. (group_num_htrees as usize - s.htree_index as usize)].iter_mut() {
+  for mut htree_iter in htrees.slice_mut()[s.htree_index as usize .. (group_num_htrees as usize)].iter_mut() {
     let mut table_size : u32 = 0;
     result = ReadHuffmanCode(alphabet_size as u32,
                              hcodes.slice_mut(),
@@ -2160,7 +2161,7 @@ fn restore_saved_buffer<
     AllocHC : alloc::Allocator<HuffmanCode> > (
         saved_buffer : &[u8;8],
         s : &mut BrotliState<AllocU8, AllocU32, AllocHC>) {
-    s.buffer.clone_from_slice(&saved_buffer[..]);
+    //s.buffer.clone_from_slice(&saved_buffer[..]);
 }
 
 
@@ -2174,11 +2175,9 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
   mut total_out : &mut usize, mut s : &mut BrotliState<AllocU8, AllocU32, AllocHC>)
   -> BrotliResult {
 
-  let mut _unused : u32;
   let mut result : BrotliResult = BrotliResult::ResultSuccess;
 
-  let mut saved_buffer : [u8; 8] = [0; 8];
-  saved_buffer[..].clone_from_slice(&s.buffer[..]);
+  let mut saved_buffer : [u8; 8] = s.buffer.clone();
   let mut local_input : &[u8];
   if s.buffer_length == 0 {
     local_input = xinput;
@@ -2190,6 +2189,8 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
     if copy_len > 0 {
         saved_buffer[s.buffer_length as usize .. (s.buffer_length as usize + copy_len)].
             clone_from_slice(&xinput[*input_offset .. copy_len + *input_offset]);
+        s.buffer[s.buffer_length as usize .. (s.buffer_length as usize + copy_len)].
+            clone_from_slice(&xinput[*input_offset .. copy_len + *input_offset]);
     }
     local_input = &saved_buffer[..];
     s.br.next_in = 0;
@@ -2197,7 +2198,7 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
   }
   loop {
     match result {
-      BrotliResult::ResultSuccess => _unused = 0,
+      BrotliResult::ResultSuccess => {},
       _ => {
         match result {
           BrotliResult::NeedsMoreInput => {
@@ -2231,6 +2232,7 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
                 (*available_in) -= 1;
                 /* Retry with more data in buffer. */
                 // we can't re-borrow the saved buffer...so we have to do this recursively
+                continue;
               }
               /* Can't finish reading and no more input.*/  
               //FIXME :: NOT SURE WHAT THIS MEANT
