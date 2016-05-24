@@ -1,14 +1,20 @@
 [package]
 name = "brotli"
-version = "0.0.1"
+version = "0.1.0"
+
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>"]
-license = "MIT license"
-repository = "https://github.com/dropbox/rust-brotli"
+description = "A brotli decompressor that does not use the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. For users wishing to use the stdlib, the brotli package, which calls into and abstracts this package, is recommended."
+license = "BSD-3-Clause"
+documentation = "https://github.com/google/brotli/tree/master/docs"
+homepage = "https://github.com/dropbox/rust-brotli"
+repository = "https://github.com/dropbox/rust-brotl"
+keywords = ["brotli", "decompression", "lz77", "huffman"]
+readme = "README.md"
 
 [[bin]]
 doc = false
 name = "brot"
 
 [dependencies]
-"alloc-no-stdlib" = {rev="a0ce52bc6ae8878103871794a356cdb194042224",  git = "https://github.com/dropbox/rust-alloc-no-stdlib.git"}
-"brotli-no-stdlib" = { git = "https://github.com/dropbox/rust-brotli-no-stdlib.git"}
+"alloc-no-stdlib" = "1.0"
+"brotli-no-stdlib" = "1.0"

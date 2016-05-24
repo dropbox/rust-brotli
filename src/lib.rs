@@ -4,6 +4,7 @@ extern crate brotli_no_stdlib;
 extern crate core;
 use std::io;
 mod heap_alloc;
+mod test;
 use heap_alloc::{HeapAllocator};
 use brotli_no_stdlib::{HuffmanCode, BrotliState, BrotliDecompressStream, BrotliResult};
 
@@ -47,9 +48,9 @@ impl<R: io::Read> Decompressor<R> {
 
     pub fn copy_to_front(&mut self) {
         if self.input_offset == self.input_buffer.len() {
-            self.input_offset = 0;// FIXME
+            self.input_offset = 0;
             self.input_len = 0;
-        } else if self.input_offset > self.input_buffer.len() / 2 {
+        } else if self.input_offset + 256 > self.input_buffer.len() {
             let (mut first, second) = self.input_buffer[..].split_at_mut(self.input_offset);
             let avail_in = self.input_len - self.input_offset;
             first[0..avail_in].clone_from_slice(&second[0..avail_in]);
@@ -62,18 +63,22 @@ impl<'a, R: io::Read> io::Read for Decompressor<R> {
             let mut output_offset : usize = 0;
             let mut avail_out = buf.len() - output_offset;
             let mut avail_in = self.input_len - self.input_offset;
-            while avail_out == buf.len() && !self.input_eof {
-                    match self.input.read(&mut self.input_buffer[self.input_len..]) {
-                        Err(e) => match e.kind() {
-                            io::ErrorKind::Interrupted => continue,
-                            _ => self.input_eof = true,
-                        },
-                        Ok(size) => if size == 0 {
-                            self.input_eof=true;
-                        }else {
-                            self.input_len += size;
-                            avail_in = self.input_len - self.input_offset;
-                        },
+            let mut needs_input = false;
+            while avail_out == buf.len() && (needs_input == false || self.input_eof == false) {
+                    if !self.input_eof {
+                        match self.input.read(&mut self.input_buffer[self.input_len..]) {
+                            Err(e) => match e.kind() {
+                                io::ErrorKind::Interrupted => continue,
+                                _ => self.input_eof = true,
+                            },
+                            Ok(size) => if size == 0 {
+                                self.input_eof=true;
+                            }else {
+                                needs_input = false;
+                                self.input_len += size;
+                                avail_in = self.input_len - self.input_offset;
+                            },
+                        }
                     }
                     match BrotliDecompressStream(&mut avail_in,
                                                   &mut self.input_offset,
@@ -83,14 +88,45 @@ impl<'a, R: io::Read> io::Read for Decompressor<R> {
                                                   buf,
                                                   &mut self.total_out,
                                                   &mut self.state) {
-                        BrotliResult::NeedsMoreInput => self.copy_to_front(),
+                        BrotliResult::NeedsMoreInput => {needs_input = true; self.copy_to_front();},
                         BrotliResult::NeedsMoreOutput => {},
-                        BrotliResult::ResultSuccess => {},
-                        BrotliResult::ResultFailure =>
-                            return Err(io::Error::new(io::ErrorKind::InvalidData,
+                        BrotliResult::ResultSuccess => break,
+                        BrotliResult::ResultFailure => return Err(io::Error::new(io::ErrorKind::InvalidData,
                                                       "Invalid Data")),
                   }
             }
             return Ok(output_offset);
         }
 }
+
+pub fn copy_from_to<R:io::Read, W:io::Write>(mut r : R, mut w : W) -> io::Result<usize> {
+    let mut buffer : [u8;65536] = [0; 65536];
+    let mut out_size : usize = 0;
+    loop {
+        match r.read(&mut buffer[..]) {
+            Err(e) => {
+                match e.kind() {
+                    io::ErrorKind::Interrupted => continue,
+                     _ => {},
+                }
+                return Err(e)
+            },
+            Ok(size) => if size == 0 {
+               break;
+            } else {
+                match w.write_all(&buffer[..size]) {
+                    Err(e) => {
+                        match e.kind() {
+                            io::ErrorKind::Interrupted => continue,
+                            _ => {},
+                        }
+                        return Err(e)
+                    }
+                    Ok(_) => out_size += size,
+                }
+            },
+        }
+    }
+    return Ok(out_size);
+}
+
