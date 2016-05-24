@@ -7,7 +7,6 @@ extern crate core;
 extern crate alloc_no_stdlib;
 
 use core::ops;
-use core::cmp;
 use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
             StackAllocator, AllocatedStackMemory, bzero};
 
@@ -15,7 +14,7 @@ use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
 use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
 pub use brotli::FILE_BUFFER_SIZE;
 use std::io::{self, Read, Write, ErrorKind, Error};
-
+use std::time::{Instant, Duration};
 
 declare_stack_allocator_struct!(MemPool, 4096, calloc);
 
@@ -44,18 +43,12 @@ where OutputType: Write {
 
 //trace_macros!(true);
 
-define_allocator_memory_pool!(global_buffer, 16, u8, [0; 1024 * 1024 * 100], global);
 pub fn decompress<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType) -> Result<(), io::Error>
 where InputType: Read, OutputType: Write {
-    return decompress_internal(r, w, FILE_BUFFER_SIZE, FILE_BUFFER_SIZE);
+    return decompress_internal(r, w, 4096 * 1024, 4096 * 1024);
 }
 pub fn decompress_internal<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType, input_buffer_limit : usize, output_buffer_limit : usize) -> Result<(), io::Error>
 where InputType: Read, OutputType: Write {
-  let mut input_fixed = [0u8;FILE_BUFFER_SIZE];
-  let mut output_fixed = [0u8;FILE_BUFFER_SIZE];
-  let mut input = &mut input_fixed[0 .. cmp::min(FILE_BUFFER_SIZE, input_buffer_limit)];
-  let mut output = &mut output_fixed[0 .. cmp::min(FILE_BUFFER_SIZE, output_buffer_limit)];
-  let mut available_out : usize = output.len();
   define_allocator_memory_pool!(calloc_u8_buffer, 4096, u8, [0; 32 * 1024 * 1024], calloc);
   define_allocator_memory_pool!(calloc_u32_buffer, 4096, u32, [0; 1024 * 1024], calloc);
   define_allocator_memory_pool!(calloc_hc_buffer, 4096, HuffmanCode, [0; 4 * 1024 * 1024], calloc);
@@ -64,17 +57,21 @@ where InputType: Read, OutputType: Write {
   let calloc_hc_allocator = MemPool::<HuffmanCode>::new_allocator(calloc_hc_buffer, bzero);
   //test(calloc_u8_allocator);
   let mut brotli_state = BrotliState::new(calloc_u8_allocator, calloc_u32_allocator, calloc_hc_allocator);
+  let mut input = brotli_state.alloc_u8.alloc_cell(input_buffer_limit);
+  let mut output = brotli_state.alloc_u8.alloc_cell(output_buffer_limit);
+  let mut available_out : usize = output.slice().len();
 
   //let amount = try!(r.read(&mut buf));
   let mut available_in : usize = 0;
   let mut input_offset : usize = 0;
   let mut output_offset : usize = 0;
   let mut result : BrotliResult = BrotliResult::NeedsMoreInput;
+  let mut total = Duration::new(0, 0);
   loop {
       match result {
           BrotliResult::NeedsMoreInput => {
               input_offset = 0;
-              match r.read(input) {
+              match r.read(input.slice_mut()) {
                   Err(e) => {
                       match e.kind() {
                           ErrorKind::Interrupted => continue,
@@ -90,23 +87,25 @@ where InputType: Read, OutputType: Write {
               }
           },
           BrotliResult::NeedsMoreOutput => {
-              try!(_write_all(&mut w, &output[..output_offset]));
+              try!(_write_all(&mut w, &output.slice()[..output_offset]));
               output_offset = 0;
           },
           BrotliResult::ResultSuccess => break,
           BrotliResult::ResultFailure => panic!("FAILURE"),
       }
       let mut written :usize = 0;
-      result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input[..],
-                                      &mut available_out, &mut output_offset, &mut output,
+      let start = Instant::now();
+      result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input.slice(),
+                                      &mut available_out, &mut output_offset, &mut output.slice_mut(),
                                       &mut written, &mut brotli_state);
-
+      total = total + Instant::now().duration_since(start);
       if output_offset != 0 {
-          try!(_write_all(&mut w, &output[..output_offset]));
+          try!(_write_all(&mut w, &output.slice()[..output_offset]));
           output_offset = 0;
-          available_out = output.len()
+          available_out = output.slice().len()
       }
   }
+  let _r = writeln!(&mut std::io::stderr(), "Total time {:}.{:09}\n", total.as_secs(), total.subsec_nanos());
   brotli_state.BrotliStateCleanup();
   Ok(())
 }
