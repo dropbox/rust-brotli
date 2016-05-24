@@ -1,4 +1,3 @@
-#![feature(time2)]
 mod integration_tests;
 extern crate brotli_no_stdlib as brotli;
 extern crate core;
@@ -14,8 +13,32 @@ use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
 use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
 pub use brotli::FILE_BUFFER_SIZE;
 use std::io::{self, Read, Write, ErrorKind, Error};
+use std::time::Duration;
 
-use std::time::{SystemTime, Duration};
+#[cfg(not(feature="disable-timer"))]
+use std::time::SystemTime;
+
+#[cfg(feature="disable-timer")]
+fn now() -> Duration {
+    return Duration::new(0, 0);
+}
+#[cfg(not(feature="disable-timer"))]
+fn now() -> SystemTime {
+    return SystemTime::now();
+}
+
+#[cfg(not(feature="disable-timer"))]
+fn elapsed(start : SystemTime) -> (Duration, bool) {
+    match start.elapsed() {
+        Ok(delta) => return (delta, false),
+        _ => return (Duration::new(0, 0), true),
+    }
+}
+
+#[cfg(feature="disable-timer")]
+fn elapsed(_start : Duration) -> (Duration, bool) {
+    return (Duration::new(0, 0), true);
+}
 
 declare_stack_allocator_struct!(MemPool, 4096, calloc);
 
@@ -96,14 +119,16 @@ where InputType: Read, OutputType: Write {
           BrotliResult::ResultFailure => panic!("FAILURE"),
       }
       let mut written :usize = 0;
-      let start = SystemTime::now();
+      let start = now();
       result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input.slice(),
                                       &mut available_out, &mut output_offset, &mut output.slice_mut(),
                                       &mut written, &mut brotli_state);
-      match start.elapsed() {
-          Ok(delta) => total = total + delta,
-          _ => timing_error = true,
+
+      let (delta, err) = elapsed(start);
+      if err {
+          timing_error = true;
       }
+      total = total + delta;
       if output_offset != 0 {
           try!(_write_all(&mut w, &output.slice()[..output_offset]));
           output_offset = 0;
