@@ -1,4 +1,4 @@
-
+#![feature(time2)]
 mod integration_tests;
 extern crate brotli_no_stdlib as brotli;
 extern crate core;
@@ -14,7 +14,8 @@ use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
 use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
 pub use brotli::FILE_BUFFER_SIZE;
 use std::io::{self, Read, Write, ErrorKind, Error};
-use std::time::{Instant, Duration};
+
+use std::time::{SystemTime, Duration};
 
 declare_stack_allocator_struct!(MemPool, 4096, calloc);
 
@@ -67,6 +68,7 @@ where InputType: Read, OutputType: Write {
   let mut output_offset : usize = 0;
   let mut result : BrotliResult = BrotliResult::NeedsMoreInput;
   let mut total = Duration::new(0, 0);
+  let mut timing_error : bool = false;
   loop {
       match result {
           BrotliResult::NeedsMoreInput => {
@@ -94,18 +96,27 @@ where InputType: Read, OutputType: Write {
           BrotliResult::ResultFailure => panic!("FAILURE"),
       }
       let mut written :usize = 0;
-      let start = Instant::now();
+      let start = SystemTime::now();
       result = BrotliDecompressStream(&mut available_in, &mut input_offset, &input.slice(),
                                       &mut available_out, &mut output_offset, &mut output.slice_mut(),
                                       &mut written, &mut brotli_state);
-      total = total + Instant::now().duration_since(start);
+      match start.elapsed() {
+          Ok(delta) => total = total + delta,
+          _ => timing_error = true,
+      }
       if output_offset != 0 {
           try!(_write_all(&mut w, &output.slice()[..output_offset]));
           output_offset = 0;
           available_out = output.slice().len()
       }
   }
-  let _r = writeln!(&mut std::io::stderr(), "Total time {:}.{:09}\n", total.as_secs(), total.subsec_nanos());
+  if timing_error {
+      let _r = writeln!(&mut std::io::stderr(), "Timing error\n");
+  } else {
+      let _r = writeln!(&mut std::io::stderr(), "Time {:}.{:09}\n",
+                        total.as_secs(),
+                        total.subsec_nanos());
+  }
   brotli_state.BrotliStateCleanup();
   Ok(())
 }
