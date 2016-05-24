@@ -2,8 +2,6 @@ language: rust
 rust:
   - nightly
   - stable
-  # The following Rust version represents the oldest supported version of Mio
-  - 1.6.0
 
 os:
   - linux
@@ -11,16 +9,21 @@ os:
 
 env:
   FEATURES=''
-  FEATURES=disable-timer
 
 matrix:
-  exclude:
-    - rust: 1.6.0
+  include:
+    - rust: 1.8.0
       os: osx
       env: FEATURES=''
-    - rust: 1.6.0
+    - rust: 1.8.0
       os: linux
       env: FEATURES=''
+    - rust: 1.6.0
+      os: osx
+      env: FEATURES=disable-timer
+    - rust: 1.6.0
+      os: linux
+      env: FEATURES=disable-timer
 
 script:
   - cargo test --features="$FEATURES"
