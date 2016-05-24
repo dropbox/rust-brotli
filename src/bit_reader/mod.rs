@@ -1,8 +1,12 @@
 #![allow(non_snake_case)]
 use core::default::Default;
 macro_rules! xprintln (
-  () => ();
-  ($x : expr $(, $more : expr) *) => ();
+  ($a : expr) => ();
+  ($a : expr, $b : expr) => ();
+  ($a : expr, $b : expr, $c : expr) => ();
+  ($a : expr, $b : expr, $c : expr, $d : expr) => ();
+  ($a : expr, $b : expr, $c : expr, $d : expr, $e : expr) => ();
+  ($a : expr, $b : expr, $c : expr, $d : expr, $e : expr, $f : expr) => ();
 );
 
 pub const BROTLI_SHORT_FILL_BIT_WINDOW_READ : usize = 4;

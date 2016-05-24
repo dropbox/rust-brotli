@@ -2,28 +2,11 @@ language: rust
 rust:
   - nightly
   - stable
+  - 1.8.0
 
 os:
   - linux
   - osx
 
-env:
-  FEATURES=''
-
-matrix:
-  include:
-    - rust: 1.8.0
-      os: osx
-      env: FEATURES=''
-    - rust: 1.8.0
-      os: linux
-      env: FEATURES=''
-    - rust: 1.6.0
-      os: osx
-      env: FEATURES=disable-timer
-    - rust: 1.6.0
-      os: linux
-      env: FEATURES=disable-timer
-
 script:
-  - cargo test --features="$FEATURES"
+  - cargo test
