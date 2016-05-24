@@ -1,16 +1,26 @@
 language: rust
 rust:
   - nightly
-      env: FEATURES=''
   - stable
-      env: FEATURES=''
-  # The following Rust version represents the oldest supported version of brotli
+  # The following Rust version represents the oldest supported version of Mio
   - 1.6.0
-      env: FEATURES=disable-timer
 
 os:
   - linux
   - osx
+
+env:
+  FEATURES=''
+  FEATURES=disable-timer
+
+matrix:
+  exclude:
+    - rust: 1.6.0
+      os: osx
+      env: FEATURES=''
+    - rust: 1.6.0
+      os: linux
+      env: FEATURES=''
 
 script:
   - cargo test --features="$FEATURES"
