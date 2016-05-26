@@ -2,6 +2,7 @@ mod integration_tests;
 extern crate brotli_no_stdlib as brotli;
 extern crate core;
 
+
 #[macro_use]
 extern crate alloc_no_stdlib;
 
@@ -14,6 +15,11 @@ use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
 pub use brotli::FILE_BUFFER_SIZE;
 use std::io::{self, Read, Write, ErrorKind, Error};
 use std::time::Duration;
+use std::env;
+
+use std::fs::File;
+
+use std::path::Path;
 
 #[cfg(not(feature="disable-timer"))]
 use std::time::SystemTime;
@@ -147,8 +153,36 @@ where InputType: Read, OutputType: Write {
 }
 
 fn main() {
-    match decompress(&mut io::stdin(), &mut io::stdout()) {
-        Ok(_) => return,
-        Err(e) => panic!("Error {:?}", e),
+    if env::args_os().len() > 1 {
+        let mut first = true;
+        for argument in env::args() {
+        println!("ARG {:}\n", &argument);
+            if first {
+               first = false;
+               continue;
+            }
+            let mut input = match File::open(&Path::new(&argument)) {
+                Err(why) => panic!("couldn't open {}: {:?}", argument,
+                                                       why),
+                Ok(file) => file,
+            };
+            let oa = argument + ".original";
+            let mut output = match File::create(&Path::new(&oa), ) {
+                Err(why) => panic!("couldn't open file for writing: {:} {:?}", oa, why),
+                Ok(file) => file,
+            };
+            println!("Reading from {:?} writing to {:?}\n", input, output);
+            match decompress(&mut input, &mut output) {
+                Ok(_) => {},
+                Err(e) => panic!("Error {:?}", e),
+            }
+            drop(output);
+            drop(input);
+        }
+    } else {
+        match decompress(&mut io::stdin(), &mut io::stdout()) {
+            Ok(_) => return,
+            Err(e) => panic!("Error {:?}", e),
+        }
     }
 }
