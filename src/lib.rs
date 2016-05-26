@@ -1716,19 +1716,19 @@ pub fn ReadCommandInternal<'a, AllocU8 : alloc::Allocator<u8>,
            AllocHC : alloc::Allocator<HuffmanCode>> (safe : bool,
     s : &mut BrotliState<AllocU8, AllocU32, AllocHC>,
     insert_length : &mut i32,
-    input : &[u8]) -> bool {
+    input : &[u8],
+    insert_copy_hgroup : &[&[HuffmanCode]; 256]) -> bool {
   let mut cmd_code : u32 = 0;
   let mut insert_len_extra : u32 = 0;
   let mut copy_length : u32 = 0;
   let v : prefix::CmdLutElement;
   let mut memento = bit_reader::BrotliBitReaderState::default();
-  let command_code_offset = s.insert_copy_hgroup.htrees.slice()[s.htree_command_index as usize] as usize;
   if (!safe) {
-    cmd_code = ReadSymbol(&s.insert_copy_hgroup.codes.slice()[command_code_offset..], &mut s.br, input);
+    cmd_code = ReadSymbol(insert_copy_hgroup[s.htree_command_index as usize], &mut s.br, input);
   } else {
     memento = bit_reader::BrotliBitReaderSaveState(&s.br);
     if (!SafeReadSymbol(
-         &s.insert_copy_hgroup.codes.slice()[command_code_offset..],
+         insert_copy_hgroup[s.htree_command_index as usize],
          &mut s.br, &mut cmd_code, input)) {
       return false;
     }
@@ -1758,24 +1758,6 @@ pub fn ReadCommandInternal<'a, AllocU8 : alloc::Allocator<u8>,
   return true;
 }
 
-#[allow(dead_code)]
-pub fn ReadCommand<'a, AllocU8 : alloc::Allocator<u8>,
-           AllocU32 : alloc::Allocator<u32>,
-           AllocHC : alloc::Allocator<HuffmanCode>> (
-    s : &mut BrotliState<AllocU8, AllocU32, AllocHC>,
-    insert_length : &mut i32,
-    input : &[u8]) {
-  ReadCommandInternal(false, s, insert_length, input);
-}
-
-#[allow(dead_code)]
-pub fn SafeReadCommand<'a, AllocU8 : alloc::Allocator<u8>,
-           AllocU32 : alloc::Allocator<u32>,
-           AllocHC : alloc::Allocator<HuffmanCode>> (
-    s : &mut BrotliState<AllocU8, AllocU32, AllocHC>,
-    insert_length : &mut i32, input : &[u8]) -> bool {
-  return ReadCommandInternal(true, s, insert_length, input);
-}
 
 fn WarmupBitReader(safe : bool, br : &mut bit_reader::BrotliBitReader, input : &[u8]) -> bool {
   if (safe) {
@@ -1852,10 +1834,13 @@ fn ProcessCommandsInternal<
                 HuffmanTreeGroup::<AllocU32, AllocHC>::default());
   let mut saved_distance_hgroup = core::mem::replace(&mut s.distance_hgroup,
                 HuffmanTreeGroup::<AllocU32, AllocHC>::default());
+  let mut saved_insert_copy_hgroup = core::mem::replace(&mut s.insert_copy_hgroup,
+                HuffmanTreeGroup::<AllocU32, AllocHC>::default());
   {
 
     let literal_hgroup = saved_literal_hgroup.build_hgroup_cache();
     let distance_hgroup = saved_distance_hgroup.build_hgroup_cache();
+    let insert_copy_hgroup = saved_insert_copy_hgroup.build_hgroup_cache();
 
     loop {
       match s.state {
@@ -1874,7 +1859,7 @@ fn ProcessCommandsInternal<
             continue; // goto CommandBegin;
           }
           /* Read the insert/copy length in the command */
-          if (!ReadCommandInternal(safe, s, &mut i, input)) && safe {
+          if (!ReadCommandInternal(safe, s, &mut i, input, &insert_copy_hgroup)) && safe {
             result = BrotliResult::NeedsMoreInput;
             break; // return
           }
@@ -2194,6 +2179,10 @@ fn ProcessCommandsInternal<
 
   core::mem::replace(&mut s.distance_hgroup,
                 core::mem::replace(&mut saved_distance_hgroup,
+                  HuffmanTreeGroup::<AllocU32, AllocHC>::default()));
+
+  core::mem::replace(&mut s.insert_copy_hgroup,
+                core::mem::replace(&mut saved_insert_copy_hgroup,
                   HuffmanTreeGroup::<AllocU32, AllocHC>::default()));
 
   return result;
