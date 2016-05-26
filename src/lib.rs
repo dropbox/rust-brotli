@@ -35,7 +35,7 @@ use ::dictionary::{
     kBrotliMinDictionaryWordLength,
     kBrotliMaxDictionaryWordLength,
     kBrotliDictionary };
-pub use huffman::HuffmanCode;
+pub use huffman::{HuffmanCode, HuffmanTreeGroup};
 pub enum BrotliResult {
     ResultSuccess,
     NeedsMoreInput,
@@ -1805,18 +1805,33 @@ fn CheckInputAmount(safe : bool,
 }
 
 
-macro_rules! saveStateAndReturn(
-    ($s : expr, $pos : expr, $i : expr, $result : expr) => {
-        $s.pos = $pos;
-        $s.loop_counter = $i;
-        return $result;
-    };
-);
-
 fn memmove16(data : &mut [u8], off_dst : usize, off_src :usize) {
+/*
+    data[off_dst + 15] = data[off_src + 15];
+    data[off_dst + 14] = data[off_src + 14];
+    data[off_dst + 13] = data[off_src + 13];
+    data[off_dst + 12] = data[off_src + 12];
+
+    data[off_dst + 11] = data[off_src + 11];
+    data[off_dst + 10] = data[off_src + 10];
+    data[off_dst + 9] = data[off_src + 9];
+    data[off_dst + 8] = data[off_src + 8];
+
+    data[off_dst + 7] = data[off_src + 7];
+    data[off_dst + 6] = data[off_src + 6];
+    data[off_dst + 5] = data[off_src + 5];
+    data[off_dst + 4] = data[off_src + 4];
+
+    data[off_dst + 3] = data[off_src + 3];
+    data[off_dst + 2] = data[off_src + 2];
+    data[off_dst + 1] = data[off_src + 1];
+    data[off_dst] = data[off_src];
+*/
     let mut local_array : [u8; 16] = [0;16];
     local_array.clone_from_slice(&mut data[off_src .. off_src + 16]);
     data[off_dst .. off_dst + 16].clone_from_slice(&mut local_array);
+
+
 }
 
 fn memcpy_within_slice(data : &mut [u8],
@@ -1831,308 +1846,370 @@ fn memcpy_within_slice(data : &mut [u8],
      dst[off_dst..off_dst + size].clone_from_slice(&src[..size]);
   }
 }
-
+fn dereference_hgroup<'a,
+    AllocU32 : alloc::Allocator<u32>,
+    AllocHC : alloc::Allocator<HuffmanCode> >(hgroup : &'a huffman::HuffmanTreeGroup<AllocU32, AllocHC>) -> [&'a [HuffmanCode]; 256] {
+    let ret : [&'a [HuffmanCode]; 256] = [&[]; 256];
+    return ret;
+}
 fn ProcessCommandsInternal<
-    'a, AllocU8 : alloc::Allocator<u8>,
+    AllocU8 : alloc::Allocator<u8>,
     AllocU32 : alloc::Allocator<u32>,
     AllocHC : alloc::Allocator<HuffmanCode> > (safe : bool,
         s : &mut BrotliState<AllocU8, AllocU32, AllocHC>,
         input : &[u8]) -> BrotliResult {
-  let mut pos = s.pos;
-  let mut i : i32 = s.loop_counter; // important that this is signed
-  let result : BrotliResult = BrotliResult::ResultSuccess;
   if (!CheckInputAmount(safe, &s.br, 28)) || (!WarmupBitReader(safe, &mut s.br, input)) {
     mark_unlikely();
-    saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
+    return BrotliResult::NeedsMoreInput;
   }
-  loop {
-    match s.state {
-      BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN => {
-        if (!CheckInputAmount(safe, &s.br, 28)) { /* 156 bits + 7 bytes */
-          saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-        }
-        if (s.block_type_length_state.block_length[1] == 0) {
-          mark_unlikely();
-          if !DecodeCommandBlockSwitchInternal(safe, s, input) {
-            saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-          }
-          s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
-          continue; // goto CommandBegin;
-        }
-        /* Read the insert/copy length in the command */
-        if (!ReadCommandInternal(safe, s, &mut i, input)) && safe {
-            saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-        }
-        BROTLI_LOG!("[ProcessCommandsInternal] pos = %d insert = %d copy = %d distance_code = %d\n",
-              pos, i, s.copy_length, s.distance_code);
-        if (i == 0) {
-          s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS;
-          continue; // goto CommandPostDecodeLiterals;
-        }
-        s.meta_block_remaining_len -= i;
-        s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
-      },
-      BrotliRunningState::BROTLI_STATE_COMMAND_INNER => {
-        /* Read the literals in the command */
-        if (s.trivial_literal_context != 0) {
-          let mut bits : u32 = 0;
-          let mut value : u32 = 0;
-          PreloadSymbol(safe, &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.literal_htree_index as usize] as usize..], &mut s.br, &mut bits, &mut value, input);
-          let mut literal_hgroup = &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.literal_htree_index as usize] as usize..];
-          loop {
-            if (!CheckInputAmount(safe, &s.br, 28)) { /* 162 bits + 7 bytes */
-              saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-            }
-            if (s.block_type_length_state.block_length[0] == 0) {
-              mark_unlikely();
-              if (!DecodeLiteralBlockSwitchInternal(safe,
-                                                    &mut s.block_type_length_state,
-                                                    &mut s.br,
-                                                    input,
-                                                    s.context_map.slice(),
-                                                    s.context_modes.slice(),
-                                                    &mut s.context_map_slice_index,
-                                                    &mut s.literal_htree_index,
-                                                    &mut s.context_lookup1,
-                                                    &mut s.context_lookup2)) && safe { // <-- FIXME PERF if we could make this a macro, we could avoid re-lookuping the literal_hgroup each loop iteration and just keep it borrowed read only up front
-                saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-              }
-              literal_hgroup = &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.literal_htree_index as usize] as usize..];
-              PreloadSymbol(safe, literal_hgroup, &mut s.br, &mut bits, &mut value, input);
-            }
-            if (!safe) {
-              s.ringbuffer.slice_mut()[pos as usize] = ReadPreloadedSymbol(
-                  literal_hgroup, &mut s.br, &mut bits, &mut value, input) as u8;
-            } else {
-              let mut literal : u32 = 0;
-              if (!SafeReadSymbol(literal_hgroup, &mut s.br, &mut literal, input)) {
-                saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-              }
-              s.ringbuffer.slice_mut()[pos as usize] = literal as u8;
-            }
-            s.block_type_length_state.block_length[0] -= 1;
-            BROTLI_LOG_UINT!(s.literal_htree_index);
-            BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos);
-            pos += 1;
-            if (pos == s.ringbuffer_size) {
-              mark_unlikely();
-              s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER_WRITE;
-              i -= 1;
-              saveStateAndReturn!(s, pos, i, result);
-            }
-            i -= 1;
-            if i == 0 {
-              break;
-            }
-          }
-        } else {
-          let mut p1 = s.ringbuffer.slice()[((pos - 1) & s.ringbuffer_mask) as usize];
-          let mut p2 = s.ringbuffer.slice()[((pos - 2) & s.ringbuffer_mask) as usize];
-          loop {
-            if (!CheckInputAmount(safe, &s.br, 28)) { /* 162 bits + 7 bytes */
-              s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
-              saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-            }
-            if (s.block_type_length_state.block_length[0] == 0) {
-              mark_unlikely();
-              if (!DecodeLiteralBlockSwitchInternal(safe,
-                                                    &mut s.block_type_length_state,
-                                                    &mut s.br,
-                                                    input,
-                                                    s.context_map.slice(),
-                                                    s.context_modes.slice(),
-                                                    &mut s.context_map_slice_index,
-                                                    &mut s.literal_htree_index,
-                                                    &mut s.context_lookup1,
-                                                    &mut s.context_lookup2)) && safe {
-                saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-              }
-            }
-            let context = s.context_lookup1[p1 as usize] | s.context_lookup2[p2 as usize];
-            BROTLI_LOG_UINT!(context);
-            let hc = &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.context_map.slice()[s.context_map_slice_index + context as usize]as usize ] as usize..];
-            p2 = p1;
-            if (!safe) {
-              p1 = ReadSymbol(hc, &mut s.br, input) as u8;
-            } else {
-              let mut literal : u32 = 0;
-              if (!SafeReadSymbol(hc, &mut s.br, &mut literal, input)) {
-                saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-              }
-              p1 = literal as u8;
-            }
-            s.ringbuffer.slice_mut()[pos as usize] = p1;
-            s.block_type_length_state.block_length[0] -= 1;
-            BROTLI_LOG_UINT!(s.context_map.slice()[s.context_map_slice_index as usize + context as usize]);
-            BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos & s.ringbuffer_mask);
-            pos += 1;
-            if (pos == s.ringbuffer_size) {
-              mark_unlikely();
-              s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER_WRITE;
-              i -= 1;
-              saveStateAndReturn!(s, pos, i, result);
-            }
-            i -= 1;
-            if i == 0 {
-              break;
-            }
-          }
-        }
-        if (s.meta_block_remaining_len <= 0) {
-          s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
-          saveStateAndReturn!(s, pos, i, result);
-        }
-        s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS;
-      },
-      BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS => {
-        if s.distance_code >= 0 {
-           s.dist_rb_idx -= 1;
-           s.distance_code = s.dist_rb[(s.dist_rb_idx & 3) as usize]
-           // goto postReadDistance
-        } else {
-           if s.block_type_length_state.block_length[2] == 0 {
-             mark_unlikely();
-             if (!DecodeDistanceBlockSwitchInternal(safe, s, input)) && safe {
-               saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-             }
-           }
-           if (!ReadDistanceInternal(safe, s, input)) && safe {
-             saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
-           }
-        }
-        //postReadDistance:
-        BROTLI_LOG!("[ProcessCommandsInternal] pos = %d distance = %d\n",
-                    pos, s.distance_code);
+  let mut pos = s.pos;
+  let mut i : i32 = s.loop_counter; // important that this is signed
+  let mut result : BrotliResult = BrotliResult::ResultSuccess;
+  let mut saved_literal_hgroup = core::mem::replace(&mut s.literal_hgroup,
+                HuffmanTreeGroup::<AllocU32, AllocHC>::default());
+  {
+  core::mem::replace(&mut s.literal_hgroup,
+                core::mem::replace(&mut saved_literal_hgroup,
+                  HuffmanTreeGroup::<AllocU32, AllocHC>::default()));
 
-        if (s.max_distance != s.max_backward_distance) {
-          if (pos < s.max_backward_distance_minus_custom_dict_size) {
-            s.max_distance = pos + s.custom_dict_size;
-          } else {
-            s.max_distance = s.max_backward_distance;
+    let literal_hgroup = dereference_hgroup(&saved_literal_hgroup);
+
+    loop {
+      match s.state {
+        BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN => {
+          if (!CheckInputAmount(safe, &s.br, 28)) { /* 156 bits + 7 bytes */
+            result = BrotliResult::NeedsMoreInput;
+            break; // return
           }
-        }
-        i = s.copy_length;
-        /* Apply copy of LZ77 back-reference, or static dictionary reference if
-        the distance is larger than the max LZ77 distance */
-        if (s.distance_code > s.max_distance) {
-          if (i >= kBrotliMinDictionaryWordLength as i32 &&
-              i <= kBrotliMaxDictionaryWordLength as i32) {
-            let mut offset = kBrotliDictionaryOffsetsByLength[i as usize] as i32;
-            let word_id = s.distance_code - s.max_distance - 1;
-            let shift = kBrotliDictionarySizeBitsByLength[i as usize];
-            let mask = bit_reader::BitMask(shift as u32) as i32;
-            let word_idx = word_id & mask;
-            let transform_idx = word_id >> shift;
-            offset += word_idx * i;
-            if (transform_idx < kNumTransforms) {
-              let mut len = i;
-              let word = &kBrotliDictionary[offset as usize .. (offset + len) as usize];
-              if (transform_idx == 0) {
-                s.ringbuffer.slice_mut()[pos as usize .. ((pos + len) as usize)].clone_from_slice(
-                    word);
+          if (s.block_type_length_state.block_length[1] == 0) {
+            mark_unlikely();
+            if !DecodeCommandBlockSwitchInternal(safe, s, input) {
+              result = BrotliResult::NeedsMoreInput;
+              break; // return
+            }
+            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
+            continue; // goto CommandBegin;
+          }
+          /* Read the insert/copy length in the command */
+          if (!ReadCommandInternal(safe, s, &mut i, input)) && safe {
+            result = BrotliResult::NeedsMoreInput;
+            break; // return
+          }
+          BROTLI_LOG!("[ProcessCommandsInternal] pos = %d insert = %d copy = %d distance_code = %d\n",
+              pos, i, s.copy_length, s.distance_code);
+          if (i == 0) {
+            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS;
+            continue; // goto CommandPostDecodeLiterals;
+          }
+          s.meta_block_remaining_len -= i;
+          s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
+        },
+        BrotliRunningState::BROTLI_STATE_COMMAND_INNER => {
+          /* Read the literals in the command */
+          if (s.trivial_literal_context != 0) {
+            let mut bits : u32 = 0;
+            let mut value : u32 = 0;
+            PreloadSymbol(safe, &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.literal_htree_index as usize] as usize..], &mut s.br, &mut bits, &mut value, input);
+            let mut literal_hgroup = &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.literal_htree_index as usize] as usize..];
+            let mut inner_return : bool = false;
+            loop {
+              if (!CheckInputAmount(safe, &s.br, 28)) { /* 162 bits + 7 bytes */
+                result = BrotliResult::NeedsMoreInput;
+                inner_return = true;
+                break;
+              }
+              if (s.block_type_length_state.block_length[0] == 0) {
+                mark_unlikely();
+                if (!DecodeLiteralBlockSwitchInternal(safe,
+                                                      &mut s.block_type_length_state,
+                                                      &mut s.br,
+                                                      input,
+                                                      s.context_map.slice(),
+                                                      s.context_modes.slice(),
+                                                      &mut s.context_map_slice_index,
+                                                      &mut s.literal_htree_index,
+                                                      &mut s.context_lookup1,
+                                                      &mut s.context_lookup2)) && safe { // <-- FIXME PERF if we could make this a macro, we could avoid re-lookuping the literal_hgroup each loop iteration and just keep it borrowed read only up front
+                  result = BrotliResult::NeedsMoreInput;
+                  inner_return = true;
+                  break;
+                }
+                literal_hgroup = &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.literal_htree_index as usize] as usize..];
+                PreloadSymbol(safe, literal_hgroup, &mut s.br, &mut bits, &mut value, input);
+              }
+              if (!safe) {
+                s.ringbuffer.slice_mut()[pos as usize] = ReadPreloadedSymbol(
+                    literal_hgroup, &mut s.br, &mut bits, &mut value, input) as u8;
               } else {
-                len = TransformDictionaryWord(
-                    &mut s.ringbuffer.slice_mut()[pos as usize..], word, len, transform_idx);
+                let mut literal : u32 = 0;
+                if (!SafeReadSymbol(literal_hgroup, &mut s.br, &mut literal, input)) {
+                  result = BrotliResult::NeedsMoreInput;
+                  inner_return = true;
+                  break;
+                }
+                s.ringbuffer.slice_mut()[pos as usize] = literal as u8;
               }
-              pos += len;
-              s.meta_block_remaining_len -= len;
-              if (pos >= s.ringbuffer_size) {
-                /*s.partial_pos_rb += (size_t)s.ringbuffer_size;*/
-                s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRITE_1;
-                saveStateAndReturn!(s, pos, i, result);
+              s.block_type_length_state.block_length[0] -= 1;
+              BROTLI_LOG_UINT!(s.literal_htree_index);
+              BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos);
+              pos += 1;
+              if (pos == s.ringbuffer_size) {
+                mark_unlikely();
+                s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER_WRITE;
+                i -= 1;
+                inner_return = true;
+                break;
               }
+              i -= 1;
+              if i == 0 {
+                break;
+              }
+            }
+            if inner_return {
+               break; // return
+            }
+          } else {
+            let mut p1 = s.ringbuffer.slice()[((pos - 1) & s.ringbuffer_mask) as usize];
+            let mut p2 = s.ringbuffer.slice()[((pos - 2) & s.ringbuffer_mask) as usize];
+            let mut inner_return : bool = false;
+            loop {
+              if (!CheckInputAmount(safe, &s.br, 28)) { /* 162 bits + 7 bytes */
+                s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
+                result = BrotliResult::NeedsMoreInput;
+                inner_return = true;
+                break;
+              }
+              if (s.block_type_length_state.block_length[0] == 0) {
+                mark_unlikely();
+                if (!DecodeLiteralBlockSwitchInternal(safe,
+                                                      &mut s.block_type_length_state,
+                                                      &mut s.br,
+                                                      input,
+                                                      s.context_map.slice(),
+                                                      s.context_modes.slice(),
+                                                      &mut s.context_map_slice_index,
+                                                      &mut s.literal_htree_index,
+                                                      &mut s.context_lookup1,
+                                                      &mut s.context_lookup2)) && safe {
+                  result = BrotliResult::NeedsMoreInput;
+                  inner_return = true;
+                  break;
+                }
+              }
+              let context = s.context_lookup1[p1 as usize] | s.context_lookup2[p2 as usize];
+              BROTLI_LOG_UINT!(context);
+              let hc = &s.literal_hgroup.codes.slice()[s.literal_hgroup.htrees.slice()[s.context_map.slice()[s.context_map_slice_index + context as usize]as usize ] as usize..];
+              p2 = p1;
+              if (!safe) {
+                p1 = ReadSymbol(hc, &mut s.br, input) as u8;
+              } else {
+                let mut literal : u32 = 0;
+                if (!SafeReadSymbol(hc, &mut s.br, &mut literal, input)) {
+                  result = BrotliResult::NeedsMoreInput;
+                  inner_return = true;
+                  break;
+                }
+                p1 = literal as u8;
+              }
+              s.ringbuffer.slice_mut()[pos as usize] = p1;
+              s.block_type_length_state.block_length[0] -= 1;
+              BROTLI_LOG_UINT!(s.context_map.slice()[s.context_map_slice_index as usize + context as usize]);
+              BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos & s.ringbuffer_mask);
+              pos += 1;
+              if (pos == s.ringbuffer_size) {
+                mark_unlikely();
+                s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER_WRITE;
+                i -= 1;
+                inner_return = true;
+                break;
+              }
+              i -= 1;
+              if i == 0 {
+                break;
+              }
+            }
+            if inner_return {
+              break; // return
+            }
+          }
+          if (s.meta_block_remaining_len <= 0) {
+            s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
+            break; // return
+          }
+          s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS;
+        },
+        BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS => {
+          if s.distance_code >= 0 {
+             s.dist_rb_idx -= 1;
+             s.distance_code = s.dist_rb[(s.dist_rb_idx & 3) as usize]
+             // goto postReadDistance
+          } else {
+            if s.block_type_length_state.block_length[2] == 0 {
+              mark_unlikely();
+              if (!DecodeDistanceBlockSwitchInternal(safe, s, input)) && safe {
+                result = BrotliResult::NeedsMoreInput;
+                break; // return
+              }
+            }
+            if (!ReadDistanceInternal(safe, s, input)) && safe {
+              result = BrotliResult::NeedsMoreInput;
+              break; // return
+            }
+          }
+          //postReadDistance:
+          BROTLI_LOG!("[ProcessCommandsInternal] pos = %d distance = %d\n",
+                      pos, s.distance_code);
+
+          if (s.max_distance != s.max_backward_distance) {
+            if (pos < s.max_backward_distance_minus_custom_dict_size) {
+              s.max_distance = pos + s.custom_dict_size;
             } else {
-              BROTLI_LOG!("Invalid backward reference. pos: %d distance: %d len: %d bytes left: %d\n",
+              s.max_distance = s.max_backward_distance;
+            }
+          }
+          i = s.copy_length;
+          /* Apply copy of LZ77 back-reference, or static dictionary reference if
+          the distance is larger than the max LZ77 distance */
+          if (s.distance_code > s.max_distance) {
+            if (i >= kBrotliMinDictionaryWordLength as i32 &&
+                i <= kBrotliMaxDictionaryWordLength as i32) {
+              let mut offset = kBrotliDictionaryOffsetsByLength[i as usize] as i32;
+              let word_id = s.distance_code - s.max_distance - 1;
+              let shift = kBrotliDictionarySizeBitsByLength[i as usize];
+              let mask = bit_reader::BitMask(shift as u32) as i32;
+              let word_idx = word_id & mask;
+              let transform_idx = word_id >> shift;
+              offset += word_idx * i;
+              if (transform_idx < kNumTransforms) {
+                let mut len = i;
+                let word = &kBrotliDictionary[offset as usize .. (offset + len) as usize];
+                if (transform_idx == 0) {
+                  s.ringbuffer.slice_mut()[pos as usize .. ((pos + len) as usize)].clone_from_slice(
+                      word);
+                } else {
+                  len = TransformDictionaryWord(
+                      &mut s.ringbuffer.slice_mut()[pos as usize..], word, len, transform_idx);
+                }
+                pos += len;
+                s.meta_block_remaining_len -= len;
+                if (pos >= s.ringbuffer_size) {
+                  /*s.partial_pos_rb += (size_t)s.ringbuffer_size;*/
+                  s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRITE_1;
+                  break; // return return
+                }
+              } else {
+                BROTLI_LOG!("Invalid backward reference. pos: %d distance: %d len: %d bytes left: %d\n",
                   pos, s.distance_code, i,
                   s.meta_block_remaining_len);
-              return BROTLI_FAILURE();
+                result = BROTLI_FAILURE();
+                break; // return
+              }
+            } else {
+              BROTLI_LOG!("Invalid backward reference. pos: %d distance: %d len: %d bytes left: %d\n", pos, s.distance_code, i,
+                     s.meta_block_remaining_len);
+              result = BROTLI_FAILURE();
+              break; // return
             }
           } else {
-            BROTLI_LOG!("Invalid backward reference. pos: %d distance: %d len: %d bytes left: %d\n", pos, s.distance_code, i,
-                   s.meta_block_remaining_len);
-            return BROTLI_FAILURE();
-          }
-        } else {
-          /* update the recent distances cache */
-          s.dist_rb[(s.dist_rb_idx & 3) as usize] = s.distance_code;
-          s.dist_rb_idx += 1;
-          s.meta_block_remaining_len -= i;
-          if (s.meta_block_remaining_len < 0) {
-            mark_unlikely();
-            BROTLI_LOG!("Invalid backward reference. pos: %d distance: %d len: %d bytes left: %d\n", pos, s.distance_code, i,
-                   s.meta_block_remaining_len);
-            return BROTLI_FAILURE();
-          }
-          /* There is 128+ bytes of slack in the ringbuffer allocation.
-             Also, we have 16 short codes, that make these 16 bytes irrelevant
-             in the ringbuffer. Let's copy over them as a first guess.
-           */
-          let src_start = ((pos - s.distance_code) & s.ringbuffer_mask) as usize;
-          let dst_start = pos as usize;
-          let dst_end = pos as usize + i as usize;
-          let src_end = src_start + i as usize;
-          memmove16(&mut s.ringbuffer.slice_mut(), dst_start, src_start);
-          /* Now check if the copy extends over the ringbuffer end,
-             or if the copy overlaps with itself, if yes, do wrap-copy. */
-          if (src_end > pos as usize && dst_end > src_start) {
-            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
-            continue; //goto CommandPostWrapCopy;
-          }
-          if (dst_end >= s.ringbuffer_size as usize || src_end >= s.ringbuffer_size as usize) {
-            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
-            continue; //goto CommandPostWrapCopy;
-          }
-          pos += i;
-          if (i > 16) {
-            if (i > 32) {
-              memcpy_within_slice(s.ringbuffer.slice_mut(),
-                                  dst_start + 16,
-                                  src_start + 16,
-                                  (i - 16) as usize);
-            } else {
-              /* This branch covers about 45% cases.
-                 Fixed size short copy allows more compiler optimizations. */
-              memmove16(&mut s.ringbuffer.slice_mut(), dst_start + 16, src_start + 16);
+            /* update the recent distances cache */
+            s.dist_rb[(s.dist_rb_idx & 3) as usize] = s.distance_code;
+            s.dist_rb_idx += 1;
+            s.meta_block_remaining_len -= i;
+            if (s.meta_block_remaining_len < 0) {
+              mark_unlikely();
+              BROTLI_LOG!("Invalid backward reference. pos: %d distance: %d len: %d bytes left: %d\n", pos, s.distance_code, i,
+                     s.meta_block_remaining_len);
+              result = BROTLI_FAILURE();
+              break; // return
+            }
+            /* There is 128+ bytes of slack in the ringbuffer allocation.
+               Also, we have 16 short codes, that make these 16 bytes irrelevant
+               in the ringbuffer. Let's copy over them as a first guess.
+             */
+            let src_start = ((pos - s.distance_code) & s.ringbuffer_mask) as usize;
+            let dst_start = pos as usize;
+            let dst_end = pos as usize + i as usize;
+            let src_end = src_start + i as usize;
+            memmove16(&mut s.ringbuffer.slice_mut(), dst_start, src_start);
+            /* Now check if the copy extends over the ringbuffer end,
+               or if the copy overlaps with itself, if yes, do wrap-copy. */
+            if (src_end > pos as usize && dst_end > src_start) {
+              s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
+              continue; //goto CommandPostWrapCopy;
+            }
+            if (dst_end >= s.ringbuffer_size as usize || src_end >= s.ringbuffer_size as usize) {
+              s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
+              continue; //goto CommandPostWrapCopy;
+            }
+            pos += i;
+            if (i > 16) {
+              if (i > 32) {
+                memcpy_within_slice(s.ringbuffer.slice_mut(),
+                                    dst_start + 16,
+                                    src_start + 16,
+                                    (i - 16) as usize);
+              } else {
+                /* This branch covers about 45% cases.
+                   Fixed size short copy allows more compiler optimizations. */
+                memmove16(&mut s.ringbuffer.slice_mut(), dst_start + 16, src_start + 16);
+              }
             }
           }
-        }
-        if (s.meta_block_remaining_len <= 0) {
-          /* Next metablock, if any */
-          s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
-          saveStateAndReturn!(s, pos, i, result);
-        } else {
-          s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
-          continue; // goto CommandBegin
-        }
-      },
-      BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY => {
-        let mut wrap_guard = s.ringbuffer_size - pos;
-        while i > 0 {
-          i -= 1;
-          s.ringbuffer.slice_mut()[pos as usize] =
-              s.ringbuffer.slice()[((pos - s.distance_code) & s.ringbuffer_mask) as usize];
-          pos += 1;
-          wrap_guard -= 1;
-          if (wrap_guard == 0) {
-            mark_unlikely();
-            /*s.partial_pos_rb += (size_t)s.ringbuffer_size;*/
-            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRITE_2;
-            saveStateAndReturn!(s, pos, i, result);
+          if (s.meta_block_remaining_len <= 0) {
+            /* Next metablock, if any */
+            s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
+            break; // return
+          } else {
+            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
+            continue; // goto CommandBegin
           }
-        }
-        i -= 1;
-        if (s.meta_block_remaining_len <= 0) {
-          /* Next metablock, if any */
-          s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
-          saveStateAndReturn!(s, pos, i, result);
-        } else {
-          s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
-          continue;
-        }
-      },
-      _ => return BROTLI_FAILURE(),
+        },
+        BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY => {
+          let mut wrap_guard = s.ringbuffer_size - pos;
+          let mut inner_return : bool = false;
+          while i > 0 {
+            i -= 1;
+            s.ringbuffer.slice_mut()[pos as usize] =
+                s.ringbuffer.slice()[((pos - s.distance_code) & s.ringbuffer_mask) as usize];
+            pos += 1;
+            wrap_guard -= 1;
+            if (wrap_guard == 0) {
+              mark_unlikely();
+              /*s.partial_pos_rb += (size_t)s.ringbuffer_size;*/
+              s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRITE_2;
+              inner_return = true;
+              break; //return
+            }
+          }
+          if inner_return {
+            mark_unlikely();
+            break;
+          }
+          i -= 1;
+          if (s.meta_block_remaining_len <= 0) {
+            /* Next metablock, if any */
+            s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
+            break; // return
+          } else {
+            s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
+            continue;
+          }
+        },
+        _ => {
+          result = BROTLI_FAILURE();
+          break; // return
+        },
+      }
     }
   }
+  s.pos = pos;
+  s.loop_counter = i;
+/*
+  core::mem::replace(&mut s.literal_hgroup,
+                core::mem::replace(&mut saved_literal_hgroup,
+                  HuffmanTreeGroup::<AllocU32, AllocHC>::default()));
+*/
+  return result;
 }
 
 fn ProcessCommands<
