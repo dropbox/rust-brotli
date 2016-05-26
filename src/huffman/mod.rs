@@ -94,7 +94,17 @@ impl<AllocU32 : alloc::Allocator<u32>,
         //}
 
     }
+    pub fn build_hgroup_cache<'a>(self : &'a Self) -> [&'a [HuffmanCode]; 256] {
+      let mut ret : [&'a [HuffmanCode]; 256] = [&[]; 256];
+      let mut index : usize = 0;
+      for htree in self.htrees.slice() {
+          ret[index] = &self.codes.slice()[*htree as usize .. ];
+          index += 1;
+      }
+      return ret;
+    }
 }
+
 impl<AllocU32 : alloc::Allocator<u32>,
      AllocHC : alloc::Allocator<HuffmanCode> > Default for HuffmanTreeGroup<AllocU32, AllocHC> {
     fn default() -> Self {
