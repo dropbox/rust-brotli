@@ -156,7 +156,6 @@ fn main() {
     if env::args_os().len() > 1 {
         let mut first = true;
         for argument in env::args() {
-        println!("ARG {:}\n", &argument);
             if first {
                first = false;
                continue;
@@ -171,7 +170,6 @@ fn main() {
                 Err(why) => panic!("couldn't open file for writing: {:} {:?}", oa, why),
                 Ok(file) => file,
             };
-            println!("Reading from {:?} writing to {:?}\n", input, output);
             match decompress(&mut input, &mut output) {
                 Ok(_) => {},
                 Err(e) => panic!("Error {:?}", e),

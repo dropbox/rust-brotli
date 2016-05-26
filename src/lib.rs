@@ -1848,7 +1848,7 @@ fn ProcessCommandsInternal<
   loop {
     match s.state {
       BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN => {
-        if (!CheckInputAmount(safe, &s.br, 28)) && safe { /* 156 bits + 7 bytes */
+        if (!CheckInputAmount(safe, &s.br, 28)) { /* 156 bits + 7 bytes */
           saveStateAndReturn!(s, pos, i, BrotliResult::NeedsMoreInput);
         }
         if (s.block_type_length_state.block_length[1] == 0) {
