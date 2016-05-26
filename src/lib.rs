@@ -1651,18 +1651,19 @@ pub fn ReadDistanceInternal<'a, AllocU8 : alloc::Allocator<u8>,
            AllocU32 : alloc::Allocator<u32>,
            AllocHC : alloc::Allocator<HuffmanCode>> (safe : bool,
     s : &mut BrotliState<AllocU8, AllocU32, AllocHC>,
-    input : &[u8]) -> bool {
+    input : &[u8],
+    distance_hgroup : &[&[HuffmanCode]; 256]) -> bool {
   let mut distval : i32;
   let mut memento = bit_reader::BrotliBitReaderState::default();
   if (!safe) {
     s.distance_code
-        = ReadSymbol(&s.distance_hgroup.codes.slice()[s.distance_hgroup.htrees.slice()[s.dist_htree_index as usize] as usize ..],
+        = ReadSymbol(distance_hgroup[s.dist_htree_index as usize],
                      &mut s.br,
                      input) as i32;
   } else {
     let mut code : u32 = 0;
     memento = bit_reader::BrotliBitReaderSaveState(&s.br);
-    if !SafeReadSymbol(&s.distance_hgroup.codes.slice()[s.distance_hgroup.htrees.slice()[s.dist_htree_index as usize] as usize ..], &mut s.br, &mut code, input) {
+    if !SafeReadSymbol(distance_hgroup[s.dist_htree_index as usize], &mut s.br, &mut code, input) {
       return false;
     }
     s.distance_code = code as i32;
@@ -1709,19 +1710,6 @@ pub fn ReadDistanceInternal<'a, AllocU8 : alloc::Allocator<u8>,
   return true;
 }
 
-pub fn ReadDistance<'a, AllocU8 : alloc::Allocator<u8>,
-           AllocU32 : alloc::Allocator<u32>,
-           AllocHC : alloc::Allocator<HuffmanCode>> (
-    s : &mut BrotliState<AllocU8, AllocU32, AllocHC>, input : &[u8]) {
-  ReadDistanceInternal(false, s, input);
-}
-
-pub fn SafeReadDistance<'a, AllocU8 : alloc::Allocator<u8>,
-           AllocU32 : alloc::Allocator<u32>,
-           AllocHC : alloc::Allocator<HuffmanCode>> (
-    s : &mut BrotliState<AllocU8, AllocU32, AllocHC>, input : &[u8]) -> bool {
-  return ReadDistanceInternal(true, s, input);
-}
 
 pub fn ReadCommandInternal<'a, AllocU8 : alloc::Allocator<u8>,
            AllocU32 : alloc::Allocator<u32>,
@@ -1862,9 +1850,12 @@ fn ProcessCommandsInternal<
   let mut result : BrotliResult = BrotliResult::ResultSuccess;
   let mut saved_literal_hgroup = core::mem::replace(&mut s.literal_hgroup,
                 HuffmanTreeGroup::<AllocU32, AllocHC>::default());
+  let mut saved_distance_hgroup = core::mem::replace(&mut s.distance_hgroup,
+                HuffmanTreeGroup::<AllocU32, AllocHC>::default());
   {
 
     let literal_hgroup = saved_literal_hgroup.build_hgroup_cache();
+    let distance_hgroup = saved_distance_hgroup.build_hgroup_cache();
 
     loop {
       match s.state {
@@ -2043,7 +2034,7 @@ fn ProcessCommandsInternal<
                 break; // return
               }
             }
-            if (!ReadDistanceInternal(safe, s, input)) && safe {
+            if (!ReadDistanceInternal(safe, s, input, &distance_hgroup)) && safe {
               result = BrotliResult::NeedsMoreInput;
               break; // return
             }
@@ -2199,6 +2190,10 @@ fn ProcessCommandsInternal<
 
   core::mem::replace(&mut s.literal_hgroup,
                 core::mem::replace(&mut saved_literal_hgroup,
+                  HuffmanTreeGroup::<AllocU32, AllocHC>::default()));
+
+  core::mem::replace(&mut s.distance_hgroup,
+                core::mem::replace(&mut saved_distance_hgroup,
                   HuffmanTreeGroup::<AllocU32, AllocHC>::default()));
 
   return result;
