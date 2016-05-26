@@ -1521,11 +1521,9 @@ fn CopyUncompressedBlockToOutput<'a, AllocU8 : alloc::Allocator<u8>,
         s.rb_roundtrips+=1;
         s.max_distance = s.max_backward_distance;
         s.substate_uncompressed = BrotliRunningUncompressedState::BROTLI_STATE_UNCOMPRESSED_NONE;
-        break;
       },
     }
   }
-  return BROTLI_FAILURE();
 }
 
 fn BrotliAllocateRingBuffer<
