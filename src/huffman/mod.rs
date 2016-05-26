@@ -25,9 +25,8 @@ pub const BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH : u32 = 5;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct HuffmanCode {
-  pub value : u16,  /* symbol value or table offset */
   pub bits : u8,    /* number of bits used for this symbol */
-
+  pub value : u16,  /* symbol value or table offset */
 }
 impl HuffmanCode {
   pub fn eq(&self, other: &Self) -> bool {

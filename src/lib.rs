@@ -1326,29 +1326,26 @@ pub const FILE_BUFFER_SIZE : usize = 65536;
 pe and updates the state for literal context.
    Reads 3..54 bits. */
 fn DecodeLiteralBlockSwitchInternal<
+  AllocU8 : alloc::Allocator<u8>,
+  AllocU32 : alloc::Allocator<u32>,
   AllocHC : alloc::Allocator<HuffmanCode>> (safe : bool,
-                                            s : &mut BlockTypeAndLengthState<AllocHC>,
-                                            br : &mut bit_reader::BrotliBitReader,
-                                            input : &[u8],
-                                            context_map : &[u8],
-                                            context_modes : &[u8],
-                                            s_context_map_slice_index : &mut usize,
-                                            s_literal_htree_index : &mut u8,
-                                            s_context_lookup1 : &mut &'static [u8],
-                                            s_context_lookup2 : &mut &'static [u8],) -> bool {
+                                            mut s : &mut BrotliState<AllocU8,
+                                                                     AllocU32,
+                                                                     AllocHC>,
+                                            input : &[u8]) -> bool {
 
   let context_mode : u8;
   let context_offset : u32;
-  if !DecodeBlockTypeAndLength(safe, s, br, 0, input) {
+  if !DecodeBlockTypeAndLength(safe, &mut s.block_type_length_state, &mut s.br, 0, input) {
     return false;
   }
-  context_offset = s.block_type_rb[1] << kLiteralContextBits;
-  *s_context_map_slice_index = context_offset as usize;
-  *s_literal_htree_index = context_map[*s_context_map_slice_index];
+  context_offset = s.block_type_length_state.block_type_rb[1] << kLiteralContextBits;
+  s.context_map_slice_index = context_offset as usize;
+  s.literal_htree_index = s.context_map.slice()[s.context_map_slice_index];
   // s.literal_htree = s.literal_hgroup.htrees[s.literal_htree_index]; // redundant
-  context_mode = context_modes[s.block_type_rb[1] as usize];
-  *s_context_lookup1 = &kContextLookup[kContextLookupOffsets[context_mode as usize] as usize ..];
-  *s_context_lookup2 = &kContextLookup[kContextLookupOffsets[context_mode as usize + 1] as usize..];
+  context_mode = s.context_modes.slice()[s.block_type_length_state.block_type_rb[1] as usize];
+  s.context_lookup1 = &kContextLookup[kContextLookupOffsets[context_mode as usize] as usize ..];
+  s.context_lookup2 = &kContextLookup[kContextLookupOffsets[context_mode as usize + 1] as usize..];
   return true;
 }
 /*
@@ -1889,15 +1886,8 @@ fn ProcessCommandsInternal<
               if (s.block_type_length_state.block_length[0] == 0) {
                 mark_unlikely();
                 if (!DecodeLiteralBlockSwitchInternal(safe,
-                                                      &mut s.block_type_length_state,
-                                                      &mut s.br,
-                                                      input,
-                                                      s.context_map.slice(),
-                                                      s.context_modes.slice(),
-                                                      &mut s.context_map_slice_index,
-                                                      &mut s.literal_htree_index,
-                                                      &mut s.context_lookup1,
-                                                      &mut s.context_lookup2)) && safe { // <-- FIXME PERF if we could make this a macro, we could avoid re-lookuping the literal_hgroup each loop iteration and just keep it borrowed read only up front
+                                                      s,
+                                                      input)) && safe { // <-- FIXME PERF if we could make this a macro, we could avoid re-lookuping the literal_hgroup each loop iteration and just keep it borrowed read only up front
                   result = BrotliResult::NeedsMoreInput;
                   inner_return = true;
                   break;
@@ -1950,15 +1940,8 @@ fn ProcessCommandsInternal<
               if (s.block_type_length_state.block_length[0] == 0) {
                 mark_unlikely();
                 if (!DecodeLiteralBlockSwitchInternal(safe,
-                                                      &mut s.block_type_length_state,
-                                                      &mut s.br,
-                                                      input,
-                                                      s.context_map.slice(),
-                                                      s.context_modes.slice(),
-                                                      &mut s.context_map_slice_index,
-                                                      &mut s.literal_htree_index,
-                                                      &mut s.context_lookup1,
-                                                      &mut s.context_lookup2)) && safe {
+                                                      s,
+                                                      input)) && safe {
                   result = BrotliResult::NeedsMoreInput;
                   inner_return = true;
                   break;
