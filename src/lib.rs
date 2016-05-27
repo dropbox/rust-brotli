@@ -65,14 +65,14 @@ impl<'a, R: io::Read> io::Read for Decompressor<R> {
             let mut avail_in = self.input_len - self.input_offset;
             let mut needs_input = false;
             while avail_out == buf.len() && (needs_input == false || self.input_eof == false) {
-                    if !self.input_eof {
+                    if self.input_len < self.input_buffer.len() && !self.input_eof {
                         match self.input.read(&mut self.input_buffer[self.input_len..]) {
                             Err(e) => match e.kind() {
                                 io::ErrorKind::Interrupted => continue,
                                 _ => self.input_eof = true,
                             },
                             Ok(size) => if size == 0 {
-                                //self.input_eof=true;
+                                self.input_eof = true;
                             }else {
                                 needs_input = false;
                                 self.input_len += size;
