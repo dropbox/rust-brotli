@@ -72,7 +72,7 @@ impl<'a, R: io::Read> io::Read for Decompressor<R> {
                                 _ => self.input_eof = true,
                             },
                             Ok(size) => if size == 0 {
-                                self.input_eof=true;
+                                //self.input_eof=true;
                             }else {
                                 needs_input = false;
                                 self.input_len += size;
