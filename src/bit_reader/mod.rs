@@ -109,19 +109,25 @@ pub fn BrotliCheckInputAmount(
 
 
 fn BrotliLoad16LE(input : &[u8], next_in : usize) -> u16 {
-  return (input[next_in] as u16) | ((input[next_in + 1] as u16) << 8);
+  let mut two_byte : [u8; 2] = [0;2];
+  two_byte.clone_from_slice(&input[next_in..next_in + 2]);
+  return (two_byte[0] as u16) | ((two_byte[1] as u16) << 8);
 }
 
 fn BrotliLoad32LE(input : &[u8], next_in : usize) -> u32 {
-  return (input[next_in] as u32) | ((input[next_in + 1] as u32) << 8)
-      | ((input[next_in + 2] as u32) << 16) | ((input[next_in + 3] as u32) << 24);
+  let mut four_byte : [u8; 4] = [0;4];
+  four_byte.clone_from_slice(&input[next_in..next_in + 4]);
+  return (four_byte[0] as u32) | ((four_byte[1] as u32) << 8)
+      | ((four_byte[2] as u32) << 16) | ((four_byte[3] as u32) << 24);
 }
 
 fn BrotliLoad64LE(input : &[u8], next_in : usize) -> u64 {
-  return (input[next_in] as u64) | ((input[next_in + 1] as u64) << 8)
-      | ((input[next_in + 2] as u64) << 16) | ((input[next_in + 3] as u64) << 24)
-      | ((input[next_in + 4] as u64) << 32) | ((input[next_in + 5] as u64) << 40)
-      | ((input[next_in + 6] as u64) << 48) | ((input[next_in + 7] as u64) << 56);
+  let mut eight_byte : [u8; 8] = [0;8];
+  eight_byte.clone_from_slice(&input[next_in..next_in + 8]);
+  return (eight_byte[0] as u64) | ((eight_byte[1] as u64) << 8)
+      | ((eight_byte[2] as u64) << 16) | ((eight_byte[3] as u64) << 24)
+      | ((eight_byte[4] as u64) << 32) | ((eight_byte[5] as u64) << 40)
+      | ((eight_byte[6] as u64) << 48) | ((eight_byte[7] as u64) << 56);
 }
 pub const BROTLI_ALIGNED_READ : u8 = 0;
 
