@@ -1493,7 +1493,7 @@ fn CopyUncompressedBlockToOutput<'a, AllocU8 : alloc::Allocator<u8>,
         /* Copy remaining bytes from s.br.buf_ to ringbuffer. */
         bit_reader::BrotliCopyBytes(&mut s.ringbuffer.slice_mut()[s.pos as usize..],
                                     &mut s.br,
-                                    nbytes as usize,
+                                    nbytes as u32,
                                     input);
         s.pos += nbytes;
         s.meta_block_remaining_len -= nbytes;
@@ -1536,7 +1536,7 @@ fn BrotliAllocateRingBuffer<
 
   if (s.is_uncompressed != 0) {
     let next_block_header = bit_reader::BrotliPeekByte(&mut s.br,
-        s.meta_block_remaining_len as usize,
+        s.meta_block_remaining_len as u32,
         input);
     if (next_block_header != -1) { /* Peek succeeded */
       if ((next_block_header & 3) == 3) { /* ISLAST and ISEMPTY */
@@ -1764,7 +1764,7 @@ fn WarmupBitReader(safe : bool, br : &mut bit_reader::BrotliBitReader, input : &
 }
 
 fn CheckInputAmount(safe : bool,
-    br : &bit_reader::BrotliBitReader, num : usize) -> bool {
+    br : &bit_reader::BrotliBitReader, num : u32) -> bool {
   if (safe) {
     return true;
   }
@@ -1772,7 +1772,9 @@ fn CheckInputAmount(safe : bool,
 }
 
 
-fn memmove16(data : &mut [u8], off_dst : usize, off_src :usize) {
+fn memmove16(data : &mut [u8], u32off_dst : u32, u32off_src :u32) {
+    let off_dst = u32off_dst as usize;
+    let off_src = u32off_src as usize;
 /*
     data[off_dst + 15] = data[off_src + 15];
     data[off_dst + 14] = data[off_src + 14];
@@ -1792,11 +1794,10 @@ fn memmove16(data : &mut [u8], off_dst : usize, off_src :usize) {
     data[off_dst + 3] = data[off_src + 3];
     data[off_dst + 2] = data[off_src + 2];
     data[off_dst + 1] = data[off_src + 1];
-    data[off_dst] = data[off_src];
 */
     let mut local_array : [u8; 16] = [0;16];
-    local_array.clone_from_slice(&mut data[off_src .. off_src + 16]);
-    data[off_dst .. off_dst + 16].clone_from_slice(&mut local_array);
+    local_array.clone_from_slice(&mut data[off_src as usize .. off_src as usize + 16]);
+    data[off_dst as usize .. off_dst as usize + 16].clone_from_slice(&mut local_array);
 
 
 }
@@ -2077,18 +2078,18 @@ fn ProcessCommandsInternal<
                Also, we have 16 short codes, that make these 16 bytes irrelevant
                in the ringbuffer. Let's copy over them as a first guess.
              */
-            let src_start = ((pos - s.distance_code) & s.ringbuffer_mask) as usize;
-            let dst_start = pos as usize;
-            let dst_end = pos as usize + i as usize;
-            let src_end = src_start + i as usize;
+            let src_start = ((pos - s.distance_code) & s.ringbuffer_mask) as u32;
+            let dst_start = pos as u32;
+            let dst_end = pos as u32 + i as u32;
+            let src_end = src_start + i as u32;
             memmove16(&mut s.ringbuffer.slice_mut(), dst_start, src_start);
             /* Now check if the copy extends over the ringbuffer end,
                or if the copy overlaps with itself, if yes, do wrap-copy. */
-            if (src_end > pos as usize && dst_end > src_start) {
+            if (src_end > pos as u32 && dst_end > src_start) {
               s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
               continue; //goto CommandPostWrapCopy;
             }
-            if (dst_end >= s.ringbuffer_size as usize || src_end >= s.ringbuffer_size as usize) {
+            if (dst_end >= s.ringbuffer_size as u32 || src_end >= s.ringbuffer_size as u32) {
               s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
               continue; //goto CommandPostWrapCopy;
             }
@@ -2096,8 +2097,8 @@ fn ProcessCommandsInternal<
             if (i > 16) {
               if (i > 32) {
                 memcpy_within_slice(s.ringbuffer.slice_mut(),
-                                    dst_start + 16,
-                                    src_start + 16,
+                                    dst_start as usize + 16,
+                                    src_start as usize + 16,
                                     (i - 16) as usize);
               } else {
                 /* This branch covers about 45% cases.
@@ -2202,10 +2203,16 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
 
   let mut saved_buffer : [u8; 8] = s.buffer.clone();
   let mut local_input : &[u8];
+  if *available_in as u64 >= (1u64 << 32) {
+      return BrotliResult::ResultFailure;
+  }
+  if *input_offset as u64 >= (1u64 << 32) {
+      return BrotliResult::ResultFailure;
+  }
   if s.buffer_length == 0 {
     local_input = xinput;
-    s.br.avail_in = *available_in;
-    s.br.next_in = *input_offset;
+    s.br.avail_in = *available_in as u32;
+    s.br.next_in = *input_offset as u32;
   } else {
     result = BrotliResult::NeedsMoreInput;
     let copy_len = core::cmp::min(saved_buffer.len() - s.buffer_length as usize, *available_in);
@@ -2217,7 +2224,7 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
     }
     local_input = &saved_buffer[..];
     s.br.next_in = 0;
-    s.br.avail_in = s.buffer_length as usize;
+    s.br.avail_in = s.buffer_length;
   }
   loop {
     match result {
@@ -2237,8 +2244,8 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
                 /* Switch to input stream and restart. */
                 result = BrotliResult::ResultSuccess;
                 local_input = xinput;
-                s.br.avail_in = *available_in;
-                s.br.next_in = *input_offset;
+                s.br.avail_in = *available_in as u32;
+                s.br.next_in = *input_offset as u32;
                 continue;
               } else if *available_in != 0 {
                  /* Not enough data in buffer, but can take one more byte from
@@ -2250,7 +2257,7 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
                 // since saved_buffer[s.buffer_length as usize] = new_byte violates borrow rules
                 assert_eq!(saved_buffer[s.buffer_length as usize], new_byte);
                 s.buffer_length += 1;
-                s.br.avail_in = s.buffer_length as usize;
+                s.br.avail_in = s.buffer_length;
                 (*input_offset) += 1;
                 (*available_in) -= 1;
                 /* Retry with more data in buffer. */
@@ -2265,8 +2272,8 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
               break;
             } else { /* Input stream doesn't contain enough input. */
                /* Copy tail to internal buffer and return. */
-               *input_offset = s.br.next_in;
-               *available_in = s.br.avail_in;
+               *input_offset = s.br.next_in as usize;
+               *available_in = s.br.avail_in as usize;
                while *available_in != 0 {
                  s.buffer[s.buffer_length as usize] = xinput[*input_offset];
                  s.buffer_length += 1;
@@ -2288,8 +2295,8 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
                 stream it has less than 8 bits in accamulator, so it is safe to
                 return unused accamulator bits there. */
                bit_reader::BrotliBitReaderUnload(&mut s.br);
-               *available_in = s.br.avail_in;
-               *input_offset = s.br.next_in;
+               *available_in = s.br.avail_in as usize;
+               *input_offset = s.br.next_in as usize;
             }
           },
         }
@@ -2649,8 +2656,8 @@ pub fn BrotliDecompressStream<'a, AllocU8 : alloc::Allocator<u8>,
           }
           if (s.buffer_length == 0) {
             bit_reader::BrotliBitReaderUnload(&mut s.br);
-            *available_in = s.br.avail_in; // <-- FIXME ?! I forget how this works <-- this doesn't send the result back
-            *input_offset = s.br.next_in; // <-- FIXME ?! I forget how this works
+            *available_in = s.br.avail_in as usize;
+            *input_offset = s.br.next_in as usize;
           }
           s.state = BrotliRunningState::BROTLI_STATE_DONE;
           // No break, continue to next state 

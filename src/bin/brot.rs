@@ -83,7 +83,7 @@ where InputType: Read, OutputType: Write {
   let range : usize;
   let mut timing_error : bool = false;
   if option_env!("BENCHMARK_MODE").is_some() {
-    range = 100;
+    range = 1000;
   } else {
     range = 1;
   }
