@@ -1844,6 +1844,7 @@ fn ProcessCommandsInternal<
       match s.state {
         BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN => {
           if (!CheckInputAmount(safe, &s.br, 28)) { /* 156 bits + 7 bytes */
+            mark_unlikely();
             result = BrotliResult::NeedsMoreInput;
             break; // return
           }

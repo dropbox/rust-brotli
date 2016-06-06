@@ -26,6 +26,7 @@ const kBitMask : [u32;33] = [ 0x0000,
     0x1FFFFFFF, 0x3FFFFFFF, 0x7FFFFFFF, 0xFFFFFFFF
 ];
 
+#[inline]
 pub fn BitMask(n : u32) -> u32{
   if false {
     /* Masking with this expression turns to a single
@@ -61,6 +62,7 @@ pub struct BrotliBitReaderState {
   pub avail_in : u32,
 }
 impl Default for BrotliBitReaderState {
+    #[inline]
     fn default() -> Self {
         return BrotliBitReaderState {
             val_ : 0,
@@ -180,7 +182,7 @@ pub fn BrotliFillBitWindow(br : &mut BrotliBitReader, n_bits : u32, input : &[u8
   }
 }
 
-
+#[inline(always)]
 fn BrotliFillBitWindowCompileTimeNbits(br : &mut BrotliBitReader, n_bits : u32, input : &[u8]) {
   if ::core::mem::size_of::<reg_t>() == 8 {
     if BROTLI_ALIGNED_READ == 0 && n_bits <= 8 {// !BROTLI_ALIGNED_READ && IS_CONSTANT(n_bits) && (n_bits <= 8)) {
@@ -254,6 +256,7 @@ pub fn BrotliPullByte(br : &mut BrotliBitReader, input : &[u8]) -> bool {
 
 /* Returns currently available bits.
    The number of valid bits could be calclulated by BrotliGetAvailableBits. */
+#[inline]
 pub fn BrotliGetBitsUnmasked(br : &BrotliBitReader) -> reg_t {
   return br.val_ >> br.bit_pos_;
 }
