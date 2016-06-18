@@ -741,11 +741,11 @@ pub fn TransformDictionaryWord(dst: &mut [u8],
                                -> i32 {
   let mut idx: i32 = 0;
   {
-    let prefix = &fast!((kPrefixSuffix)[fast!((kTransforms)[transform as usize]).prefix_id as usize;]);
+    let prefix = &fast!((kPrefixSuffix)[fast_ref!((kTransforms)[transform as usize]).prefix_id as usize;]);
     while (fast!((prefix)[idx as usize]) != 0) { fast_mut!((dst)[idx as usize]) = fast!((prefix)[idx as usize]); idx += 1; }
   }
   {
-    let t = fast!((kTransforms)[transform as usize]).transform;
+    let t = fast_ref!((kTransforms)[transform as usize]).transform;
     let mut skip : i32;
     if t < kOmitFirst1 {
       skip = 0;
@@ -772,14 +772,14 @@ pub fn TransformDictionaryWord(dst: &mut [u8],
     } else if (t == kUppercaseAll) {
       let mut uppercase_offset: usize = 0;
       while (len > 0) {
-        let step = ToUpperCase(&mut fast_mut!((uppercase)[uppercase_offset..]));
+        let step = ToUpperCase(&mut fast_mut!((uppercase)[uppercase_offset;]));
         uppercase_offset += step as usize;
         len -= step;
       }
     }
   }
   {
-    let suffix = &fast!((kPrefixSuffix)[fast!((kTransforms)[transform as usize]).suffix_id as usize ; ]);
+    let suffix = &fast!((kPrefixSuffix)[fast_ref!((kTransforms)[transform as usize]).suffix_id as usize ; ]);
     let mut i : usize = 0;
     while (fast!((suffix)[i as usize]) != 0) {
       fast_mut!((dst)[idx as usize]) = fast!((suffix)[i]);

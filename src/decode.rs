@@ -934,8 +934,8 @@ fn ReadBlockLength(table: &[HuffmanCode],
   let code: u32;
   let nbits: u32;
   code = ReadSymbol(table, br, input);
-  nbits = fast!((prefix::kBlockLengthPrefixCode)[code as usize]).nbits as u32; /* nbits == 2..24 */
-  return fast!((prefix::kBlockLengthPrefixCode)[code as usize]).offset as u32
+  nbits = fast_ref!((prefix::kBlockLengthPrefixCode)[code as usize]).nbits as u32; /* nbits == 2..24 */
+  return fast_ref!((prefix::kBlockLengthPrefixCode)[code as usize]).offset as u32
       + bit_reader::BrotliReadBits(br, nbits, input);
 }
 
@@ -970,14 +970,14 @@ fn SafeReadBlockLengthFromIndex<
         return false;
     }
     let mut bits : u32 = 0;
-    let nbits = fast!((prefix::kBlockLengthPrefixCode)[index as usize]).nbits; /* nbits == 2..24 */
+    let nbits = fast_ref!((prefix::kBlockLengthPrefixCode)[index as usize]).nbits; /* nbits == 2..24 */
     if (!bit_reader::BrotliSafeReadBits(br, nbits as u32, &mut bits, input)) {
       s.block_length_index = index;
       s.substate_read_block_length
           = state::BrotliRunningReadBlockLengthState::BROTLI_STATE_READ_BLOCK_LENGTH_SUFFIX;
       return false;
     }
-    *result = fast!((prefix::kBlockLengthPrefixCode)[index as usize]).offset as u32 + bits;
+    *result = fast_ref!((prefix::kBlockLengthPrefixCode)[index as usize]).offset as u32 + bits;
     s.substate_read_block_length
         = state::BrotliRunningReadBlockLengthState::BROTLI_STATE_READ_BLOCK_LENGTH_NONE;
     return true;
@@ -2014,7 +2014,7 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                   inner_return = true;
                   break;
                 }
-                literal_htree = &fast!((literal_hgroup)[s.literal_htree_index as usize]);
+                literal_htree = fast_ref!((literal_hgroup)[s.literal_htree_index as usize]);
                 PreloadSymbol(safe, literal_htree, &mut s.br, &mut bits, &mut value, input);
               }
               if (!safe) {
