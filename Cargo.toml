@@ -13,6 +13,8 @@ readme = "README.md"
 [[bin]]
 doc = false
 name = "brot"
+[profile.release]
+lto=true
 
 [dependencies]
 "alloc-no-stdlib" = "~1.2"
