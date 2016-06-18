@@ -2,36 +2,37 @@
 
 #[cfg(not(feature="unsafe"))]
 macro_rules! fast {
-   ($slice : expr,[$index: expr]) => (
+   (($slice : expr)[$index: expr]) => (
        (&$slice)[$index]
    );
-   ($slice : expr,[$start: expr ; $end : expr]) => (
+   (($slice : expr)[$start: expr ; $end : expr]) => (
        &($slice)[$start .. $end]
    );
-   ($slice : expr,[$start: expr ;]) => (
+   (($slice : expr)[$start: expr ;]) => (
        &($slice)[$start .. ]
    );
-   ($slice : expr,[; $end]) => (
+   (($slice : expr)[; $end]) => (
        &($slice)[.. $end ]
    );
 }
 #[cfg(not(feature="unsafe"))]
 macro_rules! fast_uninitialized {
-    ($size : expr ) => ([0; $size]);
+    [$size : expr] => ([0; $size]);
+    [$def_value : expr ; $size : expr] => ([$def_value; $size]);
 }
 
 #[cfg(not(feature="unsafe"))]
 macro_rules! fast_mut {
-   ($slice : expr,[$index: expr]) => (
+   (($slice : expr)[$index: expr]) => (
        *&mut($slice)[$index]       
    );
-   ($slice : expr,[$start: expr ; $end : expr]) => (
+   (($slice : expr)[$start: expr ; $end : expr]) => (
        &mut $slice[$start..$end]
    );
-   ($slice : expr,[$start: expr ;]) => (
+   (($slice : expr)[$start: expr ;]) => (
        &mut $slice[$start..]       
    );
-   ($slice : expr,[; $end]) => (
+   (($slice : expr)[; $end]) => (
        &mut $slice[..$end]              
    );
 }

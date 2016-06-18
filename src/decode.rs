@@ -309,12 +309,12 @@ fn DecodeMetaBlockLength<'a,
 // bits MUST contain at least 15 (BROTLI_HUFFMAN_MAX_CODE_LENGTH) valid bits.
 fn DecodeSymbol(bits: u32, table: &[HuffmanCode], br: &mut bit_reader::BrotliBitReader) -> u32 {
   let mut table_index = bits & HUFFMAN_TABLE_MASK;
-  let mut table_element = fast!(table,[table_index as usize]);
+  let mut table_element = fast!((table)[table_index as usize]);
   if table_element.bits > HUFFMAN_TABLE_BITS as u8{
     let nbits = table_element.bits - HUFFMAN_TABLE_BITS as u8;
     bit_reader::BrotliDropBits(br, HUFFMAN_TABLE_BITS);
     table_index += table_element.value as u32;
-    table_element = fast!(table,[(table_index
+    table_element = fast!((table)[(table_index
                            + ((bits >> HUFFMAN_TABLE_BITS) & bit_reader::BitMask(nbits as u32))) as usize]);
   }
   bit_reader::BrotliDropBits(br, table_element.bits as u32);
@@ -335,15 +335,15 @@ fn SafeDecodeSymbol(table: &[HuffmanCode],
                     -> bool {
   let mut available_bits = bit_reader::BrotliGetAvailableBits(&mut br);
   if (available_bits == 0) {
-    if (fast!(table,[0]).bits == 0) {
-      *result = fast!(table,[0]).value as u32;
+    if (fast!((table)[0]).bits == 0) {
+      *result = fast!((table)[0]).value as u32;
       return true;
     }
     return false; /* No valid bits at all. */
   }
   let mut val = bit_reader::BrotliGetBitsUnmasked(&br) as u32;
   let table_index = (val & HUFFMAN_TABLE_MASK) as usize;
-  let table_element = fast!(table,[table_index]);
+  let table_element = fast!((table)[table_index]);
   if (table_element.bits <= HUFFMAN_TABLE_BITS as u8) {
     if (table_element.bits as u32 <= available_bits) {
       bit_reader::BrotliDropBits(&mut br, table_element.bits as u32);
@@ -360,7 +360,7 @@ fn SafeDecodeSymbol(table: &[HuffmanCode],
   // Speculatively drop HUFFMAN_TABLE_BITS.
   val = (val & bit_reader::BitMask(table_element.bits as u32)) >> HUFFMAN_TABLE_BITS;
   available_bits -= HUFFMAN_TABLE_BITS;
-  let table_sub_element = fast!(table,[table_index + table_element.value as usize + val as usize]);
+  let table_sub_element = fast!((table)[table_index + table_element.value as usize + val as usize]);
   if (available_bits < table_sub_element.bits as u32) {
     return false; /* Not enough bits for the second level. */
   }
@@ -395,7 +395,7 @@ fn PreloadSymbol(safe: bool,
   if (safe) {
     return;
   }
-  let table_element = fast!(table,[bit_reader::BrotliGetBits(br, HUFFMAN_TABLE_BITS, input) as usize]);
+  let table_element = fast!((table)[bit_reader::BrotliGetBits(br, HUFFMAN_TABLE_BITS, input) as usize]);
   *bits = table_element.bits as u32;
   *value = table_element.value as u32;
 }
@@ -416,7 +416,7 @@ fn ReadPreloadedSymbol(table: &[HuffmanCode],
     let mask = bit_reader::BitMask((*bits - HUFFMAN_TABLE_BITS));
     bit_reader::BrotliDropBits(br, HUFFMAN_TABLE_BITS);
     ext_index += (val >> HUFFMAN_TABLE_BITS) & mask;
-    let ext = fast!(table,[ext_index as usize]);
+    let ext = fast!((table)[ext_index as usize]);
     bit_reader::BrotliDropBits(br, ext.bits as u32);
     result = ext.value as u32;
   } else {
@@ -453,7 +453,7 @@ fn ReadSimpleHuffmanSymbols<'a,
   let max_bits = Log2Floor(alphabet_size - 1);
   let mut i = s.sub_loop_counter;
   let num_symbols = s.symbol;
-  for symbols_lists_item in fast_mut!(s.symbols_lists_array,[s.sub_loop_counter as usize;
+  for symbols_lists_item in fast_mut!((s.symbols_lists_array)[s.sub_loop_counter as usize;
                                                   num_symbols as usize + 1]).iter_mut() {
     let mut v : u32 = 0;
     if !bit_reader::BrotliSafeReadBits(&mut s.br, max_bits, &mut v, input) {
@@ -470,8 +470,8 @@ fn ReadSimpleHuffmanSymbols<'a,
     i += 1;
   }
   i = 0;
-  for symbols_list_item in fast!(s.symbols_lists_array,[0; num_symbols as usize]).iter() {
-    for other_item in fast!(s.symbols_lists_array,[i as usize + 1 ; num_symbols as usize+ 1]).iter() {
+  for symbols_list_item in fast!((s.symbols_lists_array)[0; num_symbols as usize]).iter() {
+    for other_item in fast!((s.symbols_lists_array)[i as usize + 1 ; num_symbols as usize+ 1]).iter() {
       if (*symbols_list_item == *other_item) {
         return BROTLI_FAILURE();
       }
@@ -502,11 +502,11 @@ fn ProcessSingleCodeLength(code_len: u32,
   if (code_len != 0) {
     // code_len == 1..15
     // next_symbol may be negative, hence we have to supply offset to function
-    fast_mut!(symbol_lists,[(symbol_list_index_offset as i32 + fast!(next_symbol,[code_len as usize])) as usize]) = (*symbol) as u16;
-    fast_mut!(next_symbol,[code_len as usize]) = (*symbol) as i32;
+    fast_mut!((symbol_lists)[(symbol_list_index_offset as i32 + fast!((next_symbol)[code_len as usize])) as usize]) = (*symbol) as u16;
+    fast_mut!((next_symbol)[code_len as usize]) = (*symbol) as i32;
     *prev_code_len = code_len;
     *space -= 32768 >> code_len;
-    fast_mut!(code_length_histo,[code_len as usize]) += 1;
+    fast_mut!((code_length_histo)[code_len as usize]) += 1;
     BROTLI_LOG!("[ReadHuffmanCode] code_length[{:}]={:} histo[]={:}\n", *symbol, code_len, code_length_histo[code_len as usize]);
   }
   (*symbol) += 1;
@@ -559,19 +559,19 @@ fn ProcessRepeatedCodeLength(code_len: u32,
               *symbol, *symbol + repeat_delta - 1, *repeat_code_len);
   if (*repeat_code_len != 0) {
     let last : u32 = *symbol + repeat_delta;
-    let mut next : i32 = fast!(next_symbol,[*repeat_code_len as usize]);
+    let mut next : i32 = fast!((next_symbol)[*repeat_code_len as usize]);
     loop {
-      fast_mut!(symbol_lists,[(symbol_lists_index as i32 + next) as usize]) = (*symbol) as u16;
+      fast_mut!((symbol_lists)[(symbol_lists_index as i32 + next) as usize]) = (*symbol) as u16;
       next = (*symbol) as i32;
       (*symbol) += 1;
       if *symbol == last {
         break;
       }
     }
-    fast_mut!(next_symbol,[*repeat_code_len as usize]) = next;
+    fast_mut!((next_symbol)[*repeat_code_len as usize]) = next;
     *space -= repeat_delta << (15 - *repeat_code_len);
-    fast_mut!(code_length_histo,[*repeat_code_len as usize]) =
-        (fast!(code_length_histo,[*repeat_code_len as usize]) as u32 + repeat_delta) as u16;
+    fast_mut!((code_length_histo)[*repeat_code_len as usize]) =
+        (fast!((code_length_histo)[*repeat_code_len as usize]) as u32 + repeat_delta) as u16;
   } else {
     *symbol += repeat_delta;
   }
@@ -609,7 +609,7 @@ fn ReadSymbolCodeLengths<'a,
     bit_reader::BrotliFillBitWindow16(&mut s.br, input);
     p_index += bit_reader::BrotliGetBitsUnmasked(& s.br) &
         bit_reader::BitMask(huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as u32) as u64;
-    let p = fast!(s.table,[p_index as usize]);
+    let p = fast!((s.table)[p_index as usize]);
     bit_reader::BrotliDropBits(&mut s.br, p.bits as u32); /* Use 1..5 bits */
     code_len = p.value as u32; /* code_len == 0..17 */
     if (code_len < kCodeLengthRepeatCode) {
@@ -662,7 +662,7 @@ fn SafeReadSymbolCodeLengths<'a,
       bits = bit_reader::BrotliGetBitsUnmasked(&s.br) as u32;
     }
     p_index += bits & bit_reader::BitMask(huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as u32);
-    let p = fast!(s.table,[p_index as usize]);
+    let p = fast!((s.table)[p_index as usize]);
     if (p.bits as u32> available_bits) {
       // pullMoreInput;
       if (!bit_reader::BrotliPullByte(&mut s.br, input)) {
@@ -724,7 +724,7 @@ fn ReadCodeLengthCodeLengths<'a,
   let mut num_codes: u32 = s.repeat;
   let mut space: u32 = s.space;
   let mut i = s.sub_loop_counter;
-  for code_length_code_order in fast!(kCodeLengthCodeOrder,[s.sub_loop_counter as usize; CODE_LENGTH_CODES as usize]).iter() {
+  for code_length_code_order in fast!((kCodeLengthCodeOrder)[s.sub_loop_counter as usize; CODE_LENGTH_CODES as usize]).iter() {
     let code_len_idx = *code_length_code_order;
     let mut ix: u32 = 0;
 
@@ -736,7 +736,7 @@ fn ReadCodeLengthCodeLengths<'a,
       } else {
         ix = 0;
       }
-      if (fast!(kCodeLengthPrefixLength,[ix as usize]) as u32 > available_bits) {
+      if (fast!((kCodeLengthPrefixLength)[ix as usize]) as u32 > available_bits) {
         s.sub_loop_counter = i;
         s.repeat = num_codes;
         s.space = space;
@@ -745,14 +745,14 @@ fn ReadCodeLengthCodeLengths<'a,
       }
     }
     BROTLI_LOG_UINT!(ix);
-    let v : u32 = fast!(kCodeLengthPrefixValue,[ix as usize]) as u32;
-    bit_reader::BrotliDropBits(&mut s.br, fast!(kCodeLengthPrefixLength,[ix as usize]) as u32);
-    fast_mut!(s.code_length_code_lengths,[code_len_idx as usize]) = v as u8;
+    let v : u32 = fast!((kCodeLengthPrefixValue)[ix as usize]) as u32;
+    bit_reader::BrotliDropBits(&mut s.br, fast!((kCodeLengthPrefixLength)[ix as usize]) as u32);
+    fast_mut!((s.code_length_code_lengths)[code_len_idx as usize]) = v as u8;
     BROTLI_LOG_ARRAY_INDEX!(s.code_length_code_lengths, code_len_idx);
     if v != 0 {
       space = space - (32 >> v);
       num_codes += 1;
-      fast_mut!(s.code_length_histo,[v as usize]) += 1;
+      fast_mut!((s.code_length_histo)[v as usize]) += 1;
       if space.wrapping_sub(1) >= 32 {
         // space is 0 or wrapped around
         break;
@@ -807,7 +807,7 @@ fn ReadHuffmanCode<'a,
         if (s.sub_loop_counter != 1) {
           s.space = 32;
           s.repeat = 0; /* num_codes */
-          for code_length_histo in fast_mut!(s.code_length_histo,[0;huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize + 1]).iter_mut() {
+          for code_length_histo in fast_mut!((s.code_length_histo)[0;huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize + 1]).iter_mut() {
             *code_length_histo = 0; // memset
           }
           for code_length_code_length in s.code_length_code_lengths[..].iter_mut() {
@@ -879,9 +879,9 @@ fn ReadHuffmanCode<'a,
         }
 
         let mut i : u32 = 0;
-        for next_symbol_mut in fast_mut!(s.next_symbol,[0;huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as usize + 1]).iter_mut() {
+        for next_symbol_mut in fast_mut!((s.next_symbol)[0;huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as usize + 1]).iter_mut() {
           *next_symbol_mut = i as i32 - (huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1);
-          fast_mut!(s.symbols_lists_array,[(s.symbol_lists_index as i32
+          fast_mut!((s.symbols_lists_array)[(s.symbol_lists_index as i32
                                  + i as i32
                                  - (huffman::BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1)) as usize]) = 0xFFFF;
           i += 1;
@@ -913,7 +913,7 @@ fn ReadHuffmanCode<'a,
           BROTLI_LOG!("[ReadHuffmanCode] space = %d\n", s.space);
           return BROTLI_FAILURE();
         }
-        table_size = huffman::BrotliBuildHuffmanTable(fast_mut!(table,[offset;]), HUFFMAN_TABLE_BITS as i32,
+        table_size = huffman::BrotliBuildHuffmanTable(fast_mut!((table)[offset;]), HUFFMAN_TABLE_BITS as i32,
             &s.symbols_lists_array[..], s.symbol_lists_index, &mut s.code_length_histo);
         match opt_table_size {
           Some(opt_table_size_ref) => *opt_table_size_ref = table_size,
@@ -934,8 +934,8 @@ fn ReadBlockLength(table: &[HuffmanCode],
   let code: u32;
   let nbits: u32;
   code = ReadSymbol(table, br, input);
-  nbits = fast!(prefix::kBlockLengthPrefixCode,[code as usize]).nbits as u32; /* nbits == 2..24 */
-  return fast!(prefix::kBlockLengthPrefixCode,[code as usize]).offset as u32
+  nbits = fast!((prefix::kBlockLengthPrefixCode)[code as usize]).nbits as u32; /* nbits == 2..24 */
+  return fast!((prefix::kBlockLengthPrefixCode)[code as usize]).offset as u32
       + bit_reader::BrotliReadBits(br, nbits, input);
 }
 
@@ -970,14 +970,14 @@ fn SafeReadBlockLengthFromIndex<
         return false;
     }
     let mut bits : u32 = 0;
-    let nbits = fast!(prefix::kBlockLengthPrefixCode,[index as usize]).nbits; /* nbits == 2..24 */
+    let nbits = fast!((prefix::kBlockLengthPrefixCode)[index as usize]).nbits; /* nbits == 2..24 */
     if (!bit_reader::BrotliSafeReadBits(br, nbits as u32, &mut bits, input)) {
       s.block_length_index = index;
       s.substate_read_block_length
           = state::BrotliRunningReadBlockLengthState::BROTLI_STATE_READ_BLOCK_LENGTH_SUFFIX;
       return false;
     }
-    *result = fast!(prefix::kBlockLengthPrefixCode,[index as usize]).offset as u32 + bits;
+    *result = fast!((prefix::kBlockLengthPrefixCode)[index as usize]).offset as u32 + bits;
     s.substate_read_block_length
         = state::BrotliRunningReadBlockLengthState::BROTLI_STATE_READ_BLOCK_LENGTH_NONE;
     return true;
@@ -1011,30 +1011,30 @@ fn InverseMoveToFrontTransform(v : &mut [u8], v_len : u32, mtf : &mut [u8], mtf_
   /* Reinitialize elements that could have been changed. */
   let mut i : u32 = 0;
   let mut upper_bound : u32 = *mtf_upper_bound;
-  for item in fast_mut!(mtf,[0;(upper_bound as usize + 1usize)]).iter_mut() {
+  for item in fast_mut!((mtf)[0;(upper_bound as usize + 1usize)]).iter_mut() {
       *item = i as u8;
       i += 1;
   }
 
   // Transform the input.
   upper_bound = 0;
-  for v_i in fast_mut!(v,[0usize ; (v_len as usize)]).iter_mut() {
+  for v_i in fast_mut!((v)[0usize ; (v_len as usize)]).iter_mut() {
     let mut index = (*v_i) as i32;
-    let value = fast!(mtf,[index as usize]);
+    let value = fast!((mtf)[index as usize]);
     upper_bound |= (*v_i) as u32;
     *v_i = value;
     if index <= 0 {
-      fast_mut!(mtf,[0]) = 0;
+      fast_mut!((mtf)[0]) = 0;
     } else {
       loop {
         index-=1;
-        fast_mut!(mtf,[(index + 1) as usize]) = fast!(mtf,[index as usize]);
+        fast_mut!((mtf)[(index + 1) as usize]) = fast!((mtf)[index as usize]);
         if index <= 0 {
           break;
         }
       }
     }
-    fast_mut!(mtf,[0]) = value;
+    fast_mut!((mtf)[0]) = value;
   }
   // Remember amount of elements to be reinitialized.
   *mtf_upper_bound = upper_bound;
@@ -1084,7 +1084,7 @@ fn HuffmanTreeGroupDecode<'a,
     BrotliRunningTreeGroupState::BROTLI_STATE_TREE_GROUP_LOOP => {}
   }
   let mut result : BrotliResult = BrotliResult::ResultSuccess;
-  for mut htree_iter in fast_mut!(htrees.slice_mut(),[s.htree_index as usize ; (group_num_htrees as usize)]).iter_mut() {
+  for mut htree_iter in fast_mut!((htrees.slice_mut())[s.htree_index as usize ; (group_num_htrees as usize)]).iter_mut() {
     let mut table_size : u32 = 0;
     result = ReadHuffmanCode(alphabet_size as u32,
                              hcodes.slice_mut(),
@@ -1237,13 +1237,13 @@ fn DecodeContextMapInner<'a,
             BROTLI_LOG_UINT!(code);
 
             if code == 0 {
-              fast_mut!(context_map,[context_index as usize]) = 0;
+              fast_mut!((context_map)[context_index as usize]) = 0;
               BROTLI_LOG_ARRAY_INDEX!(context_map, context_index as usize);
               context_index += 1;
               continue;
             }
             if code > max_run_length_prefix {
-              fast_mut!(context_map,[context_index as usize]) =
+              fast_mut!((context_map)[context_index as usize]) =
                   (code - max_run_length_prefix) as u8;
               BROTLI_LOG_ARRAY_INDEX!(context_map, context_index as usize);
               context_index += 1;
@@ -1265,7 +1265,7 @@ fn DecodeContextMapInner<'a,
               return BROTLI_FAILURE();
             }
             loop {
-              fast_mut!(context_map,[context_index as usize]) = 0;
+              fast_mut!((context_map)[context_index as usize]) = 0;
               BROTLI_LOG_ARRAY_INDEX!(context_map, context_index as usize);
               context_index += 1;
               reps -= 1;
@@ -1347,27 +1347,27 @@ fn DecodeBlockTypeAndLength<
                                             mut br : &mut bit_reader::BrotliBitReader,
                                             tree_type : i32,
                                             input : &[u8]) -> bool {
-  let max_block_type = fast!(s.num_block_types,[tree_type as usize]);
+  let max_block_type = fast!((s.num_block_types)[tree_type as usize]);
   let tree_offset = tree_type as usize * huffman::BROTLI_HUFFMAN_MAX_TABLE_SIZE as usize;
 
   let mut block_type: u32 = 0;
 
   // Read 0..15 + 3..39 bits
   if (!safe) {
-    block_type = ReadSymbol(fast!(s.block_type_trees.slice(),[tree_offset;]), br, input);
-    fast_mut!(s.block_length,[tree_type as usize]) = ReadBlockLength(fast!(s.block_len_trees.slice(),[tree_offset;]),
+    block_type = ReadSymbol(fast!((s.block_type_trees.slice())[tree_offset;]), br, input);
+    fast_mut!((s.block_length)[tree_type as usize]) = ReadBlockLength(fast!((s.block_len_trees.slice())[tree_offset;]),
                                                          br,
                                                          input);
   } else {
     let memento = bit_reader::BrotliBitReaderSaveState(br);
-    if (!SafeReadSymbol(fast!(s.block_type_trees.slice(),[tree_offset;]), br, &mut block_type, input)) {
+    if (!SafeReadSymbol(fast!((s.block_type_trees.slice())[tree_offset;]), br, &mut block_type, input)) {
         return false;
     }
     let mut block_length_out: u32 = 0;
 
     let index_ret = SafeReadBlockLengthIndex(&s.substate_read_block_length,
                                               s.block_length_index,
-                                              fast!(s.block_len_trees.slice(),[tree_offset;]),
+                                              fast!((s.block_len_trees.slice())[tree_offset;]),
                                               br,
                                               input);
     if !SafeReadBlockLengthFromIndex(s,
@@ -1378,21 +1378,21 @@ fn DecodeBlockTypeAndLength<
       bit_reader::BrotliBitReaderRestoreState(br, &memento);
       return false;
     }
-    fast_mut!(s.block_length,[tree_type as usize]) = block_length_out;
+    fast_mut!((s.block_length)[tree_type as usize]) = block_length_out;
   }
-  let ringbuffer : &mut [u32]= &mut fast_mut!(s.block_type_rb,[tree_type as usize * 2;]);
+  let ringbuffer : &mut [u32]= &mut fast_mut!((s.block_type_rb)[tree_type as usize * 2;]);
   if (block_type == 1) {
-    block_type = fast!(ringbuffer,[1]) + 1;
+    block_type = fast!((ringbuffer)[1]) + 1;
   } else if (block_type == 0) {
-    block_type = fast!(ringbuffer,[0]);
+    block_type = fast!((ringbuffer)[0]);
   } else {
     block_type -= 2;
   }
   if (block_type >= max_block_type) {
     block_type -= max_block_type;
   }
-  fast_mut!(ringbuffer,[0]) = fast!(ringbuffer,[1]);
-  fast_mut!(ringbuffer,[1]) = block_type;
+  fast_mut!((ringbuffer)[0]) = fast!((ringbuffer)[1]);
+  fast_mut!((ringbuffer)[1]) = block_type;
   return true;
 
 }
@@ -1413,13 +1413,13 @@ fn DecodeLiteralBlockSwitchInternal<
   if !DecodeBlockTypeAndLength(safe, &mut s.block_type_length_state, &mut s.br, 0, input) {
     return false;
   }
-  context_offset = fast!(s.block_type_length_state.block_type_rb,[1]) << kLiteralContextBits;
+  context_offset = fast!((s.block_type_length_state.block_type_rb)[1]) << kLiteralContextBits;
   s.context_map_slice_index = context_offset as usize;
-  s.literal_htree_index = fast!(s.context_map.slice(),[s.context_map_slice_index]);
-  // s.literal_htree = fast!(s.literal_hgroup.htrees,[s.literal_htree_index]); // redundant
-  context_mode = fast!(s.context_modes.slice(),[fast!(s.block_type_length_state.block_type_rb,[1]) as usize]);
-  s.context_lookup1 = fast!(kContextLookup,[fast!(kContextLookupOffsets,[context_mode as usize]) as usize ;]);
-  s.context_lookup2 = fast!(kContextLookup,[fast!(kContextLookupOffsets,[context_mode as usize + 1]) as usize;]);
+  s.literal_htree_index = fast!((s.context_map.slice())[s.context_map_slice_index]);
+  // s.literal_htree = fast!((s.literal_hgroup.htrees)[s.literal_htree_index]); // redundant
+  context_mode = fast!((s.context_modes.slice())[fast!((s.block_type_length_state.block_type_rb)[1]) as usize]);
+  s.context_lookup1 = fast!((kContextLookup)[fast!((kContextLookupOffsets)[context_mode as usize]) as usize ;]);
+  s.context_lookup2 = fast!((kContextLookup)[fast!((kContextLookupOffsets)[context_mode as usize + 1]) as usize;]);
   return true;
 }
 // fn DecodeLiteralBlockSwitch<
@@ -1453,7 +1453,7 @@ fn DecodeCommandBlockSwitchInternal<'a,
   if (!DecodeBlockTypeAndLength(safe, &mut s.block_type_length_state, &mut s.br, 1, input)) {
     return false;
   }
-  s.htree_command_index = fast!(s.block_type_length_state.block_type_rb,[3]) as u16;
+  s.htree_command_index = fast!((s.block_type_length_state.block_type_rb)[3]) as u16;
   return true;
 }
 
@@ -1490,8 +1490,8 @@ fn DecodeDistanceBlockSwitchInternal<'a,
   if (!DecodeBlockTypeAndLength(safe, &mut s.block_type_length_state, &mut s.br, 2, input)) {
     return false;
   }
-  s.dist_context_map_slice_index = (fast!(s.block_type_length_state.block_type_rb,[5]) << kDistanceContextBits) as usize;
-  s.dist_htree_index = fast!(s.dist_context_map.slice(),[s.dist_context_map_slice_index
+  s.dist_context_map_slice_index = (fast!((s.block_type_length_state.block_type_rb)[5]) << kDistanceContextBits) as usize;
+  s.dist_htree_index = fast!((s.dist_context_map.slice())[s.dist_context_map_slice_index
                                                   + s.distance_context as usize]);
   return true;
 }
@@ -1543,8 +1543,8 @@ fn WriteRingBuffer<'a,
     return BROTLI_FAILURE();
   }
   let start_index = (s.partial_pos_out & s.ringbuffer_mask as usize) as usize;
-  let start = fast!(s.ringbuffer.slice(),[start_index ; start_index + num_written as usize]);
-  fast_mut!(output,[*output_offset ; *output_offset + num_written as usize]).clone_from_slice(start);
+  let start = fast!((s.ringbuffer.slice())[start_index ; start_index + num_written as usize]);
+  fast_mut!((output)[*output_offset ; *output_offset + num_written as usize]).clone_from_slice(start);
   *output_offset += num_written;
   *available_out -= num_written;
   BROTLI_LOG_UINT!(to_write);
@@ -1580,7 +1580,7 @@ fn CopyUncompressedBlockToOutput<'a,
           nbytes = s.ringbuffer_size - s.pos;
         }
         /* Copy remaining bytes from s.br.buf_ to ringbuffer. */
-        bit_reader::BrotliCopyBytes(fast_mut!(s.ringbuffer.slice_mut(),[s.pos as usize;]),
+        bit_reader::BrotliCopyBytes(fast_mut!((s.ringbuffer.slice_mut())[s.pos as usize;]),
                                     &mut s.br,
                                     nbytes as u32,
                                     input);
@@ -1661,12 +1661,12 @@ fn BrotliAllocateRingBuffer<'a,
   if (s.ringbuffer.slice().len() == 0) {
     return false;
   }
-  fast_mut!(s.ringbuffer.slice_mut(),[s.ringbuffer_size as usize - 1]) = 0;
-  fast_mut!(s.ringbuffer.slice_mut(),[s.ringbuffer_size as usize - 2]) = 0;
+  fast_mut!((s.ringbuffer.slice_mut())[s.ringbuffer_size as usize - 1]) = 0;
+  fast_mut!((s.ringbuffer.slice_mut())[s.ringbuffer_size as usize - 2]) = 0;
   if (s.custom_dict.slice().len() > 0) {
     let offset = ((-s.custom_dict_size) & s.ringbuffer_mask) as usize;
     let cds = s.custom_dict_size as usize;
-    fast_mut!(s.ringbuffer.slice_mut(),[offset ; offset + cds]).clone_from_slice(fast!(s.custom_dict.slice(),[0;cds]));
+    fast_mut!((s.ringbuffer.slice_mut())[offset ; offset + cds]).clone_from_slice(fast!((s.custom_dict.slice())[0;cds]));
   }
 
   return true;
@@ -1681,7 +1681,7 @@ pub fn ReadContextModes<'a, AllocU8 : alloc::Allocator<u8>,
 
   let mut i : i32 = s.loop_counter;
 
-  for context_mode_iter in fast_mut!(s.context_modes.slice_mut(),[i as usize ;
+  for context_mode_iter in fast_mut!((s.context_modes.slice_mut())[i as usize ;
                                                        (s.block_type_length_state.num_block_types[0]
                                                         as usize)]).iter_mut() {
     let mut bits : u32 = 0;
@@ -1705,7 +1705,7 @@ pub fn TakeDistanceFromRingBuffer<'a,
   (s: &mut BrotliState<AllocU8, AllocU32, AllocHC>) {
   if (s.distance_code == 0) {
     s.dist_rb_idx -= 1;
-    s.distance_code = fast!(s.dist_rb,[(s.dist_rb_idx & 3) as usize]);
+    s.distance_code = fast!((s.dist_rb)[(s.dist_rb_idx & 3) as usize]);
   } else {
     let distance_code = s.distance_code << 1;
     // kDistanceShortCodeIndexOffset has 2-bit values from LSB:
@@ -1716,7 +1716,7 @@ pub fn TakeDistanceFromRingBuffer<'a,
     const kDistanceShortCodeValueOffset: u32 = 0xfa5fa500;
     let mut v = (s.dist_rb_idx as i32 +
         (kDistanceShortCodeIndexOffset as i32 >> distance_code as i32)) as i32 & 0x3;
-    s.distance_code = fast!(s.dist_rb,[v as usize]);
+    s.distance_code = fast!((s.dist_rb)[v as usize]);
     v = (kDistanceShortCodeValueOffset >> distance_code) as i32 & 0x3;
     if ((distance_code & 0x3) != 0) {
       s.distance_code += v;
@@ -1758,13 +1758,13 @@ pub fn ReadDistanceInternal<'a,
   let mut memento = bit_reader::BrotliBitReaderState::default();
   if (!safe) {
     s.distance_code
-        = ReadSymbol(fast!(distance_hgroup,[s.dist_htree_index as usize]),
+        = ReadSymbol(fast!((distance_hgroup)[s.dist_htree_index as usize]),
                      &mut s.br,
                      input) as i32;
   } else {
     let mut code: u32 = 0;
     memento = bit_reader::BrotliBitReaderSaveState(&s.br);
-    if !SafeReadSymbol(fast!(distance_hgroup,[s.dist_htree_index as usize]), &mut s.br, &mut code, input) {
+    if !SafeReadSymbol(fast!((distance_hgroup)[s.dist_htree_index as usize]), &mut s.br, &mut code, input) {
       return false;
     }
     s.distance_code = code as i32;
@@ -1773,7 +1773,7 @@ pub fn ReadDistanceInternal<'a,
   // looking up past distances from the s.ringbuffer.
   if ((s.distance_code as u64 & 0xfffffffffffffff0) == 0) {
     TakeDistanceFromRingBuffer(s);
-    fast_mut!(s.block_type_length_state.block_length,[2]) -= 1;
+    fast_mut!((s.block_type_length_state.block_length)[2]) -= 1;
     return true;
   }
   distval = s.distance_code - s.num_direct_distance_codes as i32;
@@ -1808,7 +1808,7 @@ pub fn ReadDistanceInternal<'a,
     }
   }
   s.distance_code = s.distance_code - NUM_DISTANCE_SHORT_CODES as i32 + 1;
-  fast_mut!(s.block_type_length_state.block_length,[2]) -= 1;
+  fast_mut!((s.block_type_length_state.block_length)[2]) -= 1;
   return true;
 }
 
@@ -1829,19 +1829,19 @@ pub fn ReadCommandInternal<'a,
   let v: prefix::CmdLutElement;
   let mut memento = bit_reader::BrotliBitReaderState::default();
   if (!safe) {
-    cmd_code = ReadSymbol(fast!(insert_copy_hgroup,[s.htree_command_index as usize]), &mut s.br, input);
+    cmd_code = ReadSymbol(fast!((insert_copy_hgroup)[s.htree_command_index as usize]), &mut s.br, input);
   } else {
     memento = bit_reader::BrotliBitReaderSaveState(&s.br);
     if (!SafeReadSymbol(
-         fast!(insert_copy_hgroup,[s.htree_command_index as usize]),
+         fast!((insert_copy_hgroup)[s.htree_command_index as usize]),
          &mut s.br, &mut cmd_code, input)) {
       return false;
     }
   }
-  v = fast!(prefix::kCmdLut,[cmd_code as usize]);
+  v = fast!((prefix::kCmdLut)[cmd_code as usize]);
   s.distance_code = v.distance_code as i32;
   s.distance_context = v.context as i32;
-  s.dist_htree_index = fast!(s.dist_context_map.slice(),[s.dist_context_map_slice_index
+  s.dist_htree_index = fast!((s.dist_context_map.slice())[s.dist_context_map_slice_index
                                                   + s.distance_context as usize]);
   *insert_length = v.insert_len_offset as i32;
   if (!safe) {
@@ -1865,7 +1865,7 @@ pub fn ReadCommandInternal<'a,
     }
   }
   s.copy_length = copy_length as i32 + v.copy_len_offset as i32;
-  fast_mut!(s.block_type_length_state.block_length,[1]) -= 1;
+  fast_mut!((s.block_type_length_state.block_length)[1]) -= 1;
   *insert_length += insert_len_extra as i32;
   return true;
 }
@@ -1910,8 +1910,8 @@ fn memmove16(data : &mut [u8], u32off_dst : u32, u32off_src :u32) {
     data[off_dst + 1] = data[off_src + 1];
 */
     let mut local_array : [u8; 16] = fast_uninitialized!(16);
-    local_array.clone_from_slice(fast!(data,[off_src as usize ; off_src as usize + 16]));
-    fast_mut!(data,[off_dst as usize ; off_dst as usize + 16]).clone_from_slice(&mut local_array);
+    local_array.clone_from_slice(fast!((data)[off_src as usize ; off_src as usize + 16]));
+    fast_mut!((data)[off_dst as usize ; off_dst as usize + 16]).clone_from_slice(&mut local_array);
 
 
 }
@@ -1924,10 +1924,10 @@ fn memcpy_within_slice(data : &mut [u8],
                        size : usize) {
   if off_dst > off_src {
      let (src, dst) = data.split_at_mut(off_dst);
-     fast_mut!(dst,[0;size]).clone_from_slice(fast!(src,[off_src ; off_src + size]));
+     fast_mut!((dst)[0;size]).clone_from_slice(fast!((src)[off_src ; off_src + size]));
   } else {
      let (dst, src) = data.split_at_mut(off_src);
-     fast_mut!(dst,[off_dst;off_dst + size]).clone_from_slice(fast!(src,[0;size]));
+     fast_mut!((dst)[off_dst;off_dst + size]).clone_from_slice(fast!((src)[0;size]));
   }
 }
 
@@ -1969,7 +1969,7 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
             result = BrotliResult::NeedsMoreInput;
             break; // return
           }
-          if (fast_mut!(s.block_type_length_state.block_length,[1]) == 0) {
+          if (fast_mut!((s.block_type_length_state.block_length)[1]) == 0) {
             mark_unlikely();
             if !DecodeCommandBlockSwitchInternal(safe, s, input) {
               result = BrotliResult::NeedsMoreInput;
@@ -1997,7 +1997,7 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
           if (s.trivial_literal_context != 0) {
             let mut bits : u32 = 0;
             let mut value : u32 = 0;
-            let mut literal_htree = &fast!(literal_hgroup,[s.literal_htree_index as usize]);
+            let mut literal_htree = &fast!((literal_hgroup)[s.literal_htree_index as usize]);
             PreloadSymbol(safe, literal_htree, &mut s.br, &mut bits, &mut value, input);
             let mut inner_return: bool = false;
             loop {
@@ -2007,18 +2007,18 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                 inner_return = true;
                 break;
               }
-              if (fast!(s.block_type_length_state.block_length,[0]) == 0) {
+              if (fast!((s.block_type_length_state.block_length)[0]) == 0) {
                 mark_unlikely();
                 if (!DecodeLiteralBlockSwitchInternal(safe, s, input)) && safe {
                   result = BrotliResult::NeedsMoreInput;
                   inner_return = true;
                   break;
                 }
-                literal_htree = &fast!(literal_hgroup,[s.literal_htree_index as usize]);
+                literal_htree = &fast!((literal_hgroup)[s.literal_htree_index as usize]);
                 PreloadSymbol(safe, literal_htree, &mut s.br, &mut bits, &mut value, input);
               }
               if (!safe) {
-                fast_mut!(s.ringbuffer.slice_mut(),[pos as usize]) = ReadPreloadedSymbol(
+                fast_mut!((s.ringbuffer.slice_mut())[pos as usize]) = ReadPreloadedSymbol(
                     literal_htree, &mut s.br, &mut bits, &mut value, input) as u8;
               } else {
                 let mut literal: u32 = 0;
@@ -2027,9 +2027,9 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                   inner_return = true;
                   break;
                 }
-                fast_mut!(s.ringbuffer.slice_mut(),[pos as usize]) = literal as u8;
+                fast_mut!((s.ringbuffer.slice_mut())[pos as usize]) = literal as u8;
               }
-              fast_mut!(s.block_type_length_state.block_length,[0]) -= 1;
+              fast_mut!((s.block_type_length_state.block_length)[0]) -= 1;
               BROTLI_LOG_UINT!(s.literal_htree_index);
               BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos);
               pos += 1;
@@ -2049,8 +2049,8 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
               break; // return
             }
           } else {
-            let mut p1 = fast!(s.ringbuffer.slice(),[((pos - 1) & s.ringbuffer_mask) as usize]);
-            let mut p2 = fast!(s.ringbuffer.slice(),[((pos - 2) & s.ringbuffer_mask) as usize]);
+            let mut p1 = fast!((s.ringbuffer.slice())[((pos - 1) & s.ringbuffer_mask) as usize]);
+            let mut p2 = fast!((s.ringbuffer.slice())[((pos - 2) & s.ringbuffer_mask) as usize]);
             let mut inner_return : bool = false;
             loop {
               if (!CheckInputAmount(safe, &s.br, 28)) {
@@ -2060,7 +2060,7 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                 inner_return = true;
                 break;
               }
-              if (fast!(s.block_type_length_state.block_length,[0]) == 0) {
+              if (fast!((s.block_type_length_state.block_length)[0]) == 0) {
                 mark_unlikely();
                 if (!DecodeLiteralBlockSwitchInternal(safe, s, input)) && safe {
                   result = BrotliResult::NeedsMoreInput;
@@ -2068,9 +2068,9 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                   break;
                 }
               }
-              let context = fast!(s.context_lookup1,[p1 as usize]) | fast!(s.context_lookup2,[p2 as usize]);
+              let context = fast!((s.context_lookup1)[p1 as usize]) | fast!((s.context_lookup2)[p2 as usize]);
               BROTLI_LOG_UINT!(context);
-              let hc = &fast!(literal_hgroup,[fast!(s.context_map.slice(),[s.context_map_slice_index + context as usize])as usize]);
+              let hc = &fast!((literal_hgroup)[fast!((s.context_map.slice())[s.context_map_slice_index + context as usize])as usize]);
               p2 = p1;
               if (!safe) {
                 p1 = ReadSymbol(hc, &mut s.br, input) as u8;
@@ -2083,8 +2083,8 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                 }
                 p1 = literal as u8;
               }
-              fast_mut!(s.ringbuffer.slice_mut(),[pos as usize]) = p1;
-              fast_mut!(s.block_type_length_state.block_length,[0]) -= 1;
+              fast_mut!((s.ringbuffer.slice_mut())[pos as usize]) = p1;
+              fast_mut!((s.block_type_length_state.block_length)[0]) -= 1;
               BROTLI_LOG_UINT!(s.context_map.slice()[s.context_map_slice_index as usize + context as usize]);
               BROTLI_LOG_ARRAY_INDEX!(s.ringbuffer.slice(), pos & s.ringbuffer_mask);
               pos += 1;
@@ -2113,10 +2113,10 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
         BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS => {
           if s.distance_code >= 0 {
              s.dist_rb_idx -= 1;
-             s.distance_code = fast!(s.dist_rb,[(s.dist_rb_idx & 3) as usize]);
+             s.distance_code = fast!((s.dist_rb)[(s.dist_rb_idx & 3) as usize]);
              // goto postReadDistance
           } else {
-            if fast!(s.block_type_length_state.block_length,[2]) == 0 {
+            if fast!((s.block_type_length_state.block_length)[2]) == 0 {
               mark_unlikely();
               if (!DecodeDistanceBlockSwitchInternal(safe, s, input)) && safe {
                 result = BrotliResult::NeedsMoreInput;
@@ -2145,22 +2145,22 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
           if (s.distance_code > s.max_distance) {
             if (i >= kBrotliMinDictionaryWordLength as i32 &&
                 i <= kBrotliMaxDictionaryWordLength as i32) {
-              let mut offset = fast!(kBrotliDictionaryOffsetsByLength,[i as usize]) as i32;
+              let mut offset = fast!((kBrotliDictionaryOffsetsByLength)[i as usize]) as i32;
               let word_id = s.distance_code - s.max_distance - 1;
-              let shift = fast!(kBrotliDictionarySizeBitsByLength,[i as usize]);
+              let shift = fast!((kBrotliDictionarySizeBitsByLength)[i as usize]);
               let mask = bit_reader::BitMask(shift as u32) as i32;
               let word_idx = word_id & mask;
               let transform_idx = word_id >> shift;
               offset += word_idx * i;
               if (transform_idx < kNumTransforms) {
                 let mut len = i;
-                let word = fast!(kBrotliDictionary,[offset as usize ; (offset + len) as usize]);
+                let word = fast!((kBrotliDictionary)[offset as usize ; (offset + len) as usize]);
                 if (transform_idx == 0) {
-                  fast_mut!(s.ringbuffer.slice_mut(),[pos as usize ; ((pos + len) as usize)]).clone_from_slice(
+                  fast_mut!((s.ringbuffer.slice_mut())[pos as usize ; ((pos + len) as usize)]).clone_from_slice(
                       word);
                 } else {
                   len = TransformDictionaryWord(
-                      fast_mut!(s.ringbuffer.slice_mut(),[pos as usize;]), word, len, transform_idx);
+                      fast_mut!((s.ringbuffer.slice_mut())[pos as usize;]), word, len, transform_idx);
                 }
                 pos += len;
                 s.meta_block_remaining_len -= len;
@@ -2186,7 +2186,7 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
             }
           } else {
             /* update the recent distances cache */
-            fast_mut!(s.dist_rb,[(s.dist_rb_idx & 3) as usize]) = s.distance_code;
+            fast_mut!((s.dist_rb)[(s.dist_rb_idx & 3) as usize]) = s.distance_code;
             s.dist_rb_idx += 1;
             s.meta_block_remaining_len -= i;
             if (s.meta_block_remaining_len < 0) {
@@ -2245,8 +2245,8 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
           let mut inner_return: bool = false;
           while i > 0 {
             i -= 1;
-            fast_mut!(s.ringbuffer.slice_mut(),[pos as usize]) =
-                fast!(s.ringbuffer.slice(),[((pos - s.distance_code) & s.ringbuffer_mask) as usize]);
+            fast_mut!((s.ringbuffer.slice_mut())[pos as usize]) =
+                fast!((s.ringbuffer.slice())[((pos - s.distance_code) & s.ringbuffer_mask) as usize]);
             pos += 1;
             wrap_guard -= 1;
             if (wrap_guard == 0) {
@@ -2351,10 +2351,10 @@ pub fn BrotliDecompressStream<'a,
     result = BrotliResult::NeedsMoreInput;
     let copy_len = core::cmp::min(saved_buffer.len() - s.buffer_length as usize, *available_in);
     if copy_len > 0 {
-        fast_mut!(saved_buffer,[s.buffer_length as usize ; (s.buffer_length as usize + copy_len)]).
-            clone_from_slice(fast!(xinput,[*input_offset ; copy_len + *input_offset]));
-        fast_mut!(s.buffer,[s.buffer_length as usize ; (s.buffer_length as usize + copy_len)]).
-            clone_from_slice(fast!(xinput,[*input_offset ; copy_len + *input_offset]));
+        fast_mut!((saved_buffer)[s.buffer_length as usize ; (s.buffer_length as usize + copy_len)]).
+            clone_from_slice(fast!((xinput)[*input_offset ; copy_len + *input_offset]));
+        fast_mut!((s.buffer)[s.buffer_length as usize ; (s.buffer_length as usize + copy_len)]).
+            clone_from_slice(fast!((xinput)[*input_offset ; copy_len + *input_offset]));
     }
     local_input = &saved_buffer[..];
     s.br.next_in = 0;
@@ -2390,11 +2390,11 @@ pub fn BrotliDecompressStream<'a,
                 // Not enough data in buffer, but can take one more byte from
                 // input stream.
                 result = BrotliResult::ResultSuccess;
-                let new_byte = fast!(xinput,[*input_offset]);
-                fast_mut!(s.buffer,[s.buffer_length as usize]) = new_byte;
+                let new_byte = fast!((xinput)[*input_offset]);
+                fast_mut!((s.buffer)[s.buffer_length as usize]) = new_byte;
                 // we did the following copy upfront, so we wouldn't have to do it here
                 // since saved_buffer[s.buffer_length as usize] = new_byte violates borrow rules
-                assert_eq!(fast!(saved_buffer,[s.buffer_length as usize]), new_byte);
+                assert_eq!(fast!((saved_buffer)[s.buffer_length as usize]), new_byte);
                 s.buffer_length += 1;
                 s.br.avail_in = s.buffer_length;
                 (*input_offset) += 1;
@@ -2415,7 +2415,7 @@ pub fn BrotliDecompressStream<'a,
                *input_offset = s.br.next_in as usize;
                *available_in = s.br.avail_in as usize;
                while *available_in != 0 {
-                 fast_mut!(s.buffer,[s.buffer_length as usize]) = fast!(xinput,[*input_offset]);
+                 fast_mut!((s.buffer)[s.buffer_length as usize]) = fast!((xinput)[*input_offset]);
                  s.buffer_length += 1;
                  (*input_offset)+=1;
                  (*available_in)-=1;
@@ -2561,14 +2561,14 @@ pub fn BrotliDecompressStream<'a,
             break;
           }
           // Reads 1..11 bits. 
-          result = DecodeVarLenUint8(&mut s.substate_decode_uint8, &mut s.br, &mut fast_mut!(s.block_type_length_state.num_block_types,[s.loop_counter as usize]), local_input);
+          result = DecodeVarLenUint8(&mut s.substate_decode_uint8, &mut s.br, &mut fast_mut!((s.block_type_length_state.num_block_types)[s.loop_counter as usize]), local_input);
           match result {
             BrotliResult::ResultSuccess => {}
             _ => break,
           }
-          fast_mut!(s.block_type_length_state.num_block_types,[s.loop_counter as usize]) += 1;
+          fast_mut!((s.block_type_length_state.num_block_types)[s.loop_counter as usize]) += 1;
           BROTLI_LOG_UINT!(s.block_type_length_state.num_block_types[s.loop_counter as usize]);
-          if (fast!(s.block_type_length_state.num_block_types,[s.loop_counter as usize]) < 2) {
+          if (fast!((s.block_type_length_state.num_block_types)[s.loop_counter as usize]) < 2) {
             s.loop_counter+=1;
             break;
           }
@@ -2580,7 +2580,7 @@ pub fn BrotliDecompressStream<'a,
           let mut new_huffman_table = mem::replace(&mut s.block_type_length_state.block_type_trees,
                                                    AllocHC::AllocatedMemory::default());
           result
-            = ReadHuffmanCode(fast!(s.block_type_length_state.num_block_types,[s.loop_counter as usize]) +2,
+            = ReadHuffmanCode(fast!((s.block_type_length_state.num_block_types)[s.loop_counter as usize]) +2,
                               new_huffman_table.slice_mut(), tree_offset as usize, None, &mut s, local_input);
           mem::replace(&mut s.block_type_length_state.block_type_trees,
                        new_huffman_table);
@@ -2615,7 +2615,7 @@ pub fn BrotliDecompressStream<'a,
           let mut block_length_out : u32 = 0;
           let index_ret = SafeReadBlockLengthIndex(&s.block_type_length_state.substate_read_block_length,
                                                    s.block_type_length_state.block_length_index,
-                                                   fast!(s.block_type_length_state.block_len_trees.slice(),[tree_offset as usize ;]),
+                                                   fast!((s.block_type_length_state.block_len_trees.slice())[tree_offset as usize ;]),
                                                    &mut s.br, local_input);
 
           if !SafeReadBlockLengthFromIndex(&mut s.block_type_length_state,
@@ -2626,7 +2626,7 @@ pub fn BrotliDecompressStream<'a,
             result = BrotliResult::NeedsMoreInput;
             break;
           }
-          fast_mut!(s.block_type_length_state.block_length,[s.loop_counter as usize]) = block_length_out;
+          fast_mut!((s.block_type_length_state.block_length)[s.loop_counter as usize]) = block_length_out;
           BROTLI_LOG_UINT!(s.block_type_length_state.block_length[s.loop_counter as usize]);
           s.loop_counter += 1;
           s.state = BrotliRunningState::BROTLI_STATE_HUFFMAN_CODE_0;
@@ -2645,7 +2645,7 @@ pub fn BrotliDecompressStream<'a,
           BROTLI_LOG_UINT!(s.num_direct_distance_codes);
           BROTLI_LOG_UINT!(s.distance_postfix_bits);
           s.distance_postfix_mask = bit_reader::BitMask(s.distance_postfix_bits) as i32;
-          s.context_modes = s.alloc_u8.alloc_cell(fast!(s.block_type_length_state.num_block_types,[0]) as usize);
+          s.context_modes = s.alloc_u8.alloc_cell(fast!((s.block_type_length_state.num_block_types)[0]) as usize);
           if (s.context_modes.slice().len() == 0) {
             result = BROTLI_FAILURE();
             break;
@@ -2664,7 +2664,7 @@ pub fn BrotliDecompressStream<'a,
           // No break, continue to next state
         }
         BrotliRunningState::BROTLI_STATE_CONTEXT_MAP_1 => {
-          result = DecodeContextMap((fast!(s.block_type_length_state.num_block_types,[0]) as usize) << kLiteralContextBits as usize,
+          result = DecodeContextMap((fast!((s.block_type_length_state.num_block_types)[0]) as usize) << kLiteralContextBits as usize,
                                     false, &mut s, local_input);
           match result {
             BrotliResult::ResultSuccess => {}
@@ -2672,7 +2672,7 @@ pub fn BrotliDecompressStream<'a,
           }
           let mut is_trivial_context = 1;
           let mut j : usize = 0;
-          for context_map_item in fast!(s.context_map.slice(),[0 ; (fast!(s.block_type_length_state.num_block_types,[0]) as usize) << (kLiteralContextBits as usize)]).iter() {
+          for context_map_item in fast!((s.context_map.slice())[0 ; (fast!((s.block_type_length_state.num_block_types)[0]) as usize) << (kLiteralContextBits as usize)]).iter() {
             if (*context_map_item != (j >> kLiteralContextBits) as u8) {
               is_trivial_context = 0;
               break;
@@ -2688,7 +2688,7 @@ pub fn BrotliDecompressStream<'a,
             let num_distance_codes : u32 =
                 s.num_direct_distance_codes + (48u32 << s.distance_postfix_bits);
             result = DecodeContextMap(
-                (fast!(s.block_type_length_state.num_block_types,[2]) as usize) << kDistanceContextBits as usize,
+                (fast!((s.block_type_length_state.num_block_types)[2]) as usize) << kDistanceContextBits as usize,
                 true, s, local_input);
             match result {
               BrotliResult::ResultSuccess => {}
@@ -2700,7 +2700,7 @@ pub fn BrotliDecompressStream<'a,
                                   s.num_literal_htrees as u16);
             s.insert_copy_hgroup.init(&mut s.alloc_u32,
                                       &mut s.alloc_hc,
-                                      kNumInsertAndCopyCodes, fast!(s.block_type_length_state.num_block_types,[1]) as u16);
+                                      kNumInsertAndCopyCodes, fast!((s.block_type_length_state.num_block_types)[1]) as u16);
             s.distance_hgroup.init(&mut s.alloc_u32,
                                    &mut s.alloc_hc,
                                    num_distance_codes as u16,
@@ -2723,15 +2723,15 @@ pub fn BrotliDecompressStream<'a,
           }
           s.loop_counter += 1;
           if (s.loop_counter >= 3) {
-            let context_mode = fast!(s.context_modes.slice(),[fast!(s.block_type_length_state.block_type_rb,[1]) as usize]);
+            let context_mode = fast!((s.context_modes.slice())[fast!((s.block_type_length_state.block_type_rb)[1]) as usize]);
             s.context_map_slice_index = 0;
             s.dist_context_map_slice_index = 0;
             s.context_lookup1 =
-                &fast!(kContextLookup,[fast!(kContextLookupOffsets,[context_mode as usize]) as usize ;]);
+                &fast!((kContextLookup)[fast!((kContextLookupOffsets)[context_mode as usize]) as usize ;]);
             s.context_lookup2 =
-                &fast!(kContextLookup,[fast!(kContextLookupOffsets,[context_mode as usize + 1]) as usize ;]);
+                &fast!((kContextLookup)[fast!((kContextLookupOffsets)[context_mode as usize + 1]) as usize ;]);
             s.htree_command_index = 0;
-            // look it up each time s.literal_htree =fast!(s.literal_hgroup.htrees,[s.literal_htree_index]);
+            // look it up each time s.literal_htree =fast!((s.literal_hgroup.htrees)[s.literal_htree_index]);
             s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
           }
           break;

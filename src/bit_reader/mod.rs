@@ -29,7 +29,7 @@ pub fn BitMask(n: u32) -> u32 {
     // "Unsigned Bit Field Extract" UBFX instruction on ARM.
     return !((0xffffffffu32) << n);
   } else {
-    return kBitMask[n as usize];
+    return fast!((kBitMask)[n as usize]);
   }
 }
 
@@ -104,29 +104,27 @@ pub fn BrotliCheckInputAmount(br: &BrotliBitReader, num: u32) -> bool {
 
 
 
-fn BrotliLoad16LE(input: &[u8], next_in_u32: u32) -> u16 {
-  let next_in: usize = next_in_u32 as usize;
-  let mut two_byte: [u8; 2] = [0; 2];
-  two_byte.clone_from_slice(&input[next_in..next_in + 2]);
-  return (two_byte[0] as u16) | ((two_byte[1] as u16) << 8);
+fn BrotliLoad16LE(input : &[u8], next_in_u32 : u32) -> u16 {
+  let next_in : usize = next_in_u32 as usize;
+  return (fast!((input)[next_in]) as u16) | ((fast!((input)[next_in + 1]) as u16) << 8);
 }
 
-fn BrotliLoad32LE(input: &[u8], next_in_u32: u32) -> u32 {
-  let next_in: usize = next_in_u32 as usize;
-  let mut four_byte: [u8; 4] = [0; 4];
-  four_byte.clone_from_slice(&input[next_in..next_in + 4]);
-  return (four_byte[0] as u32) | ((four_byte[1] as u32) << 8) | ((four_byte[2] as u32) << 16) |
-         ((four_byte[3] as u32) << 24);
+fn BrotliLoad32LE(input : &[u8], next_in_u32 : u32) -> u32 {
+  let next_in : usize = next_in_u32 as usize;
+  let mut four_byte : [u8; 4] = fast_uninitialized![4];
+  four_byte.clone_from_slice(fast!((input)[next_in ; next_in + 4]));
+  return (four_byte[0] as u32) | ((four_byte[1] as u32) << 8)
+      | ((four_byte[2] as u32) << 16) | ((four_byte[3] as u32) << 24);
 }
 
-fn BrotliLoad64LE(input: &[u8], next_in_u32: u32) -> u64 {
-  let next_in: usize = next_in_u32 as usize;
-  let mut eight_byte: [u8; 8] = [0; 8];
-  eight_byte.clone_from_slice(&input[next_in..next_in + 8]);
-  return (eight_byte[0] as u64) | ((eight_byte[1] as u64) << 8) | ((eight_byte[2] as u64) << 16) |
-         ((eight_byte[3] as u64) << 24) |
-         ((eight_byte[4] as u64) << 32) | ((eight_byte[5] as u64) << 40) |
-         ((eight_byte[6] as u64) << 48) | ((eight_byte[7] as u64) << 56);
+fn BrotliLoad64LE(input : &[u8], next_in_u32 : u32) -> u64 {
+  let next_in : usize = next_in_u32 as usize;
+  let mut eight_byte : [u8; 8] = fast_uninitialized![8];
+  eight_byte.clone_from_slice(fast!((input)[next_in ; next_in + 8]));
+  return (eight_byte[0] as u64) | ((eight_byte[1] as u64) << 8)
+      | ((eight_byte[2] as u64) << 16) | ((eight_byte[3] as u64) << 24)
+      | ((eight_byte[4] as u64) << 32) | ((eight_byte[5] as u64) << 40)
+      | ((eight_byte[6] as u64) << 48) | ((eight_byte[7] as u64) << 56);
 }
 pub const BROTLI_ALIGNED_READ: u8 = 0;
 
@@ -243,9 +241,9 @@ pub fn BrotliPullByte(br: &mut BrotliBitReader, input: &[u8]) -> bool {
   }
   br.val_ >>= 8;
   if ::core::mem::size_of::<reg_t>() == 8 {
-    br.val_ |= (input[br.next_in as usize] as reg_t) << 56;
+    br.val_ |= (fast!((input)[br.next_in as usize]) as reg_t) << 56;
   } else {
-    br.val_ |= (input[br.next_in as usize] as reg_t) << 24;
+    br.val_ |= (fast!((input)[br.next_in as usize]) as reg_t) << 24;
   }
   br.bit_pos_ -= 8;
   br.avail_in -= 1;
@@ -403,7 +401,7 @@ pub fn BrotliPeekByte(br: &mut BrotliBitReader, mut offset: u32, input: &[u8]) -
   }
   offset -= bytes_left;
   if offset < br.avail_in {
-    return input[br.next_in as usize + offset as usize] as i32;
+    return fast!((input)[br.next_in as usize + offset as usize]) as i32;
   }
   return -1;
 }
@@ -414,13 +412,13 @@ pub fn BrotliPeekByte(br: &mut BrotliBitReader, mut offset: u32, input: &[u8]) -
 pub fn BrotliCopyBytes(dest: &mut [u8], br: &mut BrotliBitReader, mut num: u32, input: &[u8]) {
   let mut offset: u32 = 0;
   while BrotliGetAvailableBits(br) >= 8 && num > 0 {
-    dest[offset as usize] = BrotliGetBitsUnmasked(br) as u8;
+    fast_mut!((dest)[offset as usize]) = BrotliGetBitsUnmasked(br) as u8;
     BrotliDropBits(br, 8);
     offset += 1;
     num -= 1;
   }
   for index in 0..num {
-    dest[offset as usize + index as usize] = input[br.next_in as usize + index as usize];
+     fast_mut!((dest)[offset as usize + index as usize]) = fast!((input)[br.next_in as usize + index as usize]);
   }
   br.avail_in -= num;
   br.next_in += num;
