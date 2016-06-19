@@ -71,17 +71,17 @@ impl<AllocU32 : alloc::Allocator<u32>,
 //    }
 //    pub fn get_tree<'a>(self :&'a Self, index : u32, mut tree_out : &'a [HuffmanCode]) {
 //        let start : usize = fast!((self.htrees)[index as usize]) as usize;
-//        core::mem::replace(&mut tree_out, fast!((self.codes.slice())[start;]));
+//        core::mem::replace(&mut tree_out, fast_slice!((self.codes)[start;]));
 //    }
     #[allow(dead_code)]
     pub fn get_tree_mut<'a>(self :&'a mut Self, index : u32) -> &'a mut [HuffmanCode] {
-        let start : usize = fast!((self.htrees.slice())[index as usize]) as usize;
+        let start : usize = fast_slice!((self.htrees)[index as usize]) as usize;
         return fast_mut!((self.codes.slice_mut())[start;]);
     }
     #[allow(dead_code)]
     pub fn get_tree<'a>(self :&'a Self, index : u32) -> &'a [HuffmanCode] {
-        let start : usize = fast!((self.htrees.slice())[index as usize]) as usize;
-        return & fast!((self.codes.slice())[start;]);
+        let start : usize = fast_slice!((self.htrees)[index as usize]) as usize;
+        return & fast_slice!((self.codes)[start;]);
     }
     pub fn reset(self : &mut Self, alloc_u32 : &mut AllocU32, alloc_hc : &mut AllocHC) {
         alloc_u32.free_cell(core::mem::replace(&mut self.htrees,
@@ -101,7 +101,7 @@ impl<AllocU32 : alloc::Allocator<u32>,
       let mut ret : [&'a [HuffmanCode]; 256] = [&[]; 256];
       let mut index : usize = 0;
       for htree in self.htrees.slice() {
-          ret[index] = fast!((&self.codes.slice())[*htree as usize ; ]);
+          ret[index] = fast_slice!((&self.codes)[*htree as usize ; ]);
           index += 1;
       }
       return ret;
@@ -212,8 +212,8 @@ pub fn BrotliBuildCodeLengthsHuffmanTable(mut table : &mut [HuffmanCode],
   loop {
     for _ in 0..6 {
       symbol-=1;
-      let index = fast!((offset)[fast!((code_lengths)[symbol as usize]) as usize]);
-      fast_mut!((offset)[fast!((code_lengths)[symbol as usize]) as usize]) -= 1;
+      let index = fast!((offset)[fast_inner!((code_lengths)[symbol as usize]) as usize]);
+      fast_mut!((offset)[fast_inner!((code_lengths)[symbol as usize]) as usize]) -= 1;
       fast_mut!((sorted)[index as usize]) = symbol;
     }
     if symbol == 0 {

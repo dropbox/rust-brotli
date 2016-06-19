@@ -741,7 +741,7 @@ pub fn TransformDictionaryWord(dst: &mut [u8],
                                -> i32 {
   let mut idx: i32 = 0;
   {
-    let prefix = &fast!((kPrefixSuffix)[fast_ref!((kTransforms)[transform as usize]).prefix_id as usize;]);
+    let prefix = &fast!((kPrefixSuffix)[fast_inner!((kTransforms)[transform as usize]).prefix_id as usize;]);
     while (fast!((prefix)[idx as usize]) != 0) { fast_mut!((dst)[idx as usize]) = fast!((prefix)[idx as usize]); idx += 1; }
   }
   {
@@ -779,7 +779,7 @@ pub fn TransformDictionaryWord(dst: &mut [u8],
     }
   }
   {
-    let suffix = &fast!((kPrefixSuffix)[fast_ref!((kTransforms)[transform as usize]).suffix_id as usize ; ]);
+    let suffix = &fast!((kPrefixSuffix)[fast_inner!((kTransforms)[transform as usize]).suffix_id as usize ; ]);
     let mut i : usize = 0;
     while (fast!((suffix)[i as usize]) != 0) {
       fast_mut!((dst)[idx as usize]) = fast!((suffix)[i]);

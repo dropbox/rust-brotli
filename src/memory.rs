@@ -8,6 +8,35 @@ macro_rules! fast_ref {
 }
 
 #[cfg(not(feature="unsafe"))]
+macro_rules! fast_inner {
+   (($slice : expr)[$index: expr]) => (
+       (&$slice)[$index]
+   );
+}
+
+#[cfg(not(feature="unsafe"))]
+macro_rules! fast_inner {
+   (($slice : expr)[$index: expr]) => (
+       (&$slice)[$index]
+   );
+}
+/*
+#[cfg(not(feature="unsafe"))]
+macro_rules! fast_slice {
+   (($slice : expr)[$index: expr]) => (
+       ($slice.slice())[$index]
+   );
+}
+
+#[cfg(not(feature="unsafe"))]
+macro_rules! fast_slice_mut {
+   (($slice : expr)[$index: expr]) => (
+       ($slice.slice_mut())[$index]
+   );
+}
+*/
+
+#[cfg(not(feature="unsafe"))]
 macro_rules! fast {
    (($slice : expr)[$index: expr]) => (
        (&$slice)[$index]
@@ -54,7 +83,20 @@ macro_rules! fast_ref {
 }
 
 #[cfg(feature="unsafe")]
-#[allow(unused_unsafe)]
+macro_rules! fast_inner {
+   (($slice : expr)[$index: expr]) => (
+       *$slice.get_unchecked($index)
+   );
+}
+/*
+#[cfg(feature="unsafe")]
+macro_rules! fast_slice {
+   (($slice : expr)[$index: expr]) => (
+       unsafe{*$slice.slice().get_unchecked($index)}
+   );
+}
+*/
+#[cfg(feature="unsafe")]
 macro_rules! fast {
    (($slice : expr)[$index: expr]) => (
        unsafe{*$slice.get_unchecked($index)}
@@ -67,6 +109,39 @@ macro_rules! fast {
    );
    (($slice : expr)[; $end]) => (
        unsafe{::core::slice::from_raw_parts(($slice).as_ptr(), $slice.len())};
+   );
+}
+
+macro_rules! fast_slice {
+   (($slice : expr)[$index: expr]) => (
+       fast!(($slice.slice())[$index])
+   );
+   (($slice : expr)[$index: expr;]) => (
+       fast!(($slice.slice())[$index;])
+   );
+   (($slice : expr)[$start :expr; $end: expr]) => (
+       fast!(($slice.slice())[$start;$end])
+   );
+}
+/*
+macro_rules! fast_slice_ref {
+   (($slice : expr)[$index: expr]) => (
+       fast_ref!(($slice.slice())[$index])
+   );
+   (($slice : expr)[$index: expr]) => (
+       fast_ref!(($slice.slice())[$index])
+   );
+}
+*/
+macro_rules! fast_slice_mut {
+   (($slice : expr)[$index: expr]) => (
+       fast_mut!(($slice.slice_mut())[$index])
+   );
+   (($slice : expr)[$index: expr;]) => (
+       fast_mut!(($slice.slice_mut())[$index;])
+   );
+   (($slice : expr)[$start :expr;$end: expr]) => (
+       fast_mut!(($slice.slice_mut())[$start;$end])
    );
 }
 
