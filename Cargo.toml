@@ -1,6 +1,6 @@
 [package]
 name = "brotli-no-stdlib"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
 description = "A brotli decompressor that does not use the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. For users wishing to use the stdlib, the brotli package, which calls into and abstracts this package, is recommended."
 license = "BSD-3-Clause/MIT"
@@ -15,7 +15,7 @@ doc = false
 name = "brot"
 
 [dependencies]
-"alloc-no-stdlib" = "1.0"
+"alloc-no-stdlib" = "~1.0"
 
 [features]
 
