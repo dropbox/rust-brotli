@@ -73,6 +73,10 @@ where OutputType: Write {
 
 //trace_macros!(true);
 
+extern {
+  fn calloc(n_elem : usize, el_size : usize) -> *mut u8;
+  fn free(item : *mut u8);
+}
 pub fn decompress<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType) -> Result<(), io::Error>
 where InputType: Read, OutputType: Write {
     return decompress_internal(r, w, 4096 * 1024, 4096 * 1024);
@@ -87,13 +91,13 @@ where InputType: Read, OutputType: Write {
   } else {
     range = 1;
   }
+  let mut calloc_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 32 * 1024 * 1024], calloc)};
+  let mut calloc_u32_buffer = unsafe{define_allocator_memory_pool!(4096, u32, [0; 4 * 1024 * 1024], calloc)};
+  let mut calloc_hc_buffer = unsafe{define_allocator_memory_pool!(4096, HuffmanCode, [0; 8 * 1024 * 1024], calloc)};
   for _i in 0..range {
-    define_allocator_memory_pool!(calloc_u8_buffer, 4096, u8, [0; 32 * 1024 * 1024], calloc);
-    define_allocator_memory_pool!(calloc_u32_buffer, 4096, u32, [0; 4 * 1024 * 1024], calloc);
-    define_allocator_memory_pool!(calloc_hc_buffer, 4096, HuffmanCode, [0; 8 * 1024 * 1024], calloc);
-    let calloc_u8_allocator = MemPool::<u8>::new_allocator(calloc_u8_buffer, bzero);
-    let calloc_u32_allocator = MemPool::<u32>::new_allocator(calloc_u32_buffer, bzero);
-    let calloc_hc_allocator = MemPool::<HuffmanCode>::new_allocator(calloc_hc_buffer, bzero);
+    let calloc_u8_allocator = MemPool::<u8>::new_allocator(&mut calloc_u8_buffer.data, bzero);
+    let calloc_u32_allocator = MemPool::<u32>::new_allocator(&mut calloc_u32_buffer.data, bzero);
+    let calloc_hc_allocator = MemPool::<HuffmanCode>::new_allocator(&mut calloc_hc_buffer.data, bzero);
     //test(calloc_u8_allocator);
     let mut brotli_state = BrotliState::new(calloc_u8_allocator, calloc_u32_allocator, calloc_hc_allocator);
     let mut input = brotli_state.alloc_u8.alloc_cell(input_buffer_limit);
