@@ -1,14 +1,82 @@
 mod integration_tests;
 extern crate brotli_no_stdlib as brotli;
 extern crate core;
-
-
 #[macro_use]
 extern crate alloc_no_stdlib;
-
 use core::ops;
+
+pub struct Rebox<T> {
+   b : Box<[T]>,
+}
+
+impl<T> core::default::Default for Rebox<T> {
+    fn default() -> Self {
+       let v : Vec<T> = Vec::new();
+       let b = v.into_boxed_slice();
+       return Rebox::<T>{b : b};
+    }
+}
+
+impl<T> ops::Index<usize> for Rebox<T>{
+    type Output = T;
+    fn index(&self, index : usize) -> &T {
+        return &(*self.b)[index]
+    }
+}
+
+impl<T> ops::IndexMut<usize> for Rebox<T>{
+    fn index_mut(&mut self, index : usize) -> &mut T {
+        return &mut (*self.b)[index]
+    }
+}
+
+impl<T> alloc_no_stdlib::SliceWrapper<T> for Rebox<T> {
+    fn slice(&self) -> & [T] {
+       return &*self.b
+    }
+}
+
+impl<T> alloc_no_stdlib::SliceWrapperMut<T> for Rebox<T> {
+    fn slice_mut(&mut self) -> &mut [T] {
+       return &mut*self.b
+    }
+}
+
+pub struct HeapAllocator<T : core::clone::Clone>{
+   pub default_value : T,
+}
+
+#[cfg(not(feature="unsafe"))]
+impl<T : core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
+   type AllocatedMemory = Rebox<T>;
+   fn alloc_cell(self : &mut HeapAllocator<T>, len : usize) -> Rebox<T> {
+       let v : Vec<T> = vec![self.default_value.clone();len];
+       let b = v.into_boxed_slice();
+       return Rebox::<T>{b : b};
+   }
+   fn free_cell(self : &mut HeapAllocator<T>, _data : Rebox<T>) {
+
+   }
+}
+
+#[cfg(feature="unsafe")]
+impl<T : core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
+   type AllocatedMemory = Rebox<T>;
+   fn alloc_cell(self : &mut HeapAllocator<T>, len : usize) -> Rebox<T> {
+       let mut v : Vec<T> = Vec::with_capacity(len);
+       unsafe{v.set_len(len);}
+       let b = v.into_boxed_slice();
+       return Rebox::<T>{b : b};
+   }
+   fn free_cell(self : &mut HeapAllocator<T>, _data : Rebox<T>) {
+
+   }
+}
+
+
+
 use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
-            StackAllocator, AllocatedStackMemory, bzero, uninitialized};
+            /*StackAllocator, AllocatedStackMemory, uninitialized*/};
 
 //use alloc::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator};
 use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
@@ -46,7 +114,7 @@ fn elapsed(_start : Duration) -> (Duration, bool) {
     return (Duration::new(0, 0), true);
 }
 
-declare_stack_allocator_struct!(MemPool, 4096, global);
+//declare_stack_allocator_struct!(MemPool, 4096, global);
 
 
 fn _write_all<OutputType> (w : &mut OutputType, buf : &[u8]) -> Result<(), io::Error>
@@ -72,10 +140,10 @@ where OutputType: Write {
 }
 
 //trace_macros!(true);
-declare_stack_allocator_struct!(GlobalAllocatedFreelist, 4096, global);
-define_allocator_memory_pool!(global_u8_buffer, 4096, u8, [0; 1024 * 1024 * 100], global);
-define_allocator_memory_pool!(global_u32_buffer, 4096, u32, [0; 1024 * 1024 * 100], global);
-define_allocator_memory_pool!(global_hc_buffer, 4096, ::brotli::HuffmanCode, [::brotli::HuffmanCode{value : 0, bits :0}; 1024 * 1024 * 100], global);
+//declare_stack_allocator_struct!(GlobalAllocatedFreelist, 4096, global);
+//define_allocator_memory_pool!(global_u8_buffer, 4096, u8, [0; 1024 * 1024 * 100], global);
+//define_allocator_memory_pool!(global_u32_buffer, 4096, u32, [0; 1024 * 1024 * 100], global);
+//define_allocator_memory_pool!(global_hc_buffer, 4096, ::brotli::HuffmanCode, [::brotli::HuffmanCode{value : 0, bits :0}; 1024 * 1024 * 100], global);
     
 pub fn decompress<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType) -> Result<(), io::Error>
 where InputType: Read, OutputType: Write {
@@ -99,14 +167,14 @@ where InputType: Read, OutputType: Write {
     //define_allocator_memory_pool!(calloc_u8_buffer, 4096, u8, [0; 450 * 1024], stack);
     //define_allocator_memory_pool!(calloc_u32_buffer, 4096, u32, [0; 1024], stack);
     //define_allocator_memory_pool!(calloc_hc_buffer, 4096, HuffmanCode, [HuffmanCode::default(); 96 * 1024], stack);
-    let mut global_u8_allocator = MemPool::<u8>::new_allocator(uninitialized);
-    let mut global_u32_allocator = MemPool::<u32>::new_allocator(uninitialized);
-    let mut global_hc_allocator = MemPool::<HuffmanCode>::new_allocator(uninitialized);
-    bind_global_buffers_to_allocator!(global_u8_allocator, global_u8_buffer, u8);
-    bind_global_buffers_to_allocator!(global_u32_allocator, global_u32_buffer, u32);
-    bind_global_buffers_to_allocator!(global_hc_allocator, global_hc_buffer, HuffmanCode);
+    //let mut global_u8_allocator = MemPool::<u8>::new_allocator(uninitialized);
+    //let mut global_u32_allocator = MemPool::<u32>::new_allocator(uninitialized);
+    //let mut global_hc_allocator = MemPool::<HuffmanCode>::new_allocator(uninitialized);
+    //bind_global_buffers_to_allocator!(global_u8_allocator, global_u8_buffer, u8);
+    //bind_global_buffers_to_allocator!(global_u32_allocator, global_u32_buffer, u32);
+    //bind_global_buffers_to_allocator!(global_hc_allocator, global_hc_buffer, HuffmanCode);
     //test(calloc_u8_allocator);
-    let mut brotli_state = BrotliState::new(global_u8_allocator, global_u32_allocator, global_hc_allocator);
+    let mut brotli_state = BrotliState::new(HeapAllocator::<u8>{default_value:0},HeapAllocator::<u32>{default_value:0},HeapAllocator::<HuffmanCode>{default_value:HuffmanCode::default()});
     let mut input = brotli_state.alloc_u8.alloc_cell(input_buffer_limit);
     let mut output = brotli_state.alloc_u8.alloc_cell(output_buffer_limit);
     let mut available_out : usize = output.slice().len();
