@@ -508,7 +508,7 @@ fn ProcessSingleCodeLength(code_len: u32,
   if (code_len != 0) {
     // code_len == 1..15
     // next_symbol may be negative, hence we have to supply offset to function
-    fast_mut!((symbol_lists)[(symbol_list_index_offset as i32 + fast!((next_symbol)[code_len as usize])) as usize]) = (*symbol) as u16;
+    fast_mut!((symbol_lists)[(symbol_list_index_offset as i32 + fast_inner!((next_symbol)[code_len as usize])) as usize]) = (*symbol) as u16;
     fast_mut!((next_symbol)[code_len as usize]) = (*symbol) as i32;
     *prev_code_len = code_len;
     *space -= 32768 >> code_len;
@@ -1924,16 +1924,19 @@ fn memmove16(data : &mut [u8], u32off_dst : u32, u32off_src :u32) {
 
 
 //FIXME: use copy_nonoverlapping
+
 fn memcpy_within_slice(data : &mut [u8],
                        off_dst : usize,
                        off_src : usize,
                        size : usize) {
   if off_dst > off_src {
      let (src, dst) = data.split_at_mut(off_dst);
-     fast_mut!((dst)[0;size]).clone_from_slice(fast!((src)[off_src ; off_src + size]));
+     let src_slice = fast!((src)[off_src ; off_src + size]);
+     fast_mut!((dst)[0;size]).clone_from_slice(src_slice);
   } else {
      let (dst, src) = data.split_at_mut(off_src);
-     fast_mut!((dst)[off_dst;off_dst + size]).clone_from_slice(fast!((src)[0;size]));
+     let src_slice = fast!((src)[0;size]);
+     fast_mut!((dst)[off_dst;off_dst + size]).clone_from_slice(src_slice);
   }
 }
 
@@ -2678,7 +2681,7 @@ pub fn BrotliDecompressStream<'a,
           }
           let mut is_trivial_context = 1;
           let mut j : usize = 0;
-          for context_map_item in fast_slice!((s.context_map)[0 ; (fast!((s.block_type_length_state.num_block_types)[0]) as usize) << (kLiteralContextBits as usize)]).iter() {
+          for context_map_item in fast_slice!((s.context_map)[0 ; (fast_inner!((s.block_type_length_state.num_block_types)[0]) as usize) << (kLiteralContextBits as usize)]).iter() {
             if (*context_map_item != (j >> kLiteralContextBits) as u8) {
               is_trivial_context = 0;
               break;
