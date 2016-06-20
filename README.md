@@ -1,7 +1,7 @@
 # rust-brotli
 
-[![crates.io](http://meritbadge.herokuapp.com/brotli-no-stdlib)](https://crates.io/crates/brotli-no-stdlib)
-[![Build Status](https://travis-ci.org/dropbox/rust-brotli-no-stdlib.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli-no-stdlib)
+[![crates.io](http://meritbadge.herokuapp.com/brotli)](https://crates.io/crates/brotli)
+[![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 ## Project Requirements
 
     Direct no-stdlib port of the C brotli decompressor to Rust
