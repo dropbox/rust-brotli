@@ -1,10 +1,11 @@
 mod integration_tests;
+mod tests;
 extern crate brotli_no_stdlib as brotli;
 extern crate core;
 #[macro_use]
 extern crate alloc_no_stdlib;
 use core::ops;
-
+use brotli::CustomRead;
 pub struct Rebox<T> {
    b : Box<[T]>,
 }
@@ -131,6 +132,24 @@ impl<'a, InputType: Read> brotli::CustomRead<io::Error> for IoReaderWrapper<'a, 
   }
 }
 
+struct IntoIoReader<OutputType: Read>(OutputType);
+
+impl<InputType: Read> brotli::CustomRead<io::Error> for IntoIoReader<InputType> {
+  fn read(self: &mut Self, buf: &mut [u8]) -> Result<usize, io::Error> {
+    loop {
+      match self.0.read(buf) {
+        Err(e) => {
+          match e.kind() {
+            ErrorKind::Interrupted => continue,
+            _ => return Err(e),
+          }
+        }
+        Ok(cur_read) => return Ok(cur_read),
+      }
+    }
+  }
+}
+
 pub fn decompress<InputType, OutputType> (r : &mut InputType, mut w : &mut OutputType, buffer_size : usize) -> Result<(), io::Error>
 where InputType: Read, OutputType: Write {
     let mut alloc_u8 = HeapAllocator::<u8>{default_value:0};
@@ -145,9 +164,52 @@ where InputType: Read, OutputType: Write {
                                     Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"));
 }
 
+
+
+
+
+
+// This decompressor is defined unconditionally on whether no-stdlib is defined
+// so we can exercise the code in any case
+pub struct BrotliDecompressor<R: Read>(brotli::DecompressorCustomIo<io::Error,
+                                                            IntoIoReader<R>,
+                                                            Rebox<u8>,
+                                                            HeapAllocator<u8>, HeapAllocator<u32>, HeapAllocator<HuffmanCode> >);
+
+
+
+impl<R: Read> BrotliDecompressor<R>
+    {
+
+    pub fn new(r: R, buffer_size : usize) -> Self {
+        let mut alloc_u8 = HeapAllocator::<u8>{default_value : 0};
+        let buffer = alloc_u8.alloc_cell(buffer_size);
+        let alloc_u32 = HeapAllocator::<u32>{default_value:0};
+        let alloc_hc = HeapAllocator::<HuffmanCode>{default_value:HuffmanCode::default()};
+        return BrotliDecompressor::<R>(
+          brotli::DecompressorCustomIo::<Error,
+                                 IntoIoReader<R>,
+                                 Rebox<u8>,
+                                 HeapAllocator<u8>, HeapAllocator<u32>, HeapAllocator<HuffmanCode> >
+                                 ::new(IntoIoReader::<R>(r),
+                                                         buffer,
+                                                         alloc_u8, alloc_u32, alloc_hc,
+                                                         io::Error::new(ErrorKind::InvalidData,
+                                                                        "Invalid Data")));
+    }
+}
+
+impl<R: Read> Read for BrotliDecompressor<R> {
+  	fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
+       return self.0.read(buf);
+    }
+}
+
+#[cfg(test)]
 fn writeln0<OutputType : Write> (strm : &mut OutputType, data: &str) -> core::result::Result<(), io::Error> {
    writeln!(strm, "{:}", data)
 }
+#[cfg(test)]
 fn writeln_time<OutputType : Write> (strm : &mut OutputType, data: &str, v0 : u64, v1 : u32) -> core::result::Result<(), io::Error> {
    writeln!(strm, "{:} {:}.{:09}", data, v0, v1)
 }

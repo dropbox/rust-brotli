@@ -76,7 +76,7 @@ where InputType: io::Read, OutputType: io::Write {
   let range : usize;
   let mut timing_error : bool = false;
   if benchmark_mode {
-    range = 1000;
+    range = 100;
   } else {
     range = 1;
   }
