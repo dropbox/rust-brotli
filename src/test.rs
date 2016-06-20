@@ -16,7 +16,10 @@ fn oneshot(input: &mut [u8], mut output: &mut [u8]) -> (BrotliResult, usize, usi
   let mut available_out: usize = output.len();
   let mut stack_u8_buffer = define_allocator_memory_pool!(4096, u8, [0; 400 * 1024], stack);
   let mut stack_u32_buffer = define_allocator_memory_pool!(4096, u32, [0; 48 * 1024], stack);
-  let mut stack_hc_buffer = define_allocator_memory_pool!(4096, super::HuffmanCode, [HuffmanCode::default(); 48 * 1024], stack);
+  let mut stack_hc_buffer = define_allocator_memory_pool!(4096,
+                                                          super::HuffmanCode,
+                                                          [HuffmanCode::default(); 48 * 1024],
+                                                          stack);
   let stack_u8_allocator = MemPool::<u8>::new_allocator(&mut stack_u8_buffer, bzero);
   let stack_u32_allocator = MemPool::<u32>::new_allocator(&mut stack_u32_buffer, bzero);
   let stack_hc_allocator = MemPool::<HuffmanCode>::new_allocator(&mut stack_hc_buffer, bzero);

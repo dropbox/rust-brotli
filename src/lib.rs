@@ -5,12 +5,12 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-//#[macro_use] //<-- for debugging, remove xprintln from bit_reader and replace with println
-//extern crate std;
+// #[macro_use] //<-- for debugging, remove xprintln from bit_reader and replace with println
+// extern crate std;
 
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;
-pub use alloc::{Allocator, SliceWrapperMut, SliceWrapper, StackAllocator, AllocatedStackMemory};
+pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 
 mod dictionary;
 #[macro_use]
@@ -24,5 +24,4 @@ mod test;
 mod decode;
 pub use huffman::{HuffmanCode, HuffmanTreeGroup};
 pub use state::BrotliState;
-pub use decode::{BrotliResult, BrotliDecompressStream};
-
+pub use decode::{BrotliDecompressStream, BrotliResult};
