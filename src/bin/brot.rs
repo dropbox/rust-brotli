@@ -12,7 +12,7 @@ use alloc_no_stdlib::{Allocator, SliceWrapperMut, SliceWrapper,
 
 //use alloc::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator};
 use brotli::{BrotliDecompressStream, BrotliState, BrotliResult, HuffmanCode};
-pub use brotli::FILE_BUFFER_SIZE;
+
 use std::io::{self, Read, Write, ErrorKind, Error};
 use std::time::Duration;
 use std::env;
