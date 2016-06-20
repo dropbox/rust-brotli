@@ -30,9 +30,13 @@ mod context;
 mod transform;
 mod test;
 mod decode;
+mod io_wrappers;
 pub use huffman::{HuffmanCode, HuffmanTreeGroup};
 pub use state::BrotliState;
-
+//use io_wrappers::write_all;
+pub use io_wrappers::{CustomWrite, CustomRead};
+#[cfg(not(feature="no-stdlib"))]
+pub use io_wrappers::{IoWriterWrapper, IoReaderWrapper, IntoIoReader};
 
 // interface
 // pub fn BrotliDecompressStream(mut available_in: &mut usize,
@@ -47,75 +51,6 @@ pub use state::BrotliState;
 pub use decode::{BrotliDecompressStream, BrotliResult};
 
 
-/// this trait does not allow for transient errors: they must be retried in the underlying layer
-pub trait CustomWrite<ErrType> {
-  fn write(self: &mut Self, data: &[u8]) -> Result<usize, ErrType>;
-}
-/// this trait does not allow for transient errors: they must be retried in the underlying layer
-pub trait CustomRead<ErrType> {
-  fn read(self: &mut Self, data: &mut [u8]) -> Result<usize, ErrType>;
-}
-
-
-fn _write_all<ErrType, OutputType>(w: &mut OutputType, buf: &[u8]) -> Result<(), ErrType>
-  where OutputType: CustomWrite<ErrType>
-{
-  let mut total_written: usize = 0;
-  while total_written < buf.len() {
-    match w.write(&buf[total_written..]) {
-      Err(e) => return Result::Err(e),
-      // CustomResult::Transient(e) => continue,
-      Ok(cur_written) => {
-        assert_eq!(cur_written == 0, false); // not allowed by the contract
-        total_written += cur_written;
-      }
-    }
-  }
-  Ok(())
-}
-
-#[cfg(not(feature="no-stdlib"))]
-struct IoWriterWrapper<'a, OutputType: Write + 'a> {
-  pub writer: &'a mut OutputType,
-}
-#[cfg(not(feature="no-stdlib"))]
-impl<'a, OutputType: Write> CustomWrite<io::Error> for IoWriterWrapper<'a, OutputType> {
-  fn write(self: &mut Self, buf: &[u8]) -> Result<usize, io::Error> {
-    loop {
-      match self.writer.write(buf) {
-        Err(e) => {
-          match e.kind() {
-            ErrorKind::Interrupted => continue,
-            _ => return Err(e),
-          }
-        }
-        Ok(cur_written) => return Ok(cur_written),
-      }
-    }
-  }
-}
-
-
-#[cfg(not(feature="no-stdlib"))]
-struct IoReaderWrapper<'a, OutputType: Read + 'a> {
-  pub reader: &'a mut OutputType,
-}
-#[cfg(not(feature="no-stdlib"))]
-impl<'a, InputType: Read> CustomRead<io::Error> for IoReaderWrapper<'a, InputType> {
-  fn read(self: &mut Self, buf: &mut [u8]) -> Result<usize, io::Error> {
-    loop {
-      match self.reader.read(buf) {
-        Err(e) => {
-          match e.kind() {
-            ErrorKind::Interrupted => continue,
-            _ => return Err(e),
-          }
-        }
-        Ok(cur_read) => return Ok(cur_read),
-      }
-    }
-  }
-}
 
 
 #[cfg(not(feature="no-stdlib"))]
@@ -183,8 +118,7 @@ pub fn BrotliDecompressCustomIo<ErrType,
         OutputType: CustomWrite<ErrType>
 {
   let mut brotli_state = BrotliState::new(alloc_u8, alloc_u32, alloc_hc);
-  // let mut input = brotli_state.alloc_u8.alloc_cell(input_buffer_lim);
-  // let mut output = brotli_state.alloc_u8.alloc_cell(output_buffer_lim);
+
   let mut available_out: usize = output_buffer.len();
 
   let mut available_in: usize = 0;
@@ -197,7 +131,6 @@ pub fn BrotliDecompressCustomIo<ErrType,
         input_offset = 0;
         match r.read(input_buffer) {
           Err(e) => return Err(e),
-          // Transient(e) => continue,
           Ok(size) => {
             if size == 0 {
               return Err(unexpected_eof_error_constant);
@@ -207,12 +140,10 @@ pub fn BrotliDecompressCustomIo<ErrType,
         }
       }
       BrotliResult::NeedsMoreOutput => {
-        // try!(_write_all(&mut w, &output_buffer[..output_offset]));
         let mut total_written: usize = 0;
-        while total_written < output_offset {
+        while total_written < output_offset { // this would be a call to write_all
           match w.write(&output_buffer[total_written..output_offset]) {
             Err(e) => return Result::Err(e),
-            // CustomResult::Transient(e) => continue,
             Ok(cur_written) => {
               assert_eq!(cur_written == 0, false); // not allowed by the contract
               total_written += cur_written;
@@ -254,3 +185,177 @@ pub fn BrotliDecompressCustomIo<ErrType,
   brotli_state.BrotliStateCleanup();
   Ok(())
 }
+
+
+#[cfg(not(feature="no-stdlib"))]
+pub struct DecompressorCustomAlloc<R: Read,
+     BufferType : SliceWrapperMut<u8>,
+     AllocU8 : Allocator<u8>,
+     AllocU32 : Allocator<u32>,
+     AllocHC : Allocator<HuffmanCode> > {
+   decompressor : DecompressorCustomIo<io::Error, IntoIoReader<R>, BufferType, AllocU8, AllocU32, AllocHC>,
+}
+
+#[cfg(not(feature="no-stdlib"))]
+impl<R: Read,
+     BufferType : SliceWrapperMut<u8>,
+     AllocU8 : Allocator<u8>,
+     AllocU32 : Allocator<u32>,
+     AllocHC : Allocator<HuffmanCode> > DecompressorCustomAlloc<R, BufferType, AllocU8, AllocU32, AllocHC> {
+
+    pub fn new(r: R, buffer : BufferType,
+               alloc_u8 : AllocU8, alloc_u32 : AllocU32, alloc_hc : AllocHC) -> Self {
+        return DecompressorCustomAlloc::<R, BufferType, AllocU8, AllocU32, AllocHC>{
+          decompressor : DecompressorCustomIo::<Error, IntoIoReader<R>, BufferType, AllocU8, AllocU32, AllocHC>::new(
+              IntoIoReader::<R>{reader:r}, buffer, alloc_u8, alloc_u32, alloc_hc, Error::new(ErrorKind::InvalidData, "Invalid Data")),
+        };
+    }
+}
+#[cfg(not(feature="no-stdlib"))]
+impl<R: Read,
+     BufferType : SliceWrapperMut<u8>,
+     AllocU8 : Allocator<u8>,
+     AllocU32 : Allocator<u32>,
+     AllocHC : Allocator<HuffmanCode> > Read for DecompressorCustomAlloc<R, BufferType, AllocU8, AllocU32, AllocHC> {
+  	fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
+       return self.decompressor.read(buf);
+    }
+}
+pub struct DecompressorCustomIo<ErrType,
+     R: CustomRead<ErrType>,
+     BufferType : SliceWrapperMut<u8>,
+     AllocU8 : Allocator<u8>,
+     AllocU32 : Allocator<u32>,
+     AllocHC : Allocator<HuffmanCode> > {
+    input_buffer : BufferType,
+    total_out : usize,
+    input_offset : usize,
+    input_len : usize,
+    input_eof : bool,
+    input: R,
+    error_if_invalid_data : Option<ErrType>,
+    read_error : Option<ErrType>,
+    state : BrotliState<AllocU8, AllocU32, AllocHC>,
+}
+
+impl<ErrType,
+     R: CustomRead<ErrType>,
+     BufferType : SliceWrapperMut<u8>,
+     AllocU8 : Allocator<u8>,
+     AllocU32 : Allocator<u32>,
+     AllocHC : Allocator<HuffmanCode> > DecompressorCustomIo<ErrType, R, BufferType, AllocU8, AllocU32, AllocHC> {
+
+    pub fn new(r: R, buffer : BufferType,
+               alloc_u8 : AllocU8, alloc_u32 : AllocU32, alloc_hc : AllocHC,
+               invalid_data_error_type : ErrType) -> Self {
+        let ret = DecompressorCustomIo::<ErrType, R, BufferType, AllocU8, AllocU32, AllocHC>{
+            input_buffer : buffer,
+            total_out : 0,
+            input_offset : 0,
+            input_len : 0,
+            input_eof : false,
+            input: r,
+            state : BrotliState::new(alloc_u8,
+                                     alloc_u32,
+                                     alloc_hc),
+            error_if_invalid_data : Some(invalid_data_error_type),
+            read_error : None,
+        };
+        return ret;
+    }
+
+    pub fn copy_to_front(&mut self) {
+        if self.input_offset == self.input_buffer.slice_mut().len() {
+            self.input_offset = 0;
+            self.input_len = 0;
+        } else if self.input_offset + 256 > self.input_buffer.slice_mut().len() {
+            let (mut first, second) = self.input_buffer.slice_mut().split_at_mut(self.input_offset);
+            let avail_in = self.input_len - self.input_offset;
+            first[0..avail_in].clone_from_slice(&second[0..avail_in]);
+            self.input_offset = 0;
+        }
+    }
+}
+impl<ErrType,
+     R: CustomRead<ErrType>,
+     BufferType : SliceWrapperMut<u8>,
+     AllocU8 : Allocator<u8>,
+     AllocU32 : Allocator<u32>,
+     AllocHC : Allocator<HuffmanCode> > CustomRead<ErrType> for DecompressorCustomIo<ErrType, R, BufferType, AllocU8, AllocU32, AllocHC> {
+	fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, ErrType > {
+            let mut output_offset : usize = 0;
+            let mut avail_out = buf.len() - output_offset;
+            let mut avail_in = self.input_len - self.input_offset;
+            let mut needs_input = false;
+            while avail_out == buf.len() && (needs_input == false || self.input_eof == false) {
+                    if self.input_len < self.input_buffer.slice_mut().len() && !self.input_eof {
+                        match self.input.read(&mut self.input_buffer.slice_mut()[self.input_len..]) {
+                            Err(e) => {
+                                self.read_error = Some(e);
+                                self.input_eof = true;
+                            },
+                            Ok(size) => if size == 0 {
+                                self.input_eof = true;
+                            }else {
+                                needs_input = false;
+                                self.input_len += size;
+                                avail_in = self.input_len - self.input_offset;
+                            },
+                        }
+                    }
+                    match BrotliDecompressStream(&mut avail_in,
+                                                  &mut self.input_offset,
+                                                  &self.input_buffer.slice_mut()[..],
+                                                  &mut avail_out,
+                                                  &mut output_offset,
+                                                  buf,
+                                                  &mut self.total_out,
+                                                  &mut self.state) {
+                        BrotliResult::NeedsMoreInput => match self.read_error.take() { // clear err
+                           Some(err) => return Err(err),
+                           None => {
+                              needs_input = true;
+                              self.copy_to_front();
+                           },
+                        },
+                        BrotliResult::NeedsMoreOutput => {},
+                        BrotliResult::ResultSuccess => break,
+                        BrotliResult::ResultFailure => return Err(self.error_if_invalid_data.take().unwrap()),
+                  }
+            }
+            return Ok(output_offset);
+        }
+}
+
+#[cfg(not(feature="no-stdlib"))]
+pub fn copy_from_to<R:io::Read, W:io::Write>(mut r : R, mut w : W) -> io::Result<usize> {
+    let mut buffer : [u8;65536] = [0; 65536];
+    let mut out_size : usize = 0;
+    loop {
+        match r.read(&mut buffer[..]) {
+            Err(e) => {
+                match e.kind() {
+                    io::ErrorKind::Interrupted => continue,
+                     _ => {},
+                }
+                return Err(e)
+            },
+            Ok(size) => if size == 0 {
+               break;
+            } else {
+                match w.write_all(&buffer[..size]) {
+                    Err(e) => {
+                        match e.kind() {
+                            io::ErrorKind::Interrupted => continue,
+                            _ => {},
+                        }
+                        return Err(e)
+                    }
+                    Ok(_) => out_size += size,
+                }
+            },
+        }
+    }
+    return Ok(out_size);
+}
+
