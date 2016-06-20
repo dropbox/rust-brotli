@@ -4,11 +4,11 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-//#[macro_use] //<-- for debugging, remove xprintln from bit_reader and replace with println
-//extern crate std;
+// #[macro_use] //<-- for debugging, remove xprintln from bit_reader and replace with println
+// extern crate std;
 use core;
 use super::alloc;
-pub use alloc::{Allocator, SliceWrapperMut, SliceWrapper, StackAllocator, AllocatedStackMemory};
+pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 
 use core::mem;
 
@@ -18,47 +18,38 @@ use super::state;
 use super::prefix;
 
 use super::transform::{TransformDictionaryWord, kNumTransforms};
-use state::{BlockTypeAndLengthState,
-            BrotliRunningState, BrotliRunningContextMapState, BrotliRunningTreeGroupState,
-            BrotliRunningUncompressedState, BrotliRunningDecodeUint8State,
-            BrotliRunningMetablockHeaderState, BrotliRunningHuffmanState,
-            BrotliRunningReadBlockLengthState, kLiteralContextBits};
-use context:: {kContextLookup, kContextLookupOffsets};
-use ::dictionary::{
-    kBrotliDictionaryOffsetsByLength,
-    kBrotliDictionarySizeBitsByLength,
-    kBrotliMinDictionaryWordLength,
-    kBrotliMaxDictionaryWordLength,
-    kBrotliDictionary };
+use state::{BlockTypeAndLengthState, BrotliRunningContextMapState, BrotliRunningDecodeUint8State,
+            BrotliRunningHuffmanState, BrotliRunningMetablockHeaderState,
+            BrotliRunningReadBlockLengthState, BrotliRunningState, BrotliRunningTreeGroupState,
+            BrotliRunningUncompressedState, kLiteralContextBits};
+use context::{kContextLookup, kContextLookupOffsets};
+use ::dictionary::{kBrotliDictionary, kBrotliDictionaryOffsetsByLength,
+                   kBrotliDictionarySizeBitsByLength, kBrotliMaxDictionaryWordLength,
+                   kBrotliMinDictionaryWordLength};
 pub use huffman::{HuffmanCode, HuffmanTreeGroup};
 pub enum BrotliResult {
-    ResultSuccess,
-    NeedsMoreInput,
-    NeedsMoreOutput,
-    ResultFailure,
+  ResultSuccess,
+  NeedsMoreInput,
+  NeedsMoreOutput,
+  ResultFailure,
 }
 
-const kDefaultCodeLength : u32 = 8;
-const kCodeLengthRepeatCode : u32 = 16;
-const kNumLiteralCodes : u16 = 256;
-const kNumInsertAndCopyCodes : u16 = 704;
-const kNumBlockLengthCodes : u32 = 26;
-const kDistanceContextBits : i32 = 2;
-const HUFFMAN_TABLE_BITS : u32 = 8;
-const HUFFMAN_TABLE_MASK : u32 = 0xff;
-const CODE_LENGTH_CODES : usize = 18;
-const kCodeLengthCodeOrder : [u8;CODE_LENGTH_CODES] = [
-  1, 2, 3, 4, 0, 5, 17, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-];
+const kDefaultCodeLength: u32 = 8;
+const kCodeLengthRepeatCode: u32 = 16;
+const kNumLiteralCodes: u16 = 256;
+const kNumInsertAndCopyCodes: u16 = 704;
+const kNumBlockLengthCodes: u32 = 26;
+const kDistanceContextBits: i32 = 2;
+const HUFFMAN_TABLE_BITS: u32 = 8;
+const HUFFMAN_TABLE_MASK: u32 = 0xff;
+const CODE_LENGTH_CODES: usize = 18;
+const kCodeLengthCodeOrder: [u8; CODE_LENGTH_CODES] = [1, 2, 3, 4, 0, 5, 17, 6, 16, 7, 8, 9, 10,
+                                                       11, 12, 13, 14, 15];
 
-/* Static prefix code for the complex code length code lengths. */
-const kCodeLengthPrefixLength : [u8; 16] = [
-  2, 2, 2, 3, 2, 2, 2, 4, 2, 2, 2, 3, 2, 2, 2, 4,
-];
+// Static prefix code for the complex code length code lengths.
+const kCodeLengthPrefixLength: [u8; 16] = [2, 2, 2, 3, 2, 2, 2, 4, 2, 2, 2, 3, 2, 2, 2, 4];
 
-const kCodeLengthPrefixValue : [u8;16] = [
-  0, 4, 3, 2, 0, 4, 3, 1, 0, 4, 3, 2, 0, 4, 3, 5,
-];
+const kCodeLengthPrefixValue: [u8; 16] = [0, 4, 3, 2, 0, 4, 3, 1, 0, 4, 3, 2, 0, 4, 3, 5];
 
 
 macro_rules! BROTLI_LOG_UINT (
@@ -1419,20 +1410,19 @@ fn DecodeBlockTypeAndLength<
   return true;
 
 }
-/* Decodes the block ty
-pe and updates the state for literal context.
-   Reads 3..54 bits. */
-fn DecodeLiteralBlockSwitchInternal<
-  AllocU8 : alloc::Allocator<u8>,
-  AllocU32 : alloc::Allocator<u32>,
-  AllocHC : alloc::Allocator<HuffmanCode>> (safe : bool,
-                                            mut s : &mut BrotliState<AllocU8,
-                                                                     AllocU32,
-                                                                     AllocHC>,
-                                            input : &[u8]) -> bool {
+// Decodes the block ty
+// pe and updates the state for literal context.
+// Reads 3..54 bits.
+fn DecodeLiteralBlockSwitchInternal<AllocU8: alloc::Allocator<u8>,
+                                    AllocU32: alloc::Allocator<u32>,
+                                    AllocHC: alloc::Allocator<HuffmanCode>>
+  (safe: bool,
+   mut s: &mut BrotliState<AllocU8, AllocU32, AllocHC>,
+   input: &[u8])
+   -> bool {
 
-  let context_mode : u8;
-  let context_offset : u32;
+  let context_mode: u8;
+  let context_offset: u32;
   if !DecodeBlockTypeAndLength(safe, &mut s.block_type_length_state, &mut s.br, 0, input) {
     return false;
   }
