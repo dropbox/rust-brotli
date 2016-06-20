@@ -23,8 +23,19 @@
 
 
 ## Usage
+### With the io::Read abstraction
+let mut input = brotli::Decompressor::new(&mut io::stdin(), 4096 /* buffer size */);
 
-There are 3 steps to using brotli
+then you can simply read input as you would any other io::Read class
+
+### With the Stream Copy abstraction
+  match brotli::BrotliDecompress(&mut io::stdin(), &mut io::stdout(), 65536 /* buffer size */) {
+      Ok(_) => {},
+      Err(e) => panic!("Error {:?}", e),
+  }
+
+### With manual memory management
+There are 3 steps to using brotli without stdlib
 a) setup the memory manager
 b) setup the BrotliState
 c) in a loop, call BrotliDecompressStream
@@ -38,20 +49,19 @@ in Detail
 declare_stack_allocator_struct!(MemPool, heap);
 
   // at local scope, make a heap allocated buffers to hold uint8's uint32's and huffman codes
-  define_allocator_memory_pool!(u8_buffer, 4096, u8, [0; 32 * 1024 * 1024], heap);
-  define_allocator_memory_pool!(u32_buffer, 4096, u32, [0; 1024 * 1024], heap);
-  define_allocator_memory_pool!(hc_buffer, 4096, HuffmanCode, [0; 4 * 1024 * 1024], heap);
-  let heap_u8_allocator = MemPool::<u8>::new_allocator(u8_buffer, bzero);
-  let heap_u32_allocator = MemPool::<u32>::new_allocator(u32_buffer, bzero);
-  let heap_hc_allocator = MemPool::<HuffmanCode>::new_allocator(hc_buffer, bzero);
-
+  let mut u8_buffer = define_allocator_memory_pool!(4096, u8, [0; 32 * 1024 * 1024], heap);
+  let mut u32_buffer = define_allocator_memory_pool!(4096, u32, [0; 1024 * 1024], heap);
+  let mut hc_buffer = define_allocator_memory_pool!(4096, HuffmanCode, [0; 4 * 1024 * 1024], heap);
+  let heap_u8_allocator = HeapPrealloc::<u8>::new_allocator(4096, &mut u8_buffer, bzero);
+  let heap_u32_allocator = HeapPrealloc::<u32>::new_allocator(4096, &mut u32_buffer, bzero);
+  let heap_hc_allocator = HeapPrealloc::<HuffmanCode>::new_allocator(4096, &mut hc_buffer, bzero);
 
   // At this point no more syscalls are going to be needed since everything can come from the allocators
   // feel free to activate SECCOMP jailing or other mechanisms to secure your application if you wish
 
 
   // now it's possible to setup the decompressor state
-  let mut brotli_state = BrotliState::new(calloc_u8_allocator, calloc_u32_allocator, calloc_hc_allocator);
+  let mut brotli_state = BrotliState::new(heap_u8_allocator, heap_u32_allocator, heap_hc_allocator);
 
 
   // at this point the decompressor simply needs an input and output buffer and the ability to track

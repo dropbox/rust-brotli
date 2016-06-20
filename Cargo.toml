@@ -24,3 +24,4 @@ lto=true
 no-stdlib = ["alloc-no-stdlib/no-stdlib"]
 unsafe = ["alloc-no-stdlib/unsafe"]
 disable-timer = []
+benchmark = []

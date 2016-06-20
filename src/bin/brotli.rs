@@ -210,8 +210,8 @@ fn writeln0<OutputType : Write> (strm : &mut OutputType, data: &str) -> core::re
    writeln!(strm, "{:}", data)
 }
 #[cfg(test)]
-fn writeln_time<OutputType : Write> (strm : &mut OutputType, data: &str, v0 : u64, v1 : u32) -> core::result::Result<(), io::Error> {
-   writeln!(strm, "{:} {:}.{:09}", data, v0, v1)
+fn writeln_time<OutputType : Write> (strm : &mut OutputType, data: &str, v0 : u64, v1 : u64, v2 : u32) -> core::result::Result<(), io::Error> {
+   writeln!(strm, "{:} {:} {:}.{:09}", v0, data, v1, v2)
 }
 
 fn main() {

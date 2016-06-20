@@ -2,6 +2,10 @@
 
 extern crate alloc_no_stdlib as alloc;
 use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator, bzero};
+#[cfg(not(feature="no-stdlib"))]
+use std::vec::Vec;
+#[cfg(not(feature="no-stdlib"))]
+use std::io;
 
 use core::ops;
 
@@ -116,6 +120,78 @@ fn test_quickfox_repeated() {
                            0x61, 0x7A, 0x79, 0x20, 0x64, 0x6F, 0x67];
   let mut index: usize = 0;
   for item in output[0..176128].iter_mut() {
+    assert_eq!(*item, fox[index]);
+    index += 1;
+    if index == 0x2b {
+      index = 0;
+    }
+  }
+}
+
+
+#[cfg(not(feature="no-stdlib"))]
+struct Buffer {
+    data : Vec<u8>,
+    read_offset : usize,
+}
+#[cfg(not(feature="no-stdlib"))]
+impl Buffer {
+    pub fn new(buf : &[u8]) -> Buffer {
+        let mut ret = Buffer{
+            data : Vec::<u8>::new(),
+            read_offset : 0,
+        };
+        ret.data.extend(buf);
+        return ret;
+    }
+}
+#[cfg(not(feature="no-stdlib"))]
+impl io::Read for Buffer {
+    fn read(self : &mut Self, buf : &mut [u8]) -> io::Result<usize> {
+        let bytes_to_read = ::core::cmp::min(buf.len(), self.data.len() - self.read_offset);
+        if bytes_to_read > 0 {
+            buf[0..bytes_to_read].clone_from_slice(&self.data[self.read_offset ..
+                                                                     self.read_offset + bytes_to_read]);
+        }
+        self.read_offset += bytes_to_read;
+        return Ok(bytes_to_read);
+    }
+}
+#[cfg(not(feature="no-stdlib"))]
+impl io::Write for Buffer {
+    fn write(self : &mut Self, buf : &[u8]) -> io::Result<usize> {
+        self.data.extend(buf);
+        return Ok(buf.len());
+    }
+    fn flush(self : &mut Self) -> io::Result<()> {
+        return Ok(());
+    }
+}
+
+
+#[test]
+#[cfg(not(feature="no-stdlib"))]
+fn test_reader_quickfox_repeated() {
+  let in_buf: [u8; 58] =
+    [0x5B, 0xFF, 0xAF, 0x02, 0xC0, 0x22, 0x79, 0x5C, 0xFB, 0x5A, 0x8C, 0x42, 0x3B, 0xF4, 0x25,
+     0x55, 0x19, 0x5A, 0x92, 0x99, 0xB1, 0x35, 0xC8, 0x19, 0x9E, 0x9E, 0x0A, 0x7B, 0x4B, 0x90,
+     0xB9, 0x3C, 0x98, 0xC8, 0x09, 0x40, 0xF3, 0xE6, 0xD9, 0x4D, 0xE4, 0x6D, 0x65, 0x1B, 0x27,
+     0x87, 0x13, 0x5F, 0xA6, 0xE9, 0x30, 0x96, 0x7B, 0x3C, 0x15, 0xD8, 0x53, 0x1C];
+
+  let mut output = Buffer::new(&[]);
+  let mut input = super::Decompressor::new(Buffer::new(&in_buf), 4096);
+  match super::copy_from_to(&mut input, &mut output) {
+    Ok(_) => {},
+    Err(e) => panic!("Error {:?}", e),
+  }
+
+  assert_eq!(output.data.len(), 176128);
+  const fox: [u8; 0x2b] = [0x54, 0x68, 0x65, 0x20, 0x71, 0x75, 0x69, 0x63, 0x6B, 0x20, 0x62, 0x72,
+                           0x6F, 0x77, 0x6E, 0x20, 0x66, 0x6F, 0x78, 0x20, 0x6A, 0x75, 0x6D, 0x70,
+                           0x73, 0x20, 0x6F, 0x76, 0x65, 0x72, 0x20, 0x74, 0x68, 0x65, 0x20, 0x6C,
+                           0x61, 0x7A, 0x79, 0x20, 0x64, 0x6F, 0x67];
+  let mut index: usize = 0;
+  for item in output.data[0..176128].iter_mut() {
     assert_eq!(*item, fox[index]);
     index += 1;
     if index == 0x2b {

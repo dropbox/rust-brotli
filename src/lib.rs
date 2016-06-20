@@ -319,7 +319,7 @@ impl<R: Read> Decompressor<R> {
 }
 
 
-#[cfg(all(feature="unsafe", not(feature="no-stdlib")))]
+#[cfg(not(feature="no-stdlib"))]
 impl<R: Read> Read for Decompressor<R> {
   fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
     return self.0.read(buf);

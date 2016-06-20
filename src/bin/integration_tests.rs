@@ -66,7 +66,10 @@ where OutputType: io::Write {
 }
 
 
-
+#[cfg(feature="benchmark")]
+const NUM_BENCHMARK_ITERATIONS : usize = 1000;
+#[cfg(not(feature="benchmark"))]
+const NUM_BENCHMARK_ITERATIONS : usize = 2;
 
 //option_env!("BENCHMARK_MODE").is_some()
 
@@ -76,7 +79,7 @@ where InputType: io::Read, OutputType: io::Write {
   let range : usize;
   let mut timing_error : bool = false;
   if benchmark_mode {
-    range = 100;
+    range = NUM_BENCHMARK_ITERATIONS;
   } else {
     range = 1;
   }
@@ -139,7 +142,8 @@ where InputType: io::Read, OutputType: io::Write {
   if timing_error {
       let _r = super::writeln0(&mut io::stderr(), "Timing error");
   } else {
-      let _r = super::writeln_time(&mut io::stderr(), "Time",
+      let _r = super::writeln_time(&mut io::stderr(), "Iterations; Time",
+                        range as u64,
                         total.as_secs(),
                         total.subsec_nanos());
   }
