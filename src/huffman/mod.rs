@@ -146,20 +146,20 @@ const kReverseBits: [u8; (1 << BROTLI_REVERSE_BITS_MAX)] =
 const BROTLI_REVERSE_BITS_LOWEST: u32 =
   (1u32 << (BROTLI_REVERSE_BITS_MAX as u32 - 1 + BROTLI_REVERSE_BITS_BASE as u32));
 
-/* Returns reverse(num >> BROTLI_REVERSE_BITS_BASE, BROTLI_REVERSE_BITS_MAX),
-   where reverse(value, len) is the bit-wise reversal of the len least
-   significant bits of value. */
-fn BrotliReverseBits(num : u32) -> u32{
-  return fast!((kReverseBits)[num as usize])  as u32;
+// Returns reverse(num >> BROTLI_REVERSE_BITS_BASE, BROTLI_REVERSE_BITS_MAX),
+// where reverse(value, len) is the bit-wise reversal of the len least
+// significant bits of value.
+fn BrotliReverseBits(num: u32) -> u32 {
+  return fast!((kReverseBits)[num as usize]) as u32;
 }
 
-/* Stores code in table[0], table[step], table[2*step], ..., table[end] */
-/* Assumes that end is an integer multiple of step */
-fn ReplicateValue(table : &mut [HuffmanCode],
-                    offset :u32,
-                    step : i32,
-                    mut end : i32,
-                    code : HuffmanCode) {
+// Stores code in table[0], table[step], table[2*step], ..., table[end]
+// Assumes that end is an integer multiple of step
+fn ReplicateValue(table: &mut [HuffmanCode],
+                  offset: u32,
+                  step: i32,
+                  mut end: i32,
+                  code: HuffmanCode) {
   loop {
     end -= step;
     fast_mut!((table)[offset as usize + end as usize]) = code;
@@ -186,15 +186,14 @@ fn NextTableBitSize(count: &[u16], mut len: i32, root_bits: i32) -> i32 {
 }
 
 
-pub fn BrotliBuildCodeLengthsHuffmanTable(mut table : &mut [HuffmanCode],
-                                      code_lengths : &[u8],
-                                      count : &[u16]) {
-  let mut sorted : [i32;18] = fast_uninitialized![18];     /* symbols sorted by code length */
-  /* offsets in sorted table for each length */
-  let mut offset : [i32 ; (BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH + 1) as usize] =
-     fast_uninitialized![(BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH + 1) as usize];
-  assert!(BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize<=
-          BROTLI_REVERSE_BITS_MAX as usize);
+pub fn BrotliBuildCodeLengthsHuffmanTable(mut table: &mut [HuffmanCode],
+                                          code_lengths: &[u8],
+                                          count: &[u16]) {
+  let mut sorted: [i32; 18] = fast_uninitialized![18];     /* symbols sorted by code length */
+  // offsets in sorted table for each length
+  let mut offset: [i32; (BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH + 1) as usize] =
+    fast_uninitialized![(BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH + 1) as usize];
+  assert!(BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH as usize <= BROTLI_REVERSE_BITS_MAX as usize);
 
   // generate offsets into sorted symbol table by code length
   let mut symbol: i32 = -1;         /* symbol index in original or sorted table */
@@ -204,14 +203,14 @@ pub fn BrotliBuildCodeLengthsHuffmanTable(mut table : &mut [HuffmanCode],
     fast_mut!((offset)[bits as usize]) = symbol;
     bits += 1;
   }
-  /* Symbols with code length 0 are placed after all other symbols. */
+  // Symbols with code length 0 are placed after all other symbols.
   fast_mut!((offset)[0]) = 17;
 
   // sort symbols by length, by symbol order within each length
   symbol = 18;
   loop {
     for _ in 0..6 {
-      symbol-=1;
+      symbol -= 1;
       let index = fast!((offset)[fast_inner!((code_lengths)[symbol as usize]) as usize]);
       fast_mut!((offset)[fast_inner!((code_lengths)[symbol as usize]) as usize]) -= 1;
       fast_mut!((sorted)[index as usize]) = symbol;
@@ -223,9 +222,12 @@ pub fn BrotliBuildCodeLengthsHuffmanTable(mut table : &mut [HuffmanCode],
 
   const table_size: i32 = 1 << BROTLI_HUFFMAN_MAX_CODE_LENGTH_CODE_LENGTH;
 
-  /* Special case: all symbols but one have 0 code length. */
+  // Special case: all symbols but one have 0 code length.
   if fast!((offset)[0]) == 0 {
-    let code : HuffmanCode = HuffmanCode{bits: 0, value: fast!((sorted)[0]) as u16};
+    let code: HuffmanCode = HuffmanCode {
+      bits: 0,
+      value: fast!((sorted)[0]) as u16,
+    };
     for val in fast_mut!((table)[0 ; table_size as usize]).iter_mut() {
       *val = code;
     }
@@ -239,8 +241,11 @@ pub fn BrotliBuildCodeLengthsHuffmanTable(mut table : &mut [HuffmanCode],
   bits = 1;
   let mut step: i32 = 2;
   loop {
-    let mut code : HuffmanCode = HuffmanCode{bits : (bits as u8), value : 0};
-    let mut bits_count : i32 = fast!((count)[bits as usize]) as i32;
+    let mut code: HuffmanCode = HuffmanCode {
+      bits: (bits as u8),
+      value: 0,
+    };
+    let mut bits_count: i32 = fast!((count)[bits as usize]) as i32;
 
     while bits_count != 0 {
       code.value = fast!((sorted)[symbol as usize]) as u16;
@@ -274,15 +279,16 @@ pub fn BrotliBuildHuffmanTable(mut root_table: &mut [HuffmanCode],
   assert!(BROTLI_HUFFMAN_MAX_CODE_LENGTH as isize - root_bits as isize <=
           BROTLI_REVERSE_BITS_MAX as isize);
 
-  while fast!((symbol_lists)[((symbol_lists_offset as isize) + max_length as isize) as usize]) == 0xFFFF {
+  while fast!((symbol_lists)[((symbol_lists_offset as isize) + max_length as isize) as usize]) ==
+        0xFFFF {
     max_length -= 1;
   }
   max_length += BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1;
 
-  let mut table_free_offset : u32 = 0;
-  let mut table_bits : i32 = root_bits;      /* key length of current table */
-  let mut table_size : i32 = 1 << table_bits;/* size of current table */
-  let mut total_size : i32 = table_size;     /* sum of root table size and 2nd level table sizes */
+  let mut table_free_offset: u32 = 0;
+  let mut table_bits: i32 = root_bits;      /* key length of current table */
+  let mut table_size: i32 = 1 << table_bits;/* size of current table */
+  let mut total_size: i32 = table_size;     /* sum of root table size and 2nd level table sizes */
 
   // fill in root table
   // let's reduce the table size to a smaller size if possible, and
@@ -297,13 +303,17 @@ pub fn BrotliBuildHuffmanTable(mut root_table: &mut [HuffmanCode],
   let mut step: i32 = 2; /* step size to replicate values in current table */
   loop {
     code.bits = bits as u8;
-    let mut symbol : i32 = bits - (BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1);
-    let mut bits_count : i32 = fast!((count)[bits as usize]) as i32;
+    let mut symbol: i32 = bits - (BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1);
+    let mut bits_count: i32 = fast!((count)[bits as usize]) as i32;
     while bits_count != 0 {
-      symbol = fast!((symbol_lists)[(symbol_lists_offset as isize + symbol as isize) as usize]) as i32;
+      symbol =
+        fast!((symbol_lists)[(symbol_lists_offset as isize + symbol as isize) as usize]) as i32;
       code.value = symbol as u16;
-      ReplicateValue(&mut root_table, table_free_offset + BrotliReverseBits(key),
-                     step, table_size, code);
+      ReplicateValue(&mut root_table,
+                     table_free_offset + BrotliReverseBits(key),
+                     step,
+                     table_size,
+                     code);
       key += key_step;
       bits_count -= 1;
     }
@@ -318,9 +328,10 @@ pub fn BrotliBuildHuffmanTable(mut root_table: &mut [HuffmanCode],
   // if root_bits != table_bits we only created one fraction of the
   // table, and we need to replicate it now.
   while total_size != table_size {
-    for index in 0..table_size { // FIXME: did I get this right?
-      fast_mut!((root_table)[table_free_offset as usize + table_size as usize + index as usize])
-        = fast!((root_table)[table_free_offset as usize + index as usize]);
+    for index in 0..table_size {
+      // FIXME: did I get this right?
+      fast_mut!((root_table)[table_free_offset as usize + table_size as usize + index as usize]) =
+        fast!((root_table)[table_free_offset as usize + index as usize]);
     }
     table_size <<= 1;
   }
@@ -334,7 +345,7 @@ pub fn BrotliBuildHuffmanTable(mut root_table: &mut [HuffmanCode],
 
   let mut len: i32 = root_bits + 1; /* current code length */
   while len <= max_length {
-    let mut symbol : i32 = len - (BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1);
+    let mut symbol: i32 = len - (BROTLI_HUFFMAN_MAX_CODE_LENGTH as i32 + 1);
     while fast!((count)[len as usize]) != 0 {
       if sub_key == (BROTLI_REVERSE_BITS_LOWEST << 1u32) {
         table_free_offset += table_size as u32;
@@ -345,14 +356,18 @@ pub fn BrotliBuildHuffmanTable(mut root_table: &mut [HuffmanCode],
         key += key_step;
         fast_mut!((root_table)[sub_key as usize]).bits = (table_bits + root_bits) as u8;
         fast_mut!((root_table)[sub_key as usize]).value =
-            ((table_free_offset as usize) - sub_key as usize) as u16;
+          ((table_free_offset as usize) - sub_key as usize) as u16;
         sub_key = 0;
       }
       code.bits = (len - root_bits) as u8;
-      symbol = fast!((symbol_lists)[(symbol_lists_offset as isize + symbol as isize) as usize]) as i32;
+      symbol =
+        fast!((symbol_lists)[(symbol_lists_offset as isize + symbol as isize) as usize]) as i32;
       code.value = symbol as u16;
-      ReplicateValue(
-          &mut root_table,table_free_offset + BrotliReverseBits(sub_key), step, table_size, code);
+      ReplicateValue(&mut root_table,
+                     table_free_offset + BrotliReverseBits(sub_key),
+                     step,
+                     table_size,
+                     code);
       sub_key += sub_key_step;
       fast_mut!((count)[len as usize]) -= 1;
     }
@@ -374,77 +389,77 @@ pub fn BrotliBuildSimpleHuffmanTable(table: &mut [HuffmanCode],
   let goal_size: u32 = 1u32 << root_bits;
   assert!(num_symbols <= 4);
   if num_symbols == 0 {
-      fast_mut!((table)[0]).bits = 0;
-      fast_mut!((table)[0]).value = fast!((val)[0]);
+    fast_mut!((table)[0]).bits = 0;
+    fast_mut!((table)[0]).value = fast!((val)[0]);
   } else if num_symbols == 1 {
-      fast_mut!((table)[0]).bits = 1;
-      fast_mut!((table)[1]).bits = 1;
-      if fast!((val)[1]) > fast!((val)[0]) {
-        fast_mut!((table)[0]).value = fast!((val)[0]);
-        fast_mut!((table)[1]).value = fast!((val)[1]);
-      } else {
-        fast_mut!((table)[0]).value = fast!((val)[1]);
-        fast_mut!((table)[1]).value = fast!((val)[0]);
-      }
-      table_size = 2;
-  } else if num_symbols == 2 {
-      fast_mut!((table)[0]).bits = 1;
+    fast_mut!((table)[0]).bits = 1;
+    fast_mut!((table)[1]).bits = 1;
+    if fast!((val)[1]) > fast!((val)[0]) {
       fast_mut!((table)[0]).value = fast!((val)[0]);
-      fast_mut!((table)[2]).bits = 1;
-      fast_mut!((table)[2]).value = fast!((val)[0]);
-      if fast!((val)[2]) > fast!((val)[1]) {
-        fast_mut!((table)[1]).value = fast!((val)[1]);
-        fast_mut!((table)[3]).value = fast!((val)[2]);
-      } else {
-        fast_mut!((table)[1]).value = fast!((val)[2]);
-        fast_mut!((table)[3]).value = fast!((val)[1]);
-      }
-      fast_mut!((table)[1]).bits = 2;
-      fast_mut!((table)[3]).bits = 2;
-      table_size = 4;
+      fast_mut!((table)[1]).value = fast!((val)[1]);
+    } else {
+      fast_mut!((table)[0]).value = fast!((val)[1]);
+      fast_mut!((table)[1]).value = fast!((val)[0]);
+    }
+    table_size = 2;
+  } else if num_symbols == 2 {
+    fast_mut!((table)[0]).bits = 1;
+    fast_mut!((table)[0]).value = fast!((val)[0]);
+    fast_mut!((table)[2]).bits = 1;
+    fast_mut!((table)[2]).value = fast!((val)[0]);
+    if fast!((val)[2]) > fast!((val)[1]) {
+      fast_mut!((table)[1]).value = fast!((val)[1]);
+      fast_mut!((table)[3]).value = fast!((val)[2]);
+    } else {
+      fast_mut!((table)[1]).value = fast!((val)[2]);
+      fast_mut!((table)[3]).value = fast!((val)[1]);
+    }
+    fast_mut!((table)[1]).bits = 2;
+    fast_mut!((table)[3]).bits = 2;
+    table_size = 4;
   } else if num_symbols == 3 {
-      let last : u16;
-      if val.len() > 3 {
-          last = fast!((val)[3]);
-      } else {
-          last = 65535;
-      }
-      let mut mval : [u16 ; 4] = [fast!((val)[0]), fast!((val)[1]), fast!((val)[2]), last];
-      for i in 0..3 {
-        for k in i + 1..4 {
-          if mval[k] < mval[i] {
-            let t : u16 = mval[k];
-            mval[k] = mval[i];
-            mval[i] = t;
-          }
+    let last: u16;
+    if val.len() > 3 {
+      last = fast!((val)[3]);
+    } else {
+      last = 65535;
+    }
+    let mut mval: [u16; 4] = [fast!((val)[0]), fast!((val)[1]), fast!((val)[2]), last];
+    for i in 0..3 {
+      for k in i + 1..4 {
+        if mval[k] < mval[i] {
+          let t: u16 = mval[k];
+          mval[k] = mval[i];
+          mval[i] = t;
         }
       }
-      for i in 0..4 {
-        fast_mut!((table)[i]).bits = 2;
-      }
-      fast_mut!((table)[0]).value = mval[0];
-      fast_mut!((table)[2]).value = mval[1];
-      fast_mut!((table)[1]).value = mval[2];
-      fast_mut!((table)[3]).value = mval[3];
-      table_size = 4;
+    }
+    for i in 0..4 {
+      fast_mut!((table)[i]).bits = 2;
+    }
+    fast_mut!((table)[0]).value = mval[0];
+    fast_mut!((table)[2]).value = mval[1];
+    fast_mut!((table)[1]).value = mval[2];
+    fast_mut!((table)[3]).value = mval[3];
+    table_size = 4;
   } else if num_symbols == 4 {
-      let mut mval : [u16; 4] = [fast!((val)[0]), fast!((val)[1]), fast!((val)[2]), fast!((val)[3])];
-      if mval[3] < mval[2] {
-        let t : u16 = mval[3];
-        mval[3] = mval[2];
-        mval[2] = t;
-      }
-      for i in 0..7 {
-        fast_mut!((table)[i]).value = mval[0];
-        fast_mut!((table)[i]).bits = (1 + (i & 1)) as u8;
-      }
-      fast_mut!((table)[1]).value = mval[1];
-      fast_mut!((table)[3]).value = mval[2];
-      fast_mut!((table)[5]).value = mval[1];
-      fast_mut!((table)[7]).value = mval[3];
-      fast_mut!((table)[3]).bits = 3;
-      fast_mut!((table)[7]).bits = 3;
-      table_size = 8;
+    let mut mval: [u16; 4] = [fast!((val)[0]), fast!((val)[1]), fast!((val)[2]), fast!((val)[3])];
+    if mval[3] < mval[2] {
+      let t: u16 = mval[3];
+      mval[3] = mval[2];
+      mval[2] = t;
+    }
+    for i in 0..7 {
+      fast_mut!((table)[i]).value = mval[0];
+      fast_mut!((table)[i]).bits = (1 + (i & 1)) as u8;
+    }
+    fast_mut!((table)[1]).value = mval[1];
+    fast_mut!((table)[3]).value = mval[2];
+    fast_mut!((table)[5]).value = mval[1];
+    fast_mut!((table)[7]).value = mval[3];
+    fast_mut!((table)[3]).bits = 3;
+    fast_mut!((table)[7]).bits = 3;
+    table_size = 8;
   } else {
     assert!(false);
   }

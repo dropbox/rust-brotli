@@ -1,4 +1,4 @@
-//use core::slice;
+// use core::slice;
 
 #[cfg(not(feature="unsafe"))]
 macro_rules! fast_ref {
@@ -45,16 +45,16 @@ macro_rules! fast_uninitialized {
 #[cfg(not(feature="unsafe"))]
 macro_rules! fast_mut {
    (($slice : expr)[$index: expr]) => (
-       ($slice)[$index]       
+       ($slice)[$index]
    );
    (($slice : expr)[$start: expr ; $end : expr]) => (
        &mut $slice[$start..$end]
    );
    (($slice : expr)[$start: expr ;]) => (
-       &mut $slice[$start..]       
+       &mut $slice[$start..]
    );
    (($slice : expr)[; $end]) => (
-       &mut $slice[..$end]              
+       &mut $slice[..$end]
    );
 }
 
@@ -73,24 +73,25 @@ macro_rules! fast_inner {
        *$slice.get_unchecked($index)
    );
 }
-/*
-#[cfg(feature="unsafe")]
-macro_rules! fast_slice {
-   (($slice : expr)[$index: expr]) => (
-       unsafe{*$slice.slice().get_unchecked($index)}
-   );
-}
-*/
+// #[cfg(feature="unsafe")]
+// macro_rules! fast_slice {
+// (($slice : expr)[$index: expr]) => (
+// unsafe{*$slice.slice().get_unchecked($index)}
+// );
+// }
+//
 #[cfg(feature="unsafe")]
 macro_rules! fast {
    (($slice : expr)[$index: expr]) => (
        unsafe{*$slice.get_unchecked($index)}
    );
    (($slice : expr)[$start: expr ; $end : expr]) => (
-       unsafe{::core::slice::from_raw_parts(($slice).as_ptr().offset($start as isize), $end - $start)};
+       unsafe{::core::slice::from_raw_parts(($slice).as_ptr().offset($start as isize),
+                                            $end - $start)};
    );
    (($slice : expr)[$start: expr ;]) => (
-       unsafe{::core::slice::from_raw_parts(($slice).as_ptr().offset($start as isize), $slice.len() - $start)};
+       unsafe{::core::slice::from_raw_parts(($slice).as_ptr().offset($start as isize),
+                                                                     $slice.len() - $start)};
    );
    (($slice : expr)[; $end]) => (
        unsafe{::core::slice::from_raw_parts(($slice).as_ptr(), $slice.len())};
@@ -108,16 +109,15 @@ macro_rules! fast_slice {
        fast!(($slice.slice())[$start;$end])
    );
 }
-/*
-macro_rules! fast_slice_ref {
-   (($slice : expr)[$index: expr]) => (
-       fast_ref!(($slice.slice())[$index])
-   );
-   (($slice : expr)[$index: expr]) => (
-       fast_ref!(($slice.slice())[$index])
-   );
-}
-*/
+// macro_rules! fast_slice_ref {
+// (($slice : expr)[$index: expr]) => (
+// fast_ref!(($slice.slice())[$index])
+// );
+// (($slice : expr)[$index: expr]) => (
+// fast_ref!(($slice.slice())[$index])
+// );
+// }
+//
 macro_rules! fast_slice_mut {
    (($slice : expr)[$index: expr]) => (
        fast_mut!(($slice.slice_mut())[$index])
@@ -136,10 +136,12 @@ macro_rules! fast_mut {
        *unsafe{$slice.get_unchecked_mut($index)}
    );
    (($slice : expr)[$start: expr ; $end : expr]) => (
-       unsafe{::core::slice::from_raw_parts_mut(($slice).as_mut_ptr().offset($start as isize), $end - $start)};
+       unsafe{::core::slice::from_raw_parts_mut(($slice).as_mut_ptr().offset($start as isize),
+                                                $end - $start)};
    );
    (($slice : expr)[$start: expr ;]) => (
-       unsafe{::core::slice::from_raw_parts_mut(($slice).as_mut_ptr().offset($start as isize), $slice.len() - $start)};
+       unsafe{::core::slice::from_raw_parts_mut(($slice).as_mut_ptr().offset($start as isize),
+                                                $slice.len() - $start)};
    );
    (($slice : expr)[; $end]) => (
        unsafe{::core::slice::from_raw_parts_mut(($slice).as_mut_ptr(), $slice.len())};
@@ -151,27 +153,27 @@ macro_rules! fast_uninitialized {
     ($def_value : expr ; $size : expr ) => (unsafe{::core::mem::uninitialized()});
 }
 
-/*
-pub fn indexk<T>(item : &[T], index : usize) -> &T {
+// pub fn indexk<T>(item : &[T], index : usize) -> &T {
 //   return &item[index];
-   return unsafe{item.get_unchecked(index)};
-}
-
-pub fn indexm<T>(item : &mut [T], index : usize) -> &mut T {
+// return unsafe{item.get_unchecked(index)};
+// }
+//
+// pub fn indexm<T>(item : &mut [T], index : usize) -> &mut T {
 // return &mut item[index]
-   return unsafe{item.get_unchecked_mut(index)};
-}
-
-
-pub fn slicek<T>(item : &[T], start : usize, end :usize) -> &[T] {
-   return unsafe{slice::from_raw_parts(item.as_ptr().offset(start as isize), end - start)};
-}
-
-pub fn slicem<T>(item : &mut [T], start : usize, end :usize) -> &mut [T] {
-   return unsafe{slice::from_raw_parts_mut(item.as_mut_ptr().offset(start as isize), end - start)};
-}
-
-pub fn slicemend<T>(item : &mut [T], start : usize) -> &mut [T] {
-   return unsafe{slice::from_raw_parts_mut(item.as_mut_ptr().offset(start as isize), item.len() - start)};
-}
-*/
+// return unsafe{item.get_unchecked_mut(index)};
+// }
+//
+//
+// pub fn slicek<T>(item : &[T], start : usize, end :usize) -> &[T] {
+// return unsafe{slice::from_raw_parts(item.as_ptr().offset(start as isize), end - start)};
+// }
+//
+// pub fn slicem<T>(item : &mut [T], start : usize, end :usize) -> &mut [T] {
+// return unsafe{slice::from_raw_parts_mut(item.as_mut_ptr().offset(start as isize), end - start)};
+// }
+//
+// pub fn slicemend<T>(item : &mut [T], start : usize) -> &mut [T] {
+// return unsafe{slice::from_raw_parts_mut(item.as_mut_ptr().offset(start as isize),
+//                                         item.len() - start)};
+// }
+//
