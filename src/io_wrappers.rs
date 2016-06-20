@@ -29,26 +29,21 @@ pub fn write_all<ErrType, OutputType>(w: &mut OutputType, buf: &[u8]) -> Result<
 }
 
 #[cfg(not(feature="no-stdlib"))]
-pub struct IntoIoReader<InputType: Read> {
-  pub reader: InputType,
-}
+pub struct IntoIoReader<InputType: Read>(pub InputType);
 
 
 #[cfg(not(feature="no-stdlib"))]
-pub struct IoWriterWrapper<'a, OutputType: Write + 'a> {
-  pub writer: &'a mut OutputType,
-}
+pub struct IoWriterWrapper<'a, OutputType: Write + 'a>(pub &'a mut OutputType);
+
 
 #[cfg(not(feature="no-stdlib"))]
-pub struct IoReaderWrapper<'a, OutputType: Read + 'a> {
-  pub reader: &'a mut OutputType,
-}
+pub struct IoReaderWrapper<'a, OutputType: Read + 'a>(pub &'a mut OutputType);
 
 #[cfg(not(feature="no-stdlib"))]
 impl<'a, OutputType: Write> CustomWrite<io::Error> for IoWriterWrapper<'a, OutputType> {
   fn write(self: &mut Self, buf: &[u8]) -> Result<usize, io::Error> {
     loop {
-      match self.writer.write(buf) {
+      match self.0.write(buf) {
         Err(e) => {
           match e.kind() {
             ErrorKind::Interrupted => continue,
@@ -66,7 +61,7 @@ impl<'a, OutputType: Write> CustomWrite<io::Error> for IoWriterWrapper<'a, Outpu
 impl<'a, InputType: Read> CustomRead<io::Error> for IoReaderWrapper<'a, InputType> {
   fn read(self: &mut Self, buf: &mut [u8]) -> Result<usize, io::Error> {
     loop {
-      match self.reader.read(buf) {
+      match self.0.read(buf) {
         Err(e) => {
           match e.kind() {
             ErrorKind::Interrupted => continue,
@@ -83,7 +78,7 @@ impl<'a, InputType: Read> CustomRead<io::Error> for IoReaderWrapper<'a, InputTyp
 impl<InputType: Read> CustomRead<io::Error> for IntoIoReader<InputType> {
   fn read(self: &mut Self, buf: &mut [u8]) -> Result<usize, io::Error> {
     loop {
-      match self.reader.read(buf) {
+      match self.0.read(buf) {
         Err(e) => {
           match e.kind() {
             ErrorKind::Interrupted => continue,
