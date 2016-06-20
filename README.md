@@ -24,16 +24,18 @@
 
 ## Usage
 ### With the io::Read abstraction
+```
 let mut input = brotli::Decompressor::new(&mut io::stdin(), 4096 /* buffer size */);
-
+```
 then you can simply read input as you would any other io::Read class
 
 ### With the Stream Copy abstraction
+```
   match brotli::BrotliDecompress(&mut io::stdin(), &mut io::stdout(), 65536 /* buffer size */) {
       Ok(_) => {},
       Err(e) => panic!("Error {:?}", e),
   }
-
+```
 ### With manual memory management
 There are 3 steps to using brotli without stdlib
 a) setup the memory manager
