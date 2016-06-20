@@ -1,8 +1,8 @@
 [package]
-name = "brotli-no-stdlib"
-version = "1.0.5"
+name = "brotli"
+version = "1.0.6"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
-description = "A brotli decompressor that does not use the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. For users wishing to use the stdlib, the brotli package, which calls into and abstracts this package, is recommended."
+description = "A brotli decompressor that does not use the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. The default build also includes a stdlib allocator and stream interface. Disable this with --features=no-stdlib. Alternatively, --features=unsafe turns off array bounds checks and memory initialization but provides a safe interface for the caller.  Without adding the --features=unsafe argument, all included code is safe."
 license = "BSD-3-Clause/MIT"
 documentation = "https://github.com/google/brotli/tree/master/docs"
 homepage = "https://github.com/dropbox/rust-brotli-no-stdlib"
@@ -12,7 +12,7 @@ readme = "README.md"
 
 [[bin]]
 doc = false
-name = "brot"
+name = "brotli"
 
 [profile.release]
 lto=true

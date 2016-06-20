@@ -1,6 +1,6 @@
 mod integration_tests;
 mod tests;
-extern crate brotli_no_stdlib as brotli;
+extern crate brotli;
 extern crate core;
 #[macro_use]
 extern crate alloc_no_stdlib;
