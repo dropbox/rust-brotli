@@ -11,7 +11,8 @@
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-
+#[macro_use]
+mod memory;
 mod dictionary;
 #[macro_use]
 mod bit_reader;

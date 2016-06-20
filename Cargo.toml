@@ -18,5 +18,5 @@ name = "brot"
 "alloc-no-stdlib" = "~1.2"
 
 [features]
-
+unsafe = []
 disable-timer = []
