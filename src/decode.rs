@@ -2370,7 +2370,7 @@ pub fn BrotliDecompressStream<'a,
                               AllocHC: alloc::Allocator<HuffmanCode>>
   (mut available_in: &mut usize,
    input_offset: &mut usize,
-   xinput: &[u8], // ugly that we are mutable
+   xinput: &[u8],
    mut available_out: &mut usize,
    mut output_offset: &mut usize,
    mut output: &mut [u8],

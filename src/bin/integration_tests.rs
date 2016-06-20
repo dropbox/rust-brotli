@@ -6,6 +6,7 @@ struct Buffer {
     data : Vec<u8>,
     read_offset : usize,
 }
+//option_env!("BENCHMARK_MODE").is_some()
 impl Buffer {
     pub fn new(buf : &[u8]) -> Buffer {
         let mut ret = Buffer{
