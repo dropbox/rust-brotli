@@ -1944,8 +1944,7 @@ fn memmove16(data: &mut [u8], u32off_dst: u32, u32off_src: u32) {
 }
 
 
-// FIXME: use copy_nonoverlapping
-
+#[cfg(not(feature="unsafe"))]
 fn memcpy_within_slice(data: &mut [u8], off_dst: usize, off_src: usize, size: usize) {
   if off_dst > off_src {
     let (src, dst) = data.split_at_mut(off_dst);
@@ -1955,6 +1954,16 @@ fn memcpy_within_slice(data: &mut [u8], off_dst: usize, off_src: usize, size: us
     let (dst, src) = data.split_at_mut(off_src);
     let src_slice = fast!((src)[0;size]);
     fast_mut!((dst)[off_dst;off_dst + size]).clone_from_slice(src_slice);
+  }
+}
+
+#[cfg(feature="unsafe")]
+fn memcpy_within_slice(data: &mut [u8], off_dst: usize, off_src: usize, size: usize) {
+  let ptr = data.as_mut_ptr();
+  unsafe {
+    let dst = ptr.offset(off_dst as isize);
+    let src = ptr.offset(off_src as isize);
+    core::ptr::copy_nonoverlapping(src, dst, size);
   }
 }
 
