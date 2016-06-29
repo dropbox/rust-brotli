@@ -21,6 +21,7 @@ lto=true
 "alloc-no-stdlib" = "~1.2"
 
 [features]
+seccomp = []
 no-stdlib = ["alloc-no-stdlib/no-stdlib"]
 unsafe = ["alloc-no-stdlib/unsafe"]
 disable-timer = []

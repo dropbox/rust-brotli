@@ -5,7 +5,6 @@ extern crate core;
 #[macro_use]
 extern crate alloc_no_stdlib;
 use core::ops;
-use alloc_no_stdlib::bzero;
 use brotli::CustomRead;
 pub struct Rebox<T> {
   b: Box<[T]>,
@@ -75,7 +74,7 @@ impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
 
 
 #[allow(unused_imports)]
-use alloc_no_stdlib::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator};
+use alloc_no_stdlib::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator, bzero};
 use brotli::HuffmanCode;
 
 use std::io::{self, Error, ErrorKind, Read, Write};
@@ -146,7 +145,7 @@ impl<InputType: Read> brotli::CustomRead<io::Error> for IntoIoReader<InputType> 
     }
   }
 }
-
+#[cfg(not(feature="seccomp"))]
 pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                          mut w: &mut OutputType,
                                          buffer_size: usize)
@@ -168,18 +167,23 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                           },
                                           Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"));
 }
+#[cfg(feature="seccomp")]
 extern {
   fn calloc(n_elem : usize, el_size : usize) -> *mut u8;
   fn free(ptr : *mut u8);
   fn syscall(value : i32) -> i32;
   fn prctl(operation : i32, flags : u32) -> i32;
 }
-
+#[cfg(feature="seccomp")]
 const PR_SET_SECCOMP : i32 = 22;
+#[cfg(feature="seccomp")]
 const SECCOMP_MODE_STRICT : u32 = 1;
+
+#[cfg(feature="seccomp")]
 declare_stack_allocator_struct!(CallocAllocatedFreelist, 8192, calloc);
 
-pub fn decompress_seccomp<InputType, OutputType>(r: &mut InputType,
+#[cfg(feature="seccomp")]
+pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                          mut w: &mut OutputType,
                                          buffer_size: usize)
                                          -> Result<(), io::Error>
@@ -207,7 +211,6 @@ pub fn decompress_seccomp<InputType, OutputType>(r: &mut InputType,
                                           Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF")) {
       Err(e) => Err(e),
       Ok(()) => {
-        Ok(())
         unsafe{syscall(60);};
         unreachable!()
       },
@@ -271,15 +274,7 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 }
 
 fn main() {
-  let mut use_seccomp : bool = true;
-  if env::args_os().len() == 1 {
-    for argument in env::args() {
-      if argument == "-seccomp" || argument == "--seccomp" {
-        use_seccomp = true
-      }
-    }
-  }
-  if env::args_os().len() > 1 && !use_seccomp {
+  if env::args_os().len() > 1 {
     let mut first = true;
     for argument in env::args() {
       if first {
@@ -303,16 +298,9 @@ fn main() {
       drop(input);
     }
   } else {
-    if use_seccomp {
-      match decompress_seccomp(&mut io::stdin(), &mut io::stdout(), 65536) {
-        Ok(_) => unreachable!(),
-        Err(e) => panic!("Error {:?}", e),
-      }      
-    } else {
-      match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
-        Ok(_) => return,
-        Err(e) => panic!("Error {:?}", e),
-      }
+    match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
+      Ok(_) => return,
+      Err(e) => panic!("Error {:?}", e),
     }
   }
 }
