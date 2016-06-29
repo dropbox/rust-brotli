@@ -5,6 +5,7 @@ extern crate core;
 #[macro_use]
 extern crate alloc_no_stdlib;
 use core::ops;
+use alloc_no_stdlib::bzero;
 use brotli::CustomRead;
 pub struct Rebox<T> {
   b: Box<[T]>,
@@ -74,9 +75,7 @@ impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
 
 
 #[allow(unused_imports)]
-use alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
-
-// use alloc::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator};
+use alloc_no_stdlib::{SliceWrapper,SliceWrapperMut, StackAllocator, AllocatedStackMemory, Allocator};
 use brotli::HuffmanCode;
 
 use std::io::{self, Error, ErrorKind, Read, Write};
@@ -169,7 +168,51 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                           },
                                           Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"));
 }
+extern {
+  fn calloc(n_elem : usize, el_size : usize) -> *mut u8;
+  fn free(ptr : *mut u8);
+  fn syscall(value : i32) -> i32;
+  fn prctl(operation : i32, flags : u32) -> i32;
+}
 
+const PR_SET_SECCOMP : i32 = 22;
+const SECCOMP_MODE_STRICT : u32 = 1;
+declare_stack_allocator_struct!(CallocAllocatedFreelist, 8192, calloc);
+
+pub fn decompress_seccomp<InputType, OutputType>(r: &mut InputType,
+                                         mut w: &mut OutputType,
+                                         buffer_size: usize)
+                                         -> Result<(), io::Error>
+  where InputType: Read,
+        OutputType: Write
+{
+
+  let mut u8_buffer = unsafe {define_allocator_memory_pool!(4, u8, [0; 1024 * 1024 * 200], calloc)};
+  let mut u32_buffer = unsafe {define_allocator_memory_pool!(4, u32, [0; 16384], calloc)};
+  let mut hc_buffer = unsafe {define_allocator_memory_pool!(4, HuffmanCode, [0; 1024 * 1024 * 16], calloc)};
+  let mut alloc_u8 = CallocAllocatedFreelist::<u8>::new_allocator(u8_buffer.data, bzero);
+  let alloc_u32 = CallocAllocatedFreelist::<u32>::new_allocator(u32_buffer.data, bzero);
+  let alloc_hc = CallocAllocatedFreelist::<HuffmanCode>::new_allocator(hc_buffer.data, bzero);
+  let ret = unsafe{prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT)};
+  if ret != 0 {
+     panic!("Unable to activate seccomp");
+  }
+  match brotli::BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
+                                          &mut IoWriterWrapper::<OutputType>(w),
+                                          &mut alloc_u8.alloc_cell(buffer_size).slice_mut(),
+                                          &mut alloc_u8.alloc_cell(buffer_size).slice_mut(),
+                                          alloc_u8,
+                                          alloc_u32,
+                                          alloc_hc,
+                                          Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF")) {
+      Err(e) => Err(e),
+      Ok(()) => {
+        Ok(())
+        unsafe{syscall(60);};
+        unreachable!()
+      },
+   }
+}
 
 
 
@@ -228,7 +271,15 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 }
 
 fn main() {
-  if env::args_os().len() > 1 {
+  let mut use_seccomp : bool = true;
+  if env::args_os().len() == 1 {
+    for argument in env::args() {
+      if argument == "-seccomp" || argument == "--seccomp" {
+        use_seccomp = true
+      }
+    }
+  }
+  if env::args_os().len() > 1 && !use_seccomp {
     let mut first = true;
     for argument in env::args() {
       if first {
@@ -252,9 +303,16 @@ fn main() {
       drop(input);
     }
   } else {
-    match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
-      Ok(_) => return,
-      Err(e) => panic!("Error {:?}", e),
+    if use_seccomp {
+      match decompress_seccomp(&mut io::stdin(), &mut io::stdout(), 65536) {
+        Ok(_) => unreachable!(),
+        Err(e) => panic!("Error {:?}", e),
+      }      
+    } else {
+      match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
+        Ok(_) => return,
+        Err(e) => panic!("Error {:?}", e),
+      }
     }
   }
 }
