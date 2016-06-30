@@ -64,15 +64,15 @@ pub fn BrotliDecompress<InputType, OutputType>(r: &mut InputType,
 {
   let mut input_buffer: [u8; 4096] = [0; 4096];
   let mut output_buffer: [u8; 4096] = [0; 4096];
-  return BrotliDecompressCustomAlloc(r,
-                                     w,
-                                     &mut input_buffer[..],
-                                     &mut output_buffer[..],
-                                     HeapAlloc::<u8> { default_value: 0 },
-                                     HeapAlloc::<u32> { default_value: 0 },
-                                     HeapAlloc::<HuffmanCode> {
-                                       default_value: HuffmanCode::default(),
-                                     });
+  BrotliDecompressCustomAlloc(r,
+                              w,
+                              &mut input_buffer[..],
+                              &mut output_buffer[..],
+                              HeapAlloc::<u8> { default_value: 0 },
+                              HeapAlloc::<u32> { default_value: 0 },
+                              HeapAlloc::<HuffmanCode> {
+                                default_value: HuffmanCode::default(),
+                              })
 }
 
 #[cfg(all(feature="unsafe",not(feature="no-stdlib")))]
@@ -84,13 +84,13 @@ pub fn BrotliDecompress<InputType, OutputType>(r: &mut InputType,
 {
   let mut input_buffer: [u8; 4096] = [0; 4096];
   let mut output_buffer: [u8; 4096] = [0; 4096];
-  return BrotliDecompressCustomAlloc(r,
-                                     w,
-                                     &mut input_buffer[..],
-                                     &mut output_buffer[..],
-                                     unsafe { HeapAllocUninitialized::<u8>::new() },
-                                     unsafe { HeapAllocUninitialized::<u32>::new() },
-                                     unsafe { HeapAllocUninitialized::<HuffmanCode>::new() });
+  BrotliDecompressCustomAlloc(r,
+                              w,
+                              &mut input_buffer[..],
+                              &mut output_buffer[..],
+                              unsafe { HeapAllocUninitialized::<u8>::new() },
+                              unsafe { HeapAllocUninitialized::<u32>::new() },
+                              unsafe { HeapAllocUninitialized::<HuffmanCode>::new() })
 }
 
 
@@ -111,14 +111,14 @@ pub fn BrotliDecompressCustomAlloc<InputType,
   where InputType: Read,
         OutputType: Write
 {
-  return BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
-                                  &mut IoWriterWrapper::<OutputType>(w),
-                                  input_buffer,
-                                  output_buffer,
-                                  alloc_u8,
-                                  alloc_u32,
-                                  alloc_hc,
-                                  Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"));
+  BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
+                           &mut IoWriterWrapper::<OutputType>(w),
+                           input_buffer,
+                           output_buffer,
+                           alloc_u8,
+                           alloc_u32,
+                           alloc_hc,
+                           Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 
 pub fn BrotliDecompressCustomIo<ErrType,
@@ -235,7 +235,7 @@ impl<R: Read,
 
     pub fn new(r: R, buffer : BufferType,
                alloc_u8 : AllocU8, alloc_u32 : AllocU32, alloc_hc : AllocHC) -> Self {
-        return DecompressorCustomAlloc::<R, BufferType, AllocU8, AllocU32, AllocHC>(
+        DecompressorCustomAlloc::<R, BufferType, AllocU8, AllocU32, AllocHC>(
           DecompressorCustomIo::<Error,
                                  IntoIoReader<R>,
                                  BufferType,
@@ -243,7 +243,7 @@ impl<R: Read,
                                                                   buffer,
                                                                   alloc_u8, alloc_u32, alloc_hc,
                                                                   Error::new(ErrorKind::InvalidData,
-                                                                             "Invalid Data")));
+                                                                             "Invalid Data")))
     }
 }
 #[cfg(not(feature="no-stdlib"))]
@@ -257,7 +257,7 @@ impl<R: Read,
                                                                          AllocU32,
                                                                          AllocHC> {
   	fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
-       return self.0.read(buf);
+       self.0.read(buf)
     }
 }
 
@@ -278,16 +278,16 @@ impl<R: Read> Decompressor<R> {
     let buffer = alloc_u8.alloc_cell(buffer_size);
     let alloc_u32 = HeapAlloc::<u32> { default_value: 0 };
     let alloc_hc = HeapAlloc::<HuffmanCode> { default_value: HuffmanCode::default() };
-    return Decompressor::<R>(DecompressorCustomAlloc::<R,
-                                                       <alloc::HeapAlloc<u8>
-                                                        as Allocator<u8>>::AllocatedMemory,
-                                                       HeapAlloc<u8>,
-                                                       HeapAlloc<u32>,
-                                                       HeapAlloc<HuffmanCode> >::new(r,
-                                                                                     buffer,
-                                                                                     alloc_u8,
-                                                                                     alloc_u32,
-                                                                                     alloc_hc));
+    Decompressor::<R>(DecompressorCustomAlloc::<R,
+                                                <alloc::HeapAlloc<u8>
+                                                 as Allocator<u8>>::AllocatedMemory,
+                                                HeapAlloc<u8>,
+                                                HeapAlloc<u32>,
+                                                HeapAlloc<HuffmanCode> >::new(r,
+                                                                              buffer,
+                                                                              alloc_u8,
+                                                                              alloc_u32,
+                                                                              alloc_hc))
   }
 }
 
@@ -308,13 +308,13 @@ impl<R: Read> Decompressor<R> {
     let buffer = alloc_u8.alloc_cell(buffer_size);
     let alloc_u32 = unsafe { HeapAllocUninitialized::<u32>::new() };
     let alloc_hc = unsafe { HeapAllocUninitialized::<HuffmanCode>::new() };
-    return Decompressor::<R>(DecompressorCustomAlloc::<R,
-                                                       <alloc::HeapAllocUninitialized<u8>
-                                                        as Allocator<u8>>::AllocatedMemory,
-                                                       HeapAllocUninitialized<u8>,
-                                                       HeapAllocUninitialized<u32>,
-                                                       HeapAllocUninitialized<HuffmanCode> >
-      ::new(r, buffer, alloc_u8, alloc_u32, alloc_hc));
+    Decompressor::<R>(DecompressorCustomAlloc::<R,
+                                                <alloc::HeapAllocUninitialized<u8>
+                                                 as Allocator<u8>>::AllocatedMemory,
+                                                HeapAllocUninitialized<u8>,
+                                                HeapAllocUninitialized<u32>,
+                                                HeapAllocUninitialized<HuffmanCode> >
+      ::new(r, buffer, alloc_u8, alloc_u32, alloc_hc))
   }
 }
 
@@ -322,7 +322,7 @@ impl<R: Read> Decompressor<R> {
 #[cfg(not(feature="no-stdlib"))]
 impl<R: Read> Read for Decompressor<R> {
   fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
-    return self.0.read(buf);
+    self.0.read(buf)
   }
 }
 
@@ -356,7 +356,7 @@ impl<ErrType,
     pub fn new(r: R, buffer : BufferType,
                alloc_u8 : AllocU8, alloc_u32 : AllocU32, alloc_hc : AllocHC,
                invalid_data_error_type : ErrType) -> Self {
-        let ret = DecompressorCustomIo::<ErrType, R, BufferType, AllocU8, AllocU32, AllocHC>{
+        DecompressorCustomIo::<ErrType, R, BufferType, AllocU8, AllocU32, AllocHC>{
             input_buffer : buffer,
             total_out : 0,
             input_offset : 0,
@@ -368,8 +368,7 @@ impl<ErrType,
                                      alloc_hc),
             error_if_invalid_data : Some(invalid_data_error_type),
             read_error : None,
-        };
-        return ret;
+        }
     }
 
     pub fn copy_to_front(&mut self) {
@@ -400,7 +399,7 @@ impl<ErrType,
       let mut avail_out = buf.len() - output_offset;
       let mut avail_in = self.input_len - self.input_offset;
       let mut needs_input = false;
-      while avail_out == buf.len() && (needs_input == false || self.input_eof == false) {
+      while avail_out == buf.len() && (!needs_input || !self.input_eof) {
         if self.input_len < self.input_buffer.slice_mut().len() && !self.input_eof {
           match self.input.read(&mut self.input_buffer.slice_mut()[self.input_len..]) {
             Err(e) => {
@@ -438,7 +437,7 @@ impl<ErrType,
           BrotliResult::ResultFailure => return Err(self.error_if_invalid_data.take().unwrap()),
         }
       }
-      return Ok(output_offset);
+      Ok(output_offset)
     }
 }
 
@@ -449,9 +448,8 @@ pub fn copy_from_to<R: io::Read, W: io::Write>(mut r: R, mut w: W) -> io::Result
   loop {
     match r.read(&mut buffer[..]) {
       Err(e) => {
-        match e.kind() {
-          io::ErrorKind::Interrupted => continue,
-          _ => {}
+        if let io::ErrorKind::Interrupted =  e.kind() {
+          continue
         }
         return Err(e);
       }
@@ -461,9 +459,8 @@ pub fn copy_from_to<R: io::Read, W: io::Write>(mut r: R, mut w: W) -> io::Result
         } else {
           match w.write_all(&buffer[..size]) {
             Err(e) => {
-              match e.kind() {
-                io::ErrorKind::Interrupted => continue,
-                _ => {}
+              if let io::ErrorKind::Interrupted = e.kind() {
+                continue
               }
               return Err(e);
             }
@@ -473,5 +470,5 @@ pub fn copy_from_to<R: io::Read, W: io::Write>(mut r: R, mut w: W) -> io::Result
       }
     }
   }
-  return Ok(out_size);
+  Ok(out_size)
 }

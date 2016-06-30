@@ -333,7 +333,7 @@ impl <'brotli_state,
         retval.context_map_table = retval.alloc_hc.alloc_cell(
           BROTLI_HUFFMAN_MAX_TABLE_SIZE as usize);
         BrotliInitBitReader(&mut retval.br);
-        return retval;
+        retval
     }
     pub fn BrotliStateMetablockBegin(self : &mut Self) {
         self.meta_block_remaining_len = 0;
@@ -397,15 +397,15 @@ impl <'brotli_state,
     pub fn BrotliStateIsStreamStart(self : &Self) -> bool {
         match self.state {
             BrotliRunningState::BROTLI_STATE_UNINITED =>
-                return BrotliGetAvailableBits(&self.br) == 0,
-            _ => return false,
+                BrotliGetAvailableBits(&self.br) == 0,
+            _ => false,
         }
     }
 
     pub fn BrotliStateIsStreamEnd(self : &Self) -> bool {
         match self.state {
-            BrotliRunningState::BROTLI_STATE_DONE => return true,
-            _ => return false,
+            BrotliRunningState::BROTLI_STATE_DONE => true,
+            _ => false
         }
     }
     pub fn BrotliHuffmanTreeGroupInit(self :&mut Self, group : WhichTreeGroup,

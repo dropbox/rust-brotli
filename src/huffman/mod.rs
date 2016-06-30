@@ -31,16 +31,16 @@ pub struct HuffmanCode {
 }
 impl HuffmanCode {
   pub fn eq(&self, other: &Self) -> bool {
-    return self.value == other.value && self.bits == other.bits;
+    self.value == other.value && self.bits == other.bits
   }
 }
 
 impl Default for HuffmanCode {
   fn default() -> Self {
-    return HuffmanCode {
+    HuffmanCode {
       value: 0,
       bits: 0,
-    };
+    }
   }
 }
 
@@ -74,14 +74,14 @@ impl<AllocU32 : alloc::Allocator<u32>,
 //        core::mem::replace(&mut tree_out, fast_slice!((self.codes)[start;]));
 //    }
     #[allow(dead_code)]
-    pub fn get_tree_mut<'a>(self :&'a mut Self, index : u32) -> &'a mut [HuffmanCode] {
+    pub fn get_tree_mut(&mut self, index : u32) -> &mut [HuffmanCode] {
         let start : usize = fast_slice!((self.htrees)[index as usize]) as usize;
-        return fast_mut!((self.codes.slice_mut())[start;]);
+        fast_mut!((self.codes.slice_mut())[start;])
     }
     #[allow(dead_code)]
-    pub fn get_tree<'a>(self :&'a Self, index : u32) -> &'a [HuffmanCode] {
+    pub fn get_tree(&self, index : u32) -> &[HuffmanCode] {
         let start : usize = fast_slice!((self.htrees)[index as usize]) as usize;
-        return & fast_slice!((self.codes)[start;]);
+        fast_slice!((self.codes)[start;])
     }
     pub fn reset(self : &mut Self, alloc_u32 : &mut AllocU32, alloc_hc : &mut AllocHC) {
         alloc_u32.free_cell(core::mem::replace(&mut self.htrees,
@@ -97,26 +97,26 @@ impl<AllocU32 : alloc::Allocator<u32>,
 // }
 
     }
-    pub fn build_hgroup_cache<'a>(self : &'a Self) -> [&'a [HuffmanCode]; 256] {
-      let mut ret : [&'a [HuffmanCode]; 256] = [&[]; 256];
+    pub fn build_hgroup_cache(&self) -> [&[HuffmanCode]; 256] {
+      let mut ret : [&[HuffmanCode]; 256] = [&[]; 256];
       let mut index : usize = 0;
       for htree in self.htrees.slice() {
           ret[index] = fast_slice!((&self.codes)[*htree as usize ; ]);
           index += 1;
       }
-      return ret;
+      ret
     }
 }
 
 impl<AllocU32 : alloc::Allocator<u32>,
      AllocHC : alloc::Allocator<HuffmanCode> > Default for HuffmanTreeGroup<AllocU32, AllocHC> {
     fn default() -> Self {
-        return HuffmanTreeGroup::<AllocU32, AllocHC> {
-            htrees : AllocU32::AllocatedMemory::default(),
-            codes : AllocHC::AllocatedMemory::default(),
-            alphabet_size : 0,
-            num_htrees : 0,
-        };
+        HuffmanTreeGroup::<AllocU32, AllocHC> {
+          htrees : AllocU32::AllocatedMemory::default(),
+          codes : AllocHC::AllocatedMemory::default(),
+          alphabet_size : 0,
+          num_htrees : 0,
+        }
     }
 }
 
@@ -150,7 +150,7 @@ const BROTLI_REVERSE_BITS_LOWEST: u32 =
 // where reverse(value, len) is the bit-wise reversal of the len least
 // significant bits of value.
 fn BrotliReverseBits(num: u32) -> u32 {
-  return fast!((kReverseBits)[num as usize]) as u32;
+  fast!((kReverseBits)[num as usize]) as u32
 }
 
 // Stores code in table[0], table[step], table[2*step], ..., table[end]
@@ -182,7 +182,7 @@ fn NextTableBitSize(count: &[u16], mut len: i32, root_bits: i32) -> i32 {
     len += 1;
     left <<= 1;
   }
-  return len - root_bits;
+  len - root_bits
 }
 
 
@@ -375,7 +375,7 @@ pub fn BrotliBuildHuffmanTable(mut root_table: &mut [HuffmanCode],
     sub_key_step >>= 1;
     len += 1
   }
-  return total_size as u32;
+  total_size as u32
 }
 
 
@@ -418,19 +418,12 @@ pub fn BrotliBuildSimpleHuffmanTable(table: &mut [HuffmanCode],
     fast_mut!((table)[3]).bits = 2;
     table_size = 4;
   } else if num_symbols == 3 {
-    let last: u16;
-    if val.len() > 3 {
-      last = fast!((val)[3]);
-    } else {
-      last = 65535;
-    }
+    let last: u16 = if val.len() > 3 { fast!((val)[3]) } else { 65535 };
     let mut mval: [u16; 4] = [fast!((val)[0]), fast!((val)[1]), fast!((val)[2]), last];
     for i in 0..3 {
       for k in i + 1..4 {
         if mval[k] < mval[i] {
-          let t: u16 = mval[k];
-          mval[k] = mval[i];
-          mval[i] = t;
+          mval.swap(k, i);
         }
       }
     }
@@ -445,9 +438,7 @@ pub fn BrotliBuildSimpleHuffmanTable(table: &mut [HuffmanCode],
   } else if num_symbols == 4 {
     let mut mval: [u16; 4] = [fast!((val)[0]), fast!((val)[1]), fast!((val)[2]), fast!((val)[3])];
     if mval[3] < mval[2] {
-      let t: u16 = mval[3];
-      mval[3] = mval[2];
-      mval[2] = t;
+      mval.swap(3, 2)
     }
     for i in 0..7 {
       fast_mut!((table)[i]).value = mval[0];
@@ -469,5 +460,5 @@ pub fn BrotliBuildSimpleHuffmanTable(table: &mut [HuffmanCode],
     }
     table_size <<= 1;
   }
-  return goal_size;
+  goal_size
 }

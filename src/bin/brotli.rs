@@ -14,32 +14,32 @@ impl<T> core::default::Default for Rebox<T> {
   fn default() -> Self {
     let v: Vec<T> = Vec::new();
     let b = v.into_boxed_slice();
-    return Rebox::<T> { b: b };
+    Rebox::<T> { b: b }
   }
 }
 
 impl<T> ops::Index<usize> for Rebox<T> {
   type Output = T;
   fn index(&self, index: usize) -> &T {
-    return &(*self.b)[index];
+    &(*self.b)[index]
   }
 }
 
 impl<T> ops::IndexMut<usize> for Rebox<T> {
   fn index_mut(&mut self, index: usize) -> &mut T {
-    return &mut (*self.b)[index];
+    &mut (*self.b)[index]
   }
 }
 
 impl<T> alloc_no_stdlib::SliceWrapper<T> for Rebox<T> {
   fn slice(&self) -> &[T] {
-    return &*self.b;
+    &*self.b
   }
 }
 
 impl<T> alloc_no_stdlib::SliceWrapperMut<T> for Rebox<T> {
   fn slice_mut(&mut self) -> &mut [T] {
-    return &mut *self.b;
+    &mut *self.b
   }
 }
 
@@ -53,7 +53,7 @@ impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
   fn alloc_cell(self: &mut HeapAllocator<T>, len: usize) -> Rebox<T> {
     let v: Vec<T> = vec![self.default_value.clone();len];
     let b = v.into_boxed_slice();
-    return Rebox::<T> { b: b };
+    Rebox::<T> { b: b }
   }
   fn free_cell(self: &mut HeapAllocator<T>, _data: Rebox<T>) {}
 }
@@ -67,7 +67,7 @@ impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
       v.set_len(len);
     }
     let b = v.into_boxed_slice();
-    return Rebox::<T> { b: b };
+    Rebox::<T> { b: b }
   }
   fn free_cell(self: &mut HeapAllocator<T>, _data: Rebox<T>) {}
 }
@@ -156,7 +156,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
   let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
   let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
   let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
-  return brotli::BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
+  brotli::BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
                                           &mut IoWriterWrapper::<OutputType>(w),
                                           input_buffer.slice_mut(),
                                           output_buffer.slice_mut(),
@@ -165,7 +165,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                           HeapAllocator::<HuffmanCode> {
                                             default_value: HuffmanCode::default(),
                                           },
-                                          Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"));
+                                          Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 #[cfg(feature="seccomp")]
 extern {
@@ -238,7 +238,7 @@ impl<R: Read> BrotliDecompressor<R> {
     let buffer = alloc_u8.alloc_cell(buffer_size);
     let alloc_u32 = HeapAllocator::<u32> { default_value: 0 };
     let alloc_hc = HeapAllocator::<HuffmanCode> { default_value: HuffmanCode::default() };
-    return BrotliDecompressor::<R>(
+    BrotliDecompressor::<R>(
           brotli::DecompressorCustomIo::<Error,
                                  IntoIoReader<R>,
                                  Rebox<u8>,
@@ -247,13 +247,13 @@ impl<R: Read> BrotliDecompressor<R> {
                                                          buffer,
                                                          alloc_u8, alloc_u32, alloc_hc,
                                                          io::Error::new(ErrorKind::InvalidData,
-                                                                        "Invalid Data")));
+                                                                        "Invalid Data")))
   }
 }
 
 impl<R: Read> Read for BrotliDecompressor<R> {
   fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
-    return self.0.read(buf);
+    self.0.read(buf)
   }
 }
 

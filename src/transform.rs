@@ -719,7 +719,7 @@ pub const kTransforms: [Transform; kNumTransforms as usize] = [Transform {
 
 fn ToUpperCase(p: &mut [u8]) -> i32 {
   if (fast!((p)[0]) < 0xc0) {
-    if (fast!((p)[0]) >= 'a' as u8 && fast!((p)[0]) <= 'z' as u8) {
+    if (fast!((p)[0]) >= b'a' && fast!((p)[0]) <= b'z') {
       fast_mut!((p)[0]) ^= 32;
     }
     return 1;
@@ -731,7 +731,7 @@ fn ToUpperCase(p: &mut [u8]) -> i32 {
   }
   // An arbitrary transform for three byte characters.
   fast_mut!((p)[2]) ^= 5;
-  return 3;
+  3
 }
 
 pub fn TransformDictionaryWord(dst: &mut [u8],
@@ -750,17 +750,16 @@ pub fn TransformDictionaryWord(dst: &mut [u8],
   }
   {
     let t = fast_ref!((kTransforms)[transform as usize]).transform;
-    let mut skip: i32;
-    if t < kOmitFirst1 {
-      skip = 0;
+    let mut skip: i32 = if t < kOmitFirst1 {
+      0
     } else {
-      skip = t as i32 - (kOmitFirst1 - 1) as i32;
-    }
+      t as i32 - (kOmitFirst1 - 1) as i32
+    };
     let mut i: i32 = 0;
     if (skip > len) {
       skip = len;
     }
-    word = &fast!((word)[skip as usize;]);
+    word = fast!((word)[skip as usize;]);
     len -= skip;
     if (t <= kOmitLast9) {
       len -= t as i32;
@@ -791,6 +790,6 @@ pub fn TransformDictionaryWord(dst: &mut [u8],
       idx += 1;
       i += 1;
     }
-    return idx;
+    idx
   }
 }
