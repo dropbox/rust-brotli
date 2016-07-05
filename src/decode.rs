@@ -531,9 +531,15 @@ fn ProcessRepeatedCodeLength(code_len: u32,
                              code_length_histo: &mut [u16],
                              next_symbol: &mut [i32]) {
   let old_repeat: u32;
-  let new_len: u32 = if (code_len == kCodeLengthRepeatCode) {
-    *prev_code_len
-  } else { 0 };
+  let extra_bits: u32;
+  let new_len: u32;
+  if (code_len == kCodeLengthRepeatCode) {
+    extra_bits = 2;
+    new_len = *prev_code_len
+  } else {
+    extra_bits = 3;
+    new_len = 0
+  }
   if (*repeat_code_len != new_len) {
     *repeat = 0;
     *repeat_code_len = new_len;
@@ -541,7 +547,7 @@ fn ProcessRepeatedCodeLength(code_len: u32,
   old_repeat = *repeat;
   if (*repeat > 0) {
     *repeat -= 2;
-    *repeat <<= code_len - 14;
+    *repeat <<= extra_bits;
   }
   *repeat += repeat_delta + 3;
   repeat_delta = *repeat - old_repeat;
@@ -620,9 +626,10 @@ fn ReadSymbolCodeLengths<AllocU8: alloc::Allocator<u8>,
                               &mut s.next_symbol[..]);
     } else {
       // code_len == 16..17, extra_bits == 2..3
+      let extra_bits: u32 = if code_len == kCodeLengthRepeatCode { 2 } else { 3 };
       let repeat_delta: u32 = bit_reader::BrotliGetBitsUnmasked(&s.br) as u32 &
-                              bit_reader::BitMask(code_len - 14);
-      bit_reader::BrotliDropBits(&mut s.br, code_len - 14);
+                              bit_reader::BitMask(extra_bits);
+      bit_reader::BrotliDropBits(&mut s.br, extra_bits);
       ProcessRepeatedCodeLength(code_len,
                                 repeat_delta,
                                 alphabet_size,
