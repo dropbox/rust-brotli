@@ -217,6 +217,7 @@ pub struct BrotliState<AllocU8: alloc::Allocator<u8>,
   pub num_literal_htrees: u32,
   pub context_map: AllocU8::AllocatedMemory,
   pub context_modes: AllocU8::AllocatedMemory,
+  pub trivial_literal_contexts: [u32; 8],
 }
 
 impl <'brotli_state,
@@ -329,6 +330,7 @@ impl <'brotli_state,
            num_literal_htrees : 0,
            context_map : AllocU8::AllocatedMemory::default(),
            context_modes : AllocU8::AllocatedMemory::default(),
+           trivial_literal_contexts : [0u32; 8],
         };
         retval.context_map_table = retval.alloc_hc.alloc_cell(
           BROTLI_HUFFMAN_MAX_TABLE_SIZE as usize);
