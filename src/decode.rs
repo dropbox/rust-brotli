@@ -2037,6 +2037,7 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
             let mut literal_htree = &fast!((literal_hgroup)[s.literal_htree_index as usize]);
             PreloadSymbol(safe, literal_htree, &mut s.br, &mut bits, &mut value, input);
             let mut inner_return: bool = false;
+            let mut inner_continue: bool = false;
             loop {
               if (!CheckInputAmount(safe, &s.br, 28)) {
                 // 162 bits + 7 bytes
@@ -2054,7 +2055,9 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                 literal_htree = fast_ref!((literal_hgroup)[s.literal_htree_index as usize]);
                 PreloadSymbol(safe, literal_htree, &mut s.br, &mut bits, &mut value, input);
                 if (s.trivial_literal_context == 0) {
-                  continue; // goto CommandInner
+                  s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
+                  inner_continue = true;
+                  break; // goto StateCommandInner
                 }
               }
               if (!safe) {
@@ -2088,10 +2091,15 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
             if inner_return {
               break; // return
             }
+            if inner_continue {
+              mark_unlikely();
+              continue;
+            }
           } else {
             let mut p1 = fast_slice!((s.ringbuffer)[((pos - 1) & s.ringbuffer_mask) as usize]);
             let mut p2 = fast_slice!((s.ringbuffer)[((pos - 2) & s.ringbuffer_mask) as usize]);
             let mut inner_return: bool = false;
+            let mut inner_continue: bool = false;
             loop {
               if (!CheckInputAmount(safe, &s.br, 28)) {
                 // 162 bits + 7 bytes
@@ -2109,7 +2117,8 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
                 }
                 if s.trivial_literal_context != 0 {
                   s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
-                  continue;
+                  inner_continue = true;
+                  break;
                 }
               }
               let context = fast!((s.context_lookup1)[p1 as usize]) |
@@ -2152,6 +2161,10 @@ fn ProcessCommandsInternal<AllocU8: alloc::Allocator<u8>,
             }
             if inner_return {
               break; // return
+            }
+            if inner_continue {
+              mark_unlikely();
+              continue;
             }
           }
           if (s.meta_block_remaining_len <= 0) {
