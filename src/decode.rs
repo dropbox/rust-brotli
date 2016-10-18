@@ -2791,6 +2791,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
           }
           s.loop_counter += 1;
           if (s.loop_counter >= 3) {
+            PrepareLiteralDecoding(s);
             let context_mode_index = fast!((s.block_type_length_state.block_type_rb)[1]);
             let context_mode = fast_slice!((s.context_modes)[context_mode_index as usize]);
             s.context_map_slice_index = 0;
