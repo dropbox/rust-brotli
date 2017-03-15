@@ -1,4 +1,5 @@
 use super::constants::BROTLI_NUM_BLOCK_LEN_SYMBOLS;
+use super::entropy_encode::HuffmanTree;
 pub struct PrefixCodeRange {
     pub offset : u32,
     pub nbits : u32,
@@ -52,12 +53,6 @@ static mut kBlockLengthPrefixCode
               nbits: 24u32
           }
       ];
-
-pub struct HuffmanTree {
-    pub total_count_ : u32,
-    pub index_left_ : i16,
-    pub index_right_or_value_ : i16,
-}
 
 fn BrotliWriteBits(
     mut n_bits : u8,

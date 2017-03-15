@@ -1,7 +1,7 @@
 pub mod fast_log;
 pub mod brotli_bit_stream;
 pub mod constants;
-
+pub mod entropy_encode;
 static mut kInsExtra
     : [u32; 24]
     = [   0u32,
