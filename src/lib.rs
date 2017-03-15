@@ -23,6 +23,7 @@ pub use alloc::HeapAllocUninitialized;
 #[macro_use]
 mod memory;
 mod dictionary;
+mod enc;
 #[macro_use]
 mod bit_reader;
 mod huffman;
