@@ -164,8 +164,7 @@ fn BrotliStoreHuffmanTreeOfHuffmanTreeToBitMask(
     i = skip_some;
     'loop8: loop {
         if i < codes_to_store {
-            let mut l
-                : usize
+            let l : usize
                 = code_length_bitdepth[
                        kStorageOrder[i as usize] as (usize)
                    ] as (usize);
@@ -185,10 +184,10 @@ fn BrotliStoreHuffmanTreeOfHuffmanTreeToBitMask(
 
 fn BrotliStoreHuffmanTreeToBitMask(
     huffman_tree_size : usize,
-    mut huffman_tree : &[u8],
-    mut huffman_tree_extra_bits : &[u8],
-    mut code_length_bitdepth : &[u8],
-    mut code_length_bitdepth_symbols : &[u16],
+    huffman_tree : &[u8],
+    huffman_tree_extra_bits : &[u8],
+    code_length_bitdepth : &[u8],
+    code_length_bitdepth_symbols : &[u16],
     mut storage_ix : &mut usize,
     mut storage : &mut [u8]
 ) {
@@ -196,7 +195,7 @@ fn BrotliStoreHuffmanTreeToBitMask(
     i = 0usize;
     'loop1: loop {
         if i < huffman_tree_size {
-            let mut ix : usize = huffman_tree[i as (usize)] as (usize);
+            let ix : usize = huffman_tree[i as (usize)] as (usize);
             BrotliWriteBits(
                 code_length_bitdepth[ix as (usize)],
                 code_length_bitdepth_symbols[ix as (usize)] as (u64),
