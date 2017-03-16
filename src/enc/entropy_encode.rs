@@ -1,3 +1,11 @@
+/* Copyright 2010 Google Inc. All Rights Reserved.
+
+   Distributed under MIT license.
+   See file LICENSE for detail or copy at https://opensource.org/licenses/MIT
+*/
+
+/* Entropy encoding (Huffman) utilities. */
+
 #[derive(Clone)]
 pub struct HuffmanTree {
     pub total_count_ : u32,
@@ -167,6 +175,21 @@ fn SortHuffmanTreeItems<Comparator:HuffmanComparator>(
 
 
 
+/* This function will create a Huffman tree.
+
+   The catch here is that the tree cannot be arbitrarily deep.
+   Brotli specifies a maximum depth of 15 bits for "code trees"
+   and 7 bits for "code length code trees."
+
+   count_limit is the value that is to be faked as the minimum value
+   and this minimum value is raised until the tree matches the
+   maximum length requirement.
+
+   This algorithm is not of excellent performance for very long data blocks,
+   especially when population counts are longer than 2**tree_limit, but
+   we are not planning to use this with extremely long blocks.
+
+   See http://en.wikipedia.org/wiki/Huffman_coding */
 pub fn BrotliCreateHuffmanTree(
     data : &[u32],
     length : usize,
@@ -181,6 +204,11 @@ pub fn BrotliCreateHuffmanTree(
         -1i32 as (i16),
         -1i32 as (i16)
     );
+    
+  /* For block sizes below 64 kB, we never need to do a second iteration
+     of this loop. Probably all of our block sizes will be smaller than
+     that, so this loop is mostly of academic interest. If we actually
+     would need this, we would be better off with the Katajainen algorithm. */
     count_limit = 1i32 as (u32);
     'loop1: loop {
         let mut n : usize = 0i32 as (usize);
@@ -221,12 +249,19 @@ pub fn BrotliCreateHuffmanTree(
              ] = 1;
         } else {
             SortHuffmanTreeItems(tree,n,SortHuffmanTree{});
+            /* The nodes are:
+            [0, n): the sorted leaf nodes that we start with.
+            [n]: we add a sentinel here.
+            [n + 1, 2n): new parent nodes are added here, starting from
+            (n+1). These are naturally in ascending order.
+            [2n]: we add a sentinel at the end as well.
+            There will be (2n+1) elements at the end. */
             tree[n as (usize)] = sentinel.clone();
             tree[
                  n.wrapping_add(1i32 as (usize)) as (usize)
              ] = sentinel.clone();
-            i = 0usize;
-            j = n.wrapping_add(1i32 as (usize));
+            i = 0usize; // Points to the next leaf node
+            j = n.wrapping_add(1i32 as (usize)); // points to the next non-leaf node
             k = n.wrapping_sub(1i32 as (usize));
             'loop5: loop {
                 if k != 0i32 as (usize) {
@@ -248,6 +283,7 @@ pub fn BrotliCreateHuffmanTree(
                         right = j;
                         j = j.wrapping_add(1 as (usize));
                     }
+                    // the sentinel node becomes the parent node
                     let j_end
                         : usize
                         = (2i32 as (usize)).wrapping_mul(n).wrapping_sub(k);
@@ -262,6 +298,7 @@ pub fn BrotliCreateHuffmanTree(
                     (tree[
                           j_end as (usize)
                       ]).index_right_or_value_ = right as (i16);
+                    // add back the last sentinel node
                     tree[
                          j_end.wrapping_add(1i32 as (usize)) as (usize)
                      ] = sentinel.clone();
@@ -279,6 +316,8 @@ pub fn BrotliCreateHuffmanTree(
                    depth,
                    tree_limit
                ) {
+                // We need to pack the Huffman tree in tree_limit bits. If this was
+                // not successful, add fake entities to the lowest values and retry.
                 break 'loop1;
             } else {
                 count_limit = count_limit.wrapping_mul(2i32 as (u32));
@@ -297,6 +336,7 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
     let mut limit : usize;
     let mut sum : usize;
     let streak_limit : usize = 1240i32 as (usize);
+    // lets make the Huffman code more compatible with RLE encoding.
     let mut i : usize;
     i = 0i32 as (usize);
     'loop1: loop {
@@ -323,7 +363,9 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
             }
         }
         if length == 0i32 as (usize) {
+            // all zeros (return)
         } else {
+            // now counts[0..length - 1] does not have trailing zeros.
             let mut nonzeros : usize = 0i32 as (usize);
             let mut smallest_nonzero : u32 = (1i32 << 30i32) as (u32);
             i = 0i32 as (usize);
@@ -342,6 +384,8 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                 }
             }
             if nonzeros < 5i32 as (usize) {
+                // small histogram will model it well.
+                //return
             } else {
                 if smallest_nonzero < 4i32 as (u32) {
                     let zeros : usize = length.wrapping_sub(nonzeros);
@@ -370,9 +414,14 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                 }
                 if nonzeros < 28i32 as (usize) {
                 } else {
+                    // 2) Let's mark all population counts that already can be encoded
+                    // with an RLE code
                     for rle_elem in good_for_rle[..length].iter_mut() {
                         *rle_elem = 0; // memset
                     }
+                    /* Let's not spoil any of the existing good RLE codes.
+                       Mark any seq of 0's that is longer as 5 as a good_for_rle.
+                       Mark any seq of non-0's that is longer as 7 as a good_for_rle. */
                     let mut symbol : u32 = counts[0i32 as usize];
                     let mut step : usize = 0i32 as (usize);
                     i = 0i32 as (usize);
@@ -409,6 +458,8 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                             break 'loop14;
                         }
                     }
+                    /* 3) Let's replace those population counts that lead to more RLE codes.
+                          Math here is in 24.8 fixed point representation. */
                     stride = 0i32 as (usize);
                     limit = (256i32 as (u32)).wrapping_mul(
                                 (counts[0i32 as usize]).wrapping_add(
@@ -444,6 +495,7 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                                                                                                    ) {
                                 if stride >= 4i32 as (usize) || stride >= 3i32 as (usize) && (sum == 0i32 as (usize)) {
                                     let mut k : usize;
+                                    // the stride must end, collapse what we have, if we have enough (4).
                                     let mut count
                                         : usize
                                         = sum.wrapping_add(
@@ -455,11 +507,14 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                                         count = 1i32 as (usize);
                                     }
                                     if sum == 0i32 as (usize) {
+                                        // Don't make an all zeros stride to be upgraded to ones.
                                         count = 0i32 as (usize);
                                     }
                                     k = 0i32 as (usize);
                                     'loop25: loop {
                                         if k < stride {
+                                            // we don't want to change value at counts[i]
+                                            // that is already belogning to the next stride. Thus - 1.
                                             counts[
                                                  i.wrapping_sub(k).wrapping_sub(
                                                      1i32 as (usize)
@@ -475,6 +530,8 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                                 stride = 0i32 as (usize);
                                 sum = 0i32 as (usize);
                                 if i < length.wrapping_sub(2i32 as (usize)) {
+                                    // All interesting strides have a count of at least 4,
+                                    // at least when non-zeros
                                     limit = (256i32 as (u32)).wrapping_mul(
                                                 (counts[i as usize]).wrapping_add(
                                                     counts[
@@ -733,6 +790,7 @@ pub fn BrotliWriteHuffmanTree(
     let mut i : usize;
     let mut use_rle_for_non_zero : i32 = 0i32;
     let mut use_rle_for_zero : i32 = 0i32;
+    // throw away trailing zeros
     let mut new_length : usize = length;
     i = 0i32 as (usize);
     'loop1: loop {
@@ -750,7 +808,10 @@ pub fn BrotliWriteHuffmanTree(
             break 'loop1;
         }
     }
-    if length > 50i32 as (usize) {
+    // first gather statistics on if it is a good idea to do RLE
+    if length > 50 {
+        // find RLE coding for longer codes.
+        // Shorter codes seem to not benefit from RLE.
         DecideOverRleUse(
             depth,
             new_length,
@@ -758,6 +819,7 @@ pub fn BrotliWriteHuffmanTree(
             &mut use_rle_for_zero
         );
     }
+    // Actual RLE coding.
     i = 0i32 as (usize);
     'loop6: loop {
         if i < new_length {
@@ -810,7 +872,7 @@ fn BrotliReverseBits(
     mut num_bits : usize, mut bits : u16
 ) -> u16 {
     static kLut
-        : [usize; 16]
+        : [usize; 16] // pre-reversed 4-bit values
         = [   0x0i32 as (usize),
               0x8i32 as (usize),
               0x4i32 as (usize),
@@ -847,13 +909,16 @@ fn BrotliReverseBits(
                         ) & 0x3i32 as (usize));
     retval as (u16)
 }
-
+const MAX_HUFFMAN_BITS: usize = 16;
 pub fn BrotliConvertBitDepthsToSymbols(
     mut depth : &[u8], mut len : usize, mut bits : &mut [u16]
 ) {
+    /* In Brotli, all bit depths are [1..15]
+     0 bit depth means that the symbol does not exist. */
+
     let mut bl_count
-        : [u16; 16] = [0; 16];
-    let mut next_code : [u16; 16] = [0; 16];
+        : [u16; MAX_HUFFMAN_BITS] = [0; MAX_HUFFMAN_BITS];
+    let mut next_code : [u16; MAX_HUFFMAN_BITS] = [0; MAX_HUFFMAN_BITS];
     let mut i : usize;
     let mut code : i32 = 0i32;
     i = 0i32 as (usize);
@@ -874,7 +939,7 @@ pub fn BrotliConvertBitDepthsToSymbols(
     next_code[0i32 as (usize)] = 0i32 as (u16);
     i = 1i32 as (usize);
     'loop3: loop {
-        if i < 16i32 as (usize) {
+        if i < MAX_HUFFMAN_BITS {
             code = code + bl_count[
                               i.wrapping_sub(1i32 as (usize))
                           ] as (i32) << 1i32;
