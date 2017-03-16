@@ -14,7 +14,7 @@ pub struct HuffmanTree {
 }
 
 
-fn NewHuffmanTree(    count : u32,
+pub fn NewHuffmanTree(    count : u32,
     left : i16,
     right : i16) -> HuffmanTree {
     return HuffmanTree{total_count_ : count,
@@ -22,7 +22,7 @@ fn NewHuffmanTree(    count : u32,
            index_right_or_value_:right,
            };
 }
-fn InitHuffmanTree(
+pub fn InitHuffmanTree(
     xself : &mut HuffmanTree,
     count : u32,
     left : i16,
@@ -32,7 +32,7 @@ fn InitHuffmanTree(
 }
 
 
-fn BrotliSetDepth(
+pub fn BrotliSetDepth(
     p0: i32, pool: &mut[HuffmanTree], depth: &mut [u8], max_depth: i32)-> bool {
   let mut stack: [i16;16] = [0;16];
   let mut level = 0i32;
@@ -62,7 +62,7 @@ fn brotli_max_uint32_t(
 }
 
 
-trait HuffmanComparator {
+pub trait HuffmanComparator {
    fn Cmp(self:&Self, a: &HuffmanTree, b: &HuffmanTree) -> bool;
 }
 pub struct SortHuffmanTree {
@@ -82,13 +82,10 @@ impl HuffmanComparator for SortHuffmanTree {
     }
      }
 }
-fn SortHuffmanTreeItems<Comparator:HuffmanComparator>(
+pub fn SortHuffmanTreeItems<Comparator:HuffmanComparator>(
     mut items : &mut [HuffmanTree],
     n : usize,
-    mut
-    comparator
-    :
-    Comparator) {
+    comparator: Comparator) {
 
     static gaps
         : [usize; 6]
@@ -700,7 +697,7 @@ fn BrotliWriteHuffmanTreeRepetitions(
             }
         }
     } else {
-        let mut start : usize = *tree_size;
+        let start : usize = *tree_size;
         repetitions = repetitions.wrapping_sub(3i32 as (usize));
         'loop6: loop {
             if 1i32 != 0 {
@@ -780,8 +777,8 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(
 
 
 pub fn BrotliWriteHuffmanTree(
-    mut depth : &[u8],
-    mut length : usize,
+    depth : &[u8],
+    length : usize,
     mut tree_size : &mut usize,
     mut tree : &mut [u8],
     mut extra_bits_data : &mut [u8]
@@ -869,7 +866,7 @@ pub fn BrotliWriteHuffmanTree(
 
 
 fn BrotliReverseBits(
-    mut num_bits : usize, mut bits : u16
+    num_bits : usize, mut bits : u16
 ) -> u16 {
     static kLut
         : [usize; 16] // pre-reversed 4-bit values
@@ -911,7 +908,7 @@ fn BrotliReverseBits(
 }
 const MAX_HUFFMAN_BITS: usize = 16;
 pub fn BrotliConvertBitDepthsToSymbols(
-    mut depth : &[u8], mut len : usize, mut bits : &mut [u16]
+    depth : &[u8], len : usize, mut bits : &mut [u16]
 ) {
     /* In Brotli, all bit depths are [1..15]
      0 bit depth means that the symbol does not exist. */
