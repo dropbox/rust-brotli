@@ -1812,10 +1812,26 @@ unsafe extern fn InitCommandPrefixCodes(
     mut cmd_code : *mut u8,
     mut cmd_code_numbits : *mut usize
 ) {
-    static mut kDefaultCommandDepths : [u8; 128] = [0u8; 128];
-    static mut kDefaultCommandBits : [u16; 128] = [0u16; 128];
-    let mut FIXME : i32 = 0i32;
-    FIXME = FIXME / FIXME;
+    static mut kDefaultCommandDepths : [u8; 128] = [0, 4, 4, 5, 6, 6, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8,
+    0, 0, 0, 4, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 7, 7,
+    7, 7, 10, 10, 10, 10, 10, 10, 0, 4, 4, 5, 5, 5, 6, 6,
+    7, 8, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+    5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4,
+    4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 7, 7, 7, 8, 10,
+    12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12]
+    static mut kDefaultCommandBits : [u16; 128] = [ 0,   0,   8,   9,   3,  35,   7,   71,
+    39, 103,  23,  47, 175, 111, 239,   31,
+    0,   0,   0,   4,  12,   2,  10,    6,
+    13,  29,  11,  43,  27,  59,  87,   55,
+    15,  79, 319, 831, 191, 703, 447,  959,
+    0,  14,   1,  25,   5,  21,  19,   51,
+    119, 159,  95, 223, 479, 991,  63,  575,
+    127, 639, 383, 895, 255, 767, 511, 1023,
+    14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    27, 59, 7, 39, 23, 55, 30, 1, 17, 9, 25, 5, 0, 8, 4, 12,
+    2, 10, 6, 21, 13, 29, 3, 19, 11, 15, 47, 31, 95, 63, 127, 255,
+    767, 2815, 1791, 3839, 511, 2559, 1535, 3583, 1023, 3071, 2047, 4095];
     static mut kDefaultCommandCode
         : [u8; 57]
         = [   0xffi32 as (u8),
@@ -3620,42 +3636,6 @@ pub struct BackwardMatch {
     pub length_and_code : u32,
 }
 
-unsafe extern fn StoreAndFindMatchesH10(
-    mut self : *mut H10,
-    data : *const u8,
-    cur_ix : usize,
-    ring_buffer_mask : usize,
-    max_length : usize,
-    max_backward : usize,
-    best_len : *mut usize,
-    mut matches : *mut BackwardMatch
-) -> *mut BackwardMatch {
-    0i32 as (*mut ::std::os::raw::c_void) as (*mut BackwardMatch)
-}
-
-unsafe extern fn StoreH10(
-    mut handle : *mut u8,
-    mut data : *const u8,
-    mask : usize,
-    ix : usize
-) {
-    let mut self : *mut H10 = SelfH10(handle);
-    let max_backward
-        : usize
-        = (*self).window_mask_.wrapping_sub(16i32 as (usize)).wrapping_add(
-              1i32 as (usize)
-          );
-    StoreAndFindMatchesH10(
-        self,
-        data,
-        ix,
-        mask,
-        128i32 as (usize),
-        max_backward,
-        0i32 as (*mut ::std::os::raw::c_void) as (*mut usize),
-        0i32 as (*mut ::std::os::raw::c_void) as (*mut BackwardMatch)
-    );
-}
 
 unsafe extern fn HasherPrependCustomDictionary(
     mut m : *mut MemoryManager,
