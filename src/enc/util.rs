@@ -260,7 +260,7 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9886846867721664f32,
                                  7.9943534368588578f32];
 pub fn FastLog2(mut v: usize) -> f64 {
-  if v < ::std::mem::size_of::<[f32; 256]>().wrapping_div(::std::mem::size_of::<f32>()) {
+  if v < kLog2Table.len() {
     kLog2Table[v] as (f64)
   } else {
     (v as f64).log2()
