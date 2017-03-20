@@ -5,6 +5,8 @@
 */
 
 /* Entropy encoding (Huffman) utilities. */
+use super::util::brotli_max_uint32_t;
+
 
 #[derive(Clone)]
 pub struct HuffmanTree {
@@ -53,9 +55,6 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
     p = stack[level as usize] as i32;
     stack[level as usize] = -1;
   }
-}
-fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
-  if a > b { a } else { b }
 }
 
 
