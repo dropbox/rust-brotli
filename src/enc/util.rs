@@ -262,7 +262,14 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
 pub fn FastLog2(mut v: usize) -> f64 {
   if v < kLog2Table.len() {
     kLog2Table[v] as (f64)
-  } else {
-    (v as f64).log2()
+  } else {// approximate here
+      let mut count : f64 = 0.0f64;
+      loop {
+          v /= 2;
+          count += 1.0f64;
+          if v < kLog2Table.len() {
+              return kLog2Table[v] as (f64) + count;
+          }
+      }
   }
 }
