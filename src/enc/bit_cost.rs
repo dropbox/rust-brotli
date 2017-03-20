@@ -1,6 +1,7 @@
 use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2};
+use super::histogram::{CostAccessors, HistogramLiteral, HistogramCommand, HistogramDistance};
 
 static mut kInsBase: [u32; 24] = [0, 1, 2, 3, 4, 5, 6, 8, 10, 14, 18, 26, 34, 50, 66, 98, 130,
                                   194, 322, 578, 1090, 2114, 6210, 22594];
@@ -18,50 +19,7 @@ static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
 
-static mut kUTF8ContextLookup: [u8; 512] =
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-   8, 12, 16, 12, 12, 20, 12, 16, 24, 28, 12, 12, 32, 12, 36, 12, 44, 44, 44, 44, 44, 44, 44, 44,
-   44, 44, 32, 32, 24, 40, 28, 12, 12, 48, 52, 52, 52, 48, 52, 52, 52, 48, 52, 52, 52, 52, 52, 48,
-   52, 52, 52, 52, 52, 48, 52, 52, 52, 52, 52, 24, 12, 28, 12, 12, 12, 56, 60, 60, 60, 56, 60, 60,
-   60, 56, 60, 60, 60, 60, 60, 56, 60, 60, 60, 60, 60, 56, 60, 60, 60, 60, 60, 24, 12, 28, 12, 0,
-   0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
-   0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
-   2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3,
-   2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3,
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-   0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1,
-   1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1,
-   1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 1, 1, 0,
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
 
-static mut kSigned3BitContextLookup: [u8; 256] =
-  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-   3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-   3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-   4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-   4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7];
-
-pub struct HistogramLiteral {
-  pub data_: [u32; 256],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-pub struct HistogramCommand {
-  pub data_: [u32; 704],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-pub struct HistogramDistance {
-  pub data_: [u32; 520],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
 
 fn ShannonEntropy(mut population: &[u32], mut size: usize, mut total: &mut usize) -> f64 {
   let mut sum: usize = 0i32 as (usize);
@@ -103,71 +61,6 @@ fn BitsEntropy(mut population: &[u32], mut size: usize) -> f64 {
     retval = sum as (f64);
   }
   retval
-}
-pub trait CostAccessors {
-  fn total_count(&self) -> usize;
-  fn bit_cost(&self) -> f64;
-  fn set_bit_cost(&mut self, cost: f64);
-  fn set_total_count(&mut self, count: usize);
-}
-impl SliceWrapper<u32> for HistogramLiteral {
-  fn slice(&self) -> &[u32] {
-    return &self.data_[..];
-  }
-}
-impl CostAccessors for HistogramLiteral {
-  fn total_count(&self) -> usize {
-    return self.total_count_;
-  }
-  fn bit_cost(&self) -> f64 {
-    return self.bit_cost_;
-  }
-  fn set_bit_cost(&mut self, data: f64) {
-    self.bit_cost_ = data;
-  }
-  fn set_total_count(&mut self, data: usize) {
-    self.total_count_ = data;
-  }
-}
-
-impl SliceWrapper<u32> for HistogramCommand {
-  fn slice(&self) -> &[u32] {
-    return &self.data_[..];
-  }
-}
-impl CostAccessors for HistogramCommand {
-  fn total_count(&self) -> usize {
-    return self.total_count_;
-  }
-  fn bit_cost(&self) -> f64 {
-    return self.bit_cost_;
-  }
-  fn set_bit_cost(&mut self, data: f64) {
-    self.bit_cost_ = data;
-  }
-  fn set_total_count(&mut self, data: usize) {
-    self.total_count_ = data;
-  }
-}
-
-impl SliceWrapper<u32> for HistogramDistance {
-  fn slice(&self) -> &[u32] {
-    return &self.data_[..];
-  }
-}
-impl CostAccessors for HistogramDistance {
-  fn total_count(&self) -> usize {
-    return self.total_count_;
-  }
-  fn bit_cost(&self) -> f64 {
-    return self.bit_cost_;
-  }
-  fn set_bit_cost(&mut self, data: f64) {
-    self.bit_cost_ = data;
-  }
-  fn set_total_count(&mut self, data: usize) {
-    self.total_count_ = data;
-  }
 }
 
 pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
