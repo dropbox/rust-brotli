@@ -1,6 +1,6 @@
-
+use core::cmp::min;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
-use super::super::alloc::SliceWrapper;
+use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -32,6 +32,11 @@ impl SliceWrapper<u32> for HistogramLiteral {
     return &self.data_[..];
   }
 }
+impl SliceWrapperMut<u32> for HistogramLiteral {
+  fn slice_mut(&mut self) -> &mut [u32] {
+    return &mut self.data_[..];
+  }
+}
 impl CostAccessors for HistogramLiteral {
   fn total_count(&self) -> usize {
     return self.total_count_;
@@ -52,6 +57,12 @@ impl SliceWrapper<u32> for HistogramCommand {
     return &self.data_[..];
   }
 }
+impl SliceWrapperMut<u32> for HistogramCommand {
+  fn slice_mut(&mut self) -> &mut [u32] {
+    return &mut self.data_[..];
+  }
+}
+
 impl CostAccessors for HistogramCommand {
   fn total_count(&self) -> usize {
     return self.total_count_;
@@ -70,6 +81,11 @@ impl CostAccessors for HistogramCommand {
 impl SliceWrapper<u32> for HistogramDistance {
   fn slice(&self) -> &[u32] {
     return &self.data_[..];
+  }
+}
+impl SliceWrapperMut<u32> for HistogramDistance {
+  fn slice_mut(&mut self) -> &mut [u32] {
+    return &mut self.data_[..];
   }
 }
 impl CostAccessors for HistogramDistance {
@@ -158,16 +174,30 @@ fn BlockSplitIteratorNext(mut xself: &mut BlockSplitIterator) {
   }
   (*xself).length_ = (*xself).length_.wrapping_sub(1 as (usize));
 }
-
-fn HistogramAddCommand(mut xself: &mut HistogramCommand, mut val: usize) {
+fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAccessors>(mut xself: &mut HistogramType, mut val: usize) {
   {
     let _rhs = 1;
-    let _lhs = &mut (*xself).data_[val];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+    let _lhs = &mut (*xself).slice_mut()[val];
+    let val = (*_lhs).wrapping_add(_rhs as (u32));
+    *_lhs = val;
   }
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
+  let new_count = (*xself).total_count().wrapping_add(1 as (usize));
+  (*xself).set_total_count(new_count);
 }
 
+fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
+    mut xself : &mut HistogramLiteral, mut v : &HistogramLiteral
+) {
+    (*xself).total_count_ += (*v).total_count();
+    let mut h0 = xself.slice_mut();
+    let h1 = v.slice();
+    let n = min(h0.len(), h1.len());
+    for i in 0..n {
+        let mut h0val = &mut h0[i];
+        let val = h0val.wrapping_add(h1[i]);
+        *h0val = val;
+    }
+}
 fn Context(mut p1: u8, mut p2: u8, mode: ContextType) -> u8 {
   match mode {
     ContextType::CONTEXT_SIGNED => {
@@ -185,15 +215,6 @@ fn Context(mut p1: u8, mut p2: u8, mode: ContextType) -> u8 {
   }
 }
 
-fn HistogramAddLiteral(mut xself: &mut HistogramLiteral, mut val: usize) {
-  {
-    let _rhs = 1;
-    let _lhs = &mut (*xself).data_[val];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-  }
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
-}
-
 fn CommandCopyLen(mut xself: &Command) -> u32 {
   (*xself).copy_len_ & 0xffffffi32 as (u32)
 }
@@ -207,15 +228,6 @@ fn CommandDistanceContext(mut xself: &Command) -> u32 {
   } else {
     3i32 as (u32)
   }
-}
-
-fn HistogramAddDistance(mut xself: &mut HistogramDistance, val: usize) {
-  {
-    let _rhs = 1;
-    let _lhs = &mut (*xself).data_[val];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-  }
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
 }
 
 #[no_mangle]
@@ -262,7 +274,7 @@ extern fn BrotliBuildHistogramsWithContext(
       let cmd = &cmds[i as (usize)];
       let mut j: usize;
       BlockSplitIteratorNext(&mut insert_and_copy_it);
-      HistogramAddCommand(&mut insert_and_copy_histograms[insert_and_copy_it.type_ as (usize)],
+      HistogramAddItem(&mut insert_and_copy_histograms[insert_and_copy_it.type_ as (usize)],
                           (*cmd).cmd_prefix_ as (usize));
       j = (*cmd).insert_len_ as (usize);
       'loop4: loop {
@@ -278,7 +290,7 @@ extern fn BrotliBuildHistogramsWithContext(
           } else {
             literal_it.type_
           };
-          HistogramAddLiteral(&mut literal_histograms[context as (usize)],
+          HistogramAddItem(&mut literal_histograms[context as (usize)],
                               ringbuffer[(pos & mask) as (usize)] as (usize));
           prev_byte2 = prev_byte;
           prev_byte = ringbuffer[(pos & mask) as (usize)];
@@ -297,7 +309,7 @@ extern fn BrotliBuildHistogramsWithContext(
           let mut context: usize;
           BlockSplitIteratorNext(&mut dist_it);
           context = (dist_it.type_ << 2i32).wrapping_add(CommandDistanceContext(cmd) as (usize));
-          HistogramAddDistance(&mut copy_dist_histograms[context as (usize)],
+          HistogramAddItem(&mut copy_dist_histograms[context as (usize)],
                                (*cmd).dist_prefix_ as (usize));
         }
       }
