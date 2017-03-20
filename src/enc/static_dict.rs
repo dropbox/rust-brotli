@@ -1,17 +1,18 @@
-use super::static_dict_lut::{kDictHashMul32, kDictNumBits,kInvalidMatch,kStaticDictionaryBuckets,kStaticDictionaryWords, DictWord};
+use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kInvalidMatch, kStaticDictionaryBuckets,
+                             kStaticDictionaryWords, DictWord};
 
 static kUppercaseFirst: u8 = 10i32 as (u8);
 
 static kOmitLastNTransforms: [u8; 10] = [0i32 as (u8),
-                                             12i32 as (u8),
-                                             27i32 as (u8),
-                                             23i32 as (u8),
-                                             42i32 as (u8),
-                                             63i32 as (u8),
-                                             56i32 as (u8),
-                                             48i32 as (u8),
-                                             59i32 as (u8),
-                                             64i32 as (u8)];
+                                         12i32 as (u8),
+                                         27i32 as (u8),
+                                         23i32 as (u8),
+                                         42i32 as (u8),
+                                         63i32 as (u8),
+                                         56i32 as (u8),
+                                         48i32 as (u8),
+                                         59i32 as (u8),
+                                         64i32 as (u8)];
 
 pub struct BrotliDictionary {
   pub size_bits_by_length: [u8; 32],
@@ -110,8 +111,7 @@ fn IsMatch(mut dictionary: &BrotliDictionary,
     } else if w.transform as (i32) == 10i32 {
       if !!(dict[0i32 as (usize)] as (i32) >= b'a' as (i32) &&
             (dict[0i32 as (usize)] as (i32) <= b'z' as (i32)) &&
-            (dict[0i32 as (usize)] as (i32) ^ 32i32 ==
-             data[0i32 as (usize)] as (i32)) &&
+            (dict[0i32 as (usize)] as (i32) ^ 32i32 == data[0i32 as (usize)] as (i32)) &&
             (FindMatchLengthWithLimit(&dict[1i32 as (usize)..],
                                       &data[1i32 as (usize)..],
                                       (w.len as (u32)).wrapping_sub(1u32) as (usize)) ==
@@ -148,10 +148,7 @@ fn brotli_min_uint32_t(mut a: u32, mut b: u32) -> u32 {
   if a < b { a } else { b }
 }
 
-fn AddMatch(mut distance: usize,
-                              mut len: usize,
-                              mut len_code: usize,
-                              mut matches: &mut[u32]) {
+fn AddMatch(mut distance: usize, mut len: usize, mut len_code: usize, mut matches: &mut [u32]) {
   let mut match_: u32 = (distance << 5i32).wrapping_add(len_code) as (u32);
   matches[len as (usize)] = brotli_min_uint32_t(matches[len as (usize)], match_);
 }
@@ -161,11 +158,11 @@ fn brotli_min_size_t(mut a: usize, mut b: usize) -> usize {
 }
 
 fn DictMatchLength(mut dictionary: &BrotliDictionary,
-                                     data: &[u8],
-                                     mut id: usize,
-                                     mut len: usize,
-                                     mut maxlen: usize)
-                                     -> usize {
+                   data: &[u8],
+                   mut id: usize,
+                   mut len: usize,
+                   mut maxlen: usize)
+                   -> usize {
   let offset: usize = ((*dictionary).offsets_by_length[len] as (usize))
     .wrapping_add(len.wrapping_mul(id));
   FindMatchLengthWithLimit(&(*dictionary).data[offset..],
@@ -178,13 +175,12 @@ fn brotli_max_size_t(mut a: usize, mut b: usize) -> usize {
 }
 
 #[no_mangle]
-fn BrotliFindAllStaticDictionaryMatches(
-    mut dictionary : &mut BrotliDictionary,
-    mut data : &[u8],
-    mut min_length : usize,
-    mut max_length : usize,
-    mut matches : &mut [u32]
-) -> i32{
+fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
+                                        mut data: &[u8],
+                                        mut min_length: usize,
+                                        mut max_length: usize,
+                                        mut matches: &mut [u32])
+                                        -> i32 {
   let mut has_found_match: i32 = 0i32;
   let mut offset: usize = kStaticDictionaryBuckets[Hash(data) as (usize)] as (usize);
   let mut end: i32 = (offset == 0) as (i32);
@@ -252,44 +248,28 @@ fn BrotliFindAllStaticDictionaryMatches(
         } else {
           s = &data[l as (usize)..];
           if s[0] as (i32) == b' ' as (i32) {
-            AddMatch(id.wrapping_add(n),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add(n), l.wrapping_add(1), l, matches);
             if s[1] as (i32) == b'a' as (i32) {
               if s[2] as (i32) == b' ' as (i32) {
-                AddMatch(id.wrapping_add((28)*(n)),
-                         l.wrapping_add(3),
-                         l,
-                         matches);
+                AddMatch(id.wrapping_add((28) * (n)), l.wrapping_add(3), l, matches);
                 continue 'loop1;
               } else if s[2] as (i32) == b's' as (i32) {
                 if s[3] as (i32) == b' ' as (i32) {
-                  AddMatch(id.wrapping_add((46)*(n)),
-                           l.wrapping_add(4),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((46) * (n)), l.wrapping_add(4), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
                 }
               } else if s[2] as (i32) == b't' as (i32) {
                 if s[3] as (i32) == b' ' as (i32) {
-                  AddMatch(id.wrapping_add((60)*(n)),
-                           l.wrapping_add(4),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((60) * (n)), l.wrapping_add(4), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
                 }
               } else if s[2] as (i32) == b'n' as (i32) {
-                if s[3] as (i32) == b'd' as (i32) &&
-                   (s[4] as (i32) == b' ' as (i32)) {
-                  AddMatch(id.wrapping_add((10)*(n)),
-                           l.wrapping_add(5),
-                           l,
-                           matches);
+                if s[3] as (i32) == b'd' as (i32) && (s[4] as (i32) == b' ' as (i32)) {
+                  AddMatch(id.wrapping_add((10) * (n)), l.wrapping_add(5), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
@@ -298,12 +278,8 @@ fn BrotliFindAllStaticDictionaryMatches(
                 continue 'loop1;
               }
             } else if s[1] as (i32) == b'b' as (i32) {
-              if s[2] as (i32) == b'y' as (i32) &&
-                 (s[3] as (i32) == b' ' as (i32)) {
-                AddMatch(id.wrapping_add((38)*(n)),
-                         l.wrapping_add(4),
-                         l,
-                         matches);
+              if s[2] as (i32) == b'y' as (i32) && (s[3] as (i32) == b' ' as (i32)) {
+                AddMatch(id.wrapping_add((38) * (n)), l.wrapping_add(4), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
@@ -311,20 +287,14 @@ fn BrotliFindAllStaticDictionaryMatches(
             } else if s[1] as (i32) == b'i' as (i32) {
               if s[2] as (i32) == b'n' as (i32) {
                 if s[3] as (i32) == b' ' as (i32) {
-                  AddMatch(id.wrapping_add((16)*(n)),
-                           l.wrapping_add(4),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((16) * (n)), l.wrapping_add(4), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
                 }
               } else if s[2] as (i32) == b's' as (i32) {
                 if s[3] as (i32) == b' ' as (i32) {
-                  AddMatch(id.wrapping_add((47)*(n)),
-                           l.wrapping_add(4),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((47) * (n)), l.wrapping_add(4), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
@@ -334,24 +304,16 @@ fn BrotliFindAllStaticDictionaryMatches(
               }
             } else if s[1] as (i32) == b'f' as (i32) {
               if s[2] as (i32) == b'o' as (i32) {
-                if s[3] as (i32) == b'r' as (i32) &&
-                   (s[4] as (i32) == b' ' as (i32)) {
-                  AddMatch(id.wrapping_add((25)*(n)),
-                           l.wrapping_add(5),
-                           l,
-                           matches);
+                if s[3] as (i32) == b'r' as (i32) && (s[4] as (i32) == b' ' as (i32)) {
+                  AddMatch(id.wrapping_add((25) * (n)), l.wrapping_add(5), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
                 }
               } else if s[2] as (i32) == b'r' as (i32) {
-                if s[3] as (i32) == b'o' as (i32) &&
-                   (s[4] as (i32) == b'm' as (i32)) &&
+                if s[3] as (i32) == b'o' as (i32) && (s[4] as (i32) == b'm' as (i32)) &&
                    (s[5] as (i32) == b' ' as (i32)) {
-                  AddMatch(id.wrapping_add((37)*(n)),
-                           l.wrapping_add(6),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((37) * (n)), l.wrapping_add(6), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
@@ -362,20 +324,14 @@ fn BrotliFindAllStaticDictionaryMatches(
             } else if s[1] as (i32) == b'o' as (i32) {
               if s[2] as (i32) == b'f' as (i32) {
                 if s[3] as (i32) == b' ' as (i32) {
-                  AddMatch(id.wrapping_add((8)*(n)),
-                           l.wrapping_add(4),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((8) * (n)), l.wrapping_add(4), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
                 }
               } else if s[2] as (i32) == b'n' as (i32) {
                 if s[3] as (i32) == b' ' as (i32) {
-                  AddMatch(id.wrapping_add((45)*(n)),
-                           l.wrapping_add(4),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((45) * (n)), l.wrapping_add(4), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
@@ -384,13 +340,9 @@ fn BrotliFindAllStaticDictionaryMatches(
                 continue 'loop1;
               }
             } else if s[1] as (i32) == b'n' as (i32) {
-              if s[2] as (i32) == b'o' as (i32) &&
-                 (s[3] as (i32) == b't' as (i32)) &&
+              if s[2] as (i32) == b'o' as (i32) && (s[3] as (i32) == b't' as (i32)) &&
                  (s[4] as (i32) == b' ' as (i32)) {
-                AddMatch(id.wrapping_add((80)*(n)),
-                         l.wrapping_add(5),
-                         l,
-                         matches);
+                AddMatch(id.wrapping_add((80) * (n)), l.wrapping_add(5), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
@@ -399,21 +351,14 @@ fn BrotliFindAllStaticDictionaryMatches(
               if s[2] as (i32) == b'h' as (i32) {
                 if s[3] as (i32) == b'e' as (i32) {
                   if s[4] as (i32) == b' ' as (i32) {
-                    AddMatch(id.wrapping_add((5)*(n)),
-                             l.wrapping_add(5),
-                             l,
-                             matches);
+                    AddMatch(id.wrapping_add((5) * (n)), l.wrapping_add(5), l, matches);
                     continue 'loop1;
                   } else {
                     continue 'loop1;
                   }
                 } else if s[3] as (i32) == b'a' as (i32) {
-                  if s[4] as (i32) == b't' as (i32) &&
-                     (s[5] as (i32) == b' ' as (i32)) {
-                    AddMatch(id.wrapping_add((29)*(n)),
-                             l.wrapping_add(6),
-                             l,
-                             matches);
+                  if s[4] as (i32) == b't' as (i32) && (s[5] as (i32) == b' ' as (i32)) {
+                    AddMatch(id.wrapping_add((29) * (n)), l.wrapping_add(6), l, matches);
                     continue 'loop1;
                   } else {
                     continue 'loop1;
@@ -423,10 +368,7 @@ fn BrotliFindAllStaticDictionaryMatches(
                 }
               } else if s[2] as (i32) == b'o' as (i32) {
                 if s[3] as (i32) == b' ' as (i32) {
-                  AddMatch(id.wrapping_add((17)*(n)),
-                           l.wrapping_add(4),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((17) * (n)), l.wrapping_add(4), l, matches);
                   continue 'loop1;
                 } else {
                   continue 'loop1;
@@ -435,14 +377,10 @@ fn BrotliFindAllStaticDictionaryMatches(
                 continue 'loop1;
               }
             } else if s[1] as (i32) == b'w' as (i32) {
-              if s[2] as (i32) == b'i' as (i32) &&
-                 (s[3] as (i32) == b't' as (i32)) &&
+              if s[2] as (i32) == b'i' as (i32) && (s[3] as (i32) == b't' as (i32)) &&
                  (s[4] as (i32) == b'h' as (i32)) &&
                  (s[5] as (i32) == b' ' as (i32)) {
-                AddMatch(id.wrapping_add((35)*(n)),
-                         l.wrapping_add(6),
-                         l,
-                         matches);
+                AddMatch(id.wrapping_add((35) * (n)), l.wrapping_add(6), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
@@ -451,48 +389,28 @@ fn BrotliFindAllStaticDictionaryMatches(
               continue 'loop1;
             }
           } else if s[0] as (i32) == b'\"' as (i32) {
-            AddMatch(id.wrapping_add((19)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((19) * (n)), l.wrapping_add(1), l, matches);
             if s[1] as (i32) == b'>' as (i32) {
-              AddMatch(id.wrapping_add((21)*(n)),
-                       l.wrapping_add(2),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((21) * (n)), l.wrapping_add(2), l, matches);
               continue 'loop1;
             } else {
               continue 'loop1;
             }
           } else if s[0] as (i32) == b'.' as (i32) {
-            AddMatch(id.wrapping_add((20)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((20) * (n)), l.wrapping_add(1), l, matches);
             if s[1] as (i32) == b' ' as (i32) {
-              AddMatch(id.wrapping_add((31)*(n)),
-                       l.wrapping_add(2),
-                       l,
-                       matches);
-              if s[2] as (i32) == b'T' as (i32) &&
-                 (s[3] as (i32) == b'h' as (i32)) {
+              AddMatch(id.wrapping_add((31) * (n)), l.wrapping_add(2), l, matches);
+              if s[2] as (i32) == b'T' as (i32) && (s[3] as (i32) == b'h' as (i32)) {
                 if s[4] as (i32) == b'e' as (i32) {
                   if s[5] as (i32) == b' ' as (i32) {
-                    AddMatch(id.wrapping_add((43)*(n)),
-                             l.wrapping_add(6),
-                             l,
-                             matches);
+                    AddMatch(id.wrapping_add((43) * (n)), l.wrapping_add(6), l, matches);
                     continue 'loop1;
                   } else {
                     continue 'loop1;
                   }
                 } else if s[4] as (i32) == b'i' as (i32) {
-                  if s[5] as (i32) == b's' as (i32) &&
-                     (s[6] as (i32) == b' ' as (i32)) {
-                    AddMatch(id.wrapping_add((75)*(n)),
-                             l.wrapping_add(7),
-                             l,
-                             matches);
+                  if s[5] as (i32) == b's' as (i32) && (s[6] as (i32) == b' ' as (i32)) {
+                    AddMatch(id.wrapping_add((75) * (n)), l.wrapping_add(7), l, matches);
                     continue 'loop1;
                   } else {
                     continue 'loop1;
@@ -507,80 +425,46 @@ fn BrotliFindAllStaticDictionaryMatches(
               continue 'loop1;
             }
           } else if s[0] as (i32) == b',' as (i32) {
-            AddMatch(id.wrapping_add((76)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((76) * (n)), l.wrapping_add(1), l, matches);
             if s[1] as (i32) == b' ' as (i32) {
-              AddMatch(id.wrapping_add((14)*(n)),
-                       l.wrapping_add(2),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((14) * (n)), l.wrapping_add(2), l, matches);
               continue 'loop1;
             } else {
               continue 'loop1;
             }
           } else if s[0] as (i32) == b'\n' as (i32) {
-            AddMatch(id.wrapping_add((22)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((22) * (n)), l.wrapping_add(1), l, matches);
             if s[1] as (i32) == b'\t' as (i32) {
-              AddMatch(id.wrapping_add((50)*(n)),
-                       l.wrapping_add(2),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((50) * (n)), l.wrapping_add(2), l, matches);
               continue 'loop1;
             } else {
               continue 'loop1;
             }
           } else if s[0] as (i32) == b']' as (i32) {
-            AddMatch(id.wrapping_add((24)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((24) * (n)), l.wrapping_add(1), l, matches);
             continue 'loop1;
           } else if s[0] as (i32) == b'\'' as (i32) {
-            AddMatch(id.wrapping_add((36)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((36) * (n)), l.wrapping_add(1), l, matches);
             continue 'loop1;
           } else if s[0] as (i32) == b':' as (i32) {
-            AddMatch(id.wrapping_add((51)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((51) * (n)), l.wrapping_add(1), l, matches);
             continue 'loop1;
           } else if s[0] as (i32) == b'(' as (i32) {
-            AddMatch(id.wrapping_add((57)*(n)),
-                     l.wrapping_add(1),
-                     l,
-                     matches);
+            AddMatch(id.wrapping_add((57) * (n)), l.wrapping_add(1), l, matches);
             continue 'loop1;
           } else if s[0] as (i32) == b'=' as (i32) {
             if s[1] as (i32) == b'\"' as (i32) {
-              AddMatch(id.wrapping_add((70)*(n)),
-                       l.wrapping_add(2),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((70) * (n)), l.wrapping_add(2), l, matches);
               continue 'loop1;
             } else if s[1] as (i32) == b'\'' as (i32) {
-              AddMatch(id.wrapping_add((86)*(n)),
-                       l.wrapping_add(2),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((86) * (n)), l.wrapping_add(2), l, matches);
               continue 'loop1;
             } else {
               continue 'loop1;
             }
           } else if s[0] as (i32) == b'a' as (i32) {
-            if s[1] as (i32) == b'l' as (i32) &&
-               (s[2] as (i32) == b' ' as (i32)) {
-              AddMatch(id.wrapping_add((84)*(n)),
-                       l.wrapping_add(3),
-                       l,
-                       matches);
+            if s[1] as (i32) == b'l' as (i32) && (s[2] as (i32) == b' ' as (i32)) {
+              AddMatch(id.wrapping_add((84) * (n)), l.wrapping_add(3), l, matches);
               continue 'loop1;
             } else {
               continue 'loop1;
@@ -588,31 +472,21 @@ fn BrotliFindAllStaticDictionaryMatches(
           } else if s[0] as (i32) == b'e' as (i32) {
             if s[1] as (i32) == b'd' as (i32) {
               if s[2] as (i32) == b' ' as (i32) {
-                AddMatch(id.wrapping_add((53)*(n)),
-                         l.wrapping_add(3),
-                         l,
-                         matches);
+                AddMatch(id.wrapping_add((53) * (n)), l.wrapping_add(3), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
               }
             } else if s[1] as (i32) == b'r' as (i32) {
               if s[2] as (i32) == b' ' as (i32) {
-                AddMatch(id.wrapping_add((82)*(n)),
-                         l.wrapping_add(3),
-                         l,
-                         matches);
+                AddMatch(id.wrapping_add((82) * (n)), l.wrapping_add(3), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
               }
             } else if s[1] as (i32) == b's' as (i32) {
-              if s[2] as (i32) == b't' as (i32) &&
-                 (s[3] as (i32) == b' ' as (i32)) {
-                AddMatch(id.wrapping_add((95)*(n)),
-                         l.wrapping_add(4),
-                         l,
-                         matches);
+              if s[2] as (i32) == b't' as (i32) && (s[3] as (i32) == b' ' as (i32)) {
+                AddMatch(id.wrapping_add((95) * (n)), l.wrapping_add(4), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
@@ -621,36 +495,24 @@ fn BrotliFindAllStaticDictionaryMatches(
               continue 'loop1;
             }
           } else if s[0] as (i32) == b'f' as (i32) {
-            if s[1] as (i32) == b'u' as (i32) &&
-               (s[2] as (i32) == b'l' as (i32)) &&
+            if s[1] as (i32) == b'u' as (i32) && (s[2] as (i32) == b'l' as (i32)) &&
                (s[3] as (i32) == b' ' as (i32)) {
-              AddMatch(id.wrapping_add((90)*(n)),
-                       l.wrapping_add(4),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((90) * (n)), l.wrapping_add(4), l, matches);
               continue 'loop1;
             } else {
               continue 'loop1;
             }
           } else if s[0] as (i32) == b'i' as (i32) {
             if s[1] as (i32) == b'v' as (i32) {
-              if s[2] as (i32) == b'e' as (i32) &&
-                 (s[3] as (i32) == b' ' as (i32)) {
-                AddMatch(id.wrapping_add((92)*(n)),
-                         l.wrapping_add(4),
-                         l,
-                         matches);
+              if s[2] as (i32) == b'e' as (i32) && (s[3] as (i32) == b' ' as (i32)) {
+                AddMatch(id.wrapping_add((92) * (n)), l.wrapping_add(4), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
               }
             } else if s[1] as (i32) == b'z' as (i32) {
-              if s[2] as (i32) == b'e' as (i32) &&
-                 (s[3] as (i32) == b' ' as (i32)) {
-                AddMatch(id.wrapping_add((100)*(n)),
-                         l.wrapping_add(4),
-                         l,
-                         matches);
+              if s[2] as (i32) == b'e' as (i32) && (s[3] as (i32) == b' ' as (i32)) {
+                AddMatch(id.wrapping_add((100) * (n)), l.wrapping_add(4), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
@@ -660,23 +522,16 @@ fn BrotliFindAllStaticDictionaryMatches(
             }
           } else if s[0] as (i32) == b'l' as (i32) {
             if s[1] as (i32) == b'e' as (i32) {
-              if s[2] as (i32) == b's' as (i32) &&
-                 (s[3] as (i32) == b's' as (i32)) &&
+              if s[2] as (i32) == b's' as (i32) && (s[3] as (i32) == b's' as (i32)) &&
                  (s[4] as (i32) == b' ' as (i32)) {
-                AddMatch(id.wrapping_add((93)*(n)),
-                         l.wrapping_add(5),
-                         l,
-                         matches);
+                AddMatch(id.wrapping_add((93) * (n)), l.wrapping_add(5), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
               }
             } else if s[1] as (i32) == b'y' as (i32) {
               if s[2] as (i32) == b' ' as (i32) {
-                AddMatch(id.wrapping_add((61)*(n)),
-                         l.wrapping_add(3),
-                         l,
-                         matches);
+                AddMatch(id.wrapping_add((61) * (n)), l.wrapping_add(3), l, matches);
                 continue 'loop1;
               } else {
                 continue 'loop1;
@@ -685,13 +540,9 @@ fn BrotliFindAllStaticDictionaryMatches(
               continue 'loop1;
             }
           } else if s[0] as (i32) == b'o' as (i32) {
-            if s[1] as (i32) == b'u' as (i32) &&
-               (s[2] as (i32) == b's' as (i32)) &&
+            if s[1] as (i32) == b'u' as (i32) && (s[2] as (i32) == b's' as (i32)) &&
                (s[3] as (i32) == b' ' as (i32)) {
-              AddMatch(id.wrapping_add((106)*(n)),
-                       l.wrapping_add(4),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((106) * (n)), l.wrapping_add(4), l, matches);
               continue 'loop1;
             } else {
               continue 'loop1;
@@ -710,8 +561,7 @@ fn BrotliFindAllStaticDictionaryMatches(
         if IsMatch(dictionary, w, data, max_length) == 0 {
           continue 'loop1;
         } else {
-          AddMatch(id.wrapping_add((if is_all_caps != 0 { 44i32 } else { 9i32 } as (usize))
-                                     *(n)),
+          AddMatch(id.wrapping_add((if is_all_caps != 0 { 44i32 } else { 9i32 } as (usize)) * (n)),
                    l,
                    l,
                    matches);
@@ -721,22 +571,21 @@ fn BrotliFindAllStaticDictionaryMatches(
           } else {
             s = &data[l as (usize)..];
             if s[0] as (i32) == b' ' as (i32) {
-              AddMatch(id.wrapping_add((if is_all_caps != 0 { 68i32 } else { 4i32 } as (usize))
-                                         *(n)),
+              AddMatch(id.wrapping_add((if is_all_caps != 0 { 68i32 } else { 4i32 } as
+                                        (usize)) * (n)),
                        l.wrapping_add(1),
                        l,
                        matches);
               continue 'loop1;
             } else if s[0] as (i32) == b'\"' as (i32) {
-              AddMatch(id.wrapping_add((if is_all_caps != 0 { 87i32 } else { 66i32 } as (usize))
-                                         *(n)),
+              AddMatch(id.wrapping_add((if is_all_caps != 0 { 87i32 } else { 66i32 } as
+                                        (usize)) * (n)),
                        l.wrapping_add(1),
                        l,
                        matches);
               if s[1] as (i32) == b'>' as (i32) {
                 AddMatch(id.wrapping_add((if is_all_caps != 0 { 97i32 } else { 69i32 } as
-                                          (usize))
-                                             *(n)),
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
@@ -745,15 +594,14 @@ fn BrotliFindAllStaticDictionaryMatches(
                 continue 'loop1;
               }
             } else if s[0] as (i32) == b'.' as (i32) {
-              AddMatch(id.wrapping_add((if is_all_caps != 0 { 101i32 } else { 79i32 } as (usize))
-                                         *(n)),
+              AddMatch(id.wrapping_add((if is_all_caps != 0 { 101i32 } else { 79i32 } as
+                                        (usize)) * (n)),
                        l.wrapping_add(1),
                        l,
                        matches);
               if s[1] as (i32) == b' ' as (i32) {
                 AddMatch(id.wrapping_add((if is_all_caps != 0 { 114i32 } else { 88i32 } as
-                                          (usize))
-                                             *(n)),
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
@@ -762,15 +610,14 @@ fn BrotliFindAllStaticDictionaryMatches(
                 continue 'loop1;
               }
             } else if s[0] as (i32) == b',' as (i32) {
-              AddMatch(id.wrapping_add((if is_all_caps != 0 { 112i32 } else { 99i32 } as (usize))
-                                         *(n)),
+              AddMatch(id.wrapping_add((if is_all_caps != 0 { 112i32 } else { 99i32 } as
+                                        (usize)) * (n)),
                        l.wrapping_add(1),
                        l,
                        matches);
               if s[1] as (i32) == b' ' as (i32) {
                 AddMatch(id.wrapping_add((if is_all_caps != 0 { 107i32 } else { 58i32 } as
-                                          (usize))
-                                             *(n)),
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
@@ -779,15 +626,15 @@ fn BrotliFindAllStaticDictionaryMatches(
                 continue 'loop1;
               }
             } else if s[0] as (i32) == b'\'' as (i32) {
-              AddMatch(id.wrapping_add((if is_all_caps != 0 { 94i32 } else { 74i32 } as (usize))
-                                         *(n)),
+              AddMatch(id.wrapping_add((if is_all_caps != 0 { 94i32 } else { 74i32 } as
+                                        (usize)) * (n)),
                        l.wrapping_add(1),
                        l,
                        matches);
               continue 'loop1;
             } else if s[0] as (i32) == b'(' as (i32) {
-              AddMatch(id.wrapping_add((if is_all_caps != 0 { 113i32 } else { 78i32 } as (usize))
-                                         *(n)),
+              AddMatch(id.wrapping_add((if is_all_caps != 0 { 113i32 } else { 78i32 } as
+                                        (usize)) * (n)),
                        l.wrapping_add(1),
                        l,
                        matches);
@@ -795,16 +642,14 @@ fn BrotliFindAllStaticDictionaryMatches(
             } else if s[0] as (i32) == b'=' as (i32) {
               if s[1] as (i32) == b'\"' as (i32) {
                 AddMatch(id.wrapping_add((if is_all_caps != 0 { 105i32 } else { 104i32 } as
-                                          (usize))
-                                             *(n)),
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
                 continue 'loop1;
               } else if s[1] as (i32) == b'\'' as (i32) {
                 AddMatch(id.wrapping_add((if is_all_caps != 0 { 116i32 } else { 108i32 } as
-                                          (usize))
-                                             *(n)),
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
@@ -822,9 +667,7 @@ fn BrotliFindAllStaticDictionaryMatches(
       break 'loop1;
     }
   }
-  if max_length >= 5 &&
-     (data[0] as (i32) == b' ' as (i32) ||
-      data[0] as (i32) == b'.' as (i32)) {
+  if max_length >= 5 && (data[0] as (i32) == b' ' as (i32) || data[0] as (i32) == b'.' as (i32)) {
     let mut is_space: i32 = if !!(data[0] as (i32) == b' ' as (i32)) {
       1i32
     } else {
@@ -846,14 +689,10 @@ fn BrotliFindAllStaticDictionaryMatches(
         w.len = l as (u8);
         if w.transform as (i32) == 0i32 {
           let mut s: &[u8];
-          if IsMatch(dictionary,
-                     w,
-                     &data[1..],
-                     max_length.wrapping_sub(1)) == 0 {
+          if IsMatch(dictionary, w, &data[1..], max_length.wrapping_sub(1)) == 0 {
             continue 'loop4;
           } else {
-            AddMatch(id.wrapping_add((if is_space != 0 { 6i32 } else { 32i32 } as (usize))
-                                       *(n)),
+            AddMatch(id.wrapping_add((if is_space != 0 { 6i32 } else { 32i32 } as (usize)) * (n)),
                      l.wrapping_add(1),
                      l,
                      matches);
@@ -863,60 +702,42 @@ fn BrotliFindAllStaticDictionaryMatches(
             } else {
               s = &data[l.wrapping_add(1) as (usize)..];
               if s[0] as (i32) == b' ' as (i32) {
-                AddMatch(id.wrapping_add((if is_space != 0 { 2i32 } else { 77i32 } as (usize))
-                                           *(n)),
+                AddMatch(id.wrapping_add((if is_space != 0 { 2i32 } else { 77i32 } as (usize)) *
+                                         (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
                 continue 'loop4;
               } else if s[0] as (i32) == b'(' as (i32) {
-                AddMatch(id.wrapping_add((if is_space != 0 { 89i32 } else { 67i32 } as (usize))
-                                           *(n)),
+                AddMatch(id.wrapping_add((if is_space != 0 { 89i32 } else { 67i32 } as
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
                 continue 'loop4;
               } else if is_space != 0 {
                 if s[0] as (i32) == b',' as (i32) {
-                  AddMatch(id.wrapping_add((103)*(n)),
-                           l.wrapping_add(2),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((103) * (n)), l.wrapping_add(2), l, matches);
                   if s[1] as (i32) == b' ' as (i32) {
-                    AddMatch(id.wrapping_add((33)*(n)),
-                             l.wrapping_add(3),
-                             l,
-                             matches);
+                    AddMatch(id.wrapping_add((33) * (n)), l.wrapping_add(3), l, matches);
                     continue 'loop4;
                   } else {
                     continue 'loop4;
                   }
                 } else if s[0] as (i32) == b'.' as (i32) {
-                  AddMatch(id.wrapping_add((71)*(n)),
-                           l.wrapping_add(2),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((71) * (n)), l.wrapping_add(2), l, matches);
                   if s[1] as (i32) == b' ' as (i32) {
-                    AddMatch(id.wrapping_add((52)*(n)),
-                             l.wrapping_add(3),
-                             l,
-                             matches);
+                    AddMatch(id.wrapping_add((52) * (n)), l.wrapping_add(3), l, matches);
                     continue 'loop4;
                   } else {
                     continue 'loop4;
                   }
                 } else if s[0] as (i32) == b'=' as (i32) {
                   if s[1] as (i32) == b'\"' as (i32) {
-                    AddMatch(id.wrapping_add((81)*(n)),
-                             l.wrapping_add(3),
-                             l,
-                             matches);
+                    AddMatch(id.wrapping_add((81) * (n)), l.wrapping_add(3), l, matches);
                     continue 'loop4;
                   } else if s[1] as (i32) == b'\'' as (i32) {
-                    AddMatch(id.wrapping_add((98)*(n)),
-                             l.wrapping_add(3),
-                             l,
-                             matches);
+                    AddMatch(id.wrapping_add((98) * (n)), l.wrapping_add(3), l, matches);
                     continue 'loop4;
                   } else {
                     continue 'loop4;
@@ -936,14 +757,11 @@ fn BrotliFindAllStaticDictionaryMatches(
             0i32
           };
           let mut s: &[u8];
-          if IsMatch(dictionary,
-                     w,
-                     &data[1..],
-                     max_length.wrapping_sub(1)) == 0 {
+          if IsMatch(dictionary, w, &data[1..], max_length.wrapping_sub(1)) == 0 {
             continue 'loop4;
           } else {
-            AddMatch(id.wrapping_add((if is_all_caps != 0 { 85i32 } else { 30i32 } as (usize))
-                                       *(n)),
+            AddMatch(id.wrapping_add((if is_all_caps != 0 { 85i32 } else { 30i32 } as (usize)) *
+                                     (n)),
                      l.wrapping_add(1),
                      l,
                      matches);
@@ -954,23 +772,19 @@ fn BrotliFindAllStaticDictionaryMatches(
               s = &data[l.wrapping_add(1) as (usize)..];
               if s[0] as (i32) == b' ' as (i32) {
                 AddMatch(id.wrapping_add((if is_all_caps != 0 { 83i32 } else { 15i32 } as
-                                          (usize))
-                                             *(n)),
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
                 continue 'loop4;
               } else if s[0] as (i32) == b',' as (i32) {
                 if is_all_caps == 0 {
-                  AddMatch(id.wrapping_add((109)*(n)),
-                           l.wrapping_add(2),
-                           l,
-                           matches);
+                  AddMatch(id.wrapping_add((109) * (n)), l.wrapping_add(2), l, matches);
                 }
                 if s[1] as (i32) == b' ' as (i32) {
                   AddMatch(id.wrapping_add((if is_all_caps != 0 { 111i32 } else { 65i32 } as
-                                            (usize))
-                                               *(n)),
+                                            (usize)) *
+                                           (n)),
                            l.wrapping_add(3),
                            l,
                            matches);
@@ -980,15 +794,14 @@ fn BrotliFindAllStaticDictionaryMatches(
                 }
               } else if s[0] as (i32) == b'.' as (i32) {
                 AddMatch(id.wrapping_add((if is_all_caps != 0 { 115i32 } else { 96i32 } as
-                                          (usize))
-                                             *(n)),
+                                          (usize)) * (n)),
                          l.wrapping_add(2),
                          l,
                          matches);
                 if s[1] as (i32) == b' ' as (i32) {
                   AddMatch(id.wrapping_add((if is_all_caps != 0 { 117i32 } else { 91i32 } as
-                                            (usize))
-                                               *(n)),
+                                            (usize)) *
+                                           (n)),
                            l.wrapping_add(3),
                            l,
                            matches);
@@ -999,16 +812,16 @@ fn BrotliFindAllStaticDictionaryMatches(
               } else if s[0] as (i32) == b'=' as (i32) {
                 if s[1] as (i32) == b'\"' as (i32) {
                   AddMatch(id.wrapping_add((if is_all_caps != 0 { 110i32 } else { 118i32 } as
-                                            (usize))
-                                               *(n)),
+                                            (usize)) *
+                                           (n)),
                            l.wrapping_add(3),
                            l,
                            matches);
                   continue 'loop4;
                 } else if s[1] as (i32) == b'\'' as (i32) {
                   AddMatch(id.wrapping_add((if is_all_caps != 0 { 119i32 } else { 120i32 } as
-                                            (usize))
-                                               *(n)),
+                                            (usize)) *
+                                           (n)),
                            l.wrapping_add(3),
                            l,
                            matches);
@@ -1031,11 +844,9 @@ fn BrotliFindAllStaticDictionaryMatches(
   }
   if max_length >= 6 {
     if data[1] as (i32) == b' ' as (i32) &&
-       (data[0] as (i32) == b'e' as (i32) ||
-        data[0] as (i32) == b's' as (i32) ||
+       (data[0] as (i32) == b'e' as (i32) || data[0] as (i32) == b's' as (i32) ||
         data[0] as (i32) == b',' as (i32)) ||
-       data[0] as (i32) == 0xc2i32 &&
-       (data[1] as (i32) == 0xa0i32) {
+       data[0] as (i32) == 0xc2i32 && (data[1] as (i32) == 0xa0i32) {
       let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[2..]) as (usize)] as (usize);
       let mut end: i32 = (offset == 0) as (i32);
       'loop8: loop {
@@ -1051,32 +862,21 @@ fn BrotliFindAllStaticDictionaryMatches(
           end = !(w.len as (i32) & 0x80i32 == 0) as (i32);
           w.len = l as (u8);
           if w.transform as (i32) == 0i32 &&
-             (IsMatch(dictionary,
-                      w,
-                      &data[2..],
-                      max_length.wrapping_sub(2)) != 0) {
+             (IsMatch(dictionary, w, &data[2..], max_length.wrapping_sub(2)) != 0) {
             if data[0] as (i32) == 0xc2i32 {
-              AddMatch(id.wrapping_add((102)*(n)),
-                       l.wrapping_add(2),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add((102) * (n)), l.wrapping_add(2), l, matches);
               has_found_match = 1i32;
               continue 'loop8;
             } else if l.wrapping_add(2) < max_length &&
-                      (data[l.wrapping_add(2) as (usize)] as (i32) ==
-                       b' ' as (i32)) {
+                      (data[l.wrapping_add(2) as (usize)] as (i32) == b' ' as (i32)) {
               let mut t: usize = (if data[0] as (i32) == b'e' as (i32) {
                                     18i32
-                                  } else if data[0] as (i32) ==
-                        b's' as (i32) {
+                                  } else if data[0] as (i32) == b's' as (i32) {
                 7i32
               } else {
                 13i32
               }) as (usize);
-              AddMatch(id.wrapping_add(t*(n)),
-                       l.wrapping_add(3),
-                       l,
-                       matches);
+              AddMatch(id.wrapping_add(t * (n)), l.wrapping_add(3), l, matches);
               has_found_match = 1i32;
               continue 'loop8;
             } else {
@@ -1092,15 +892,11 @@ fn BrotliFindAllStaticDictionaryMatches(
     }
   }
   if max_length >= 9 {
-    if data[0] as (i32) == b' ' as (i32) &&
-       (data[1] as (i32) == b't' as (i32)) &&
-       (data[2] as (i32) == b'h' as (i32)) &&
-       (data[3] as (i32) == b'e' as (i32)) &&
+    if data[0] as (i32) == b' ' as (i32) && (data[1] as (i32) == b't' as (i32)) &&
+       (data[2] as (i32) == b'h' as (i32)) && (data[3] as (i32) == b'e' as (i32)) &&
        (data[4] as (i32) == b' ' as (i32)) ||
-       data[0] as (i32) == b'.' as (i32) &&
-       (data[1] as (i32) == b'c' as (i32)) &&
-       (data[2] as (i32) == b'o' as (i32)) &&
-       (data[3] as (i32) == b'm' as (i32)) &&
+       data[0] as (i32) == b'.' as (i32) && (data[1] as (i32) == b'c' as (i32)) &&
+       (data[2] as (i32) == b'o' as (i32)) && (data[3] as (i32) == b'm' as (i32)) &&
        (data[4] as (i32) == b'/' as (i32)) {
       let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[5..]) as (usize)] as (usize);
       let mut end: i32 = (offset == 0) as (i32);
@@ -1117,17 +913,12 @@ fn BrotliFindAllStaticDictionaryMatches(
           end = !(w.len as (i32) & 0x80i32 == 0) as (i32);
           w.len = l as (u8);
           if w.transform as (i32) == 0i32 &&
-             (IsMatch(dictionary,
-                      w,
-                      &data[5..],
-                      max_length.wrapping_sub(5)) != 0) {
-            AddMatch(id.wrapping_add((if data[0] as (i32) ==
-                                         b' ' as (i32) {
+             (IsMatch(dictionary, w, &data[5..], max_length.wrapping_sub(5)) != 0) {
+            AddMatch(id.wrapping_add((if data[0] as (i32) == b' ' as (i32) {
                                         41i32
                                       } else {
                                         72i32
-                                      } as (usize))
-                                         *(n)),
+                                      } as (usize)) * (n)),
                      l.wrapping_add(5),
                      l,
                      matches);
@@ -1135,24 +926,16 @@ fn BrotliFindAllStaticDictionaryMatches(
             if l.wrapping_add(5) < max_length {
               let mut s: &[u8] = &data[l.wrapping_add(5) as (usize)..];
               if data[0] as (i32) == b' ' as (i32) {
-                if l.wrapping_add(8) < max_length &&
-                   (s[0] as (i32) == b' ' as (i32)) &&
+                if l.wrapping_add(8) < max_length && (s[0] as (i32) == b' ' as (i32)) &&
                    (s[1] as (i32) == b'o' as (i32)) &&
                    (s[2] as (i32) == b'f' as (i32)) &&
                    (s[3] as (i32) == b' ' as (i32)) {
-                  AddMatch(id.wrapping_add((62)*(n)),
-                           l.wrapping_add(9),
-                           l,
-                           matches);
-                  if l.wrapping_add(12) < max_length &&
-                     (s[4] as (i32) == b't' as (i32)) &&
+                  AddMatch(id.wrapping_add((62) * (n)), l.wrapping_add(9), l, matches);
+                  if l.wrapping_add(12) < max_length && (s[4] as (i32) == b't' as (i32)) &&
                      (s[5] as (i32) == b'h' as (i32)) &&
                      (s[6] as (i32) == b'e' as (i32)) &&
                      (s[7] as (i32) == b' ' as (i32)) {
-                    AddMatch(id.wrapping_add((73)*(n)),
-                             l.wrapping_add(13),
-                             l,
-                             matches);
+                    AddMatch(id.wrapping_add((73) * (n)), l.wrapping_add(13), l, matches);
                     continue 'loop12;
                   } else {
                     continue 'loop12;

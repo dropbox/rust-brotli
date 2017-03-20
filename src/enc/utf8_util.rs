@@ -54,7 +54,8 @@ pub fn BrotliIsMostlyUTF8(mut data: &[u8],
     if i < length {
       let mut symbol: i32 = 0;
       let mut bytes_read: usize = BrotliParseAsUTF8(&mut symbol,
-                                                    &data[(pos.wrapping_add(i) & mask) as (usize)..],
+                                                    &data[(pos.wrapping_add(i) & mask) as
+                                                     (usize)..],
                                                     length.wrapping_sub(i));
       i = i.wrapping_add(bytes_read);
       if symbol < 0x110000i32 {
