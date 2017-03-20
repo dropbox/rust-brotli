@@ -3,6 +3,8 @@ pub mod brotli_bit_stream;
 pub mod constants;
 pub mod entropy_encode;
 pub mod utf8_util;
+pub mod static_dict;
+pub mod static_dict_lut;
 static mut kInsExtra
     : [u32; 24]
     = [   0u32,
