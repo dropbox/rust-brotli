@@ -5,6 +5,7 @@
 */
 
 /* Entropy encoding (Huffman) utilities. */
+
 use super::util::brotli_max_uint32_t;
 
 

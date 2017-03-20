@@ -1,4 +1,3 @@
-
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::{brotli_max_uint32_t, FastLog2};
 
@@ -104,16 +103,14 @@ fn EstimateBitCostsForLiteralsUTF8(mut pos: usize,
           (if i < window_half.wrapping_add(2i32 as (usize)) {
              0i32
            } else {
-             data[(pos.wrapping_add(i).wrapping_sub(window_half).wrapping_sub(2i32 as
-                                                                                      (usize)) &
-                           mask) as (usize)] as (i32)
+             data[(pos.wrapping_add(i).wrapping_sub(window_half).wrapping_sub(2i32 as (usize)) &
+              mask) as (usize)] as (i32)
            }) as (usize);
         let mut utf8_pos2: usize = UTF8Position(last_c, c, max_utf8);
         {
           let _rhs = 1;
-          let _lhs = &mut histogram[utf8_pos2][data[(pos.wrapping_add(i).wrapping_sub(window_half) &
-                                        mask) as (usize)] as
-                          (usize)];
+          let _lhs = &mut histogram[utf8_pos2][data[(pos.wrapping_add(i).wrapping_sub(window_half) & mask) as
+                          (usize)] as (usize)];
           *_lhs = (*_lhs).wrapping_sub(_rhs as (usize));
         }
         {
@@ -124,21 +121,15 @@ fn EstimateBitCostsForLiteralsUTF8(mut pos: usize,
       }
       if i.wrapping_add(window_half) < len {
         let mut c: usize = data[(pos.wrapping_add(i)
-                                           .wrapping_add(window_half)
-                                           .wrapping_sub(1i32 as (usize)) &
-                                         mask) as
-                                        (usize)] as (usize);
-        let mut last_c: usize = data[(pos.wrapping_add(i)
-                                                .wrapping_add(window_half)
-                                                .wrapping_sub(2i32 as (usize)) &
-                                              mask) as
-                                             (usize)] as (usize);
+           .wrapping_add(window_half)
+           .wrapping_sub(1i32 as (usize)) & mask) as (usize)] as (usize);
+        let mut last_c: usize = data[(pos.wrapping_add(i).wrapping_add(window_half).wrapping_sub(2i32 as (usize)) & mask) as
+        (usize)] as (usize);
         let mut utf8_pos2: usize = UTF8Position(last_c, c, max_utf8);
         {
           let _rhs = 1;
-          let _lhs = &mut histogram[utf8_pos2][data[(pos.wrapping_add(i).wrapping_add(window_half) &
-                                        mask) as (usize)] as
-                          (usize)];
+          let _lhs = &mut histogram[utf8_pos2][data[(pos.wrapping_add(i).wrapping_add(window_half) & mask) as
+                          (usize)] as (usize)];
           *_lhs = (*_lhs).wrapping_add(_rhs as (usize));
         }
         {
@@ -150,16 +141,14 @@ fn EstimateBitCostsForLiteralsUTF8(mut pos: usize,
       let mut c: usize = (if i < 1i32 as (usize) {
                             0i32
                           } else {
-                            data[(pos.wrapping_add(i).wrapping_sub(1i32 as (usize)) &
-                                          mask) as
-                                         (usize)] as (i32)
+                            data[(pos.wrapping_add(i).wrapping_sub(1i32 as (usize)) & mask) as
+                            (usize)] as (i32)
                           }) as (usize);
       let mut last_c: usize = (if i < 2i32 as (usize) {
                                  0i32
                                } else {
                                  data[(pos.wrapping_add(i).wrapping_sub(2i32 as (usize)) &
-                                               mask) as
-                                              (usize)] as (i32)
+                                  mask) as (usize)] as (i32)
                                }) as (usize);
       let mut utf8_pos: usize = UTF8Position(last_c, c, max_utf8);
       let mut masked_pos: usize = pos.wrapping_add(i) & mask;
@@ -204,8 +193,7 @@ pub fn BrotliEstimateBitCostsForLiterals(mut pos: usize,
       if i < in_window {
         {
           let _rhs = 1;
-          let _lhs = &mut histogram[data[(pos.wrapping_add(i) & mask) as (usize)] as
-                          (usize)];
+          let _lhs = &mut histogram[data[(pos.wrapping_add(i) & mask) as (usize)] as (usize)];
           *_lhs = (*_lhs).wrapping_add(_rhs as (usize));
         }
         i = i.wrapping_add(1 as (usize));
@@ -221,8 +209,8 @@ pub fn BrotliEstimateBitCostsForLiterals(mut pos: usize,
         if i >= window_half {
           {
             let _rhs = 1;
-            let _lhs = &mut histogram[data[(pos.wrapping_add(i).wrapping_sub(window_half) & mask) as
-                                         (usize)] as (usize)];
+            let _lhs = &mut histogram[data[(pos.wrapping_add(i).wrapping_sub(window_half) &
+                             mask) as (usize)] as (usize)];
             *_lhs = (*_lhs).wrapping_sub(_rhs as (usize));
           }
           in_window = in_window.wrapping_sub(1 as (usize));
@@ -230,8 +218,8 @@ pub fn BrotliEstimateBitCostsForLiterals(mut pos: usize,
         if i.wrapping_add(window_half) < len {
           {
             let _rhs = 1;
-            let _lhs = &mut histogram[data[(pos.wrapping_add(i).wrapping_add(window_half) & mask) as
-                                         (usize)] as (usize)];
+            let _lhs = &mut histogram[data[(pos.wrapping_add(i).wrapping_add(window_half) &
+                             mask) as (usize)] as (usize)];
             *_lhs = (*_lhs).wrapping_add(_rhs as (usize));
           }
           in_window = in_window.wrapping_add(1 as (usize));
