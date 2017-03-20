@@ -5,6 +5,7 @@ pub mod entropy_encode;
 pub mod utf8_util;
 pub mod static_dict;
 pub mod static_dict_lut;
+pub mod dictionary_hash;
 static mut kInsExtra
     : [u32; 24]
     = [   0u32,
