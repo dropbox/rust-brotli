@@ -186,7 +186,7 @@ fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAc
 }
 
 fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
-    mut xself : &mut HistogramLiteral, mut v : &HistogramLiteral
+    mut xself : &mut HistogramType, mut v : &HistogramType
 ) {
     (*xself).total_count_ += (*v).total_count();
     let mut h0 = xself.slice_mut();
@@ -198,6 +198,20 @@ fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> 
         *h0val = val;
     }
 }
+fn HistogramSelfAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
+    mut xself : &mut [HistogramType], i0 : usize, i1 : usize
+) {
+    (*xself).total_count_ += (*v).total_count();
+    let h0 = xself[i0].slice_mut().len();
+    let h0a = xself[i0].slice().len();
+    let h1 = xself[i1].slice().len();
+    let n = min(h0.len(), min(h0a.len(), h1.len()));
+    for h_index in 0..n {
+        let val = xself[i0].slice()[h_index].wrapping_add(xself[i1].slice()[h_index]);
+        xself[i0].slice_mut()[h_index] = val;
+    }
+}
+
 fn Context(mut p1: u8, mut p2: u8, mode: ContextType) -> u8 {
   match mode {
     ContextType::CONTEXT_SIGNED => {
