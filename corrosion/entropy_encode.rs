@@ -1,7 +1,13 @@
 extern {
+    fn __assert_fail(
+        __assertion : *const u8,
+        __file : *const u8,
+        __line : u32,
+        __function : *const u8
+    );
     fn memset(
-        __s : *mut ::std::os::raw::c_void, __c : i32, __n : usize
-    ) -> *mut ::std::os::raw::c_void;
+        __s : *mut std::os::raw::c_void, __c : i32, __n : usize
+    ) -> *mut std::os::raw::c_void;
 }
 
 #[derive(Clone, Copy)]
@@ -19,47 +25,49 @@ pub unsafe extern fn BrotliSetDepth(
     mut depth : *mut u8,
     mut max_depth : i32
 ) -> i32 {
-    let mut stack : [i32; 16];
+    let mut stack : *mut i32;
     let mut level : i32 = 0i32;
     let mut p : i32 = p0;
-    0i32;
-    stack[0i32 as (usize)] = -1i32;
-    'loop1: loop {
-        if 1i32 != 0 {
-            if (*pool.offset(p as (isize))).index_left_ as (i32) >= 0i32 {
-                level = level + 1;
-                if level > max_depth {
-                    break 'loop1;
-                } else {
-                    stack[level as (usize)] = (*pool.offset(
+    if max_depth <= 15i32 {
+        0i32;
+    } else {
+        __assert_fail(
+            b"max_depth <= 15\0".as_ptr(),
+            file!().as_ptr(),
+            line!(),
+            b"BrotliSetDepth\0".as_ptr()
+        );
+    }
+    *stack.offset(0i32 as (isize)) = -1i32;
+    while 1i32 != 0 {
+        if (*pool.offset(p as (isize))).index_left_ as (i32) >= 0i32 {
+            level = level + 1;
+            if level > max_depth {
+                return 0i32;
+            }
+            *stack.offset(level as (isize)) = (*pool.offset(
                                                     p as (isize)
                                                 )).index_right_or_value_ as (i32);
-                    p = (*pool.offset(p as (isize))).index_left_ as (i32);
-                    continue 'loop1;
-                }
-            } else {
-                *depth.offset(
-                     (*pool.offset(p as (isize))).index_right_or_value_ as (isize)
-                 ) = level as (u8);
-                'loop5: loop {
-                    if level >= 0i32 && (stack[level as (usize)] == -1i32) {
-                        level = level - 1;
-                        continue 'loop5;
-                    } else {
-                        break 'loop5;
-                    }
-                }
-                if level < 0i32 {
-                    return 1i32;
-                } else {
-                    p = stack[level as (usize)];
-                    stack[level as (usize)] = -1i32;
-                    continue 'loop1;
+            p = (*pool.offset(p as (isize))).index_left_ as (i32);
+            {
+                if 1337i32 != 0 {
+                    continue;
                 }
             }
+        } else {
+            *depth.offset(
+                 (*pool.offset(p as (isize))).index_right_or_value_ as (isize)
+             ) = level as (u8);
         }
+        while level >= 0i32 && (*stack.offset(level as (isize)) == -1i32) {
+            level = level - 1;
+        }
+        if level < 0i32 {
+            return 1i32;
+        }
+        p = *stack.offset(level as (isize));
+        *stack.offset(level as (isize)) = -1i32;
     }
-    0i32
 }
 
 unsafe extern fn InitHuffmanTree(
@@ -87,91 +95,67 @@ unsafe extern fn SortHuffmanTreeItems(
     :
     unsafe extern fn(*const HuffmanTree, *const HuffmanTree) -> i32
 ) {
-    static mut gaps
-        : [usize; 6]
-        = [   132i32 as (usize),
-              57i32 as (usize),
-              23i32 as (usize),
-              10i32 as (usize),
-              4i32 as (usize),
-              1i32 as (usize)
-          ];
+    static mut gaps : *const usize = 132i32 as (*const usize);
     if n < 13i32 as (usize) {
         let mut i : usize;
         i = 1i32 as (usize);
-        'loop14: loop {
-            if i < n {
+        while i < n {
+            {
                 let mut tmp : HuffmanTree = *items.offset(i as (isize));
                 let mut k : usize = i;
                 let mut j : usize = i.wrapping_sub(1i32 as (usize));
-                'loop17: loop {
-                    if comparator(
-                           &mut tmp as (*mut HuffmanTree) as (*const HuffmanTree),
-                           &mut *items.offset(
-                                     j as (isize)
-                                 ) as (*mut HuffmanTree) as (*const HuffmanTree)
-                       ) != 0 {
-                        *items.offset(k as (isize)) = *items.offset(j as (isize));
-                        k = j;
-                        if {
-                               let _old = j;
-                               j = j.wrapping_sub(1 as (usize));
-                               _old
-                           } == 0 {
-                            break 'loop17;
-                        } else {
-                            continue 'loop17;
+                while comparator(
+                          &mut tmp as (*mut HuffmanTree) as (*const HuffmanTree),
+                          &mut *items.offset(
+                                    j as (isize)
+                                ) as (*mut HuffmanTree) as (*const HuffmanTree)
+                      ) != 0 {
+                    *items.offset(k as (isize)) = *items.offset(j as (isize));
+                    k = j;
+                    if {
+                           let _old = j;
+                           j = j.wrapping_sub(1 as (usize));
+                           _old
+                       } == 0 {
+                        if 1337i32 != 0 {
+                            break;
                         }
-                    } else {
-                        break 'loop17;
                     }
                 }
                 *items.offset(k as (isize)) = tmp;
-                i = i.wrapping_add(1 as (usize));
-                continue 'loop14;
-            } else {
-                break 'loop14;
             }
+            i = i.wrapping_add(1 as (usize));
         }
     } else {
         let mut g : i32 = if n < 57i32 as (usize) { 2i32 } else { 0i32 };
-        'loop2: loop {
-            if g < 6i32 {
-                let mut gap : usize = gaps[g as (usize)];
+        while g < 6i32 {
+            {
+                let mut gap : usize = *gaps.offset(g as (isize));
                 let mut i : usize;
                 i = gap;
-                'loop5: loop {
-                    if i < n {
+                while i < n {
+                    {
                         let mut j : usize = i;
                         let mut tmp : HuffmanTree = *items.offset(i as (isize));
-                        'loop8: loop {
-                            if j >= gap && (comparator(
-                                                &mut tmp as (*mut HuffmanTree) as (*const HuffmanTree),
-                                                &mut *items.offset(
-                                                          j.wrapping_sub(gap) as (isize)
-                                                      ) as (*mut HuffmanTree) as (*const HuffmanTree)
-                                            ) != 0) {
+                        while j >= gap && (comparator(
+                                               &mut tmp as (*mut HuffmanTree) as (*const HuffmanTree),
+                                               &mut *items.offset(
+                                                         j.wrapping_sub(gap) as (isize)
+                                                     ) as (*mut HuffmanTree) as (*const HuffmanTree)
+                                           ) != 0) {
+                            {
                                 *items.offset(j as (isize)) = *items.offset(
                                                                    j.wrapping_sub(gap) as (isize)
                                                                );
-                                j = j.wrapping_sub(gap);
-                                continue 'loop8;
-                            } else {
-                                break 'loop8;
                             }
+                            j = j.wrapping_sub(gap);
                         }
                         *items.offset(j as (isize)) = tmp;
-                        i = i.wrapping_add(1 as (usize));
-                        continue 'loop5;
-                    } else {
-                        break 'loop5;
                     }
+                    i = i.wrapping_add(1 as (usize));
                 }
-                g = g + 1;
-                continue 'loop2;
-            } else {
-                break 'loop2;
             }
+            g = g + 1;
         }
     }
 }
@@ -180,12 +164,14 @@ unsafe extern fn SortHuffmanTree(
     mut v0 : *const HuffmanTree, mut v1 : *const HuffmanTree
 ) -> i32 {
     if (*v0).total_count_ != (*v1).total_count_ {
-        if !!((*v0).total_count_ < (*v1).total_count_) {
-            1i32
-        } else {
-            0i32
-        }
-    } else if !!((*v0).index_right_or_value_ as (i32) > (*v1).index_right_or_value_ as (i32)) {
+        return
+            if !!((*v0).total_count_ < (*v1).total_count_) {
+                1i32
+            } else {
+                0i32
+            };
+    }
+    if !!((*v0).index_right_or_value_ as (i32) > (*v1).index_right_or_value_ as (i32)) {
         1i32
     } else {
         0i32
@@ -209,14 +195,14 @@ pub unsafe extern fn BrotliCreateHuffmanTree(
         -1i32 as (i16)
     );
     count_limit = 1i32 as (u32);
-    'loop1: loop {
-        let mut n : usize = 0i32 as (usize);
-        let mut i : usize;
-        let mut j : usize;
-        let mut k : usize;
-        i = length;
-        'loop2: loop {
-            if i != 0i32 as (usize) {
+    'break1: loop {
+        {
+            let mut n : usize = 0i32 as (usize);
+            let mut i : usize;
+            let mut j : usize;
+            let mut k : usize;
+            i = length;
+            while i != 0i32 as (usize) {
                 i = i.wrapping_sub(1 as (usize));
                 if *data.offset(i as (isize)) != 0 {
                     let count
@@ -234,19 +220,18 @@ pub unsafe extern fn BrotliCreateHuffmanTree(
                         -1i32 as (i16),
                         i as (i16)
                     );
-                    continue 'loop2;
-                } else {
-                    continue 'loop2;
                 }
-            } else {
-                break 'loop2;
             }
-        }
-        if n == 1i32 as (usize) {
-            *depth.offset(
-                 (*tree.offset(0i32 as (isize))).index_right_or_value_ as (isize)
-             ) = 1i32 as (u8);
-        } else {
+            if n == 1i32 as (usize) {
+                *depth.offset(
+                     (*tree.offset(0i32 as (isize))).index_right_or_value_ as (isize)
+                 ) = 1i32 as (u8);
+                {
+                    if 1337i32 != 0 {
+                        break 'break1;
+                    }
+                }
+            }
             SortHuffmanTreeItems(tree,n,SortHuffmanTree);
             *tree.offset(n as (isize)) = sentinel;
             *tree.offset(
@@ -255,8 +240,8 @@ pub unsafe extern fn BrotliCreateHuffmanTree(
             i = 0i32 as (usize);
             j = n.wrapping_add(1i32 as (usize));
             k = n.wrapping_sub(1i32 as (usize));
-            'loop5: loop {
-                if k != 0i32 as (usize) {
+            while k != 0i32 as (usize) {
+                {
                     let mut left : usize;
                     let mut right : usize;
                     if (*tree.offset(i as (isize))).total_count_ <= (*tree.offset(
@@ -277,28 +262,27 @@ pub unsafe extern fn BrotliCreateHuffmanTree(
                         right = j;
                         j = j.wrapping_add(1 as (usize));
                     }
-                    let mut j_end
-                        : usize
-                        = (2i32 as (usize)).wrapping_mul(n).wrapping_sub(k);
-                    (*tree.offset(j_end as (isize))).total_count_ = (*tree.offset(
-                                                                          left as (isize)
-                                                                      )).total_count_.wrapping_add(
-                                                                        (*tree.offset(
-                                                                              right as (isize)
-                                                                          )).total_count_
-                                                                    );
-                    (*tree.offset(j_end as (isize))).index_left_ = left as (i16);
-                    (*tree.offset(
-                          j_end as (isize)
-                      )).index_right_or_value_ = right as (i16);
-                    *tree.offset(
-                         j_end.wrapping_add(1i32 as (usize)) as (isize)
-                     ) = sentinel;
-                    k = k.wrapping_sub(1 as (usize));
-                    continue 'loop5;
-                } else {
-                    break 'loop5;
+                    {
+                        let mut j_end
+                            : usize
+                            = (2i32 as (usize)).wrapping_mul(n).wrapping_sub(k);
+                        (*tree.offset(j_end as (isize))).total_count_ = (*tree.offset(
+                                                                              left as (isize)
+                                                                          )).total_count_.wrapping_add(
+                                                                            (*tree.offset(
+                                                                                  right as (isize)
+                                                                              )).total_count_
+                                                                        );
+                        (*tree.offset(j_end as (isize))).index_left_ = left as (i16);
+                        (*tree.offset(
+                              j_end as (isize)
+                          )).index_right_or_value_ = right as (i16);
+                        *tree.offset(
+                             j_end.wrapping_add(1i32 as (usize)) as (isize)
+                         ) = sentinel;
+                    }
                 }
+                k = k.wrapping_sub(1 as (usize));
             }
             if BrotliSetDepth(
                    (2i32 as (usize)).wrapping_mul(n).wrapping_sub(
@@ -308,12 +292,12 @@ pub unsafe extern fn BrotliCreateHuffmanTree(
                    depth,
                    tree_limit
                ) != 0 {
-                break 'loop1;
-            } else {
-                count_limit = count_limit.wrapping_mul(2i32 as (u32));
-                continue 'loop1;
+                if 1337i32 != 0 {
+                    break 'break1;
+                }
             }
         }
+        count_limit = count_limit.wrapping_mul(2i32 as (u32));
     }
 }
 
@@ -330,226 +314,196 @@ pub unsafe extern fn BrotliOptimizeHuffmanCountsForRle(
     let streak_limit : usize = 1240i32 as (usize);
     let mut i : usize;
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < length {
+    while i < length {
+        {
             if *counts.offset(i as (isize)) != 0 {
                 nonzero_count = nonzero_count.wrapping_add(1 as (usize));
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     if nonzero_count < 16i32 as (usize) {
-    } else {
-        'loop3: loop {
-            if length != 0i32 as (usize) && (*counts.offset(
-                                                  length.wrapping_sub(1i32 as (usize)) as (isize)
-                                              ) == 0i32 as (u32)) {
-                length = length.wrapping_sub(1 as (usize));
-                continue 'loop3;
-            } else {
-                break 'loop3;
+        return;
+    }
+    while length != 0i32 as (usize) && (*counts.offset(
+                                             length.wrapping_sub(1i32 as (usize)) as (isize)
+                                         ) == 0i32 as (u32)) {
+        length = length.wrapping_sub(1 as (usize));
+    }
+    if length == 0i32 as (usize) {
+        return;
+    }
+    {
+        let mut nonzeros : usize = 0i32 as (usize);
+        let mut smallest_nonzero : u32 = (1i32 << 30i32) as (u32);
+        i = 0i32 as (usize);
+        while i < length {
+            {
+                if *counts.offset(i as (isize)) != 0i32 as (u32) {
+                    nonzeros = nonzeros.wrapping_add(1 as (usize));
+                    if smallest_nonzero > *counts.offset(i as (isize)) {
+                        smallest_nonzero = *counts.offset(i as (isize));
+                    }
+                }
             }
+            i = i.wrapping_add(1 as (usize));
         }
-        if length == 0i32 as (usize) {
-        } else {
-            let mut nonzeros : usize = 0i32 as (usize);
-            let mut smallest_nonzero : u32 = (1i32 << 30i32) as (u32);
-            i = 0i32 as (usize);
-            'loop6: loop {
-                if i < length {
-                    if *counts.offset(i as (isize)) != 0i32 as (u32) {
-                        nonzeros = nonzeros.wrapping_add(1 as (usize));
-                        if smallest_nonzero > *counts.offset(i as (isize)) {
-                            smallest_nonzero = *counts.offset(i as (isize));
+        if nonzeros < 5i32 as (usize) {
+            return;
+        }
+        if smallest_nonzero < 4i32 as (u32) {
+            let mut zeros : usize = length.wrapping_sub(nonzeros);
+            if zeros < 6i32 as (usize) {
+                i = 1i32 as (usize);
+                while i < length.wrapping_sub(1i32 as (usize)) {
+                    {
+                        if *counts.offset(
+                                i.wrapping_sub(1i32 as (usize)) as (isize)
+                            ) != 0i32 as (u32) && (*counts.offset(
+                                                        i as (isize)
+                                                    ) == 0i32 as (u32)) && (*counts.offset(
+                                                                                 i.wrapping_add(
+                                                                                     1i32 as (usize)
+                                                                                 ) as (isize)
+                                                                             ) != 0i32 as (u32)) {
+                            *counts.offset(i as (isize)) = 1i32 as (u32);
                         }
                     }
                     i = i.wrapping_add(1 as (usize));
-                    continue 'loop6;
-                } else {
-                    break 'loop6;
                 }
             }
-            if nonzeros < 5i32 as (usize) {
-            } else {
-                if smallest_nonzero < 4i32 as (u32) {
-                    let mut zeros : usize = length.wrapping_sub(nonzeros);
-                    if zeros < 6i32 as (usize) {
-                        i = 1i32 as (usize);
-                        'loop11: loop {
-                            if i < length.wrapping_sub(1i32 as (usize)) {
-                                if *counts.offset(
-                                        i.wrapping_sub(1i32 as (usize)) as (isize)
-                                    ) != 0i32 as (u32) && (*counts.offset(
-                                                                i as (isize)
-                                                            ) == 0i32 as (u32)) && (*counts.offset(
-                                                                                         i.wrapping_add(
-                                                                                             1i32 as (usize)
-                                                                                         ) as (isize)
-                                                                                     ) != 0i32 as (u32)) {
-                                    *counts.offset(i as (isize)) = 1i32 as (u32);
-                                }
-                                i = i.wrapping_add(1 as (usize));
-                                continue 'loop11;
-                            } else {
-                                break 'loop11;
+        }
+        if nonzeros < 28i32 as (usize) {
+            return;
+        }
+    }
+    memset(good_for_rle as (*mut std::os::raw::c_void),0i32,length);
+    {
+        let mut symbol : u32 = *counts.offset(0i32 as (isize));
+        let mut step : usize = 0i32 as (usize);
+        i = 0i32 as (usize);
+        while i <= length {
+            {
+                if i == length || *counts.offset(i as (isize)) != symbol {
+                    if symbol == 0i32 as (u32) && (step >= 5i32 as (usize)) || symbol != 0i32 as (u32) && (step >= 7i32 as (usize)) {
+                        let mut k : usize;
+                        k = 0i32 as (usize);
+                        while k < step {
+                            {
+                                *good_for_rle.offset(
+                                     i.wrapping_sub(k).wrapping_sub(1i32 as (usize)) as (isize)
+                                 ) = 1i32 as (u8);
                             }
+                            k = k.wrapping_add(1 as (usize));
                         }
+                    }
+                    step = 1i32 as (usize);
+                    if i != length {
+                        symbol = *counts.offset(i as (isize));
+                    }
+                } else {
+                    step = step.wrapping_add(1 as (usize));
+                }
+            }
+            i = i.wrapping_add(1 as (usize));
+        }
+    }
+    stride = 0i32 as (usize);
+    limit = (256i32 as (u32)).wrapping_mul(
+                (*counts.offset(0i32 as (isize))).wrapping_add(
+                    *counts.offset(1i32 as (isize))
+                ).wrapping_add(
+                    *counts.offset(2i32 as (isize))
+                )
+            ).wrapping_div(
+                3i32 as (u32)
+            ).wrapping_add(
+                420i32 as (u32)
+            ) as (usize);
+    sum = 0i32 as (usize);
+    i = 0i32 as (usize);
+    while i <= length {
+        {
+            if i == length || *good_for_rle.offset(
+                                   i as (isize)
+                               ) != 0 || i != 0i32 as (usize) && (*good_for_rle.offset(
+                                                                       i.wrapping_sub(
+                                                                           1i32 as (usize)
+                                                                       ) as (isize)
+                                                                   ) != 0) || ((256i32 as (u32)).wrapping_mul(
+                                                                                   *counts.offset(
+                                                                                        i as (isize)
+                                                                                    )
+                                                                               ) as (usize)).wrapping_sub(
+                                                                                  limit
+                                                                              ).wrapping_add(
+                                                                                  streak_limit
+                                                                              ) >= (2i32 as (usize)).wrapping_mul(
+                                                                                       streak_limit
+                                                                                   ) {
+                if stride >= 4i32 as (usize) || stride >= 3i32 as (usize) && (sum == 0i32 as (usize)) {
+                    let mut k : usize;
+                    let mut count
+                        : usize
+                        = sum.wrapping_add(
+                              stride.wrapping_div(2i32 as (usize))
+                          ).wrapping_div(
+                              stride
+                          );
+                    if count == 0i32 as (usize) {
+                        count = 1i32 as (usize);
+                    }
+                    if sum == 0i32 as (usize) {
+                        count = 0i32 as (usize);
+                    }
+                    k = 0i32 as (usize);
+                    while k < stride {
+                        {
+                            *counts.offset(
+                                 i.wrapping_sub(k).wrapping_sub(1i32 as (usize)) as (isize)
+                             ) = count as (u32);
+                        }
+                        k = k.wrapping_add(1 as (usize));
                     }
                 }
-                if nonzeros < 28i32 as (usize) {
-                } else {
-                    memset(good_for_rle as (*mut ::std::os::raw::c_void),0i32,length);
-                    let mut symbol : u32 = *counts.offset(0i32 as (isize));
-                    let mut step : usize = 0i32 as (usize);
-                    i = 0i32 as (usize);
-                    'loop14: loop {
-                        if i <= length {
-                            if i == length || *counts.offset(i as (isize)) != symbol {
-                                if symbol == 0i32 as (u32) && (step >= 5i32 as (usize)) || symbol != 0i32 as (u32) && (step >= 7i32 as (usize)) {
-                                    let mut k : usize;
-                                    k = 0i32 as (usize);
-                                    'loop43: loop {
-                                        if k < step {
-                                            *good_for_rle.offset(
-                                                 i.wrapping_sub(k).wrapping_sub(
-                                                     1i32 as (usize)
-                                                 ) as (isize)
-                                             ) = 1i32 as (u8);
-                                            k = k.wrapping_add(1 as (usize));
-                                            continue 'loop43;
-                                        } else {
-                                            break 'loop43;
-                                        }
-                                    }
-                                }
-                                step = 1i32 as (usize);
-                                if i != length {
-                                    symbol = *counts.offset(i as (isize));
-                                }
-                            } else {
-                                step = step.wrapping_add(1 as (usize));
-                            }
-                            i = i.wrapping_add(1 as (usize));
-                            continue 'loop14;
-                        } else {
-                            break 'loop14;
-                        }
-                    }
-                    stride = 0i32 as (usize);
+                stride = 0i32 as (usize);
+                sum = 0i32 as (usize);
+                if i < length.wrapping_sub(2i32 as (usize)) {
                     limit = (256i32 as (u32)).wrapping_mul(
-                                (*counts.offset(0i32 as (isize))).wrapping_add(
-                                    *counts.offset(1i32 as (isize))
+                                (*counts.offset(i as (isize))).wrapping_add(
+                                    *counts.offset(i.wrapping_add(1i32 as (usize)) as (isize))
                                 ).wrapping_add(
-                                    *counts.offset(2i32 as (isize))
+                                    *counts.offset(i.wrapping_add(2i32 as (usize)) as (isize))
                                 )
                             ).wrapping_div(
                                 3i32 as (u32)
                             ).wrapping_add(
                                 420i32 as (u32)
                             ) as (usize);
-                    sum = 0i32 as (usize);
-                    i = 0i32 as (usize);
-                    'loop16: loop {
-                        if i <= length {
-                            if i == length || *good_for_rle.offset(
-                                                   i as (isize)
-                                               ) != 0 || i != 0i32 as (usize) && (*good_for_rle.offset(
-                                                                                       i.wrapping_sub(
-                                                                                           1i32 as (usize)
-                                                                                       ) as (isize)
-                                                                                   ) != 0) || ((256i32 as (u32)).wrapping_mul(
-                                                                                                   *counts.offset(
-                                                                                                        i as (isize)
-                                                                                                    )
-                                                                                               ) as (usize)).wrapping_sub(
-                                                                                                  limit
-                                                                                              ).wrapping_add(
-                                                                                                  streak_limit
-                                                                                              ) >= (2i32 as (usize)).wrapping_mul(
-                                                                                                       streak_limit
-                                                                                                   ) {
-                                if stride >= 4i32 as (usize) || stride >= 3i32 as (usize) && (sum == 0i32 as (usize)) {
-                                    let mut k : usize;
-                                    let mut count
-                                        : usize
-                                        = sum.wrapping_add(
-                                              stride.wrapping_div(2i32 as (usize))
-                                          ).wrapping_div(
-                                              stride
-                                          );
-                                    if count == 0i32 as (usize) {
-                                        count = 1i32 as (usize);
-                                    }
-                                    if sum == 0i32 as (usize) {
-                                        count = 0i32 as (usize);
-                                    }
-                                    k = 0i32 as (usize);
-                                    'loop25: loop {
-                                        if k < stride {
-                                            *counts.offset(
-                                                 i.wrapping_sub(k).wrapping_sub(
-                                                     1i32 as (usize)
-                                                 ) as (isize)
-                                             ) = count as (u32);
-                                            k = k.wrapping_add(1 as (usize));
-                                            continue 'loop25;
-                                        } else {
-                                            break 'loop25;
-                                        }
-                                    }
-                                }
-                                stride = 0i32 as (usize);
-                                sum = 0i32 as (usize);
-                                if i < length.wrapping_sub(2i32 as (usize)) {
-                                    limit = (256i32 as (u32)).wrapping_mul(
-                                                (*counts.offset(i as (isize))).wrapping_add(
-                                                    *counts.offset(
-                                                         i.wrapping_add(1i32 as (usize)) as (isize)
-                                                     )
-                                                ).wrapping_add(
-                                                    *counts.offset(
-                                                         i.wrapping_add(2i32 as (usize)) as (isize)
-                                                     )
-                                                )
-                                            ).wrapping_div(
-                                                3i32 as (u32)
-                                            ).wrapping_add(
-                                                420i32 as (u32)
-                                            ) as (usize);
-                                } else if i < length {
-                                    limit = (256i32 as (u32)).wrapping_mul(
-                                                *counts.offset(i as (isize))
-                                            ) as (usize);
-                                } else {
-                                    limit = 0i32 as (usize);
-                                }
-                            }
-                            stride = stride.wrapping_add(1 as (usize));
-                            if i != length {
-                                sum = sum.wrapping_add(*counts.offset(i as (isize)) as (usize));
-                                if stride >= 4i32 as (usize) {
-                                    limit = (256i32 as (usize)).wrapping_mul(sum).wrapping_add(
-                                                stride.wrapping_div(2i32 as (usize))
-                                            ).wrapping_div(
-                                                stride
-                                            );
-                                }
-                                if stride == 4i32 as (usize) {
-                                    limit = limit.wrapping_add(120i32 as (usize));
-                                }
-                            }
-                            i = i.wrapping_add(1 as (usize));
-                            continue 'loop16;
-                        } else {
-                            break 'loop16;
-                        }
-                    }
+                } else if i < length {
+                    limit = (256i32 as (u32)).wrapping_mul(
+                                *counts.offset(i as (isize))
+                            ) as (usize);
+                } else {
+                    limit = 0i32 as (usize);
+                }
+            }
+            stride = stride.wrapping_add(1 as (usize));
+            if i != length {
+                sum = sum.wrapping_add(*counts.offset(i as (isize)) as (usize));
+                if stride >= 4i32 as (usize) {
+                    limit = (256i32 as (usize)).wrapping_mul(sum).wrapping_add(
+                                stride.wrapping_div(2i32 as (usize))
+                            ).wrapping_div(
+                                stride
+                            );
+                }
+                if stride == 4i32 as (usize) {
+                    limit = limit.wrapping_add(120i32 as (usize));
                 }
             }
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -565,38 +519,30 @@ unsafe extern fn DecideOverRleUse(
     let mut count_reps_non_zero : usize = 1i32 as (usize);
     let mut i : usize;
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < length {
-            let value : u8 = *depth.offset(i as (isize));
-            let mut reps : usize = 1i32 as (usize);
-            let mut k : usize;
-            k = i.wrapping_add(1i32 as (usize));
-            'loop4: loop {
-                if k < length && (*depth.offset(
-                                       k as (isize)
-                                   ) as (i32) == value as (i32)) {
-                    reps = reps.wrapping_add(1 as (usize));
-                    k = k.wrapping_add(1 as (usize));
-                    continue 'loop4;
-                } else {
-                    break 'loop4;
-                }
+    while i < length {
+        let value : u8 = *depth.offset(i as (isize));
+        let mut reps : usize = 1i32 as (usize);
+        let mut k : usize;
+        k = i.wrapping_add(1i32 as (usize));
+        while k < length && (*depth.offset(
+                                  k as (isize)
+                              ) as (i32) == value as (i32)) {
+            {
+                reps = reps.wrapping_add(1 as (usize));
             }
-            if reps >= 3i32 as (usize) && (value as (i32) == 0i32) {
-                total_reps_zero = total_reps_zero.wrapping_add(reps);
-                count_reps_zero = count_reps_zero.wrapping_add(1 as (usize));
-            }
-            if reps >= 4i32 as (usize) && (value as (i32) != 0i32) {
-                total_reps_non_zero = total_reps_non_zero.wrapping_add(reps);
-                count_reps_non_zero = count_reps_non_zero.wrapping_add(
-                                          1 as (usize)
-                                      );
-            }
-            i = i.wrapping_add(reps);
-            continue 'loop1;
-        } else {
-            break 'loop1;
+            k = k.wrapping_add(1 as (usize));
         }
+        if reps >= 3i32 as (usize) && (value as (i32) == 0i32) {
+            total_reps_zero = total_reps_zero.wrapping_add(reps);
+            count_reps_zero = count_reps_zero.wrapping_add(1 as (usize));
+        }
+        if reps >= 4i32 as (usize) && (value as (i32) != 0i32) {
+            total_reps_non_zero = total_reps_non_zero.wrapping_add(reps);
+            count_reps_non_zero = count_reps_non_zero.wrapping_add(
+                                      1 as (usize)
+                                  );
+        }
+        i = i.wrapping_add(reps);
     }
     *use_rle_for_non_zero = if !!(total_reps_non_zero > count_reps_non_zero.wrapping_mul(
                                                             2i32 as (usize)
@@ -618,78 +564,12 @@ unsafe extern fn Reverse(
     mut v : *mut u8, mut start : usize, mut end : usize
 ) {
     end = end.wrapping_sub(1 as (usize));
-    'loop1: loop {
-        if start < end {
-            let mut tmp : u8 = *v.offset(start as (isize));
-            *v.offset(start as (isize)) = *v.offset(end as (isize));
-            *v.offset(end as (isize)) = tmp;
-            start = start.wrapping_add(1 as (usize));
-            end = end.wrapping_sub(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
-    }
-}
-
-unsafe extern fn BrotliWriteHuffmanTreeRepetitions(
-    previous_value : u8,
-    value : u8,
-    mut repetitions : usize,
-    mut tree_size : *mut usize,
-    mut tree : *mut u8,
-    mut extra_bits_data : *mut u8
-) {
-    0i32;
-    if previous_value as (i32) != value as (i32) {
-        *tree.offset(*tree_size as (isize)) = value;
-        *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
-        *tree_size = (*tree_size).wrapping_add(1 as (usize));
-        repetitions = repetitions.wrapping_sub(1 as (usize));
-    }
-    if repetitions == 7i32 as (usize) {
-        *tree.offset(*tree_size as (isize)) = value;
-        *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
-        *tree_size = (*tree_size).wrapping_add(1 as (usize));
-        repetitions = repetitions.wrapping_sub(1 as (usize));
-    }
-    if repetitions < 3i32 as (usize) {
-        let mut i : usize;
-        i = 0i32 as (usize);
-        'loop11: loop {
-            if i < repetitions {
-                *tree.offset(*tree_size as (isize)) = value;
-                *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
-                *tree_size = (*tree_size).wrapping_add(1 as (usize));
-                i = i.wrapping_add(1 as (usize));
-                continue 'loop11;
-            } else {
-                break 'loop11;
-            }
-        }
-    } else {
-        let mut start : usize = *tree_size;
-        repetitions = repetitions.wrapping_sub(3i32 as (usize));
-        'loop6: loop {
-            if 1i32 != 0 {
-                *tree.offset(*tree_size as (isize)) = 16i32 as (u8);
-                *extra_bits_data.offset(
-                     *tree_size as (isize)
-                 ) = (repetitions & 0x3i32 as (usize)) as (u8);
-                *tree_size = (*tree_size).wrapping_add(1 as (usize));
-                repetitions = repetitions >> 2i32;
-                if repetitions == 0i32 as (usize) {
-                    break 'loop6;
-                } else {
-                    repetitions = repetitions.wrapping_sub(1 as (usize));
-                    continue 'loop6;
-                }
-            } else {
-                break 'loop6;
-            }
-        }
-        Reverse(tree,start,*tree_size);
-        Reverse(extra_bits_data,start,*tree_size);
+    while start < end {
+        let mut tmp : u8 = *v.offset(start as (isize));
+        *v.offset(start as (isize)) = *v.offset(end as (isize));
+        *v.offset(end as (isize)) = tmp;
+        start = start.wrapping_add(1 as (usize));
+        end = end.wrapping_sub(1 as (usize));
     }
 }
 
@@ -708,37 +588,93 @@ unsafe extern fn BrotliWriteHuffmanTreeRepetitionsZeros(
     if repetitions < 3i32 as (usize) {
         let mut i : usize;
         i = 0i32 as (usize);
-        'loop9: loop {
-            if i < repetitions {
+        while i < repetitions {
+            {
                 *tree.offset(*tree_size as (isize)) = 0i32 as (u8);
                 *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
                 *tree_size = (*tree_size).wrapping_add(1 as (usize));
-                i = i.wrapping_add(1 as (usize));
-                continue 'loop9;
-            } else {
-                break 'loop9;
             }
+            i = i.wrapping_add(1 as (usize));
         }
     } else {
         let mut start : usize = *tree_size;
         repetitions = repetitions.wrapping_sub(3i32 as (usize));
-        'loop4: loop {
-            if 1i32 != 0 {
-                *tree.offset(*tree_size as (isize)) = 17i32 as (u8);
-                *extra_bits_data.offset(
-                     *tree_size as (isize)
-                 ) = (repetitions & 0x7i32 as (usize)) as (u8);
-                *tree_size = (*tree_size).wrapping_add(1 as (usize));
-                repetitions = repetitions >> 3i32;
-                if repetitions == 0i32 as (usize) {
-                    break 'loop4;
-                } else {
-                    repetitions = repetitions.wrapping_sub(1 as (usize));
-                    continue 'loop4;
+        while 1i32 != 0 {
+            *tree.offset(*tree_size as (isize)) = 17i32 as (u8);
+            *extra_bits_data.offset(
+                 *tree_size as (isize)
+             ) = (repetitions & 0x7i32 as (usize)) as (u8);
+            *tree_size = (*tree_size).wrapping_add(1 as (usize));
+            repetitions = repetitions >> 3i32;
+            if repetitions == 0i32 as (usize) {
+                if 1337i32 != 0 {
+                    break;
                 }
-            } else {
-                break 'loop4;
             }
+            repetitions = repetitions.wrapping_sub(1 as (usize));
+        }
+        Reverse(tree,start,*tree_size);
+        Reverse(extra_bits_data,start,*tree_size);
+    }
+}
+
+unsafe extern fn BrotliWriteHuffmanTreeRepetitions(
+    previous_value : u8,
+    value : u8,
+    mut repetitions : usize,
+    mut tree_size : *mut usize,
+    mut tree : *mut u8,
+    mut extra_bits_data : *mut u8
+) {
+    if repetitions > 0i32 as (usize) {
+        0i32;
+    } else {
+        __assert_fail(
+            b"repetitions > 0\0".as_ptr(),
+            file!().as_ptr(),
+            line!(),
+            b"BrotliWriteHuffmanTreeRepetitions\0".as_ptr()
+        );
+    }
+    if previous_value as (i32) != value as (i32) {
+        *tree.offset(*tree_size as (isize)) = value;
+        *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
+        *tree_size = (*tree_size).wrapping_add(1 as (usize));
+        repetitions = repetitions.wrapping_sub(1 as (usize));
+    }
+    if repetitions == 7i32 as (usize) {
+        *tree.offset(*tree_size as (isize)) = value;
+        *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
+        *tree_size = (*tree_size).wrapping_add(1 as (usize));
+        repetitions = repetitions.wrapping_sub(1 as (usize));
+    }
+    if repetitions < 3i32 as (usize) {
+        let mut i : usize;
+        i = 0i32 as (usize);
+        while i < repetitions {
+            {
+                *tree.offset(*tree_size as (isize)) = value;
+                *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
+                *tree_size = (*tree_size).wrapping_add(1 as (usize));
+            }
+            i = i.wrapping_add(1 as (usize));
+        }
+    } else {
+        let mut start : usize = *tree_size;
+        repetitions = repetitions.wrapping_sub(3i32 as (usize));
+        while 1i32 != 0 {
+            *tree.offset(*tree_size as (isize)) = 16i32 as (u8);
+            *extra_bits_data.offset(
+                 *tree_size as (isize)
+             ) = (repetitions & 0x3i32 as (usize)) as (u8);
+            *tree_size = (*tree_size).wrapping_add(1 as (usize));
+            repetitions = repetitions >> 2i32;
+            if repetitions == 0i32 as (usize) {
+                if 1337i32 != 0 {
+                    break;
+                }
+            }
+            repetitions = repetitions.wrapping_sub(1 as (usize));
         }
         Reverse(tree,start,*tree_size);
         Reverse(extra_bits_data,start,*tree_size);
@@ -759,20 +695,17 @@ pub unsafe extern fn BrotliWriteHuffmanTree(
     let mut use_rle_for_zero : i32 = 0i32;
     let mut new_length : usize = length;
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < length {
+    'break27: while i < length {
+        {
             if *depth.offset(
                     length.wrapping_sub(i).wrapping_sub(1i32 as (usize)) as (isize)
                 ) as (i32) == 0i32 {
                 new_length = new_length.wrapping_sub(1 as (usize));
-                i = i.wrapping_add(1 as (usize));
-                continue 'loop1;
-            } else {
-                break 'loop1;
+            } else if 1337i32 != 0 {
+                break 'break27;
             }
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     if length > 50i32 as (usize) {
         DecideOverRleUse(
@@ -783,86 +716,61 @@ pub unsafe extern fn BrotliWriteHuffmanTree(
         );
     }
     i = 0i32 as (usize);
-    'loop6: loop {
-        if i < new_length {
-            let value : u8 = *depth.offset(i as (isize));
-            let mut reps : usize = 1i32 as (usize);
-            if value as (i32) != 0i32 && (use_rle_for_non_zero != 0) || value as (i32) == 0i32 && (use_rle_for_zero != 0) {
-                let mut k : usize;
-                k = i.wrapping_add(1i32 as (usize));
-                'loop10: loop {
-                    if k < new_length && (*depth.offset(
-                                               k as (isize)
-                                           ) as (i32) == value as (i32)) {
-                        reps = reps.wrapping_add(1 as (usize));
-                        k = k.wrapping_add(1 as (usize));
-                        continue 'loop10;
-                    } else {
-                        break 'loop10;
-                    }
+    while i < new_length {
+        let value : u8 = *depth.offset(i as (isize));
+        let mut reps : usize = 1i32 as (usize);
+        if value as (i32) != 0i32 && (use_rle_for_non_zero != 0) || value as (i32) == 0i32 && (use_rle_for_zero != 0) {
+            let mut k : usize;
+            k = i.wrapping_add(1i32 as (usize));
+            while k < new_length && (*depth.offset(
+                                          k as (isize)
+                                      ) as (i32) == value as (i32)) {
+                {
+                    reps = reps.wrapping_add(1 as (usize));
                 }
+                k = k.wrapping_add(1 as (usize));
             }
-            if value as (i32) == 0i32 {
-                BrotliWriteHuffmanTreeRepetitionsZeros(
-                    reps,
-                    tree_size,
-                    tree,
-                    extra_bits_data
-                );
-            } else {
-                BrotliWriteHuffmanTreeRepetitions(
-                    previous_value,
-                    value,
-                    reps,
-                    tree_size,
-                    tree,
-                    extra_bits_data
-                );
-                previous_value = value;
-            }
-            i = i.wrapping_add(reps);
-            continue 'loop6;
-        } else {
-            break 'loop6;
         }
+        if value as (i32) == 0i32 {
+            BrotliWriteHuffmanTreeRepetitionsZeros(
+                reps,
+                tree_size,
+                tree,
+                extra_bits_data
+            );
+        } else {
+            BrotliWriteHuffmanTreeRepetitions(
+                previous_value,
+                value,
+                reps,
+                tree_size,
+                tree,
+                extra_bits_data
+            );
+            previous_value = value;
+        }
+        i = i.wrapping_add(reps);
     }
 }
 
 unsafe extern fn BrotliReverseBits(
     mut num_bits : usize, mut bits : u16
 ) -> u16 {
-    static mut kLut
-        : [usize; 16]
-        = [   0x0i32 as (usize),
-              0x8i32 as (usize),
-              0x4i32 as (usize),
-              0xci32 as (usize),
-              0x2i32 as (usize),
-              0xai32 as (usize),
-              0x6i32 as (usize),
-              0xei32 as (usize),
-              0x1i32 as (usize),
-              0x9i32 as (usize),
-              0x5i32 as (usize),
-              0xdi32 as (usize),
-              0x3i32 as (usize),
-              0xbi32 as (usize),
-              0x7i32 as (usize),
-              0xfi32 as (usize)
-          ];
-    let mut retval : usize = kLut[(bits as (i32) & 0xfi32) as (usize)];
+    static mut kLut : *const usize = 0x0i32 as (*const usize);
+    let mut retval
+        : usize
+        = *kLut.offset((bits as (i32) & 0xfi32) as (isize));
     let mut i : usize;
     i = 4i32 as (usize);
-    'loop1: loop {
-        if i < num_bits {
+    while i < num_bits {
+        {
             retval = retval << 4i32;
             bits = (bits as (i32) >> 4i32) as (u16);
-            retval = retval | kLut[(bits as (i32) & 0xfi32) as (usize)];
-            i = i.wrapping_add(4i32 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
+            retval = retval | *kLut.offset(
+                                   (bits as (i32) & 0xfi32) as (isize)
+                               );
         }
+        i = i.wrapping_add(4i32 as (usize));
     }
     retval = retval >> ((0i32 as (usize)).wrapping_sub(
                             num_bits
@@ -874,81 +782,53 @@ unsafe extern fn BrotliReverseBits(
 pub unsafe extern fn BrotliConvertBitDepthsToSymbols(
     mut depth : *const u8, mut len : usize, mut bits : *mut u16
 ) {
-    let mut bl_count
-        : [u16; 16]
-        = [   0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16),
-              0i32 as (u16)
-          ];
-    let mut next_code : [u16; 16];
+    let mut bl_count : *mut u16 = 0i32 as (*mut u16);
+    let mut next_code : *mut u16;
     let mut i : usize;
     let mut code : i32 = 0i32;
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < len {
-            {
-                let _rhs = 1;
-                let _lhs = &mut bl_count[*depth.offset(i as (isize)) as (usize)];
-                *_lhs = (*_lhs as (i32) + _rhs) as (u16);
-            }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
+    while i < len {
+        {
+            let _rhs = 1;
+            let _lhs
+                = &mut *bl_count.offset(*depth.offset(i as (isize)) as (isize));
+            *_lhs = (*_lhs as (i32) + _rhs) as (u16);
         }
+        i = i.wrapping_add(1 as (usize));
     }
-    bl_count[0i32 as (usize)] = 0i32 as (u16);
-    next_code[0i32 as (usize)] = 0i32 as (u16);
+    *bl_count.offset(0i32 as (isize)) = 0i32 as (u16);
+    *next_code.offset(0i32 as (isize)) = 0i32 as (u16);
     i = 1i32 as (usize);
-    'loop3: loop {
-        if i < 16i32 as (usize) {
-            code = code + bl_count[
-                              i.wrapping_sub(1i32 as (usize))
-                          ] as (i32) << 1i32;
-            next_code[i] = code as (u16);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop3;
-        } else {
-            break 'loop3;
+    while i < 16i32 as (usize) {
+        {
+            code = code + *bl_count.offset(
+                               i.wrapping_sub(1i32 as (usize)) as (isize)
+                           ) as (i32) << 1i32;
+            *next_code.offset(i as (isize)) = code as (u16);
         }
+        i = i.wrapping_add(1 as (usize));
     }
     i = 0i32 as (usize);
-    'loop5: loop {
-        if i < len {
+    while i < len {
+        {
             if *depth.offset(i as (isize)) != 0 {
                 *bits.offset(i as (isize)) = BrotliReverseBits(
                                                  *depth.offset(i as (isize)) as (usize),
                                                  {
                                                      let _rhs = 1;
                                                      let _lhs
-                                                         = &mut next_code[
-                                                                    *depth.offset(
-                                                                         i as (isize)
-                                                                     ) as (usize)
-                                                                ];
+                                                         = &mut *next_code.offset(
+                                                                     *depth.offset(
+                                                                          i as (isize)
+                                                                      ) as (isize)
+                                                                 );
                                                      let _old = *_lhs;
                                                      *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                                                      _old
                                                  }
                                              );
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop5;
-        } else {
-            break 'loop5;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }

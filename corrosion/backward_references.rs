@@ -1,383 +1,23 @@
 extern {
-    static mut kStaticDictionaryHash : [u16; 32768];
+    static mut kStaticDictionaryHash : *const u16;
     fn memcpy(
-        __dest : *mut ::std::os::raw::c_void,
-        __src : *const ::std::os::raw::c_void,
+        __dest : *mut std::os::raw::c_void,
+        __src : *const std::os::raw::c_void,
         __n : usize
-    ) -> *mut ::std::os::raw::c_void;
+    ) -> *mut std::os::raw::c_void;
 }
 
 static mut kLog2Table
-    : [f32; 256]
-    = [   0.0000000000000000f32,
-          0.0000000000000000f32,
-          1.0000000000000000f32,
-          1.5849625007211563f32,
-          2.0000000000000000f32,
-          2.3219280948873622f32,
-          2.5849625007211561f32,
-          2.8073549220576042f32,
-          3.0000000000000000f32,
-          3.1699250014423126f32,
-          3.3219280948873626f32,
-          3.4594316186372978f32,
-          3.5849625007211565f32,
-          3.7004397181410922f32,
-          3.8073549220576037f32,
-          3.9068905956085187f32,
-          4.0000000000000000f32,
-          4.0874628412503400f32,
-          4.1699250014423122f32,
-          4.2479275134435852f32,
-          4.3219280948873626f32,
-          4.3923174227787607f32,
-          4.4594316186372973f32,
-          4.5235619560570131f32,
-          4.5849625007211570f32,
-          4.6438561897747244f32,
-          4.7004397181410926f32,
-          4.7548875021634691f32,
-          4.8073549220576037f32,
-          4.8579809951275728f32,
-          4.9068905956085187f32,
-          4.9541963103868758f32,
-          5.0000000000000000f32,
-          5.0443941193584534f32,
-          5.0874628412503400f32,
-          5.1292830169449664f32,
-          5.1699250014423122f32,
-          5.2094533656289501f32,
-          5.2479275134435852f32,
-          5.2854022188622487f32,
-          5.3219280948873626f32,
-          5.3575520046180838f32,
-          5.3923174227787607f32,
-          5.4262647547020979f32,
-          5.4594316186372973f32,
-          5.4918530963296748f32,
-          5.5235619560570131f32,
-          5.5545888516776376f32,
-          5.5849625007211570f32,
-          5.6147098441152083f32,
-          5.6438561897747244f32,
-          5.6724253419714961f32,
-          5.7004397181410926f32,
-          5.7279204545631996f32,
-          5.7548875021634691f32,
-          5.7813597135246599f32,
-          5.8073549220576046f32,
-          5.8328900141647422f32,
-          5.8579809951275719f32,
-          5.8826430493618416f32,
-          5.9068905956085187f32,
-          5.9307373375628867f32,
-          5.9541963103868758f32,
-          5.9772799234999168f32,
-          6.0000000000000000f32,
-          6.0223678130284544f32,
-          6.0443941193584534f32,
-          6.0660891904577721f32,
-          6.0874628412503400f32,
-          6.1085244567781700f32,
-          6.1292830169449672f32,
-          6.1497471195046822f32,
-          6.1699250014423122f32,
-          6.1898245588800176f32,
-          6.2094533656289510f32,
-          6.2288186904958804f32,
-          6.2479275134435861f32,
-          6.2667865406949019f32,
-          6.2854022188622487f32,
-          6.3037807481771031f32,
-          6.3219280948873617f32,
-          6.3398500028846252f32,
-          6.3575520046180847f32,
-          6.3750394313469254f32,
-          6.3923174227787598f32,
-          6.4093909361377026f32,
-          6.4262647547020979f32,
-          6.4429434958487288f32,
-          6.4594316186372982f32,
-          6.4757334309663976f32,
-          6.4918530963296748f32,
-          6.5077946401986964f32,
-          6.5235619560570131f32,
-          6.5391588111080319f32,
-          6.5545888516776376f32,
-          6.5698556083309478f32,
-          6.5849625007211561f32,
-          6.5999128421871278f32,
-          6.6147098441152092f32,
-          6.6293566200796095f32,
-          6.6438561897747253f32,
-          6.6582114827517955f32,
-          6.6724253419714952f32,
-          6.6865005271832185f32,
-          6.7004397181410917f32,
-          6.7142455176661224f32,
-          6.7279204545631988f32,
-          6.7414669864011465f32,
-          6.7548875021634691f32,
-          6.7681843247769260f32,
-          6.7813597135246599f32,
-          6.7944158663501062f32,
-          6.8073549220576037f32,
-          6.8201789624151887f32,
-          6.8328900141647422f32,
-          6.8454900509443757f32,
-          6.8579809951275719f32,
-          6.8703647195834048f32,
-          6.8826430493618416f32,
-          6.8948177633079437f32,
-          6.9068905956085187f32,
-          6.9188632372745955f32,
-          6.9307373375628867f32,
-          6.9425145053392399f32,
-          6.9541963103868758f32,
-          6.9657842846620879f32,
-          6.9772799234999168f32,
-          6.9886846867721664f32,
-          7.0000000000000000f32,
-          7.0112272554232540f32,
-          7.0223678130284544f32,
-          7.0334230015374501f32,
-          7.0443941193584534f32,
-          7.0552824355011898f32,
-          7.0660891904577721f32,
-          7.0768155970508317f32,
-          7.0874628412503400f32,
-          7.0980320829605272f32,
-          7.1085244567781700f32,
-          7.1189410727235076f32,
-          7.1292830169449664f32,
-          7.1395513523987937f32,
-          7.1497471195046822f32,
-          7.1598713367783891f32,
-          7.1699250014423130f32,
-          7.1799090900149345f32,
-          7.1898245588800176f32,
-          7.1996723448363644f32,
-          7.2094533656289492f32,
-          7.2191685204621621f32,
-          7.2288186904958804f32,
-          7.2384047393250794f32,
-          7.2479275134435861f32,
-          7.2573878426926521f32,
-          7.2667865406949019f32,
-          7.2761244052742384f32,
-          7.2854022188622487f32,
-          7.2946207488916270f32,
-          7.3037807481771031f32,
-          7.3128829552843557f32,
-          7.3219280948873617f32,
-          7.3309168781146177f32,
-          7.3398500028846243f32,
-          7.3487281542310781f32,
-          7.3575520046180847f32,
-          7.3663222142458151f32,
-          7.3750394313469254f32,
-          7.3837042924740528f32,
-          7.3923174227787607f32,
-          7.4008794362821844f32,
-          7.4093909361377026f32,
-          7.4178525148858991f32,
-          7.4262647547020979f32,
-          7.4346282276367255f32,
-          7.4429434958487288f32,
-          7.4512111118323299f32,
-          7.4594316186372973f32,
-          7.4676055500829976f32,
-          7.4757334309663976f32,
-          7.4838157772642564f32,
-          7.4918530963296748f32,
-          7.4998458870832057f32,
-          7.5077946401986964f32,
-          7.5156998382840436f32,
-          7.5235619560570131f32,
-          7.5313814605163119f32,
-          7.5391588111080319f32,
-          7.5468944598876373f32,
-          7.5545888516776376f32,
-          7.5622424242210728f32,
-          7.5698556083309478f32,
-          7.5774288280357487f32,
-          7.5849625007211561f32,
-          7.5924570372680806f32,
-          7.5999128421871278f32,
-          7.6073303137496113f32,
-          7.6147098441152075f32,
-          7.6220518194563764f32,
-          7.6293566200796095f32,
-          7.6366246205436488f32,
-          7.6438561897747244f32,
-          7.6510516911789290f32,
-          7.6582114827517955f32,
-          7.6653359171851765f32,
-          7.6724253419714952f32,
-          7.6794800995054464f32,
-          7.6865005271832185f32,
-          7.6934869574993252f32,
-          7.7004397181410926f32,
-          7.7073591320808825f32,
-          7.7142455176661224f32,
-          7.7210991887071856f32,
-          7.7279204545631996f32,
-          7.7347096202258392f32,
-          7.7414669864011465f32,
-          7.7481928495894596f32,
-          7.7548875021634691f32,
-          7.7615512324444795f32,
-          7.7681843247769260f32,
-          7.7747870596011737f32,
-          7.7813597135246608f32,
-          7.7879025593914317f32,
-          7.7944158663501062f32,
-          7.8008998999203047f32,
-          7.8073549220576037f32,
-          7.8137811912170374f32,
-          7.8201789624151887f32,
-          7.8265484872909159f32,
-          7.8328900141647422f32,
-          7.8392037880969445f32,
-          7.8454900509443757f32,
-          7.8517490414160571f32,
-          7.8579809951275719f32,
-          7.8641861446542798f32,
-          7.8703647195834048f32,
-          7.8765169465650002f32,
-          7.8826430493618425f32,
-          7.8887432488982601f32,
-          7.8948177633079446f32,
-          7.9008668079807496f32,
-          7.9068905956085187f32,
-          7.9128893362299619f32,
-          7.9188632372745955f32,
-          7.9248125036057813f32,
-          7.9307373375628867f32,
-          7.9366379390025719f32,
-          7.9425145053392399f32,
-          7.9483672315846778f32,
-          7.9541963103868758f32,
-          7.9600019320680806f32,
-          7.9657842846620870f32,
-          7.9715435539507720f32,
-          7.9772799234999168f32,
-          7.9829935746943104f32,
-          7.9886846867721664f32,
-          7.9943534368588578f32
-      ];
+    : *const f32
+    = 0.0000000000000000f32 as (*const f32);
 
-static mut kInsBase
-    : [u32; 24]
-    = [   0i32 as (u32),
-          1i32 as (u32),
-          2i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          8i32 as (u32),
-          10i32 as (u32),
-          14i32 as (u32),
-          18i32 as (u32),
-          26i32 as (u32),
-          34i32 as (u32),
-          50i32 as (u32),
-          66i32 as (u32),
-          98i32 as (u32),
-          130i32 as (u32),
-          194i32 as (u32),
-          322i32 as (u32),
-          578i32 as (u32),
-          1090i32 as (u32),
-          2114i32 as (u32),
-          6210i32 as (u32),
-          22594i32 as (u32)
-      ];
+static mut kInsBase : *mut u32 = 0i32 as (*mut u32);
 
-static mut kInsExtra
-    : [u32; 24]
-    = [   0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          2i32 as (u32),
-          2i32 as (u32),
-          3i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          7i32 as (u32),
-          8i32 as (u32),
-          9i32 as (u32),
-          10i32 as (u32),
-          12i32 as (u32),
-          14i32 as (u32),
-          24i32 as (u32)
-      ];
+static mut kInsExtra : *mut u32 = 0i32 as (*mut u32);
 
-static mut kCopyBase
-    : [u32; 24]
-    = [   2i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          7i32 as (u32),
-          8i32 as (u32),
-          9i32 as (u32),
-          10i32 as (u32),
-          12i32 as (u32),
-          14i32 as (u32),
-          18i32 as (u32),
-          22i32 as (u32),
-          30i32 as (u32),
-          38i32 as (u32),
-          54i32 as (u32),
-          70i32 as (u32),
-          102i32 as (u32),
-          134i32 as (u32),
-          198i32 as (u32),
-          326i32 as (u32),
-          582i32 as (u32),
-          1094i32 as (u32),
-          2118i32 as (u32)
-      ];
+static mut kCopyBase : *mut u32 = 2i32 as (*mut u32);
 
-static mut kCopyExtra
-    : [u32; 24]
-    = [   0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          2i32 as (u32),
-          2i32 as (u32),
-          3i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          7i32 as (u32),
-          8i32 as (u32),
-          9i32 as (u32),
-          10i32 as (u32),
-          24i32 as (u32)
-      ];
+static mut kCopyExtra : *mut u32 = 0i32 as (*mut u32);
 
 static kBrotliMinWindowBits : i32 = 10i32;
 
@@ -404,9 +44,9 @@ static kHashMul64Long
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BrotliDictionary {
-    pub size_bits_by_length : [u8; 32],
-    pub offsets_by_length : [u32; 32],
-    pub data : [u8; 122784],
+    pub size_bits_by_length : *mut u8,
+    pub offsets_by_length : *mut u32,
+    pub data : *mut u8,
 }
 
 #[derive(Clone, Copy)]
@@ -484,12 +124,12 @@ pub struct HasherSearchResult {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H2 {
-    pub buckets_ : [u32; 65537],
+    pub buckets_ : *mut u32,
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct Struct2 {
+pub struct Struct1 {
     pub params : BrotliHasherParams,
     pub is_prepared_ : i32,
     pub dict_num_lookups : usize,
@@ -498,24 +138,24 @@ pub struct Struct2 {
 
 unsafe extern fn GetHasherCommon(
     mut handle : *mut u8
-) -> *mut Struct2 {
-    handle as (*mut Struct2)
+) -> *mut Struct1 {
+    handle as (*mut Struct1)
 }
 
 unsafe extern fn SelfH2(mut handle : *mut u8) -> *mut H2 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H2)
+          ) as (*mut Struct1) as (*mut H2)
 }
 
 unsafe extern fn BROTLI_UNALIGNED_LOAD64(
-    mut p : *const ::std::os::raw::c_void
+    mut p : *const std::os::raw::c_void
 ) -> usize {
     let mut t : usize;
     memcpy(
-        &mut t as (*mut usize) as (*mut ::std::os::raw::c_void),
+        &mut t as (*mut usize) as (*mut std::os::raw::c_void),
         p,
-        ::std::mem::size_of::<usize>()
+        std::mem::size_of::<usize>()
     );
     t
 }
@@ -524,7 +164,7 @@ unsafe extern fn HashBytesH2(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const ::std::os::raw::c_void)
+               data as (*const std::os::raw::c_void)
            ) << 64i32 - 8i32 * 5i32).wrapping_mul(
               kHashMul64
           );
@@ -533,14 +173,9 @@ unsafe extern fn HashBytesH2(mut data : *const u8) -> u32 {
 
 unsafe extern fn unopt_ctzll(mut val : usize) -> u8 {
     let mut cnt : u8 = 0i32 as (u8);
-    'loop1: loop {
-        if val & 1i32 as (usize) == 0i32 as (usize) {
-            val = val >> 1i32;
-            cnt = (cnt as (i32) + 1) as (u8);
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
+    while val & 1i32 as (usize) == 0i32 as (usize) {
+        val = val >> 1i32;
+        cnt = (cnt as (i32) + 1) as (u8);
     }
     cnt
 }
@@ -552,61 +187,53 @@ unsafe extern fn FindMatchLengthWithLimit(
     let mut limit2
         : usize
         = (limit >> 3i32).wrapping_add(1i32 as (usize));
-    'loop1: loop {
-        if {
-               limit2 = limit2.wrapping_sub(1 as (usize));
-               limit2
-           } != 0 {
-            if BROTLI_UNALIGNED_LOAD64(
-                   s2 as (*const ::std::os::raw::c_void)
-               ) == BROTLI_UNALIGNED_LOAD64(
-                        s1.offset(matched as (isize)) as (*const ::std::os::raw::c_void)
-                    ) {
-                s2 = s2.offset(8i32 as (isize));
-                matched = matched.wrapping_add(8i32 as (usize));
-                continue 'loop1;
-            } else {
-                break 'loop1;
-            }
+    while {
+              limit2 = limit2.wrapping_sub(1 as (usize));
+              limit2
+          } != 0 {
+        if BROTLI_UNALIGNED_LOAD64(
+               s2 as (*const std::os::raw::c_void)
+           ) == BROTLI_UNALIGNED_LOAD64(
+                    s1.offset(matched as (isize)) as (*const std::os::raw::c_void)
+                ) {
+            s2 = s2.offset(8i32 as (isize));
+            matched = matched.wrapping_add(8i32 as (usize));
         } else {
-            limit = (limit & 7i32 as (usize)).wrapping_add(1i32 as (usize));
-            'loop3: loop {
-                if {
-                       limit = limit.wrapping_sub(1 as (usize));
-                       limit
-                   } != 0 {
-                    if *s1.offset(matched as (isize)) as (i32) == *s2 as (i32) {
-                        s2 = s2.offset(1 as (isize));
-                        matched = matched.wrapping_add(1 as (usize));
-                        continue 'loop3;
-                    } else {
-                        break 'loop3;
-                    }
-                } else {
-                    return matched;
-                }
-            }
+            let mut x
+                : usize
+                = BROTLI_UNALIGNED_LOAD64(
+                      s2 as (*const std::os::raw::c_void)
+                  ) ^ BROTLI_UNALIGNED_LOAD64(
+                          s1.offset(matched as (isize)) as (*const std::os::raw::c_void)
+                      );
+            let mut matching_bits : usize = unopt_ctzll(x) as (usize);
+            matched = matched.wrapping_add(matching_bits >> 3i32);
             return matched;
         }
     }
-    let mut x
-        : usize
-        = BROTLI_UNALIGNED_LOAD64(
-              s2 as (*const ::std::os::raw::c_void)
-          ) ^ BROTLI_UNALIGNED_LOAD64(
-                  s1.offset(matched as (isize)) as (*const ::std::os::raw::c_void)
-              );
-    let mut matching_bits : usize = unopt_ctzll(x) as (usize);
-    matched = matched.wrapping_add(matching_bits >> 3i32);
+    limit = (limit & 7i32 as (usize)).wrapping_add(1i32 as (usize));
+    while {
+              limit = limit.wrapping_sub(1 as (usize));
+              limit
+          } != 0 {
+        if *s1.offset(matched as (isize)) as (i32) == *s2 as (i32) {
+            s2 = s2.offset(1 as (isize));
+            matched = matched.wrapping_add(1 as (usize));
+        } else {
+            return matched;
+        }
+    }
     matched
 }
 
 unsafe extern fn BackwardReferenceScoreUsingLastDistance(
     mut copy_length : usize
 ) -> usize {
-    (135i32 as (usize)).wrapping_mul(copy_length).wrapping_add(
+    (135i32 as (usize)).wrapping_mul(
+        copy_length as (usize)
+    ).wrapping_add(
         ((30i32 * 8i32) as (usize)).wrapping_mul(
-            ::std::mem::size_of::<usize>()
+            std::mem::size_of::<usize>()
         )
     ).wrapping_add(
         15i32 as (usize)
@@ -615,16 +242,11 @@ unsafe extern fn BackwardReferenceScoreUsingLastDistance(
 
 unsafe extern fn Log2FloorNonZero(mut n : usize) -> u32 {
     let mut result : u32 = 0i32 as (u32);
-    'loop1: loop {
-        if {
-               n = n >> 1i32;
-               n
-           } != 0 {
-            result = result.wrapping_add(1 as (u32));
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
+    while {
+              n = n >> 1i32;
+              n
+          } != 0 {
+        result = result.wrapping_add(1 as (u32));
     }
     result
 }
@@ -633,9 +255,9 @@ unsafe extern fn BackwardReferenceScore(
     mut copy_length : usize, mut backward_reference_offset : usize
 ) -> usize {
     ((30i32 * 8i32) as (usize)).wrapping_mul(
-        ::std::mem::size_of::<usize>()
+        std::mem::size_of::<usize>()
     ).wrapping_add(
-        (135i32 as (usize)).wrapping_mul(copy_length)
+        (135i32 as (usize)).wrapping_mul(copy_length as (usize))
     ).wrapping_sub(
         (30i32 as (u32)).wrapping_mul(
             Log2FloorNonZero(backward_reference_offset)
@@ -644,13 +266,13 @@ unsafe extern fn BackwardReferenceScore(
 }
 
 unsafe extern fn BROTLI_UNALIGNED_LOAD32(
-    mut p : *const ::std::os::raw::c_void
+    mut p : *const std::os::raw::c_void
 ) -> u32 {
     let mut t : u32;
     memcpy(
-        &mut t as (*mut u32) as (*mut ::std::os::raw::c_void),
+        &mut t as (*mut u32) as (*mut std::os::raw::c_void),
         p,
-        ::std::mem::size_of::<u32>()
+        std::mem::size_of::<u32>()
     );
     t
 }
@@ -659,7 +281,7 @@ unsafe extern fn Hash14(mut data : *const u8) -> u32 {
     let mut h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const ::std::os::raw::c_void)
+              data as (*const std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -682,49 +304,52 @@ unsafe extern fn TestStaticDictionaryItem(
     let mut score : usize;
     len = item & 0x1fi32 as (usize);
     dist = item >> 5i32;
-    offset = ((*dictionary).offsets_by_length[
-                  len
-              ] as (usize)).wrapping_add(
+    offset = (*(*dictionary).offsets_by_length.offset(
+                   len as (isize)
+               ) as (usize)).wrapping_add(
                  len.wrapping_mul(dist)
              );
     if len > max_length {
-        0i32
-    } else {
-        matchlen = FindMatchLengthWithLimit(
-                       data,
-                       &mut (*dictionary).data[offset] as (*mut u8) as (*const u8),
-                       len
-                   );
-        if matchlen.wrapping_add(
-               kCutoffTransformsCount as (usize)
-           ) <= len || matchlen == 0i32 as (usize) {
-            0i32
-        } else {
-            let mut cut : usize = len.wrapping_sub(matchlen);
-            let mut transform_id
-                : usize
-                = (cut << 2i32).wrapping_add(
-                      kCutoffTransforms >> cut.wrapping_mul(
-                                               6i32 as (usize)
-                                           ) & 0x3fi32 as (usize)
-                  );
-            backward = max_backward.wrapping_add(dist).wrapping_add(
-                           1i32 as (usize)
-                       ).wrapping_add(
-                           transform_id << (*dictionary).size_bits_by_length[len] as (i32)
-                       );
-            score = BackwardReferenceScore(matchlen,backward);
-            if score < (*out).score {
-                0i32
-            } else {
-                (*out).len = matchlen;
-                (*out).len_x_code = len ^ matchlen;
-                (*out).distance = backward;
-                (*out).score = score;
-                1i32
-            }
-        }
+        return 0i32;
     }
+    matchlen = FindMatchLengthWithLimit(
+                   data,
+                   &mut *(*dictionary).data.offset(
+                             offset as (isize)
+                         ) as (*mut u8) as (*const u8),
+                   len
+               );
+    if matchlen.wrapping_add(
+           kCutoffTransformsCount as (usize)
+       ) <= len || matchlen == 0i32 as (usize) {
+        return 0i32;
+    }
+    {
+        let mut cut : usize = len.wrapping_sub(matchlen);
+        let mut transform_id
+            : usize
+            = (cut << 2i32).wrapping_add(
+                  (kCutoffTransforms >> cut.wrapping_mul(
+                                            6i32 as (usize)
+                                        ) & 0x3fi32 as (usize)) as (usize)
+              );
+        backward = max_backward.wrapping_add(dist).wrapping_add(
+                       1i32 as (usize)
+                   ).wrapping_add(
+                       transform_id << *(*dictionary).size_bits_by_length.offset(
+                                            len as (isize)
+                                        ) as (i32)
+                   );
+    }
+    score = BackwardReferenceScore(matchlen,backward);
+    if score < (*out).score {
+        return 0i32;
+    }
+    (*out).len = matchlen;
+    (*out).len_x_code = len ^ matchlen;
+    (*out).distance = backward;
+    (*out).score = score;
+    1i32
 }
 
 unsafe extern fn SearchInStaticDictionary(
@@ -740,47 +365,43 @@ unsafe extern fn SearchInStaticDictionary(
     let mut key : usize;
     let mut i : usize;
     let mut is_match_found : i32 = 0i32;
-    let mut self : *mut Struct2 = GetHasherCommon(handle);
+    let mut self : *mut Struct1 = GetHasherCommon(handle);
     if (*self).dict_num_matches < (*self).dict_num_lookups >> 7i32 {
-        0i32
-    } else {
-        key = (Hash14(data) << 1i32) as (usize);
-        i = 0i32 as (usize);
-        'loop2: loop {
-            if i < if shallow != 0 { 1u32 } else { 2u32 } as (usize) {
-                let mut item
-                    : usize
-                    = *dictionary_hash.offset(key as (isize)) as (usize);
-                (*self).dict_num_lookups = (*self).dict_num_lookups.wrapping_add(
-                                               1 as (usize)
-                                           );
-                if item != 0i32 as (usize) {
-                    let mut item_matches
-                        : i32
-                        = TestStaticDictionaryItem(
-                              dictionary,
-                              item,
-                              data,
-                              max_length,
-                              max_backward,
-                              out
-                          );
-                    if item_matches != 0 {
-                        (*self).dict_num_matches = (*self).dict_num_matches.wrapping_add(
-                                                       1 as (usize)
-                                                   );
-                        is_match_found = 1i32;
-                    }
+        return 0i32;
+    }
+    key = (Hash14(data) << 1i32) as (usize);
+    i = 0i32 as (usize);
+    while i < if shallow != 0 { 1u32 } else { 2u32 } as (usize) {
+        {
+            let mut item
+                : usize
+                = *dictionary_hash.offset(key as (isize)) as (usize);
+            (*self).dict_num_lookups = (*self).dict_num_lookups.wrapping_add(
+                                           1 as (usize)
+                                       );
+            if item != 0i32 as (usize) {
+                let mut item_matches
+                    : i32
+                    = TestStaticDictionaryItem(
+                          dictionary,
+                          item,
+                          data,
+                          max_length,
+                          max_backward,
+                          out
+                      );
+                if item_matches != 0 {
+                    (*self).dict_num_matches = (*self).dict_num_matches.wrapping_add(
+                                                   1 as (usize)
+                                               );
+                    is_match_found = 1i32;
                 }
-                i = i.wrapping_add(1 as (usize));
-                key = key.wrapping_add(1 as (usize));
-                continue 'loop2;
-            } else {
-                break 'loop2;
             }
         }
-        is_match_found
+        i = i.wrapping_add(1 as (usize));
+        key = key.wrapping_add(1 as (usize));
     }
+    is_match_found
 }
 
 unsafe extern fn FindLongestMatchH2(
@@ -838,7 +459,7 @@ unsafe extern fn FindLongestMatchH2(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 1i32 == 1i32 {
-                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
+                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -849,33 +470,33 @@ unsafe extern fn FindLongestMatchH2(
     if 1i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = (*self).buckets_[key as (usize)] as (usize);
-        (*self).buckets_[key as (usize)] = cur_ix as (u32);
+        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
+        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
                                 prev_ix.wrapping_add(best_len_in) as (isize)
                             ) as (i32) {
             return 0i32;
-        } else if backward == 0i32 as (usize) || backward > max_backward {
+        }
+        if backward == 0i32 as (usize) || backward > max_backward {
             return 0i32;
-        } else {
-            len = FindMatchLengthWithLimit(
-                      &*data.offset(prev_ix as (isize)) as (*const u8),
-                      &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                      max_length
-                  );
-            if len >= 4i32 as (usize) {
-                (*out).len = len;
-                (*out).distance = backward;
-                (*out).score = BackwardReferenceScore(len,backward);
-                return 1i32;
-            }
+        }
+        len = FindMatchLengthWithLimit(
+                  &*data.offset(prev_ix as (isize)) as (*const u8),
+                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                  max_length
+              );
+        if len >= 4i32 as (usize) {
+            (*out).len = len;
+            (*out).distance = backward;
+            (*out).score = BackwardReferenceScore(len,backward);
+            return 1i32;
         }
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
+            = (*self).buckets_.offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -883,46 +504,52 @@ unsafe extern fn FindLongestMatchH2(
                        _old
                    } as (usize);
         i = 0i32;
-        'loop7: loop {
-            if i < 1i32 {
-                let backward : usize = cur_ix.wrapping_sub(prev_ix);
-                let mut len : usize;
-                prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
-                if !(compare_char != *data.offset(
-                                          prev_ix.wrapping_add(best_len) as (isize)
-                                      ) as (i32)) {
-                    if !(backward == 0i32 as (usize) || backward > max_backward) {
-                        len = FindMatchLengthWithLimit(
-                                  &*data.offset(prev_ix as (isize)) as (*const u8),
-                                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                                  max_length
-                              );
-                        if len >= 4i32 as (usize) {
-                            let score : usize = BackwardReferenceScore(len,backward);
-                            if best_score < score {
-                                best_score = score;
-                                best_len = len;
-                                (*out).len = best_len;
-                                (*out).distance = backward;
-                                (*out).score = score;
-                                compare_char = *data.offset(
-                                                    cur_ix_masked.wrapping_add(best_len) as (isize)
-                                                ) as (i32);
-                                is_match_found = 1i32;
-                            }
+        while i < 1i32 {
+            'continue3: loop {
+                {
+                    let backward : usize = cur_ix.wrapping_sub(prev_ix);
+                    let mut len : usize;
+                    prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+                    if compare_char != *data.offset(
+                                            prev_ix.wrapping_add(best_len) as (isize)
+                                        ) as (i32) {
+                        if 1337i32 != 0 {
+                            break 'continue3;
+                        }
+                    }
+                    if backward == 0i32 as (usize) || backward > max_backward {
+                        if 1337i32 != 0 {
+                            break 'continue3;
+                        }
+                    }
+                    len = FindMatchLengthWithLimit(
+                              &*data.offset(prev_ix as (isize)) as (*const u8),
+                              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                              max_length
+                          );
+                    if len >= 4i32 as (usize) {
+                        let score : usize = BackwardReferenceScore(len,backward);
+                        if best_score < score {
+                            best_score = score;
+                            best_len = len;
+                            (*out).len = best_len;
+                            (*out).distance = backward;
+                            (*out).score = score;
+                            compare_char = *data.offset(
+                                                cur_ix_masked.wrapping_add(best_len) as (isize)
+                                            ) as (i32);
+                            is_match_found = 1i32;
                         }
                     }
                 }
-                i = i + 1;
-                prev_ix = *{
-                               let _old = bucket;
-                               bucket = bucket.offset(1 as (isize));
-                               _old
-                           } as (usize);
-                continue 'loop7;
-            } else {
-                break 'loop7;
+                break;
             }
+            i = i + 1;
+            prev_ix = *{
+                           let _old = bucket;
+                           bucket = bucket.offset(1 as (isize));
+                           _old
+                       } as (usize);
         }
     }
     if 1i32 != 0 && (is_match_found == 0) {
@@ -937,37 +564,12 @@ unsafe extern fn FindLongestMatchH2(
                              1i32
                          );
     }
-    (*self).buckets_[
-        (key as (usize)).wrapping_add(
-            (cur_ix >> 3i32).wrapping_rem(1i32 as (usize))
-        )
-    ] = cur_ix as (u32);
+    *(*self).buckets_.offset(
+         (key as (usize)).wrapping_add(
+             (cur_ix >> 3i32).wrapping_rem(1i32 as (usize))
+         ) as (isize)
+     ) = cur_ix as (u32);
     is_match_found
-}
-
-unsafe extern fn brotli_max_size_t(
-    mut a : usize, mut b : usize
-) -> usize {
-    if a > b { a } else { b }
-}
-
-unsafe extern fn StoreH2(
-    mut handle : *mut u8,
-    mut data : *const u8,
-    mask : usize,
-    ix : usize
-) {
-    let key
-        : u32
-        = HashBytesH2(
-              &*data.offset((ix & mask) as (isize)) as (*const u8)
-          );
-    let off
-        : u32
-        = (ix >> 3i32).wrapping_rem(1i32 as (usize)) as (u32);
-    (*SelfH2(handle)).buckets_[
-        key.wrapping_add(off) as (usize)
-    ] = ix as (u32);
 }
 
 unsafe extern fn ComputeDistanceCode(
@@ -1190,6 +792,25 @@ unsafe extern fn InitCommand(
     );
 }
 
+unsafe extern fn StoreH2(
+    mut handle : *mut u8,
+    mut data : *const u8,
+    mask : usize,
+    ix : usize
+) {
+    let key
+        : u32
+        = HashBytesH2(
+              &*data.offset((ix & mask) as (isize)) as (*const u8)
+          );
+    let off
+        : u32
+        = (ix >> 3i32).wrapping_rem(1i32 as (usize)) as (u32);
+    *(*SelfH2(handle)).buckets_.offset(
+         key.wrapping_add(off) as (isize)
+     ) = ix as (u32);
+}
+
 unsafe extern fn StoreRangeH2(
     mut handle : *mut u8,
     mut data : *const u8,
@@ -1199,15 +820,18 @@ unsafe extern fn StoreRangeH2(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH2(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
+}
+
+unsafe extern fn brotli_max_size_t(
+    mut a : usize, mut b : usize
+) -> usize {
+    if a > b { a } else { b }
 }
 
 unsafe extern fn CreateBackwardReferencesH2(
@@ -1253,89 +877,100 @@ unsafe extern fn CreateBackwardReferencesH2(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH2(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH2()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH2(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH2(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(HashTypeLengthH2()) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH2()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH2(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break6: loop {
+                'continue7: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH2(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(HashTypeLengthH2()) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue7;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break6;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -1367,76 +1002,65 @@ unsafe extern fn CreateBackwardReferencesH2(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH2(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH2().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH2(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH2(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH2().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH2(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH2().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH2(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH2().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH2(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -1446,7 +1070,7 @@ unsafe extern fn CreateBackwardReferencesH2(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -1464,20 +1088,20 @@ unsafe extern fn HashTypeLengthH3() -> usize { 8i32 as (usize) }
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H3 {
-    pub buckets_ : [u32; 65538],
+    pub buckets_ : *mut u32,
 }
 
 unsafe extern fn SelfH3(mut handle : *mut u8) -> *mut H3 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H3)
+          ) as (*mut Struct1) as (*mut H3)
 }
 
 unsafe extern fn HashBytesH3(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const ::std::os::raw::c_void)
+               data as (*const std::os::raw::c_void)
            ) << 64i32 - 8i32 * 5i32).wrapping_mul(
               kHashMul64
           );
@@ -1539,7 +1163,7 @@ unsafe extern fn FindLongestMatchH3(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 2i32 == 1i32 {
-                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
+                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -1550,33 +1174,33 @@ unsafe extern fn FindLongestMatchH3(
     if 2i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = (*self).buckets_[key as (usize)] as (usize);
-        (*self).buckets_[key as (usize)] = cur_ix as (u32);
+        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
+        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
                                 prev_ix.wrapping_add(best_len_in) as (isize)
                             ) as (i32) {
             return 0i32;
-        } else if backward == 0i32 as (usize) || backward > max_backward {
+        }
+        if backward == 0i32 as (usize) || backward > max_backward {
             return 0i32;
-        } else {
-            len = FindMatchLengthWithLimit(
-                      &*data.offset(prev_ix as (isize)) as (*const u8),
-                      &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                      max_length
-                  );
-            if len >= 4i32 as (usize) {
-                (*out).len = len;
-                (*out).distance = backward;
-                (*out).score = BackwardReferenceScore(len,backward);
-                return 1i32;
-            }
+        }
+        len = FindMatchLengthWithLimit(
+                  &*data.offset(prev_ix as (isize)) as (*const u8),
+                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                  max_length
+              );
+        if len >= 4i32 as (usize) {
+            (*out).len = len;
+            (*out).distance = backward;
+            (*out).score = BackwardReferenceScore(len,backward);
+            return 1i32;
         }
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
+            = (*self).buckets_.offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -1584,46 +1208,52 @@ unsafe extern fn FindLongestMatchH3(
                        _old
                    } as (usize);
         i = 0i32;
-        'loop7: loop {
-            if i < 2i32 {
-                let backward : usize = cur_ix.wrapping_sub(prev_ix);
-                let mut len : usize;
-                prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
-                if !(compare_char != *data.offset(
-                                          prev_ix.wrapping_add(best_len) as (isize)
-                                      ) as (i32)) {
-                    if !(backward == 0i32 as (usize) || backward > max_backward) {
-                        len = FindMatchLengthWithLimit(
-                                  &*data.offset(prev_ix as (isize)) as (*const u8),
-                                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                                  max_length
-                              );
-                        if len >= 4i32 as (usize) {
-                            let score : usize = BackwardReferenceScore(len,backward);
-                            if best_score < score {
-                                best_score = score;
-                                best_len = len;
-                                (*out).len = best_len;
-                                (*out).distance = backward;
-                                (*out).score = score;
-                                compare_char = *data.offset(
-                                                    cur_ix_masked.wrapping_add(best_len) as (isize)
-                                                ) as (i32);
-                                is_match_found = 1i32;
-                            }
+        while i < 2i32 {
+            'continue15: loop {
+                {
+                    let backward : usize = cur_ix.wrapping_sub(prev_ix);
+                    let mut len : usize;
+                    prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+                    if compare_char != *data.offset(
+                                            prev_ix.wrapping_add(best_len) as (isize)
+                                        ) as (i32) {
+                        if 1337i32 != 0 {
+                            break 'continue15;
+                        }
+                    }
+                    if backward == 0i32 as (usize) || backward > max_backward {
+                        if 1337i32 != 0 {
+                            break 'continue15;
+                        }
+                    }
+                    len = FindMatchLengthWithLimit(
+                              &*data.offset(prev_ix as (isize)) as (*const u8),
+                              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                              max_length
+                          );
+                    if len >= 4i32 as (usize) {
+                        let score : usize = BackwardReferenceScore(len,backward);
+                        if best_score < score {
+                            best_score = score;
+                            best_len = len;
+                            (*out).len = best_len;
+                            (*out).distance = backward;
+                            (*out).score = score;
+                            compare_char = *data.offset(
+                                                cur_ix_masked.wrapping_add(best_len) as (isize)
+                                            ) as (i32);
+                            is_match_found = 1i32;
                         }
                     }
                 }
-                i = i + 1;
-                prev_ix = *{
-                               let _old = bucket;
-                               bucket = bucket.offset(1 as (isize));
-                               _old
-                           } as (usize);
-                continue 'loop7;
-            } else {
-                break 'loop7;
+                break;
             }
+            i = i + 1;
+            prev_ix = *{
+                           let _old = bucket;
+                           bucket = bucket.offset(1 as (isize));
+                           _old
+                       } as (usize);
         }
     }
     if 0i32 != 0 && (is_match_found == 0) {
@@ -1638,11 +1268,11 @@ unsafe extern fn FindLongestMatchH3(
                              1i32
                          );
     }
-    (*self).buckets_[
-        (key as (usize)).wrapping_add(
-            (cur_ix >> 3i32).wrapping_rem(2i32 as (usize))
-        )
-    ] = cur_ix as (u32);
+    *(*self).buckets_.offset(
+         (key as (usize)).wrapping_add(
+             (cur_ix >> 3i32).wrapping_rem(2i32 as (usize))
+         ) as (isize)
+     ) = cur_ix as (u32);
     is_match_found
 }
 
@@ -1660,9 +1290,9 @@ unsafe extern fn StoreH3(
     let off
         : u32
         = (ix >> 3i32).wrapping_rem(2i32 as (usize)) as (u32);
-    (*SelfH3(handle)).buckets_[
-        key.wrapping_add(off) as (usize)
-    ] = ix as (u32);
+    *(*SelfH3(handle)).buckets_.offset(
+         key.wrapping_add(off) as (isize)
+     ) = ix as (u32);
 }
 
 unsafe extern fn StoreRangeH3(
@@ -1674,14 +1304,11 @@ unsafe extern fn StoreRangeH3(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH3(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -1728,89 +1355,100 @@ unsafe extern fn CreateBackwardReferencesH3(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH3(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH3()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH3(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH3(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(HashTypeLengthH3()) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH3()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH3(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break16: loop {
+                'continue17: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH3(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(HashTypeLengthH3()) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue17;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break16;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -1842,76 +1480,65 @@ unsafe extern fn CreateBackwardReferencesH3(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH3(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH3().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH3(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH3(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH3().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH3(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH3().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH3(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH3().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH3(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -1921,7 +1548,7 @@ unsafe extern fn CreateBackwardReferencesH3(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -1939,20 +1566,20 @@ unsafe extern fn HashTypeLengthH4() -> usize { 8i32 as (usize) }
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H4 {
-    pub buckets_ : [u32; 131076],
+    pub buckets_ : *mut u32,
 }
 
 unsafe extern fn SelfH4(mut handle : *mut u8) -> *mut H4 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H4)
+          ) as (*mut Struct1) as (*mut H4)
 }
 
 unsafe extern fn HashBytesH4(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const ::std::os::raw::c_void)
+               data as (*const std::os::raw::c_void)
            ) << 64i32 - 8i32 * 5i32).wrapping_mul(
               kHashMul64
           );
@@ -2014,7 +1641,7 @@ unsafe extern fn FindLongestMatchH4(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 4i32 == 1i32 {
-                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
+                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -2025,33 +1652,33 @@ unsafe extern fn FindLongestMatchH4(
     if 4i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = (*self).buckets_[key as (usize)] as (usize);
-        (*self).buckets_[key as (usize)] = cur_ix as (u32);
+        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
+        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
                                 prev_ix.wrapping_add(best_len_in) as (isize)
                             ) as (i32) {
             return 0i32;
-        } else if backward == 0i32 as (usize) || backward > max_backward {
+        }
+        if backward == 0i32 as (usize) || backward > max_backward {
             return 0i32;
-        } else {
-            len = FindMatchLengthWithLimit(
-                      &*data.offset(prev_ix as (isize)) as (*const u8),
-                      &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                      max_length
-                  );
-            if len >= 4i32 as (usize) {
-                (*out).len = len;
-                (*out).distance = backward;
-                (*out).score = BackwardReferenceScore(len,backward);
-                return 1i32;
-            }
+        }
+        len = FindMatchLengthWithLimit(
+                  &*data.offset(prev_ix as (isize)) as (*const u8),
+                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                  max_length
+              );
+        if len >= 4i32 as (usize) {
+            (*out).len = len;
+            (*out).distance = backward;
+            (*out).score = BackwardReferenceScore(len,backward);
+            return 1i32;
         }
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
+            = (*self).buckets_.offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -2059,46 +1686,52 @@ unsafe extern fn FindLongestMatchH4(
                        _old
                    } as (usize);
         i = 0i32;
-        'loop7: loop {
-            if i < 4i32 {
-                let backward : usize = cur_ix.wrapping_sub(prev_ix);
-                let mut len : usize;
-                prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
-                if !(compare_char != *data.offset(
-                                          prev_ix.wrapping_add(best_len) as (isize)
-                                      ) as (i32)) {
-                    if !(backward == 0i32 as (usize) || backward > max_backward) {
-                        len = FindMatchLengthWithLimit(
-                                  &*data.offset(prev_ix as (isize)) as (*const u8),
-                                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                                  max_length
-                              );
-                        if len >= 4i32 as (usize) {
-                            let score : usize = BackwardReferenceScore(len,backward);
-                            if best_score < score {
-                                best_score = score;
-                                best_len = len;
-                                (*out).len = best_len;
-                                (*out).distance = backward;
-                                (*out).score = score;
-                                compare_char = *data.offset(
-                                                    cur_ix_masked.wrapping_add(best_len) as (isize)
-                                                ) as (i32);
-                                is_match_found = 1i32;
-                            }
+        while i < 4i32 {
+            'continue25: loop {
+                {
+                    let backward : usize = cur_ix.wrapping_sub(prev_ix);
+                    let mut len : usize;
+                    prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+                    if compare_char != *data.offset(
+                                            prev_ix.wrapping_add(best_len) as (isize)
+                                        ) as (i32) {
+                        if 1337i32 != 0 {
+                            break 'continue25;
+                        }
+                    }
+                    if backward == 0i32 as (usize) || backward > max_backward {
+                        if 1337i32 != 0 {
+                            break 'continue25;
+                        }
+                    }
+                    len = FindMatchLengthWithLimit(
+                              &*data.offset(prev_ix as (isize)) as (*const u8),
+                              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                              max_length
+                          );
+                    if len >= 4i32 as (usize) {
+                        let score : usize = BackwardReferenceScore(len,backward);
+                        if best_score < score {
+                            best_score = score;
+                            best_len = len;
+                            (*out).len = best_len;
+                            (*out).distance = backward;
+                            (*out).score = score;
+                            compare_char = *data.offset(
+                                                cur_ix_masked.wrapping_add(best_len) as (isize)
+                                            ) as (i32);
+                            is_match_found = 1i32;
                         }
                     }
                 }
-                i = i + 1;
-                prev_ix = *{
-                               let _old = bucket;
-                               bucket = bucket.offset(1 as (isize));
-                               _old
-                           } as (usize);
-                continue 'loop7;
-            } else {
-                break 'loop7;
+                break;
             }
+            i = i + 1;
+            prev_ix = *{
+                           let _old = bucket;
+                           bucket = bucket.offset(1 as (isize));
+                           _old
+                       } as (usize);
         }
     }
     if 1i32 != 0 && (is_match_found == 0) {
@@ -2113,11 +1746,11 @@ unsafe extern fn FindLongestMatchH4(
                              1i32
                          );
     }
-    (*self).buckets_[
-        (key as (usize)).wrapping_add(
-            (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
-        )
-    ] = cur_ix as (u32);
+    *(*self).buckets_.offset(
+         (key as (usize)).wrapping_add(
+             (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
+         ) as (isize)
+     ) = cur_ix as (u32);
     is_match_found
 }
 
@@ -2135,9 +1768,9 @@ unsafe extern fn StoreH4(
     let off
         : u32
         = (ix >> 3i32).wrapping_rem(4i32 as (usize)) as (u32);
-    (*SelfH4(handle)).buckets_[
-        key.wrapping_add(off) as (usize)
-    ] = ix as (u32);
+    *(*SelfH4(handle)).buckets_.offset(
+         key.wrapping_add(off) as (isize)
+     ) = ix as (u32);
 }
 
 unsafe extern fn StoreRangeH4(
@@ -2149,14 +1782,11 @@ unsafe extern fn StoreRangeH4(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH4(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -2203,89 +1833,100 @@ unsafe extern fn CreateBackwardReferencesH4(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH4(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH4()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH4(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH4(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(HashTypeLengthH4()) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH4()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH4(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break26: loop {
+                'continue27: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH4(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(HashTypeLengthH4()) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue27;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break26;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -2317,76 +1958,65 @@ unsafe extern fn CreateBackwardReferencesH4(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH4(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH4().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH4(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH4(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH4().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH4(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH4().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH4(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH4().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH4(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -2396,7 +2026,7 @@ unsafe extern fn CreateBackwardReferencesH4(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -2463,7 +2093,7 @@ pub struct H5 {
 unsafe extern fn SelfH5(mut handle : *mut u8) -> *mut H5 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H5)
+          ) as (*mut Struct1) as (*mut H5)
 }
 
 unsafe extern fn NumH5(mut self : *mut H5) -> *mut u16 {
@@ -2490,11 +2120,11 @@ unsafe extern fn HashBytesH5(
     let mut h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const ::std::os::raw::c_void)
+              data as (*const std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
-    h >> shift
+    (h >> shift) as (u32)
 }
 
 unsafe extern fn FindLongestMatchH5(
@@ -2509,7 +2139,7 @@ unsafe extern fn FindLongestMatchH5(
     max_backward : usize,
     mut out : *mut HasherSearchResult
 ) -> i32 {
-    let mut common : *mut Struct2 = GetHasherCommon(handle);
+    let mut common : *mut Struct1 = GetHasherCommon(handle);
     let mut self : *mut H5 = SelfH5(handle);
     let mut num : *mut u16 = NumH5(self);
     let mut buckets : *mut u32 = BucketsH5(self);
@@ -2521,99 +2151,23 @@ unsafe extern fn FindLongestMatchH5(
     (*out).len = 0i32 as (usize);
     (*out).len_x_code = 0i32 as (usize);
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < (*common).params.num_last_distances_to_check as (usize) {
-            let backward
-                : usize
-                = *distance_cache.offset(i as (isize)) as (usize);
-            let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-            if !(prev_ix >= cur_ix) {
-                if !(backward > max_backward) {
-                    prev_ix = prev_ix & ring_buffer_mask;
-                    if !(cur_ix_masked.wrapping_add(
-                             best_len
-                         ) > ring_buffer_mask || prev_ix.wrapping_add(
-                                                     best_len
-                                                 ) > ring_buffer_mask || *data.offset(
-                                                                              cur_ix_masked.wrapping_add(
-                                                                                  best_len
-                                                                              ) as (isize)
-                                                                          ) as (i32) != *data.offset(
-                                                                                             prev_ix.wrapping_add(
-                                                                                                 best_len
-                                                                                             ) as (isize)
-                                                                                         ) as (i32)) {
-                        let len
-                            : usize
-                            = FindMatchLengthWithLimit(
-                                  &*data.offset(prev_ix as (isize)) as (*const u8),
-                                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                                  max_length
-                              );
-                        if len >= 3i32 as (usize) || len == 2i32 as (usize) && (i < 2i32 as (usize)) {
-                            let mut score
-                                : usize
-                                = BackwardReferenceScoreUsingLastDistance(len);
-                            if best_score < score {
-                                if i != 0i32 as (usize) {
-                                    score = score.wrapping_sub(
-                                                BackwardReferencePenaltyUsingLastDistance(i)
-                                            );
-                                }
-                                if best_score < score {
-                                    best_score = score;
-                                    best_len = len;
-                                    (*out).len = best_len;
-                                    (*out).distance = backward;
-                                    (*out).score = best_score;
-                                    is_match_found = 1i32;
-                                }
-                            }
-                        }
+    while i < (*common).params.num_last_distances_to_check as (usize) {
+        'continue35: loop {
+            {
+                let backward
+                    : usize
+                    = *distance_cache.offset(i as (isize)) as (usize);
+                let mut prev_ix : usize = cur_ix.wrapping_sub(backward) as (usize);
+                if prev_ix >= cur_ix {
+                    if 1337i32 != 0 {
+                        break 'continue35;
                     }
                 }
-            }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
-    }
-    let key
-        : u32
-        = HashBytesH5(
-              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-              (*self).hash_shift_
-          );
-    let mut bucket
-        : *mut u32
-        = &mut *buckets.offset(
-                    (key << (*common).params.block_bits) as (isize)
-                ) as (*mut u32);
-    let down
-        : usize
-        = if *num.offset(key as (isize)) as (usize) > (*self).block_size_ {
-              (*num.offset(key as (isize)) as (usize)).wrapping_sub(
-                  (*self).block_size_
-              )
-          } else {
-              0u32 as (usize)
-          };
-    i = *num.offset(key as (isize)) as (usize);
-    'loop3: loop {
-        if i > down {
-            let mut prev_ix
-                : usize
-                = *bucket.offset(
-                       ({
-                            i = i.wrapping_sub(1 as (usize));
-                            i
-                        } & (*self).block_mask_ as (usize)) as (isize)
-                   ) as (usize);
-            let backward : usize = cur_ix.wrapping_sub(prev_ix);
-            if backward > max_backward {
-                break 'loop3;
-            } else {
+                if backward > max_backward {
+                    if 1337i32 != 0 {
+                        break 'continue35;
+                    }
+                }
                 prev_ix = prev_ix & ring_buffer_mask;
                 if cur_ix_masked.wrapping_add(
                        best_len
@@ -2628,8 +2182,11 @@ unsafe extern fn FindLongestMatchH5(
                                                                                            best_len
                                                                                        ) as (isize)
                                                                                    ) as (i32) {
-                    continue 'loop3;
-                } else {
+                    if 1337i32 != 0 {
+                        break 'continue35;
+                    }
+                }
+                {
                     let len
                         : usize
                         = FindMatchLengthWithLimit(
@@ -2637,37 +2194,118 @@ unsafe extern fn FindLongestMatchH5(
                               &*data.offset(cur_ix_masked as (isize)) as (*const u8),
                               max_length
                           );
-                    if len >= 4i32 as (usize) {
-                        let mut score : usize = BackwardReferenceScore(len,backward);
+                    if len >= 3i32 as (usize) || len == 2i32 as (usize) && (i < 2i32 as (usize)) {
+                        let mut score
+                            : usize
+                            = BackwardReferenceScoreUsingLastDistance(len);
                         if best_score < score {
-                            best_score = score;
-                            best_len = len;
-                            (*out).len = best_len;
-                            (*out).distance = backward;
-                            (*out).score = best_score;
-                            is_match_found = 1i32;
-                            continue 'loop3;
-                        } else {
-                            continue 'loop3;
+                            if i != 0i32 as (usize) {
+                                score = score.wrapping_sub(
+                                            BackwardReferencePenaltyUsingLastDistance(i)
+                                        );
+                            }
+                            if best_score < score {
+                                best_score = score;
+                                best_len = len;
+                                (*out).len = best_len;
+                                (*out).distance = backward;
+                                (*out).score = best_score;
+                                is_match_found = 1i32;
+                            }
                         }
-                    } else {
-                        continue 'loop3;
                     }
                 }
             }
-        } else {
-            break 'loop3;
+            break;
         }
+        i = i.wrapping_add(1 as (usize));
     }
-    *bucket.offset(
-         (*num.offset(
-               key as (isize)
-           ) as (u32) & (*self).block_mask_) as (isize)
-     ) = cur_ix as (u32);
     {
-        let _rhs = 1;
-        let _lhs = &mut *num.offset(key as (isize));
-        *_lhs = (*_lhs as (i32) + _rhs) as (u16);
+        let key
+            : u32
+            = HashBytesH5(
+                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                  (*self).hash_shift_
+              );
+        let mut bucket
+            : *mut u32
+            = &mut *buckets.offset(
+                        (key << (*common).params.block_bits) as (isize)
+                    ) as (*mut u32);
+        let down
+            : usize
+            = if *num.offset(key as (isize)) as (usize) > (*self).block_size_ {
+                  (*num.offset(key as (isize)) as (usize)).wrapping_sub(
+                      (*self).block_size_
+                  )
+              } else {
+                  0u32 as (usize)
+              };
+        i = *num.offset(key as (isize)) as (usize);
+        while i > down {
+            let mut prev_ix
+                : usize
+                = *bucket.offset(
+                       ({
+                            i = i.wrapping_sub(1 as (usize));
+                            i
+                        } & (*self).block_mask_ as (usize)) as (isize)
+                   ) as (usize);
+            let backward : usize = cur_ix.wrapping_sub(prev_ix);
+            if backward > max_backward {
+                if 1337i32 != 0 {
+                    break;
+                }
+            }
+            prev_ix = prev_ix & ring_buffer_mask;
+            if cur_ix_masked.wrapping_add(
+                   best_len
+               ) > ring_buffer_mask || prev_ix.wrapping_add(
+                                           best_len
+                                       ) > ring_buffer_mask || *data.offset(
+                                                                    cur_ix_masked.wrapping_add(
+                                                                        best_len
+                                                                    ) as (isize)
+                                                                ) as (i32) != *data.offset(
+                                                                                   prev_ix.wrapping_add(
+                                                                                       best_len
+                                                                                   ) as (isize)
+                                                                               ) as (i32) {
+                if 1337i32 != 0 {
+                    continue;
+                }
+            }
+            {
+                let len
+                    : usize
+                    = FindMatchLengthWithLimit(
+                          &*data.offset(prev_ix as (isize)) as (*const u8),
+                          &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                          max_length
+                      );
+                if len >= 4i32 as (usize) {
+                    let mut score : usize = BackwardReferenceScore(len,backward);
+                    if best_score < score {
+                        best_score = score;
+                        best_len = len;
+                        (*out).len = best_len;
+                        (*out).distance = backward;
+                        (*out).score = best_score;
+                        is_match_found = 1i32;
+                    }
+                }
+            }
+        }
+        *bucket.offset(
+             (*num.offset(
+                   key as (isize)
+               ) as (u32) & (*self).block_mask_) as (isize)
+         ) = cur_ix as (u32);
+        {
+            let _rhs = 1;
+            let _lhs = &mut *num.offset(key as (isize));
+            *_lhs = (*_lhs as (i32) + _rhs) as (u16);
+        }
     }
     if is_match_found == 0 {
         is_match_found = SearchInStaticDictionary(
@@ -2725,14 +2363,11 @@ unsafe extern fn StoreRangeH5(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH5(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -2779,89 +2414,100 @@ unsafe extern fn CreateBackwardReferencesH5(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH5(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH5()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH5(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH5(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(HashTypeLengthH5()) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH5()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH5(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break36: loop {
+                'continue37: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH5(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(HashTypeLengthH5()) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue37;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break36;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -2893,76 +2539,65 @@ unsafe extern fn CreateBackwardReferencesH5(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH5(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH5().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH5(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH5(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH5().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH5(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH5().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH5(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH5().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH5(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -2972,7 +2607,7 @@ unsafe extern fn CreateBackwardReferencesH5(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -3002,7 +2637,7 @@ pub struct H6 {
 unsafe extern fn SelfH6(mut handle : *mut u8) -> *mut H6 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H6)
+          ) as (*mut Struct1) as (*mut H6)
 }
 
 unsafe extern fn NumH6(mut self : *mut H6) -> *mut u16 {
@@ -3021,7 +2656,7 @@ unsafe extern fn HashBytesH6(
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const ::std::os::raw::c_void)
+               data as (*const std::os::raw::c_void)
            ) & mask).wrapping_mul(
               kHashMul64Long
           );
@@ -3040,7 +2675,7 @@ unsafe extern fn FindLongestMatchH6(
     max_backward : usize,
     mut out : *mut HasherSearchResult
 ) -> i32 {
-    let mut common : *mut Struct2 = GetHasherCommon(handle);
+    let mut common : *mut Struct1 = GetHasherCommon(handle);
     let mut self : *mut H6 = SelfH6(handle);
     let mut num : *mut u16 = NumH6(self);
     let mut buckets : *mut u32 = BucketsH6(self);
@@ -3052,100 +2687,23 @@ unsafe extern fn FindLongestMatchH6(
     (*out).len = 0i32 as (usize);
     (*out).len_x_code = 0i32 as (usize);
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < (*common).params.num_last_distances_to_check as (usize) {
-            let backward
-                : usize
-                = *distance_cache.offset(i as (isize)) as (usize);
-            let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-            if !(prev_ix >= cur_ix) {
-                if !(backward > max_backward) {
-                    prev_ix = prev_ix & ring_buffer_mask;
-                    if !(cur_ix_masked.wrapping_add(
-                             best_len
-                         ) > ring_buffer_mask || prev_ix.wrapping_add(
-                                                     best_len
-                                                 ) > ring_buffer_mask || *data.offset(
-                                                                              cur_ix_masked.wrapping_add(
-                                                                                  best_len
-                                                                              ) as (isize)
-                                                                          ) as (i32) != *data.offset(
-                                                                                             prev_ix.wrapping_add(
-                                                                                                 best_len
-                                                                                             ) as (isize)
-                                                                                         ) as (i32)) {
-                        let len
-                            : usize
-                            = FindMatchLengthWithLimit(
-                                  &*data.offset(prev_ix as (isize)) as (*const u8),
-                                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                                  max_length
-                              );
-                        if len >= 3i32 as (usize) || len == 2i32 as (usize) && (i < 2i32 as (usize)) {
-                            let mut score
-                                : usize
-                                = BackwardReferenceScoreUsingLastDistance(len);
-                            if best_score < score {
-                                if i != 0i32 as (usize) {
-                                    score = score.wrapping_sub(
-                                                BackwardReferencePenaltyUsingLastDistance(i)
-                                            );
-                                }
-                                if best_score < score {
-                                    best_score = score;
-                                    best_len = len;
-                                    (*out).len = best_len;
-                                    (*out).distance = backward;
-                                    (*out).score = best_score;
-                                    is_match_found = 1i32;
-                                }
-                            }
-                        }
+    while i < (*common).params.num_last_distances_to_check as (usize) {
+        'continue45: loop {
+            {
+                let backward
+                    : usize
+                    = *distance_cache.offset(i as (isize)) as (usize);
+                let mut prev_ix : usize = cur_ix.wrapping_sub(backward) as (usize);
+                if prev_ix >= cur_ix {
+                    if 1337i32 != 0 {
+                        break 'continue45;
                     }
                 }
-            }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
-    }
-    let key
-        : u32
-        = HashBytesH6(
-              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-              (*self).hash_mask_,
-              (*self).hash_shift_
-          );
-    let mut bucket
-        : *mut u32
-        = &mut *buckets.offset(
-                    (key << (*common).params.block_bits) as (isize)
-                ) as (*mut u32);
-    let down
-        : usize
-        = if *num.offset(key as (isize)) as (usize) > (*self).block_size_ {
-              (*num.offset(key as (isize)) as (usize)).wrapping_sub(
-                  (*self).block_size_
-              )
-          } else {
-              0u32 as (usize)
-          };
-    i = *num.offset(key as (isize)) as (usize);
-    'loop3: loop {
-        if i > down {
-            let mut prev_ix
-                : usize
-                = *bucket.offset(
-                       ({
-                            i = i.wrapping_sub(1 as (usize));
-                            i
-                        } & (*self).block_mask_ as (usize)) as (isize)
-                   ) as (usize);
-            let backward : usize = cur_ix.wrapping_sub(prev_ix);
-            if backward > max_backward {
-                break 'loop3;
-            } else {
+                if backward > max_backward {
+                    if 1337i32 != 0 {
+                        break 'continue45;
+                    }
+                }
                 prev_ix = prev_ix & ring_buffer_mask;
                 if cur_ix_masked.wrapping_add(
                        best_len
@@ -3160,8 +2718,11 @@ unsafe extern fn FindLongestMatchH6(
                                                                                            best_len
                                                                                        ) as (isize)
                                                                                    ) as (i32) {
-                    continue 'loop3;
-                } else {
+                    if 1337i32 != 0 {
+                        break 'continue45;
+                    }
+                }
+                {
                     let len
                         : usize
                         = FindMatchLengthWithLimit(
@@ -3169,37 +2730,119 @@ unsafe extern fn FindLongestMatchH6(
                               &*data.offset(cur_ix_masked as (isize)) as (*const u8),
                               max_length
                           );
-                    if len >= 4i32 as (usize) {
-                        let mut score : usize = BackwardReferenceScore(len,backward);
+                    if len >= 3i32 as (usize) || len == 2i32 as (usize) && (i < 2i32 as (usize)) {
+                        let mut score
+                            : usize
+                            = BackwardReferenceScoreUsingLastDistance(len);
                         if best_score < score {
-                            best_score = score;
-                            best_len = len;
-                            (*out).len = best_len;
-                            (*out).distance = backward;
-                            (*out).score = best_score;
-                            is_match_found = 1i32;
-                            continue 'loop3;
-                        } else {
-                            continue 'loop3;
+                            if i != 0i32 as (usize) {
+                                score = score.wrapping_sub(
+                                            BackwardReferencePenaltyUsingLastDistance(i)
+                                        );
+                            }
+                            if best_score < score {
+                                best_score = score;
+                                best_len = len;
+                                (*out).len = best_len;
+                                (*out).distance = backward;
+                                (*out).score = best_score;
+                                is_match_found = 1i32;
+                            }
                         }
-                    } else {
-                        continue 'loop3;
                     }
                 }
             }
-        } else {
-            break 'loop3;
+            break;
         }
+        i = i.wrapping_add(1 as (usize));
     }
-    *bucket.offset(
-         (*num.offset(
-               key as (isize)
-           ) as (u32) & (*self).block_mask_) as (isize)
-     ) = cur_ix as (u32);
     {
-        let _rhs = 1;
-        let _lhs = &mut *num.offset(key as (isize));
-        *_lhs = (*_lhs as (i32) + _rhs) as (u16);
+        let key
+            : u32
+            = HashBytesH6(
+                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                  (*self).hash_mask_,
+                  (*self).hash_shift_
+              );
+        let mut bucket
+            : *mut u32
+            = &mut *buckets.offset(
+                        (key << (*common).params.block_bits) as (isize)
+                    ) as (*mut u32);
+        let down
+            : usize
+            = if *num.offset(key as (isize)) as (usize) > (*self).block_size_ {
+                  (*num.offset(key as (isize)) as (usize)).wrapping_sub(
+                      (*self).block_size_
+                  )
+              } else {
+                  0u32 as (usize)
+              };
+        i = *num.offset(key as (isize)) as (usize);
+        while i > down {
+            let mut prev_ix
+                : usize
+                = *bucket.offset(
+                       ({
+                            i = i.wrapping_sub(1 as (usize));
+                            i
+                        } & (*self).block_mask_ as (usize)) as (isize)
+                   ) as (usize);
+            let backward : usize = cur_ix.wrapping_sub(prev_ix);
+            if backward > max_backward {
+                if 1337i32 != 0 {
+                    break;
+                }
+            }
+            prev_ix = prev_ix & ring_buffer_mask;
+            if cur_ix_masked.wrapping_add(
+                   best_len
+               ) > ring_buffer_mask || prev_ix.wrapping_add(
+                                           best_len
+                                       ) > ring_buffer_mask || *data.offset(
+                                                                    cur_ix_masked.wrapping_add(
+                                                                        best_len
+                                                                    ) as (isize)
+                                                                ) as (i32) != *data.offset(
+                                                                                   prev_ix.wrapping_add(
+                                                                                       best_len
+                                                                                   ) as (isize)
+                                                                               ) as (i32) {
+                if 1337i32 != 0 {
+                    continue;
+                }
+            }
+            {
+                let len
+                    : usize
+                    = FindMatchLengthWithLimit(
+                          &*data.offset(prev_ix as (isize)) as (*const u8),
+                          &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                          max_length
+                      );
+                if len >= 4i32 as (usize) {
+                    let mut score : usize = BackwardReferenceScore(len,backward);
+                    if best_score < score {
+                        best_score = score;
+                        best_len = len;
+                        (*out).len = best_len;
+                        (*out).distance = backward;
+                        (*out).score = best_score;
+                        is_match_found = 1i32;
+                    }
+                }
+            }
+        }
+        *bucket.offset(
+             (*num.offset(
+                   key as (isize)
+               ) as (u32) & (*self).block_mask_) as (isize)
+         ) = cur_ix as (u32);
+        {
+            let _rhs = 1;
+            let _lhs = &mut *num.offset(key as (isize));
+            *_lhs = (*_lhs as (i32) + _rhs) as (u16);
+        }
     }
     if is_match_found == 0 {
         is_match_found = SearchInStaticDictionary(
@@ -3258,14 +2901,11 @@ unsafe extern fn StoreRangeH6(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH6(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -3312,89 +2952,100 @@ unsafe extern fn CreateBackwardReferencesH6(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH6(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH6()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH6(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH6(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(HashTypeLengthH6()) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH6()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH6(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break46: loop {
+                'continue47: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH6(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(HashTypeLengthH6()) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue47;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break46;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -3426,76 +3077,65 @@ unsafe extern fn CreateBackwardReferencesH6(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH6(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH6().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH6(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH6(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH6().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH6(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH6().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH6(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH6().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH6(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -3505,7 +3145,7 @@ unsafe extern fn CreateBackwardReferencesH6(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -3530,31 +3170,31 @@ pub struct SlotH40 {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BankH40 {
-    pub slots : [SlotH40; 65536],
+    pub slots : *mut SlotH40,
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H40 {
-    pub addr : [u32; 32768],
-    pub head : [u16; 32768],
-    pub tiny_hash : [u8; 65536],
-    pub banks : [BankH40; 1],
-    pub free_slot_idx : [u16; 1],
+    pub addr : *mut u32,
+    pub head : *mut u16,
+    pub tiny_hash : *mut u8,
+    pub banks : *mut BankH40,
+    pub free_slot_idx : *mut u16,
     pub max_hops : usize,
 }
 
 unsafe extern fn SelfH40(mut handle : *mut u8) -> *mut H40 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H40)
+          ) as (*mut Struct1) as (*mut H40)
 }
 
 unsafe extern fn HashBytesH40(mut data : *const u8) -> usize {
     let h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const ::std::os::raw::c_void)
+              data as (*const std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -3578,22 +3218,26 @@ unsafe extern fn StoreH40(
         : usize
         = (({
                 let _rhs = 1;
-                let _lhs = &mut (*self).free_slot_idx[bank];
+                let _lhs = &mut *(*self).free_slot_idx.offset(bank as (isize));
                 let _old = *_lhs;
                 *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                 _old
             }) as (i32) & 65536i32 - 1i32) as (usize);
     let mut delta
         : usize
-        = ix.wrapping_sub((*self).addr[key] as (usize));
-    (*self).tiny_hash[ix as (u16) as (usize)] = key as (u8);
+        = ix.wrapping_sub(*(*self).addr.offset(key as (isize)) as (usize));
+    *(*self).tiny_hash.offset(ix as (u16) as (isize)) = key as (u8);
     if delta > 0xffffi32 as (usize) {
         delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
     }
-    (*self).banks[bank].slots[idx].delta = delta as (u16);
-    (*self).banks[bank].slots[idx].next = (*self).head[key];
-    (*self).addr[key] = ix as (u32);
-    (*self).head[key] = idx as (u16);
+    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+          idx as (isize)
+      )).delta = delta as (u16);
+    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+          idx as (isize)
+      )).next = *(*self).head.offset(key as (isize));
+    *(*self).addr.offset(key as (isize)) = ix as (u32);
+    *(*self).head.offset(key as (isize)) = idx as (u16);
 }
 
 unsafe extern fn FindLongestMatchH40(
@@ -3623,17 +3267,27 @@ unsafe extern fn FindLongestMatchH40(
     (*out).len = 0i32 as (usize);
     (*out).len_x_code = 0i32 as (usize);
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < 4i32 as (usize) {
-            let backward
-                : usize
-                = *distance_cache.offset(i as (isize)) as (usize);
-            let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-            if !(i > 0i32 as (usize) && ((*self).tiny_hash[
-                                             prev_ix as (u16) as (usize)
-                                         ] as (i32) != tiny_hash as (i32))) {
-                if !(prev_ix >= cur_ix || backward > max_backward) {
-                    prev_ix = prev_ix & ring_buffer_mask;
+    while i < 4i32 as (usize) {
+        'continue55: loop {
+            {
+                let backward
+                    : usize
+                    = *distance_cache.offset(i as (isize)) as (usize);
+                let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
+                if i > 0i32 as (usize) && (*(*self).tiny_hash.offset(
+                                                prev_ix as (u16) as (isize)
+                                            ) as (i32) != tiny_hash as (i32)) {
+                    if 1337i32 != 0 {
+                        break 'continue55;
+                    }
+                }
+                if prev_ix >= cur_ix || backward > max_backward {
+                    if 1337i32 != 0 {
+                        break 'continue55;
+                    }
+                }
+                prev_ix = prev_ix & ring_buffer_mask;
+                {
                     let len
                         : usize
                         = FindMatchLengthWithLimit(
@@ -3663,79 +3317,82 @@ unsafe extern fn FindLongestMatchH40(
                     }
                 }
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
+            break;
         }
+        i = i.wrapping_add(1 as (usize));
     }
-    let bank : usize = key & (1i32 - 1i32) as (usize);
-    let mut backward : usize = 0i32 as (usize);
-    let mut hops : usize = (*self).max_hops;
-    let mut delta
-        : usize
-        = cur_ix.wrapping_sub((*self).addr[key] as (usize));
-    let mut slot : usize = (*self).head[key] as (usize);
-    'loop3: loop {
-        if {
-               let _old = hops;
-               hops = hops.wrapping_sub(1 as (usize));
-               _old
-           } != 0 {
+    {
+        let bank : usize = key & (1i32 - 1i32) as (usize);
+        let mut backward : usize = 0i32 as (usize);
+        let mut hops : usize = (*self).max_hops;
+        let mut delta
+            : usize
+            = cur_ix.wrapping_sub(
+                  *(*self).addr.offset(key as (isize)) as (usize)
+              );
+        let mut slot
+            : usize
+            = *(*self).head.offset(key as (isize)) as (usize);
+        while {
+                  let _old = hops;
+                  hops = hops.wrapping_sub(1 as (usize));
+                  _old
+              } != 0 {
             let mut prev_ix : usize;
             let mut last : usize = slot;
             backward = backward.wrapping_add(delta);
             if backward > max_backward || 0i32 != 0 && (delta == 0) {
-                break 'loop3;
-            } else {
-                prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
-                slot = (*self).banks[bank].slots[last].next as (usize);
-                delta = (*self).banks[bank].slots[last].delta as (usize);
-                if cur_ix_masked.wrapping_add(
-                       best_len
-                   ) > ring_buffer_mask || prev_ix.wrapping_add(
-                                               best_len
-                                           ) > ring_buffer_mask || *data.offset(
-                                                                        cur_ix_masked.wrapping_add(
-                                                                            best_len
-                                                                        ) as (isize)
-                                                                    ) as (i32) != *data.offset(
-                                                                                       prev_ix.wrapping_add(
-                                                                                           best_len
-                                                                                       ) as (isize)
-                                                                                   ) as (i32) {
-                    continue 'loop3;
-                } else {
-                    let len
-                        : usize
-                        = FindMatchLengthWithLimit(
-                              &*data.offset(prev_ix as (isize)) as (*const u8),
-                              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                              max_length
-                          );
-                    if len >= 4i32 as (usize) {
-                        let mut score : usize = BackwardReferenceScore(len,backward);
-                        if best_score < score {
-                            best_score = score;
-                            best_len = len;
-                            (*out).len = best_len;
-                            (*out).distance = backward;
-                            (*out).score = best_score;
-                            is_match_found = 1i32;
-                            continue 'loop3;
-                        } else {
-                            continue 'loop3;
-                        }
-                    } else {
-                        continue 'loop3;
+                if 1337i32 != 0 {
+                    break;
+                }
+            }
+            prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
+            slot = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+                         last as (isize)
+                     )).next as (usize);
+            delta = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+                          last as (isize)
+                      )).delta as (usize);
+            if cur_ix_masked.wrapping_add(
+                   best_len
+               ) > ring_buffer_mask || prev_ix.wrapping_add(
+                                           best_len
+                                       ) > ring_buffer_mask || *data.offset(
+                                                                    cur_ix_masked.wrapping_add(
+                                                                        best_len
+                                                                    ) as (isize)
+                                                                ) as (i32) != *data.offset(
+                                                                                   prev_ix.wrapping_add(
+                                                                                       best_len
+                                                                                   ) as (isize)
+                                                                               ) as (i32) {
+                if 1337i32 != 0 {
+                    continue;
+                }
+            }
+            {
+                let len
+                    : usize
+                    = FindMatchLengthWithLimit(
+                          &*data.offset(prev_ix as (isize)) as (*const u8),
+                          &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                          max_length
+                      );
+                if len >= 4i32 as (usize) {
+                    let mut score : usize = BackwardReferenceScore(len,backward);
+                    if best_score < score {
+                        best_score = score;
+                        best_len = len;
+                        (*out).len = best_len;
+                        (*out).distance = backward;
+                        (*out).score = best_score;
+                        is_match_found = 1i32;
                     }
                 }
             }
-        } else {
-            break 'loop3;
         }
+        StoreH40(handle,data,ring_buffer_mask,cur_ix);
     }
-    StoreH40(handle,data,ring_buffer_mask,cur_ix);
     if is_match_found == 0 {
         is_match_found = SearchInStaticDictionary(
                              dictionary,
@@ -3760,14 +3417,11 @@ unsafe extern fn StoreRangeH40(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH40(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -3814,91 +3468,102 @@ unsafe extern fn CreateBackwardReferencesH40(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH40(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH40()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH40(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH40(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(
-                                            HashTypeLengthH40()
-                                        ) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH40()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH40(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break56: loop {
+                'continue57: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH40(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(
+                                                HashTypeLengthH40()
+                                            ) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue57;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break56;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -3930,76 +3595,65 @@ unsafe extern fn CreateBackwardReferencesH40(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH40(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH40().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH40(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH40(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH40().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH40(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH40().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH40(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH40().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH40(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -4009,7 +3663,7 @@ unsafe extern fn CreateBackwardReferencesH40(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -4034,31 +3688,31 @@ pub struct SlotH41 {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BankH41 {
-    pub slots : [SlotH41; 65536],
+    pub slots : *mut SlotH41,
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H41 {
-    pub addr : [u32; 32768],
-    pub head : [u16; 32768],
-    pub tiny_hash : [u8; 65536],
-    pub banks : [BankH41; 1],
-    pub free_slot_idx : [u16; 1],
+    pub addr : *mut u32,
+    pub head : *mut u16,
+    pub tiny_hash : *mut u8,
+    pub banks : *mut BankH41,
+    pub free_slot_idx : *mut u16,
     pub max_hops : usize,
 }
 
 unsafe extern fn SelfH41(mut handle : *mut u8) -> *mut H41 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H41)
+          ) as (*mut Struct1) as (*mut H41)
 }
 
 unsafe extern fn HashBytesH41(mut data : *const u8) -> usize {
     let h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const ::std::os::raw::c_void)
+              data as (*const std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -4082,22 +3736,26 @@ unsafe extern fn StoreH41(
         : usize
         = (({
                 let _rhs = 1;
-                let _lhs = &mut (*self).free_slot_idx[bank];
+                let _lhs = &mut *(*self).free_slot_idx.offset(bank as (isize));
                 let _old = *_lhs;
                 *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                 _old
             }) as (i32) & 65536i32 - 1i32) as (usize);
     let mut delta
         : usize
-        = ix.wrapping_sub((*self).addr[key] as (usize));
-    (*self).tiny_hash[ix as (u16) as (usize)] = key as (u8);
+        = ix.wrapping_sub(*(*self).addr.offset(key as (isize)) as (usize));
+    *(*self).tiny_hash.offset(ix as (u16) as (isize)) = key as (u8);
     if delta > 0xffffi32 as (usize) {
         delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
     }
-    (*self).banks[bank].slots[idx].delta = delta as (u16);
-    (*self).banks[bank].slots[idx].next = (*self).head[key];
-    (*self).addr[key] = ix as (u32);
-    (*self).head[key] = idx as (u16);
+    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+          idx as (isize)
+      )).delta = delta as (u16);
+    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+          idx as (isize)
+      )).next = *(*self).head.offset(key as (isize));
+    *(*self).addr.offset(key as (isize)) = ix as (u32);
+    *(*self).head.offset(key as (isize)) = idx as (u16);
 }
 
 unsafe extern fn FindLongestMatchH41(
@@ -4127,17 +3785,27 @@ unsafe extern fn FindLongestMatchH41(
     (*out).len = 0i32 as (usize);
     (*out).len_x_code = 0i32 as (usize);
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < 10i32 as (usize) {
-            let backward
-                : usize
-                = *distance_cache.offset(i as (isize)) as (usize);
-            let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-            if !(i > 0i32 as (usize) && ((*self).tiny_hash[
-                                             prev_ix as (u16) as (usize)
-                                         ] as (i32) != tiny_hash as (i32))) {
-                if !(prev_ix >= cur_ix || backward > max_backward) {
-                    prev_ix = prev_ix & ring_buffer_mask;
+    while i < 10i32 as (usize) {
+        'continue65: loop {
+            {
+                let backward
+                    : usize
+                    = *distance_cache.offset(i as (isize)) as (usize);
+                let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
+                if i > 0i32 as (usize) && (*(*self).tiny_hash.offset(
+                                                prev_ix as (u16) as (isize)
+                                            ) as (i32) != tiny_hash as (i32)) {
+                    if 1337i32 != 0 {
+                        break 'continue65;
+                    }
+                }
+                if prev_ix >= cur_ix || backward > max_backward {
+                    if 1337i32 != 0 {
+                        break 'continue65;
+                    }
+                }
+                prev_ix = prev_ix & ring_buffer_mask;
+                {
                     let len
                         : usize
                         = FindMatchLengthWithLimit(
@@ -4167,79 +3835,82 @@ unsafe extern fn FindLongestMatchH41(
                     }
                 }
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
+            break;
         }
+        i = i.wrapping_add(1 as (usize));
     }
-    let bank : usize = key & (1i32 - 1i32) as (usize);
-    let mut backward : usize = 0i32 as (usize);
-    let mut hops : usize = (*self).max_hops;
-    let mut delta
-        : usize
-        = cur_ix.wrapping_sub((*self).addr[key] as (usize));
-    let mut slot : usize = (*self).head[key] as (usize);
-    'loop3: loop {
-        if {
-               let _old = hops;
-               hops = hops.wrapping_sub(1 as (usize));
-               _old
-           } != 0 {
+    {
+        let bank : usize = key & (1i32 - 1i32) as (usize);
+        let mut backward : usize = 0i32 as (usize);
+        let mut hops : usize = (*self).max_hops;
+        let mut delta
+            : usize
+            = cur_ix.wrapping_sub(
+                  *(*self).addr.offset(key as (isize)) as (usize)
+              );
+        let mut slot
+            : usize
+            = *(*self).head.offset(key as (isize)) as (usize);
+        while {
+                  let _old = hops;
+                  hops = hops.wrapping_sub(1 as (usize));
+                  _old
+              } != 0 {
             let mut prev_ix : usize;
             let mut last : usize = slot;
             backward = backward.wrapping_add(delta);
             if backward > max_backward || 0i32 != 0 && (delta == 0) {
-                break 'loop3;
-            } else {
-                prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
-                slot = (*self).banks[bank].slots[last].next as (usize);
-                delta = (*self).banks[bank].slots[last].delta as (usize);
-                if cur_ix_masked.wrapping_add(
-                       best_len
-                   ) > ring_buffer_mask || prev_ix.wrapping_add(
-                                               best_len
-                                           ) > ring_buffer_mask || *data.offset(
-                                                                        cur_ix_masked.wrapping_add(
-                                                                            best_len
-                                                                        ) as (isize)
-                                                                    ) as (i32) != *data.offset(
-                                                                                       prev_ix.wrapping_add(
-                                                                                           best_len
-                                                                                       ) as (isize)
-                                                                                   ) as (i32) {
-                    continue 'loop3;
-                } else {
-                    let len
-                        : usize
-                        = FindMatchLengthWithLimit(
-                              &*data.offset(prev_ix as (isize)) as (*const u8),
-                              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                              max_length
-                          );
-                    if len >= 4i32 as (usize) {
-                        let mut score : usize = BackwardReferenceScore(len,backward);
-                        if best_score < score {
-                            best_score = score;
-                            best_len = len;
-                            (*out).len = best_len;
-                            (*out).distance = backward;
-                            (*out).score = best_score;
-                            is_match_found = 1i32;
-                            continue 'loop3;
-                        } else {
-                            continue 'loop3;
-                        }
-                    } else {
-                        continue 'loop3;
+                if 1337i32 != 0 {
+                    break;
+                }
+            }
+            prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
+            slot = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+                         last as (isize)
+                     )).next as (usize);
+            delta = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+                          last as (isize)
+                      )).delta as (usize);
+            if cur_ix_masked.wrapping_add(
+                   best_len
+               ) > ring_buffer_mask || prev_ix.wrapping_add(
+                                           best_len
+                                       ) > ring_buffer_mask || *data.offset(
+                                                                    cur_ix_masked.wrapping_add(
+                                                                        best_len
+                                                                    ) as (isize)
+                                                                ) as (i32) != *data.offset(
+                                                                                   prev_ix.wrapping_add(
+                                                                                       best_len
+                                                                                   ) as (isize)
+                                                                               ) as (i32) {
+                if 1337i32 != 0 {
+                    continue;
+                }
+            }
+            {
+                let len
+                    : usize
+                    = FindMatchLengthWithLimit(
+                          &*data.offset(prev_ix as (isize)) as (*const u8),
+                          &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                          max_length
+                      );
+                if len >= 4i32 as (usize) {
+                    let mut score : usize = BackwardReferenceScore(len,backward);
+                    if best_score < score {
+                        best_score = score;
+                        best_len = len;
+                        (*out).len = best_len;
+                        (*out).distance = backward;
+                        (*out).score = best_score;
+                        is_match_found = 1i32;
                     }
                 }
             }
-        } else {
-            break 'loop3;
         }
+        StoreH41(handle,data,ring_buffer_mask,cur_ix);
     }
-    StoreH41(handle,data,ring_buffer_mask,cur_ix);
     if is_match_found == 0 {
         is_match_found = SearchInStaticDictionary(
                              dictionary,
@@ -4264,14 +3935,11 @@ unsafe extern fn StoreRangeH41(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH41(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -4318,91 +3986,102 @@ unsafe extern fn CreateBackwardReferencesH41(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH41(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH41()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH41(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH41(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(
-                                            HashTypeLengthH41()
-                                        ) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH41()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH41(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break66: loop {
+                'continue67: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH41(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(
+                                                HashTypeLengthH41()
+                                            ) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue67;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break66;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -4434,76 +4113,65 @@ unsafe extern fn CreateBackwardReferencesH41(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH41(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH41().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH41(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH41(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH41().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH41(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH41().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH41(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH41().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH41(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -4513,7 +4181,7 @@ unsafe extern fn CreateBackwardReferencesH41(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -4538,31 +4206,31 @@ pub struct SlotH42 {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BankH42 {
-    pub slots : [SlotH42; 512],
+    pub slots : *mut SlotH42,
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H42 {
-    pub addr : [u32; 32768],
-    pub head : [u16; 32768],
-    pub tiny_hash : [u8; 65536],
-    pub banks : [BankH42; 512],
-    pub free_slot_idx : [u16; 512],
+    pub addr : *mut u32,
+    pub head : *mut u16,
+    pub tiny_hash : *mut u8,
+    pub banks : *mut BankH42,
+    pub free_slot_idx : *mut u16,
     pub max_hops : usize,
 }
 
 unsafe extern fn SelfH42(mut handle : *mut u8) -> *mut H42 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H42)
+          ) as (*mut Struct1) as (*mut H42)
 }
 
 unsafe extern fn HashBytesH42(mut data : *const u8) -> usize {
     let h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const ::std::os::raw::c_void)
+              data as (*const std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -4586,22 +4254,26 @@ unsafe extern fn StoreH42(
         : usize
         = (({
                 let _rhs = 1;
-                let _lhs = &mut (*self).free_slot_idx[bank];
+                let _lhs = &mut *(*self).free_slot_idx.offset(bank as (isize));
                 let _old = *_lhs;
                 *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                 _old
             }) as (i32) & 512i32 - 1i32) as (usize);
     let mut delta
         : usize
-        = ix.wrapping_sub((*self).addr[key] as (usize));
-    (*self).tiny_hash[ix as (u16) as (usize)] = key as (u8);
+        = ix.wrapping_sub(*(*self).addr.offset(key as (isize)) as (usize));
+    *(*self).tiny_hash.offset(ix as (u16) as (isize)) = key as (u8);
     if delta > 0xffffi32 as (usize) {
         delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
     }
-    (*self).banks[bank].slots[idx].delta = delta as (u16);
-    (*self).banks[bank].slots[idx].next = (*self).head[key];
-    (*self).addr[key] = ix as (u32);
-    (*self).head[key] = idx as (u16);
+    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+          idx as (isize)
+      )).delta = delta as (u16);
+    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+          idx as (isize)
+      )).next = *(*self).head.offset(key as (isize));
+    *(*self).addr.offset(key as (isize)) = ix as (u32);
+    *(*self).head.offset(key as (isize)) = idx as (u16);
 }
 
 unsafe extern fn FindLongestMatchH42(
@@ -4631,17 +4303,27 @@ unsafe extern fn FindLongestMatchH42(
     (*out).len = 0i32 as (usize);
     (*out).len_x_code = 0i32 as (usize);
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < 16i32 as (usize) {
-            let backward
-                : usize
-                = *distance_cache.offset(i as (isize)) as (usize);
-            let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-            if !(i > 0i32 as (usize) && ((*self).tiny_hash[
-                                             prev_ix as (u16) as (usize)
-                                         ] as (i32) != tiny_hash as (i32))) {
-                if !(prev_ix >= cur_ix || backward > max_backward) {
-                    prev_ix = prev_ix & ring_buffer_mask;
+    while i < 16i32 as (usize) {
+        'continue75: loop {
+            {
+                let backward
+                    : usize
+                    = *distance_cache.offset(i as (isize)) as (usize);
+                let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
+                if i > 0i32 as (usize) && (*(*self).tiny_hash.offset(
+                                                prev_ix as (u16) as (isize)
+                                            ) as (i32) != tiny_hash as (i32)) {
+                    if 1337i32 != 0 {
+                        break 'continue75;
+                    }
+                }
+                if prev_ix >= cur_ix || backward > max_backward {
+                    if 1337i32 != 0 {
+                        break 'continue75;
+                    }
+                }
+                prev_ix = prev_ix & ring_buffer_mask;
+                {
                     let len
                         : usize
                         = FindMatchLengthWithLimit(
@@ -4671,79 +4353,82 @@ unsafe extern fn FindLongestMatchH42(
                     }
                 }
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
+            break;
         }
+        i = i.wrapping_add(1 as (usize));
     }
-    let bank : usize = key & (512i32 - 1i32) as (usize);
-    let mut backward : usize = 0i32 as (usize);
-    let mut hops : usize = (*self).max_hops;
-    let mut delta
-        : usize
-        = cur_ix.wrapping_sub((*self).addr[key] as (usize));
-    let mut slot : usize = (*self).head[key] as (usize);
-    'loop3: loop {
-        if {
-               let _old = hops;
-               hops = hops.wrapping_sub(1 as (usize));
-               _old
-           } != 0 {
+    {
+        let bank : usize = key & (512i32 - 1i32) as (usize);
+        let mut backward : usize = 0i32 as (usize);
+        let mut hops : usize = (*self).max_hops;
+        let mut delta
+            : usize
+            = cur_ix.wrapping_sub(
+                  *(*self).addr.offset(key as (isize)) as (usize)
+              );
+        let mut slot
+            : usize
+            = *(*self).head.offset(key as (isize)) as (usize);
+        while {
+                  let _old = hops;
+                  hops = hops.wrapping_sub(1 as (usize));
+                  _old
+              } != 0 {
             let mut prev_ix : usize;
             let mut last : usize = slot;
             backward = backward.wrapping_add(delta);
             if backward > max_backward || 0i32 != 0 && (delta == 0) {
-                break 'loop3;
-            } else {
-                prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
-                slot = (*self).banks[bank].slots[last].next as (usize);
-                delta = (*self).banks[bank].slots[last].delta as (usize);
-                if cur_ix_masked.wrapping_add(
-                       best_len
-                   ) > ring_buffer_mask || prev_ix.wrapping_add(
-                                               best_len
-                                           ) > ring_buffer_mask || *data.offset(
-                                                                        cur_ix_masked.wrapping_add(
-                                                                            best_len
-                                                                        ) as (isize)
-                                                                    ) as (i32) != *data.offset(
-                                                                                       prev_ix.wrapping_add(
-                                                                                           best_len
-                                                                                       ) as (isize)
-                                                                                   ) as (i32) {
-                    continue 'loop3;
-                } else {
-                    let len
-                        : usize
-                        = FindMatchLengthWithLimit(
-                              &*data.offset(prev_ix as (isize)) as (*const u8),
-                              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                              max_length
-                          );
-                    if len >= 4i32 as (usize) {
-                        let mut score : usize = BackwardReferenceScore(len,backward);
-                        if best_score < score {
-                            best_score = score;
-                            best_len = len;
-                            (*out).len = best_len;
-                            (*out).distance = backward;
-                            (*out).score = best_score;
-                            is_match_found = 1i32;
-                            continue 'loop3;
-                        } else {
-                            continue 'loop3;
-                        }
-                    } else {
-                        continue 'loop3;
+                if 1337i32 != 0 {
+                    break;
+                }
+            }
+            prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
+            slot = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+                         last as (isize)
+                     )).next as (usize);
+            delta = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
+                          last as (isize)
+                      )).delta as (usize);
+            if cur_ix_masked.wrapping_add(
+                   best_len
+               ) > ring_buffer_mask || prev_ix.wrapping_add(
+                                           best_len
+                                       ) > ring_buffer_mask || *data.offset(
+                                                                    cur_ix_masked.wrapping_add(
+                                                                        best_len
+                                                                    ) as (isize)
+                                                                ) as (i32) != *data.offset(
+                                                                                   prev_ix.wrapping_add(
+                                                                                       best_len
+                                                                                   ) as (isize)
+                                                                               ) as (i32) {
+                if 1337i32 != 0 {
+                    continue;
+                }
+            }
+            {
+                let len
+                    : usize
+                    = FindMatchLengthWithLimit(
+                          &*data.offset(prev_ix as (isize)) as (*const u8),
+                          &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                          max_length
+                      );
+                if len >= 4i32 as (usize) {
+                    let mut score : usize = BackwardReferenceScore(len,backward);
+                    if best_score < score {
+                        best_score = score;
+                        best_len = len;
+                        (*out).len = best_len;
+                        (*out).distance = backward;
+                        (*out).score = best_score;
+                        is_match_found = 1i32;
                     }
                 }
             }
-        } else {
-            break 'loop3;
         }
+        StoreH42(handle,data,ring_buffer_mask,cur_ix);
     }
-    StoreH42(handle,data,ring_buffer_mask,cur_ix);
     if is_match_found == 0 {
         is_match_found = SearchInStaticDictionary(
                              dictionary,
@@ -4768,14 +4453,11 @@ unsafe extern fn StoreRangeH42(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH42(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -4822,91 +4504,102 @@ unsafe extern fn CreateBackwardReferencesH42(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH42(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH42()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH42(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH42(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(
-                                            HashTypeLengthH42()
-                                        ) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH42()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH42(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break76: loop {
+                'continue77: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH42(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(
+                                                HashTypeLengthH42()
+                                            ) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue77;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break76;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -4938,76 +4631,65 @@ unsafe extern fn CreateBackwardReferencesH42(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH42(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH42().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH42(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH42(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH42().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH42(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH42().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH42(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH42().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH42(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -5017,7 +4699,7 @@ unsafe extern fn CreateBackwardReferencesH42(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -5035,20 +4717,20 @@ unsafe extern fn HashTypeLengthH54() -> usize { 8i32 as (usize) }
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H54 {
-    pub buckets_ : [u32; 1048580],
+    pub buckets_ : *mut u32,
 }
 
 unsafe extern fn SelfH54(mut handle : *mut u8) -> *mut H54 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H54)
+          ) as (*mut Struct1) as (*mut H54)
 }
 
 unsafe extern fn HashBytesH54(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const ::std::os::raw::c_void)
+               data as (*const std::os::raw::c_void)
            ) << 64i32 - 8i32 * 7i32).wrapping_mul(
               kHashMul64
           );
@@ -5110,7 +4792,7 @@ unsafe extern fn FindLongestMatchH54(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 4i32 == 1i32 {
-                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
+                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -5121,33 +4803,33 @@ unsafe extern fn FindLongestMatchH54(
     if 4i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = (*self).buckets_[key as (usize)] as (usize);
-        (*self).buckets_[key as (usize)] = cur_ix as (u32);
+        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
+        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
                                 prev_ix.wrapping_add(best_len_in) as (isize)
                             ) as (i32) {
             return 0i32;
-        } else if backward == 0i32 as (usize) || backward > max_backward {
+        }
+        if backward == 0i32 as (usize) || backward > max_backward {
             return 0i32;
-        } else {
-            len = FindMatchLengthWithLimit(
-                      &*data.offset(prev_ix as (isize)) as (*const u8),
-                      &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                      max_length
-                  );
-            if len >= 4i32 as (usize) {
-                (*out).len = len;
-                (*out).distance = backward;
-                (*out).score = BackwardReferenceScore(len,backward);
-                return 1i32;
-            }
+        }
+        len = FindMatchLengthWithLimit(
+                  &*data.offset(prev_ix as (isize)) as (*const u8),
+                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                  max_length
+              );
+        if len >= 4i32 as (usize) {
+            (*out).len = len;
+            (*out).distance = backward;
+            (*out).score = BackwardReferenceScore(len,backward);
+            return 1i32;
         }
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
+            = (*self).buckets_.offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -5155,46 +4837,52 @@ unsafe extern fn FindLongestMatchH54(
                        _old
                    } as (usize);
         i = 0i32;
-        'loop7: loop {
-            if i < 4i32 {
-                let backward : usize = cur_ix.wrapping_sub(prev_ix);
-                let mut len : usize;
-                prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
-                if !(compare_char != *data.offset(
-                                          prev_ix.wrapping_add(best_len) as (isize)
-                                      ) as (i32)) {
-                    if !(backward == 0i32 as (usize) || backward > max_backward) {
-                        len = FindMatchLengthWithLimit(
-                                  &*data.offset(prev_ix as (isize)) as (*const u8),
-                                  &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-                                  max_length
-                              );
-                        if len >= 4i32 as (usize) {
-                            let score : usize = BackwardReferenceScore(len,backward);
-                            if best_score < score {
-                                best_score = score;
-                                best_len = len;
-                                (*out).len = best_len;
-                                (*out).distance = backward;
-                                (*out).score = score;
-                                compare_char = *data.offset(
-                                                    cur_ix_masked.wrapping_add(best_len) as (isize)
-                                                ) as (i32);
-                                is_match_found = 1i32;
-                            }
+        while i < 4i32 {
+            'continue85: loop {
+                {
+                    let backward : usize = cur_ix.wrapping_sub(prev_ix);
+                    let mut len : usize;
+                    prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+                    if compare_char != *data.offset(
+                                            prev_ix.wrapping_add(best_len) as (isize)
+                                        ) as (i32) {
+                        if 1337i32 != 0 {
+                            break 'continue85;
+                        }
+                    }
+                    if backward == 0i32 as (usize) || backward > max_backward {
+                        if 1337i32 != 0 {
+                            break 'continue85;
+                        }
+                    }
+                    len = FindMatchLengthWithLimit(
+                              &*data.offset(prev_ix as (isize)) as (*const u8),
+                              &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+                              max_length
+                          );
+                    if len >= 4i32 as (usize) {
+                        let score : usize = BackwardReferenceScore(len,backward);
+                        if best_score < score {
+                            best_score = score;
+                            best_len = len;
+                            (*out).len = best_len;
+                            (*out).distance = backward;
+                            (*out).score = score;
+                            compare_char = *data.offset(
+                                                cur_ix_masked.wrapping_add(best_len) as (isize)
+                                            ) as (i32);
+                            is_match_found = 1i32;
                         }
                     }
                 }
-                i = i + 1;
-                prev_ix = *{
-                               let _old = bucket;
-                               bucket = bucket.offset(1 as (isize));
-                               _old
-                           } as (usize);
-                continue 'loop7;
-            } else {
-                break 'loop7;
+                break;
             }
+            i = i + 1;
+            prev_ix = *{
+                           let _old = bucket;
+                           bucket = bucket.offset(1 as (isize));
+                           _old
+                       } as (usize);
         }
     }
     if 0i32 != 0 && (is_match_found == 0) {
@@ -5209,11 +4897,11 @@ unsafe extern fn FindLongestMatchH54(
                              1i32
                          );
     }
-    (*self).buckets_[
-        (key as (usize)).wrapping_add(
-            (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
-        )
-    ] = cur_ix as (u32);
+    *(*self).buckets_.offset(
+         (key as (usize)).wrapping_add(
+             (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
+         ) as (isize)
+     ) = cur_ix as (u32);
     is_match_found
 }
 
@@ -5231,9 +4919,9 @@ unsafe extern fn StoreH54(
     let off
         : u32
         = (ix >> 3i32).wrapping_rem(4i32 as (usize)) as (u32);
-    (*SelfH54(handle)).buckets_[
-        key.wrapping_add(off) as (usize)
-    ] = ix as (u32);
+    *(*SelfH54(handle)).buckets_.offset(
+         key.wrapping_add(off) as (isize)
+     ) = ix as (u32);
 }
 
 unsafe extern fn StoreRangeH54(
@@ -5245,14 +4933,11 @@ unsafe extern fn StoreRangeH54(
 ) {
     let mut i : usize;
     i = ix_start;
-    'loop1: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH54(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -5299,91 +4984,102 @@ unsafe extern fn CreateBackwardReferencesH54(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              ::std::mem::size_of::<usize>()
+              std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
     PrepareDistanceCacheH54(hasher,dist_cache);
-    'loop1: loop {
-        if position.wrapping_add(HashTypeLengthH54()) < pos_end {
-            let mut max_length : usize = pos_end.wrapping_sub(position);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(position,max_backward_limit);
-            let mut sr : HasherSearchResult;
-            sr.len = 0i32 as (usize);
-            sr.len_x_code = 0i32 as (usize);
-            sr.distance = 0i32 as (usize);
-            sr.score = kMinScore;
-            if FindLongestMatchH54(
-                   hasher,
-                   dictionary,
-                   dictionary_hash,
-                   ringbuffer,
-                   ringbuffer_mask,
-                   dist_cache as (*const i32),
-                   position,
-                   max_length,
-                   max_distance,
-                   &mut sr as (*mut HasherSearchResult)
-               ) != 0 {
-                let mut delayed_backward_references_in_row : i32 = 0i32;
-                max_length = max_length.wrapping_sub(1 as (usize));
-                'loop15: loop {
-                    let cost_diff_lazy : usize = 175i32 as (usize);
-                    let mut is_match_found : i32;
-                    let mut sr2 : HasherSearchResult;
-                    sr2.len = if (*params).quality < 5i32 {
-                                  brotli_min_size_t(sr.len.wrapping_sub(1i32 as (usize)),max_length)
-                              } else {
-                                  0i32 as (usize)
-                              };
-                    sr2.len_x_code = 0i32 as (usize);
-                    sr2.distance = 0i32 as (usize);
-                    sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(
-                                       position.wrapping_add(1i32 as (usize)),
-                                       max_backward_limit
-                                   );
-                    is_match_found = FindLongestMatchH54(
-                                         hasher,
-                                         dictionary,
-                                         dictionary_hash,
-                                         ringbuffer,
-                                         ringbuffer_mask,
-                                         dist_cache as (*const i32),
-                                         position.wrapping_add(1i32 as (usize)),
-                                         max_length,
-                                         max_distance,
-                                         &mut sr2 as (*mut HasherSearchResult)
-                                     );
-                    if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
-                                                                cost_diff_lazy
-                                                            )) {
-                        position = position.wrapping_add(1 as (usize));
-                        insert_length = insert_length.wrapping_add(1 as (usize));
-                        sr = sr2;
-                        if {
-                               delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
-                               delayed_backward_references_in_row
-                           } < 4i32 && (position.wrapping_add(
-                                            HashTypeLengthH54()
-                                        ) < pos_end) {
-                            max_length = max_length.wrapping_sub(1 as (usize));
-                            continue 'loop15;
-                        } else {
-                            break 'loop15;
+    while position.wrapping_add(HashTypeLengthH54()) < pos_end {
+        let mut max_length : usize = pos_end.wrapping_sub(position);
+        let mut max_distance
+            : usize
+            = brotli_min_size_t(position,max_backward_limit);
+        let mut sr : HasherSearchResult;
+        sr.len = 0i32 as (usize);
+        sr.len_x_code = 0i32 as (usize);
+        sr.distance = 0i32 as (usize);
+        sr.score = kMinScore;
+        if FindLongestMatchH54(
+               hasher,
+               dictionary,
+               dictionary_hash,
+               ringbuffer,
+               ringbuffer_mask,
+               dist_cache as (*const i32),
+               position,
+               max_length,
+               max_distance,
+               &mut sr as (*mut HasherSearchResult)
+           ) != 0 {
+            let mut delayed_backward_references_in_row : i32 = 0i32;
+            max_length = max_length.wrapping_sub(1 as (usize));
+            'break86: loop {
+                'continue87: loop {
+                    {
+                        let cost_diff_lazy : usize = 175i32 as (usize);
+                        let mut is_match_found : i32;
+                        let mut sr2 : HasherSearchResult;
+                        sr2.len = if (*params).quality < 5i32 {
+                                      brotli_min_size_t(
+                                          sr.len.wrapping_sub(1i32 as (usize)),
+                                          max_length
+                                      )
+                                  } else {
+                                      0i32 as (usize)
+                                  };
+                        sr2.len_x_code = 0i32 as (usize);
+                        sr2.distance = 0i32 as (usize);
+                        sr2.score = kMinScore;
+                        max_distance = brotli_min_size_t(
+                                           position.wrapping_add(1i32 as (usize)),
+                                           max_backward_limit
+                                       );
+                        is_match_found = FindLongestMatchH54(
+                                             hasher,
+                                             dictionary,
+                                             dictionary_hash,
+                                             ringbuffer,
+                                             ringbuffer_mask,
+                                             dist_cache as (*const i32),
+                                             position.wrapping_add(1i32 as (usize)),
+                                             max_length,
+                                             max_distance,
+                                             &mut sr2 as (*mut HasherSearchResult)
+                                         );
+                        if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(
+                                                                    cost_diff_lazy
+                                                                )) {
+                            position = position.wrapping_add(1 as (usize));
+                            insert_length = insert_length.wrapping_add(1 as (usize));
+                            sr = sr2;
+                            if {
+                                   delayed_backward_references_in_row = delayed_backward_references_in_row + 1;
+                                   delayed_backward_references_in_row
+                               } < 4i32 && (position.wrapping_add(
+                                                HashTypeLengthH54()
+                                            ) < pos_end) {
+                                if 1337i32 != 0 {
+                                    break 'continue87;
+                                }
+                            }
                         }
-                    } else {
-                        break 'loop15;
+                        {
+                            if 1337i32 != 0 {
+                                break 'break86;
+                            }
+                        }
                     }
+                    break;
                 }
-                apply_random_heuristics = position.wrapping_add(
-                                              (2i32 as (usize)).wrapping_mul(sr.len)
-                                          ).wrapping_add(
-                                              random_heuristics_window_size
-                                          );
-                max_distance = brotli_min_size_t(position,max_backward_limit);
+                max_length = max_length.wrapping_sub(1 as (usize));
+            }
+            apply_random_heuristics = position.wrapping_add(
+                                          (2i32 as (usize)).wrapping_mul(sr.len)
+                                      ).wrapping_add(
+                                          random_heuristics_window_size
+                                      );
+            max_distance = brotli_min_size_t(position,max_backward_limit);
+            {
                 let mut distance_code
                     : usize
                     = ComputeDistanceCode(
@@ -5415,76 +5111,65 @@ unsafe extern fn CreateBackwardReferencesH54(
                     sr.len ^ sr.len_x_code,
                     distance_code
                 );
-                *num_literals = (*num_literals).wrapping_add(insert_length);
-                insert_length = 0i32 as (usize);
-                StoreRangeH54(
-                    hasher,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    position.wrapping_add(2i32 as (usize)),
-                    brotli_min_size_t(position.wrapping_add(sr.len),store_end)
-                );
-                position = position.wrapping_add(sr.len);
-                continue 'loop1;
-            } else {
-                insert_length = insert_length.wrapping_add(1 as (usize));
-                position = position.wrapping_add(1 as (usize));
-                if position > apply_random_heuristics {
-                    if position > apply_random_heuristics.wrapping_add(
-                                      (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
-                                  ) {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH54().wrapping_sub(1i32 as (usize)),
-                                  4i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(16i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop11: loop {
-                            if position < pos_jump {
-                                StoreH54(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(4i32 as (usize));
-                                position = position.wrapping_add(4i32 as (usize));
-                                continue 'loop11;
-                            } else {
-                                continue 'loop1;
-                            }
+            }
+            *num_literals = (*num_literals).wrapping_add(insert_length);
+            insert_length = 0i32 as (usize);
+            StoreRangeH54(
+                hasher,
+                ringbuffer,
+                ringbuffer_mask,
+                position.wrapping_add(2i32 as (usize)),
+                brotli_min_size_t(position.wrapping_add(sr.len),store_end)
+            );
+            position = position.wrapping_add(sr.len);
+        } else {
+            insert_length = insert_length.wrapping_add(1 as (usize));
+            position = position.wrapping_add(1 as (usize));
+            if position > apply_random_heuristics {
+                if position > apply_random_heuristics.wrapping_add(
+                                  (4i32 as (usize)).wrapping_mul(random_heuristics_window_size)
+                              ) {
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH54().wrapping_sub(1i32 as (usize)),
+                              4i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(16i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH54(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(4i32 as (usize));
                         }
-                    } else {
-                        let kMargin
-                            : usize
-                            = brotli_max_size_t(
-                                  StoreLookaheadH54().wrapping_sub(1i32 as (usize)),
-                                  2i32 as (usize)
-                              );
-                        let mut pos_jump
-                            : usize
-                            = brotli_min_size_t(
-                                  position.wrapping_add(8i32 as (usize)),
-                                  pos_end.wrapping_sub(kMargin)
-                              );
-                        'loop7: loop {
-                            if position < pos_jump {
-                                StoreH54(hasher,ringbuffer,ringbuffer_mask,position);
-                                insert_length = insert_length.wrapping_add(2i32 as (usize));
-                                position = position.wrapping_add(2i32 as (usize));
-                                continue 'loop7;
-                            } else {
-                                continue 'loop1;
-                            }
-                        }
+                        position = position.wrapping_add(4i32 as (usize));
                     }
                 } else {
-                    continue 'loop1;
+                    let kMargin
+                        : usize
+                        = brotli_max_size_t(
+                              StoreLookaheadH54().wrapping_sub(1i32 as (usize)),
+                              2i32 as (usize)
+                          );
+                    let mut pos_jump
+                        : usize
+                        = brotli_min_size_t(
+                              position.wrapping_add(8i32 as (usize)),
+                              pos_end.wrapping_sub(kMargin)
+                          );
+                    while position < pos_jump {
+                        {
+                            StoreH54(hasher,ringbuffer,ringbuffer_mask,position);
+                            insert_length = insert_length.wrapping_add(2i32 as (usize));
+                        }
+                        position = position.wrapping_add(2i32 as (usize));
+                    }
                 }
             }
-        } else {
-            break 'loop1;
         }
     }
     insert_length = insert_length.wrapping_add(
@@ -5494,7 +5179,7 @@ unsafe extern fn CreateBackwardReferencesH54(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / ::std::mem::size_of::<Command>() as (isize)) as (usize)
+                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -5513,139 +5198,147 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     mut num_commands : *mut usize,
     mut num_literals : *mut usize
 ) {
-    let switch1 = (*params).hasher.type_;
-    if switch1 == 54i32 {
-        CreateBackwardReferencesH54(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 42i32 {
-        CreateBackwardReferencesH42(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 41i32 {
-        CreateBackwardReferencesH41(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 40i32 {
-        CreateBackwardReferencesH40(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 6i32 {
-        CreateBackwardReferencesH6(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 5i32 {
-        CreateBackwardReferencesH5(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 4i32 {
-        CreateBackwardReferencesH4(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 3i32 {
-        CreateBackwardReferencesH3(
-            dictionary,
-            kStaticDictionaryHash.as_ptr(),
-            num_bytes,
-            position,
-            ringbuffer,
-            ringbuffer_mask,
-            params,
-            hasher,
-            dist_cache,
-            last_insert_len,
-            commands,
-            num_commands,
-            num_literals
-        );
-    } else if switch1 == 2i32 {
+    let mut hasher_type : i32 = (*params).hasher.type_;
+    if hasher_type == 2i32 {
         CreateBackwardReferencesH2(
             dictionary,
-            kStaticDictionaryHash.as_ptr(),
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 3i32 {
+        CreateBackwardReferencesH3(
+            dictionary,
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 4i32 {
+        CreateBackwardReferencesH4(
+            dictionary,
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 5i32 {
+        CreateBackwardReferencesH5(
+            dictionary,
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 6i32 {
+        CreateBackwardReferencesH6(
+            dictionary,
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 40i32 {
+        CreateBackwardReferencesH40(
+            dictionary,
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 41i32 {
+        CreateBackwardReferencesH41(
+            dictionary,
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 42i32 {
+        CreateBackwardReferencesH42(
+            dictionary,
+            kStaticDictionaryHash,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            hasher,
+            dist_cache,
+            last_insert_len,
+            commands,
+            num_commands,
+            num_literals
+        );
+    }
+    if hasher_type == 54i32 {
+        CreateBackwardReferencesH54(
+            dictionary,
+            kStaticDictionaryHash,
             num_bytes,
             position,
             ringbuffer,

@@ -77,27 +77,20 @@ pub unsafe extern fn BrotliIsMostlyUTF8(
 ) -> i32 {
     let mut size_utf8 : usize = 0i32 as (usize);
     let mut i : usize = 0i32 as (usize);
-    'loop1: loop {
-        if i < length {
-            let mut symbol : i32;
-            let mut bytes_read
-                : usize
-                = BrotliParseAsUTF8(
-                      &mut symbol as (*mut i32),
-                      &*data.offset(
-                            (pos.wrapping_add(i) & mask) as (isize)
-                        ) as (*const u8),
-                      length.wrapping_sub(i)
-                  );
-            i = i.wrapping_add(bytes_read);
-            if symbol < 0x110000i32 {
-                size_utf8 = size_utf8.wrapping_add(bytes_read);
-                continue 'loop1;
-            } else {
-                continue 'loop1;
-            }
-        } else {
-            break 'loop1;
+    while i < length {
+        let mut symbol : i32;
+        let mut bytes_read
+            : usize
+            = BrotliParseAsUTF8(
+                  &mut symbol as (*mut i32),
+                  &*data.offset(
+                        (pos.wrapping_add(i) & mask) as (isize)
+                    ) as (*const u8),
+                  length.wrapping_sub(i)
+              );
+        i = i.wrapping_add(bytes_read);
+        if symbol < 0x110000i32 {
+            size_utf8 = size_utf8.wrapping_add(bytes_read);
         }
     }
     if !!(size_utf8 as (f64) > min_fraction * length as (f64)) {

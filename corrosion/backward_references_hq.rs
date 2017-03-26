@@ -1,7 +1,7 @@
 extern {
     fn BrotliAllocate(
         m : *mut MemoryManager, n : usize
-    ) -> *mut ::std::os::raw::c_void;
+    ) -> *mut std::os::raw::c_void;
     fn BrotliEstimateBitCostsForLiterals(
         pos : usize,
         len : usize,
@@ -17,7 +17,7 @@ extern {
         matches : *mut u32
     ) -> i32;
     fn BrotliFree(
-        m : *mut MemoryManager, p : *mut ::std::os::raw::c_void
+        m : *mut MemoryManager, p : *mut std::os::raw::c_void
     );
     fn __assert_fail(
         __assertion : *const u8,
@@ -26,387 +26,32 @@ extern {
         __function : *const u8
     );
     fn log2(__x : f64) -> f64;
-    fn memcpy(
-        __dest : *mut ::std::os::raw::c_void,
-        __src : *const ::std::os::raw::c_void,
+    fn memcmp(
+        __s1 : *const std::os::raw::c_void,
+        __s2 : *const std::os::raw::c_void,
         __n : usize
-    ) -> *mut ::std::os::raw::c_void;
+    ) -> i32;
+    fn memcpy(
+        __dest : *mut std::os::raw::c_void,
+        __src : *const std::os::raw::c_void,
+        __n : usize
+    ) -> *mut std::os::raw::c_void;
     fn memset(
-        __s : *mut ::std::os::raw::c_void, __c : i32, __n : usize
-    ) -> *mut ::std::os::raw::c_void;
+        __s : *mut std::os::raw::c_void, __c : i32, __n : usize
+    ) -> *mut std::os::raw::c_void;
 }
 
 static mut kLog2Table
-    : [f32; 256]
-    = [   0.0000000000000000f32,
-          0.0000000000000000f32,
-          1.0000000000000000f32,
-          1.5849625007211563f32,
-          2.0000000000000000f32,
-          2.3219280948873622f32,
-          2.5849625007211561f32,
-          2.8073549220576042f32,
-          3.0000000000000000f32,
-          3.1699250014423126f32,
-          3.3219280948873626f32,
-          3.4594316186372978f32,
-          3.5849625007211565f32,
-          3.7004397181410922f32,
-          3.8073549220576037f32,
-          3.9068905956085187f32,
-          4.0000000000000000f32,
-          4.0874628412503400f32,
-          4.1699250014423122f32,
-          4.2479275134435852f32,
-          4.3219280948873626f32,
-          4.3923174227787607f32,
-          4.4594316186372973f32,
-          4.5235619560570131f32,
-          4.5849625007211570f32,
-          4.6438561897747244f32,
-          4.7004397181410926f32,
-          4.7548875021634691f32,
-          4.8073549220576037f32,
-          4.8579809951275728f32,
-          4.9068905956085187f32,
-          4.9541963103868758f32,
-          5.0000000000000000f32,
-          5.0443941193584534f32,
-          5.0874628412503400f32,
-          5.1292830169449664f32,
-          5.1699250014423122f32,
-          5.2094533656289501f32,
-          5.2479275134435852f32,
-          5.2854022188622487f32,
-          5.3219280948873626f32,
-          5.3575520046180838f32,
-          5.3923174227787607f32,
-          5.4262647547020979f32,
-          5.4594316186372973f32,
-          5.4918530963296748f32,
-          5.5235619560570131f32,
-          5.5545888516776376f32,
-          5.5849625007211570f32,
-          5.6147098441152083f32,
-          5.6438561897747244f32,
-          5.6724253419714961f32,
-          5.7004397181410926f32,
-          5.7279204545631996f32,
-          5.7548875021634691f32,
-          5.7813597135246599f32,
-          5.8073549220576046f32,
-          5.8328900141647422f32,
-          5.8579809951275719f32,
-          5.8826430493618416f32,
-          5.9068905956085187f32,
-          5.9307373375628867f32,
-          5.9541963103868758f32,
-          5.9772799234999168f32,
-          6.0000000000000000f32,
-          6.0223678130284544f32,
-          6.0443941193584534f32,
-          6.0660891904577721f32,
-          6.0874628412503400f32,
-          6.1085244567781700f32,
-          6.1292830169449672f32,
-          6.1497471195046822f32,
-          6.1699250014423122f32,
-          6.1898245588800176f32,
-          6.2094533656289510f32,
-          6.2288186904958804f32,
-          6.2479275134435861f32,
-          6.2667865406949019f32,
-          6.2854022188622487f32,
-          6.3037807481771031f32,
-          6.3219280948873617f32,
-          6.3398500028846252f32,
-          6.3575520046180847f32,
-          6.3750394313469254f32,
-          6.3923174227787598f32,
-          6.4093909361377026f32,
-          6.4262647547020979f32,
-          6.4429434958487288f32,
-          6.4594316186372982f32,
-          6.4757334309663976f32,
-          6.4918530963296748f32,
-          6.5077946401986964f32,
-          6.5235619560570131f32,
-          6.5391588111080319f32,
-          6.5545888516776376f32,
-          6.5698556083309478f32,
-          6.5849625007211561f32,
-          6.5999128421871278f32,
-          6.6147098441152092f32,
-          6.6293566200796095f32,
-          6.6438561897747253f32,
-          6.6582114827517955f32,
-          6.6724253419714952f32,
-          6.6865005271832185f32,
-          6.7004397181410917f32,
-          6.7142455176661224f32,
-          6.7279204545631988f32,
-          6.7414669864011465f32,
-          6.7548875021634691f32,
-          6.7681843247769260f32,
-          6.7813597135246599f32,
-          6.7944158663501062f32,
-          6.8073549220576037f32,
-          6.8201789624151887f32,
-          6.8328900141647422f32,
-          6.8454900509443757f32,
-          6.8579809951275719f32,
-          6.8703647195834048f32,
-          6.8826430493618416f32,
-          6.8948177633079437f32,
-          6.9068905956085187f32,
-          6.9188632372745955f32,
-          6.9307373375628867f32,
-          6.9425145053392399f32,
-          6.9541963103868758f32,
-          6.9657842846620879f32,
-          6.9772799234999168f32,
-          6.9886846867721664f32,
-          7.0000000000000000f32,
-          7.0112272554232540f32,
-          7.0223678130284544f32,
-          7.0334230015374501f32,
-          7.0443941193584534f32,
-          7.0552824355011898f32,
-          7.0660891904577721f32,
-          7.0768155970508317f32,
-          7.0874628412503400f32,
-          7.0980320829605272f32,
-          7.1085244567781700f32,
-          7.1189410727235076f32,
-          7.1292830169449664f32,
-          7.1395513523987937f32,
-          7.1497471195046822f32,
-          7.1598713367783891f32,
-          7.1699250014423130f32,
-          7.1799090900149345f32,
-          7.1898245588800176f32,
-          7.1996723448363644f32,
-          7.2094533656289492f32,
-          7.2191685204621621f32,
-          7.2288186904958804f32,
-          7.2384047393250794f32,
-          7.2479275134435861f32,
-          7.2573878426926521f32,
-          7.2667865406949019f32,
-          7.2761244052742384f32,
-          7.2854022188622487f32,
-          7.2946207488916270f32,
-          7.3037807481771031f32,
-          7.3128829552843557f32,
-          7.3219280948873617f32,
-          7.3309168781146177f32,
-          7.3398500028846243f32,
-          7.3487281542310781f32,
-          7.3575520046180847f32,
-          7.3663222142458151f32,
-          7.3750394313469254f32,
-          7.3837042924740528f32,
-          7.3923174227787607f32,
-          7.4008794362821844f32,
-          7.4093909361377026f32,
-          7.4178525148858991f32,
-          7.4262647547020979f32,
-          7.4346282276367255f32,
-          7.4429434958487288f32,
-          7.4512111118323299f32,
-          7.4594316186372973f32,
-          7.4676055500829976f32,
-          7.4757334309663976f32,
-          7.4838157772642564f32,
-          7.4918530963296748f32,
-          7.4998458870832057f32,
-          7.5077946401986964f32,
-          7.5156998382840436f32,
-          7.5235619560570131f32,
-          7.5313814605163119f32,
-          7.5391588111080319f32,
-          7.5468944598876373f32,
-          7.5545888516776376f32,
-          7.5622424242210728f32,
-          7.5698556083309478f32,
-          7.5774288280357487f32,
-          7.5849625007211561f32,
-          7.5924570372680806f32,
-          7.5999128421871278f32,
-          7.6073303137496113f32,
-          7.6147098441152075f32,
-          7.6220518194563764f32,
-          7.6293566200796095f32,
-          7.6366246205436488f32,
-          7.6438561897747244f32,
-          7.6510516911789290f32,
-          7.6582114827517955f32,
-          7.6653359171851765f32,
-          7.6724253419714952f32,
-          7.6794800995054464f32,
-          7.6865005271832185f32,
-          7.6934869574993252f32,
-          7.7004397181410926f32,
-          7.7073591320808825f32,
-          7.7142455176661224f32,
-          7.7210991887071856f32,
-          7.7279204545631996f32,
-          7.7347096202258392f32,
-          7.7414669864011465f32,
-          7.7481928495894596f32,
-          7.7548875021634691f32,
-          7.7615512324444795f32,
-          7.7681843247769260f32,
-          7.7747870596011737f32,
-          7.7813597135246608f32,
-          7.7879025593914317f32,
-          7.7944158663501062f32,
-          7.8008998999203047f32,
-          7.8073549220576037f32,
-          7.8137811912170374f32,
-          7.8201789624151887f32,
-          7.8265484872909159f32,
-          7.8328900141647422f32,
-          7.8392037880969445f32,
-          7.8454900509443757f32,
-          7.8517490414160571f32,
-          7.8579809951275719f32,
-          7.8641861446542798f32,
-          7.8703647195834048f32,
-          7.8765169465650002f32,
-          7.8826430493618425f32,
-          7.8887432488982601f32,
-          7.8948177633079446f32,
-          7.9008668079807496f32,
-          7.9068905956085187f32,
-          7.9128893362299619f32,
-          7.9188632372745955f32,
-          7.9248125036057813f32,
-          7.9307373375628867f32,
-          7.9366379390025719f32,
-          7.9425145053392399f32,
-          7.9483672315846778f32,
-          7.9541963103868758f32,
-          7.9600019320680806f32,
-          7.9657842846620870f32,
-          7.9715435539507720f32,
-          7.9772799234999168f32,
-          7.9829935746943104f32,
-          7.9886846867721664f32,
-          7.9943534368588578f32
-      ];
+    : *const f32
+    = 0.0000000000000000f32 as (*const f32);
 
-static mut kInsBase
-    : [u32; 24]
-    = [   0i32 as (u32),
-          1i32 as (u32),
-          2i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          8i32 as (u32),
-          10i32 as (u32),
-          14i32 as (u32),
-          18i32 as (u32),
-          26i32 as (u32),
-          34i32 as (u32),
-          50i32 as (u32),
-          66i32 as (u32),
-          98i32 as (u32),
-          130i32 as (u32),
-          194i32 as (u32),
-          322i32 as (u32),
-          578i32 as (u32),
-          1090i32 as (u32),
-          2114i32 as (u32),
-          6210i32 as (u32),
-          22594i32 as (u32)
-      ];
+static mut kInsBase : *mut u32 = 0i32 as (*mut u32);
 
-static mut kInsExtra
-    : [u32; 24]
-    = [   0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          2i32 as (u32),
-          2i32 as (u32),
-          3i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          7i32 as (u32),
-          8i32 as (u32),
-          9i32 as (u32),
-          10i32 as (u32),
-          12i32 as (u32),
-          14i32 as (u32),
-          24i32 as (u32)
-      ];
+static mut kInsExtra : *mut u32 = 0i32 as (*mut u32);
 
-static mut kCopyBase
-    : [u32; 24]
-    = [   2i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          7i32 as (u32),
-          8i32 as (u32),
-          9i32 as (u32),
-          10i32 as (u32),
-          12i32 as (u32),
-          14i32 as (u32),
-          18i32 as (u32),
-          22i32 as (u32),
-          30i32 as (u32),
-          38i32 as (u32),
-          54i32 as (u32),
-          70i32 as (u32),
-          102i32 as (u32),
-          134i32 as (u32),
-          198i32 as (u32),
-          326i32 as (u32),
-          582i32 as (u32),
-          1094i32 as (u32),
-          2118i32 as (u32)
-      ];
+static mut kCopyBase : *mut u32 = 2i32 as (*mut u32);
 
-static mut kCopyExtra
-    : [u32; 24]
-    = [   0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          2i32 as (u32),
-          2i32 as (u32),
-          3i32 as (u32),
-          3i32 as (u32),
-          4i32 as (u32),
-          4i32 as (u32),
-          5i32 as (u32),
-          5i32 as (u32),
-          6i32 as (u32),
-          7i32 as (u32),
-          8i32 as (u32),
-          9i32 as (u32),
-          10i32 as (u32),
-          24i32 as (u32)
-      ];
+static mut kCopyExtra : *mut u32 = 0i32 as (*mut u32);
 
 static kBrotliMinWindowBits : i32 = 10i32;
 
@@ -432,45 +77,11 @@ static kHashMul64Long
 
 static kInfinity : f32 = 1.7e38f32;
 
-static mut kDistanceCacheIndex
-    : [u32; 16]
-    = [   0i32 as (u32),
-          1i32 as (u32),
-          2i32 as (u32),
-          3i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          0i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32),
-          1i32 as (u32)
-      ];
+static mut kDistanceCacheIndex : *const u32 = 0i32 as (*const u32);
 
 static mut kDistanceCacheOffset
-    : [i32; 16]
-    = [   0i32,
-          0i32,
-          0i32,
-          0i32,
-          -1i32,
-          1i32,
-          -2i32,
-          2i32,
-          -3i32,
-          3i32,
-          -1i32,
-          1i32,
-          -2i32,
-          2i32,
-          -3i32,
-          3i32
-      ];
+    : *const i32
+    = 0i32 as (*const i32);
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -500,14 +111,9 @@ pub unsafe extern fn BrotliInitZopfliNodes(
     stub.insert_length = 0i32 as (u32);
     stub.u.cost = kInfinity;
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < length {
-            *array.offset(i as (isize)) = stub;
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
+    while i < length {
+        *array.offset(i as (isize)) = stub;
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -565,16 +171,11 @@ unsafe extern fn ZopfliNodeDistanceCode(
 
 unsafe extern fn Log2FloorNonZero(mut n : usize) -> u32 {
     let mut result : u32 = 0i32 as (u32);
-    'loop1: loop {
-        if {
-               n = n >> 1i32;
-               n
-           } != 0 {
-            result = result.wrapping_add(1 as (u32));
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
+    while {
+              n = n >> 1i32;
+              n
+          } != 0 {
+        result = result.wrapping_add(1 as (u32));
     }
     result
 }
@@ -764,8 +365,8 @@ pub unsafe extern fn BrotliZopfliCreateCommands(
     let mut offset : u32 = (*nodes.offset(0i32 as (isize))).u.next;
     let mut i : usize;
     i = 0i32 as (usize);
-    'loop1: loop {
-        if offset != !(0i32 as (u32)) {
+    while offset != !(0i32 as (u32)) {
+        {
             let mut next
                 : *const ZopfliNode
                 = &*nodes.offset(
@@ -781,46 +382,45 @@ pub unsafe extern fn BrotliZopfliCreateCommands(
                 insert_length = insert_length.wrapping_add(*last_insert_len);
                 *last_insert_len = 0i32 as (usize);
             }
-            let mut distance : usize = ZopfliNodeCopyDistance(next) as (usize);
-            let mut len_code : usize = ZopfliNodeLengthCode(next) as (usize);
-            let mut max_distance
-                : usize
-                = brotli_min_size_t(
-                      block_start.wrapping_add(pos),
-                      max_backward_limit
-                  );
-            let mut is_dictionary
-                : i32
-                = if !!(distance > max_distance) { 1i32 } else { 0i32 };
-            let mut dist_code
-                : usize
-                = ZopfliNodeDistanceCode(next) as (usize);
-            InitCommand(
-                &mut *commands.offset(i as (isize)) as (*mut Command),
-                insert_length,
-                copy_length,
-                len_code,
-                dist_code
-            );
-            if is_dictionary == 0 && (dist_code > 0i32 as (usize)) {
-                *dist_cache.offset(3i32 as (isize)) = *dist_cache.offset(
-                                                           2i32 as (isize)
-                                                       );
-                *dist_cache.offset(2i32 as (isize)) = *dist_cache.offset(
-                                                           1i32 as (isize)
-                                                       );
-                *dist_cache.offset(1i32 as (isize)) = *dist_cache.offset(
-                                                           0i32 as (isize)
-                                                       );
-                *dist_cache.offset(0i32 as (isize)) = distance as (i32);
+            {
+                let mut distance : usize = ZopfliNodeCopyDistance(next) as (usize);
+                let mut len_code : usize = ZopfliNodeLengthCode(next) as (usize);
+                let mut max_distance
+                    : usize
+                    = brotli_min_size_t(
+                          block_start.wrapping_add(pos),
+                          max_backward_limit
+                      );
+                let mut is_dictionary
+                    : i32
+                    = if !!(distance > max_distance) { 1i32 } else { 0i32 };
+                let mut dist_code
+                    : usize
+                    = ZopfliNodeDistanceCode(next) as (usize);
+                InitCommand(
+                    &mut *commands.offset(i as (isize)) as (*mut Command),
+                    insert_length,
+                    copy_length,
+                    len_code,
+                    dist_code
+                );
+                if is_dictionary == 0 && (dist_code > 0i32 as (usize)) {
+                    *dist_cache.offset(3i32 as (isize)) = *dist_cache.offset(
+                                                               2i32 as (isize)
+                                                           );
+                    *dist_cache.offset(2i32 as (isize)) = *dist_cache.offset(
+                                                               1i32 as (isize)
+                                                           );
+                    *dist_cache.offset(1i32 as (isize)) = *dist_cache.offset(
+                                                               0i32 as (isize)
+                                                           );
+                    *dist_cache.offset(0i32 as (isize)) = distance as (i32);
+                }
             }
             *num_literals = (*num_literals).wrapping_add(insert_length);
             pos = pos.wrapping_add(copy_length);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     *last_insert_len = (*last_insert_len).wrapping_add(
                            num_bytes.wrapping_sub(pos)
@@ -830,17 +430,17 @@ pub unsafe extern fn BrotliZopfliCreateCommands(
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct MemoryManager {
-    pub alloc_func : unsafe extern fn(*mut ::std::os::raw::c_void, usize) -> *mut ::std::os::raw::c_void,
-    pub free_func : unsafe extern fn(*mut ::std::os::raw::c_void, *mut ::std::os::raw::c_void),
-    pub opaque : *mut ::std::os::raw::c_void,
+    pub alloc_func : unsafe extern fn(*mut std::os::raw::c_void, usize) -> *mut std::os::raw::c_void,
+    pub free_func : unsafe extern fn(*mut std::os::raw::c_void, *mut std::os::raw::c_void),
+    pub opaque : *mut std::os::raw::c_void,
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BrotliDictionary {
-    pub size_bits_by_length : [u8; 32],
-    pub offsets_by_length : [u32; 32],
-    pub data : [u8; 122784],
+    pub size_bits_by_length : *mut u8,
+    pub offsets_by_length : *mut u32,
+    pub data : *mut u8,
 }
 
 #[derive(Clone, Copy)]
@@ -886,8 +486,8 @@ unsafe extern fn MaxZopfliLen(
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct ZopfliCostModel {
-    pub cost_cmd_ : [f32; 704],
-    pub cost_dist_ : [f32; 520],
+    pub cost_cmd_ : *mut f32,
+    pub cost_dist_ : *mut f32,
     pub literal_costs_ : *mut f32,
     pub min_cost_cmd_ : f32,
     pub num_bytes_ : usize,
@@ -897,7 +497,7 @@ pub struct ZopfliCostModel {
 #[repr(C)]
 pub struct PosData {
     pub pos : usize,
-    pub distance_cache : [i32; 4],
+    pub distance_cache : *mut i32,
     pub costdiff : f32,
     pub cost : f32,
 }
@@ -905,7 +505,7 @@ pub struct PosData {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct StartPosQueue {
-    pub q_ : [PosData; 8],
+    pub q_ : *mut PosData,
     pub idx_ : usize,
 }
 
@@ -930,23 +530,22 @@ unsafe extern fn InitZopfliCostModel(
                                  BrotliAllocate(
                                      m,
                                      num_bytes.wrapping_add(2i32 as (usize)).wrapping_mul(
-                                         ::std::mem::size_of::<f32>()
+                                         std::mem::size_of::<f32>()
                                      )
                                  ) as (*mut f32)
                              } else {
-                                 0i32 as (*mut ::std::os::raw::c_void) as (*mut f32)
+                                 0i32 as (*mut std::os::raw::c_void) as (*mut f32)
                              };
     if !(0i32 == 0) { }
 }
 
 unsafe extern fn FastLog2(mut v : usize) -> f64 {
-    if v < ::std::mem::size_of::<[f32; 256]>().wrapping_div(
-               ::std::mem::size_of::<f32>()
+    if v < std::mem::size_of::<*const f32>().wrapping_div(
+               std::mem::size_of::<f32>()
            ) {
-        kLog2Table[v] as (f64)
-    } else {
-        log2(v as (f64))
+        return *kLog2Table.offset(v as (isize)) as (f64);
     }
+    log2(v as (f64))
 }
 
 unsafe extern fn ZopfliCostModelSetFromLiteralCosts(
@@ -956,8 +555,8 @@ unsafe extern fn ZopfliCostModelSetFromLiteralCosts(
     mut ringbuffer_mask : usize
 ) {
     let mut literal_costs : *mut f32 = (*self).literal_costs_;
-    let mut cost_dist : *mut f32 = (*self).cost_dist_.as_mut_ptr();
-    let mut cost_cmd : *mut f32 = (*self).cost_cmd_.as_mut_ptr();
+    let mut cost_dist : *mut f32 = (*self).cost_dist_;
+    let mut cost_cmd : *mut f32 = (*self).cost_cmd_;
     let mut num_bytes : usize = (*self).num_bytes_;
     let mut i : usize;
     BrotliEstimateBitCostsForLiterals(
@@ -969,49 +568,38 @@ unsafe extern fn ZopfliCostModelSetFromLiteralCosts(
     );
     *literal_costs.offset(0i32 as (isize)) = 0.0f64 as (f32);
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < num_bytes {
-            {
-                let _rhs = *literal_costs.offset(i as (isize));
-                let _lhs
-                    = &mut *literal_costs.offset(
-                                i.wrapping_add(1i32 as (usize)) as (isize)
-                            );
-                *_lhs = *_lhs + _rhs;
-            }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
+    while i < num_bytes {
+        {
+            let _rhs = *literal_costs.offset(i as (isize));
+            let _lhs
+                = &mut *literal_costs.offset(
+                            i.wrapping_add(1i32 as (usize)) as (isize)
+                        );
+            *_lhs = *_lhs + _rhs;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     i = 0i32 as (usize);
-    'loop3: loop {
-        if i < 704i32 as (usize) {
+    while i < 704i32 as (usize) {
+        {
             *cost_cmd.offset(i as (isize)) = FastLog2(
                                                  (11i32 as (u32)).wrapping_add(
                                                      i as (u32)
                                                  ) as (usize)
                                              ) as (f32);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop3;
-        } else {
-            break 'loop3;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     i = 0i32 as (usize);
-    'loop5: loop {
-        if i < 520i32 as (usize) {
+    while i < 520i32 as (usize) {
+        {
             *cost_dist.offset(i as (isize)) = FastLog2(
                                                   (20i32 as (u32)).wrapping_add(
                                                       i as (u32)
                                                   ) as (usize)
                                               ) as (f32);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop5;
-        } else {
-            break 'loop5;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     (*self).min_cost_cmd_ = FastLog2(11i32 as (usize)) as (f32);
 }
@@ -1021,27 +609,22 @@ unsafe extern fn InitStartPosQueue(mut self : *mut StartPosQueue) {
 }
 
 unsafe extern fn BROTLI_UNALIGNED_LOAD64(
-    mut p : *const ::std::os::raw::c_void
+    mut p : *const std::os::raw::c_void
 ) -> usize {
     let mut t : usize;
     memcpy(
-        &mut t as (*mut usize) as (*mut ::std::os::raw::c_void),
+        &mut t as (*mut usize) as (*mut std::os::raw::c_void),
         p,
-        ::std::mem::size_of::<usize>()
+        std::mem::size_of::<usize>()
     );
     t
 }
 
 unsafe extern fn unopt_ctzll(mut val : usize) -> u8 {
     let mut cnt : u8 = 0i32 as (u8);
-    'loop1: loop {
-        if val & 1i32 as (usize) == 0i32 as (usize) {
-            val = val >> 1i32;
-            cnt = (cnt as (i32) + 1) as (u8);
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
+    while val & 1i32 as (usize) == 0i32 as (usize) {
+        val = val >> 1i32;
+        cnt = (cnt as (i32) + 1) as (u8);
     }
     cnt
 }
@@ -1053,52 +636,42 @@ unsafe extern fn FindMatchLengthWithLimit(
     let mut limit2
         : usize
         = (limit >> 3i32).wrapping_add(1i32 as (usize));
-    'loop1: loop {
-        if {
-               limit2 = limit2.wrapping_sub(1 as (usize));
-               limit2
-           } != 0 {
-            if BROTLI_UNALIGNED_LOAD64(
-                   s2 as (*const ::std::os::raw::c_void)
-               ) == BROTLI_UNALIGNED_LOAD64(
-                        s1.offset(matched as (isize)) as (*const ::std::os::raw::c_void)
-                    ) {
-                s2 = s2.offset(8i32 as (isize));
-                matched = matched.wrapping_add(8i32 as (usize));
-                continue 'loop1;
-            } else {
-                break 'loop1;
-            }
+    while {
+              limit2 = limit2.wrapping_sub(1 as (usize));
+              limit2
+          } != 0 {
+        if BROTLI_UNALIGNED_LOAD64(
+               s2 as (*const std::os::raw::c_void)
+           ) == BROTLI_UNALIGNED_LOAD64(
+                    s1.offset(matched as (isize)) as (*const std::os::raw::c_void)
+                ) {
+            s2 = s2.offset(8i32 as (isize));
+            matched = matched.wrapping_add(8i32 as (usize));
         } else {
-            limit = (limit & 7i32 as (usize)).wrapping_add(1i32 as (usize));
-            'loop3: loop {
-                if {
-                       limit = limit.wrapping_sub(1 as (usize));
-                       limit
-                   } != 0 {
-                    if *s1.offset(matched as (isize)) as (i32) == *s2 as (i32) {
-                        s2 = s2.offset(1 as (isize));
-                        matched = matched.wrapping_add(1 as (usize));
-                        continue 'loop3;
-                    } else {
-                        break 'loop3;
-                    }
-                } else {
-                    return matched;
-                }
-            }
+            let mut x
+                : usize
+                = BROTLI_UNALIGNED_LOAD64(
+                      s2 as (*const std::os::raw::c_void)
+                  ) ^ BROTLI_UNALIGNED_LOAD64(
+                          s1.offset(matched as (isize)) as (*const std::os::raw::c_void)
+                      );
+            let mut matching_bits : usize = unopt_ctzll(x) as (usize);
+            matched = matched.wrapping_add(matching_bits >> 3i32);
             return matched;
         }
     }
-    let mut x
-        : usize
-        = BROTLI_UNALIGNED_LOAD64(
-              s2 as (*const ::std::os::raw::c_void)
-          ) ^ BROTLI_UNALIGNED_LOAD64(
-                  s1.offset(matched as (isize)) as (*const ::std::os::raw::c_void)
-              );
-    let mut matching_bits : usize = unopt_ctzll(x) as (usize);
-    matched = matched.wrapping_add(matching_bits >> 3i32);
+    limit = (limit & 7i32 as (usize)).wrapping_add(1i32 as (usize));
+    while {
+              limit = limit.wrapping_sub(1 as (usize));
+              limit
+          } != 0 {
+        if *s1.offset(matched as (isize)) as (i32) == *s2 as (i32) {
+            s2 = s2.offset(1 as (isize));
+            matched = matched.wrapping_add(1 as (usize));
+        } else {
+            return matched;
+        }
+    }
     matched
 }
 
@@ -1113,8 +686,51 @@ unsafe extern fn InitBackwardMatch(
 #[repr(C)]
 pub struct H10 {
     pub window_mask_ : usize,
-    pub buckets_ : [u32; 131072],
+    pub buckets_ : *mut u32,
     pub invalid_pos_ : u32,
+}
+
+unsafe extern fn BROTLI_UNALIGNED_LOAD32(
+    mut p : *const std::os::raw::c_void
+) -> u32 {
+    let mut t : u32;
+    memcpy(
+        &mut t as (*mut u32) as (*mut std::os::raw::c_void),
+        p,
+        std::mem::size_of::<u32>()
+    );
+    t
+}
+
+unsafe extern fn HashBytesH10(mut data : *const u8) -> u32 {
+    let mut h
+        : u32
+        = BROTLI_UNALIGNED_LOAD32(
+              data as (*const std::os::raw::c_void)
+          ).wrapping_mul(
+              kHashMul32
+          );
+    h >> 32i32 - 17i32
+}
+
+unsafe extern fn ForestH10(mut self : *mut H10) -> *mut u32 {
+    &mut *self.offset(1i32 as (isize)) as (*mut H10) as (*mut u32)
+}
+
+unsafe extern fn LeftChildIndexH10(
+    mut self : *mut H10, pos : usize
+) -> usize {
+    (2i32 as (usize)).wrapping_mul(pos & (*self).window_mask_)
+}
+
+unsafe extern fn RightChildIndexH10(
+    mut self : *mut H10, pos : usize
+) -> usize {
+    (2i32 as (usize)).wrapping_mul(
+        pos & (*self).window_mask_
+    ).wrapping_add(
+        1i32 as (usize)
+    )
 }
 
 unsafe extern fn StoreAndFindMatchesH10(
@@ -1127,83 +743,153 @@ unsafe extern fn StoreAndFindMatchesH10(
     best_len : *mut usize,
     mut matches : *mut BackwardMatch
 ) -> *mut BackwardMatch {
-  const size_t cur_ix_masked = cur_ix & ring_buffer_mask;
-  const size_t max_comp_len =
-      BROTLI_MIN(size_t, max_length, MAX_TREE_COMP_LENGTH);
-  const BROTLI_BOOL should_reroot_tree =
-      TO_BROTLI_BOOL(max_length >= MAX_TREE_COMP_LENGTH);
-  const uint32_t key = FN(HashBytes)(&data[cur_ix_masked]);
-  uint32_t* forest = FN(Forest)(self);
-  size_t prev_ix = self->buckets_[key];
-  /* The forest index of the rightmost node of the left subtree of the new
-     root, updated as we traverse and re-root the tree of the hash bucket. */
-  size_t node_left = FN(LeftChildIndex)(self, cur_ix);
-  /* The forest index of the leftmost node of the right subtree of the new
-     root, updated as we traverse and re-root the tree of the hash bucket. */
-  size_t node_right = FN(RightChildIndex)(self, cur_ix);
-  /* The match length of the rightmost node of the left subtree of the new
-     root, updated as we traverse and re-root the tree of the hash bucket. */
-  size_t best_len_left = 0;
-  /* The match length of the leftmost node of the right subtree of the new
-     root, updated as we traverse and re-root the tree of the hash bucket. */
-  size_t best_len_right = 0;
-  size_t depth_remaining;
-  if (should_reroot_tree) {
-    self->buckets_[key] = (uint32_t)cur_ix;
-  }
-  for (depth_remaining = MAX_TREE_SEARCH_DEPTH; ; --depth_remaining) {
-    const size_t backward = cur_ix - prev_ix;
-    const size_t prev_ix_masked = prev_ix & ring_buffer_mask;
-    if (backward == 0 || backward > max_backward || depth_remaining == 0) {
-      if (should_reroot_tree) {
-        forest[node_left] = self->invalid_pos_;
-        forest[node_right] = self->invalid_pos_;
-      }
-      break;
+    let cur_ix_masked : usize = cur_ix & ring_buffer_mask;
+    let max_comp_len
+        : usize
+        = brotli_min_size_t(max_length,128i32 as (usize));
+    let should_reroot_tree
+        : i32
+        = if !!(max_length >= 128i32 as (usize)) { 1i32 } else { 0i32 };
+    let key
+        : u32
+        = HashBytesH10(
+              &*data.offset(cur_ix_masked as (isize)) as (*const u8)
+          );
+    let mut forest : *mut u32 = ForestH10(self);
+    let mut prev_ix
+        : usize
+        = *(*self).buckets_.offset(key as (isize)) as (usize);
+    let mut node_left : usize = LeftChildIndexH10(self,cur_ix);
+    let mut node_right : usize = RightChildIndexH10(self,cur_ix);
+    let mut best_len_left : usize = 0i32 as (usize);
+    let mut best_len_right : usize = 0i32 as (usize);
+    let mut depth_remaining : usize;
+    if should_reroot_tree != 0 {
+        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
     }
-    {
-      const size_t cur_len = BROTLI_MIN(size_t, best_len_left, best_len_right);
-      size_t len;
-      assert(cur_len <= MAX_TREE_COMP_LENGTH);
-      len = cur_len +
-          FindMatchLengthWithLimit(&data[cur_ix_masked + cur_len],
-                                   &data[prev_ix_masked + cur_len],
-                                   max_length - cur_len);
-      assert(0 == memcmp(&data[cur_ix_masked], &data[prev_ix_masked], len));
-      if (matches && len > *best_len) {
-        *best_len = len;
-        InitBackwardMatch(matches++, backward, len);
-      }
-      if (len >= max_comp_len) {
-        if (should_reroot_tree) {
-          forest[node_left] = forest[FN(LeftChildIndex)(self, prev_ix)];
-          forest[node_right] = forest[FN(RightChildIndex)(self, prev_ix)];
+    depth_remaining = 64i32 as (usize);
+    'break16: loop {
+        {
+            let backward : usize = cur_ix.wrapping_sub(prev_ix);
+            let prev_ix_masked : usize = prev_ix & ring_buffer_mask;
+            if backward == 0i32 as (usize) || backward > max_backward || depth_remaining == 0i32 as (usize) {
+                if should_reroot_tree != 0 {
+                    *forest.offset(node_left as (isize)) = (*self).invalid_pos_;
+                    *forest.offset(node_right as (isize)) = (*self).invalid_pos_;
+                }
+                {
+                    if 1337i32 != 0 {
+                        break 'break16;
+                    }
+                }
+            }
+            {
+                let cur_len
+                    : usize
+                    = brotli_min_size_t(best_len_left,best_len_right);
+                let mut len : usize;
+                if cur_len <= 128i32 as (usize) {
+                    0i32;
+                } else {
+                    __assert_fail(
+                        b"cur_len <= MAX_TREE_COMP_LENGTH\0".as_ptr(),
+                        file!().as_ptr(),
+                        line!(),
+                        b"StoreAndFindMatchesH10\0".as_ptr()
+                    );
+                }
+                len = cur_len.wrapping_add(
+                          FindMatchLengthWithLimit(
+                              &*data.offset(
+                                    cur_ix_masked.wrapping_add(cur_len) as (isize)
+                                ) as (*const u8),
+                              &*data.offset(
+                                    prev_ix_masked.wrapping_add(cur_len) as (isize)
+                                ) as (*const u8),
+                              max_length.wrapping_sub(cur_len)
+                          )
+                      );
+                if 0i32 == memcmp(
+                               &*data.offset(
+                                     cur_ix_masked as (isize)
+                                 ) as (*const u8) as (*const std::os::raw::c_void),
+                               &*data.offset(
+                                     prev_ix_masked as (isize)
+                                 ) as (*const u8) as (*const std::os::raw::c_void),
+                               len
+                           ) {
+                    0i32;
+                } else {
+                    __assert_fail(
+                        b"0 == memcmp(&data[cur_ix_masked], &data[prev_ix_masked], len)\0".as_ptr(
+                        ),
+                        file!().as_ptr(),
+                        line!(),
+                        b"StoreAndFindMatchesH10\0".as_ptr()
+                    );
+                }
+                if !matches.is_null() && (len > *best_len) {
+                    *best_len = len;
+                    InitBackwardMatch(
+                        {
+                            let _old = matches;
+                            matches = matches.offset(1 as (isize));
+                            _old
+                        },
+                        backward,
+                        len
+                    );
+                }
+                if len >= max_comp_len {
+                    if should_reroot_tree != 0 {
+                        *forest.offset(node_left as (isize)) = *forest.offset(
+                                                                    LeftChildIndexH10(
+                                                                        self,
+                                                                        prev_ix
+                                                                    ) as (isize)
+                                                                );
+                        *forest.offset(node_right as (isize)) = *forest.offset(
+                                                                     RightChildIndexH10(
+                                                                         self,
+                                                                         prev_ix
+                                                                     ) as (isize)
+                                                                 );
+                    }
+                    {
+                        if 1337i32 != 0 {
+                            break 'break16;
+                        }
+                    }
+                }
+                if *data.offset(
+                        cur_ix_masked.wrapping_add(len) as (isize)
+                    ) as (i32) > *data.offset(
+                                      prev_ix_masked.wrapping_add(len) as (isize)
+                                  ) as (i32) {
+                    best_len_left = len;
+                    if should_reroot_tree != 0 {
+                        *forest.offset(node_left as (isize)) = prev_ix as (u32);
+                    }
+                    node_left = RightChildIndexH10(self,prev_ix);
+                    prev_ix = *forest.offset(node_left as (isize)) as (usize);
+                } else {
+                    best_len_right = len;
+                    if should_reroot_tree != 0 {
+                        *forest.offset(node_right as (isize)) = prev_ix as (u32);
+                    }
+                    node_right = LeftChildIndexH10(self,prev_ix);
+                    prev_ix = *forest.offset(node_right as (isize)) as (usize);
+                }
+            }
         }
-        break;
-      }
-      if (data[cur_ix_masked + len] > data[prev_ix_masked + len]) {
-        best_len_left = len;
-        if (should_reroot_tree) {
-          forest[node_left] = (uint32_t)prev_ix;
-        }
-        node_left = FN(RightChildIndex)(self, prev_ix);
-        prev_ix = forest[node_left];
-      } else {
-        best_len_right = len;
-        if (should_reroot_tree) {
-          forest[node_right] = (uint32_t)prev_ix;
-        }
-        node_right = FN(LeftChildIndex)(self, prev_ix);
-        prev_ix = forest[node_right];
-      }
+        depth_remaining = depth_remaining.wrapping_sub(1 as (usize));
     }
-  }
-  return matches;
+    matches
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct Struct2 {
+pub struct Struct18 {
     pub params : BrotliHasherParams,
     pub is_prepared_ : i32,
     pub dict_num_lookups : usize,
@@ -1212,14 +898,14 @@ pub struct Struct2 {
 
 unsafe extern fn GetHasherCommon(
     mut handle : *mut u8
-) -> *mut Struct2 {
-    handle as (*mut Struct2)
+) -> *mut Struct18 {
+    handle as (*mut Struct18)
 }
 
 unsafe extern fn SelfH10(mut handle : *mut u8) -> *mut H10 {
     &mut *GetHasherCommon(handle).offset(
               1i32 as (isize)
-          ) as (*mut Struct2) as (*mut H10)
+          ) as (*mut Struct18) as (*mut H10)
 }
 
 unsafe extern fn brotli_max_size_t(
@@ -1266,33 +952,39 @@ unsafe extern fn FindAllMatchesH10(
     let mut stop
         : usize
         = cur_ix.wrapping_sub(short_match_max_backward);
-    let mut dict_matches : [u32; 38];
+    let mut dict_matches : *mut u32;
     let mut i : usize;
     if cur_ix < short_match_max_backward {
         stop = 0i32 as (usize);
     }
     i = cur_ix.wrapping_sub(1i32 as (usize));
-    'loop3: loop {
-        if i > stop && (best_len <= 2i32 as (usize)) {
-            let mut prev_ix : usize = i;
-            let backward : usize = cur_ix.wrapping_sub(prev_ix);
-            if backward > max_backward {
-                break 'loop3;
-            } else {
+    'break14: while i > stop && (best_len <= 2i32 as (usize)) {
+        'continue15: loop {
+            {
+                let mut prev_ix : usize = i;
+                let backward : usize = cur_ix.wrapping_sub(prev_ix);
+                if backward > max_backward {
+                    if 1337i32 != 0 {
+                        break 'break14;
+                    }
+                }
                 prev_ix = prev_ix & ring_buffer_mask;
-                if !(*data.offset(
-                          cur_ix_masked as (isize)
-                      ) as (i32) != *data.offset(
-                                         prev_ix as (isize)
-                                     ) as (i32) || *data.offset(
-                                                        cur_ix_masked.wrapping_add(
-                                                            1i32 as (usize)
-                                                        ) as (isize)
-                                                    ) as (i32) != *data.offset(
-                                                                       prev_ix.wrapping_add(
-                                                                           1i32 as (usize)
-                                                                       ) as (isize)
-                                                                   ) as (i32)) {
+                if *data.offset(cur_ix_masked as (isize)) as (i32) != *data.offset(
+                                                                           prev_ix as (isize)
+                                                                       ) as (i32) || *data.offset(
+                                                                                          cur_ix_masked.wrapping_add(
+                                                                                              1i32 as (usize)
+                                                                                          ) as (isize)
+                                                                                      ) as (i32) != *data.offset(
+                                                                                                         prev_ix.wrapping_add(
+                                                                                                             1i32 as (usize)
+                                                                                                         ) as (isize)
+                                                                                                     ) as (i32) {
+                    if 1337i32 != 0 {
+                        break 'continue15;
+                    }
+                }
+                {
                     let len
                         : usize
                         = FindMatchLengthWithLimit(
@@ -1313,12 +1005,10 @@ unsafe extern fn FindAllMatchesH10(
                         );
                     }
                 }
-                i = i.wrapping_sub(1 as (usize));
-                continue 'loop3;
             }
-        } else {
-            break 'loop3;
+            break;
         }
+        i = i.wrapping_sub(1 as (usize));
     }
     if best_len < max_length {
         matches = StoreAndFindMatchesH10(
@@ -1333,62 +1023,59 @@ unsafe extern fn FindAllMatchesH10(
                   );
     }
     i = 0i32 as (usize);
-    'loop12: loop {
-        if i <= 37i32 as (usize) {
-            dict_matches[i] = kInvalidMatch;
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop12;
-        } else {
-            break 'loop12;
+    while i <= 37i32 as (usize) {
+        {
+            *dict_matches.offset(i as (isize)) = kInvalidMatch;
         }
+        i = i.wrapping_add(1 as (usize));
     }
-    let mut minlen
-        : usize
-        = brotli_max_size_t(
-              4i32 as (usize),
-              best_len.wrapping_add(1i32 as (usize))
-          );
-    if BrotliFindAllStaticDictionaryMatches(
-           dictionary,
-           &*data.offset(cur_ix_masked as (isize)) as (*const u8),
-           minlen,
-           max_length,
-           &mut dict_matches[0i32 as (usize)] as (*mut u32)
-       ) != 0 {
-        let mut maxlen
+    {
+        let mut minlen
             : usize
-            = brotli_min_size_t(37i32 as (usize),max_length);
-        let mut l : usize;
-        l = minlen;
-        'loop15: loop {
-            if l <= maxlen {
-                let mut dict_id : u32 = dict_matches[l];
-                if dict_id < kInvalidMatch {
-                    InitDictionaryBackwardMatch(
-                        {
-                            let _old = matches;
-                            matches = matches.offset(1 as (isize));
-                            _old
-                        },
-                        max_backward.wrapping_add(
-                            (dict_id >> 5i32) as (usize)
-                        ).wrapping_add(
-                            1i32 as (usize)
-                        ),
-                        l,
-                        (dict_id & 31i32 as (u32)) as (usize)
-                    );
+            = brotli_max_size_t(
+                  4i32 as (usize),
+                  best_len.wrapping_add(1i32 as (usize))
+              );
+        if BrotliFindAllStaticDictionaryMatches(
+               dictionary,
+               &*data.offset(cur_ix_masked as (isize)) as (*const u8),
+               minlen,
+               max_length,
+               &mut *dict_matches.offset(0i32 as (isize)) as (*mut u32)
+           ) != 0 {
+            let mut maxlen
+                : usize
+                = brotli_min_size_t(37i32 as (usize),max_length);
+            let mut l : usize;
+            l = minlen;
+            while l <= maxlen {
+                {
+                    let mut dict_id : u32 = *dict_matches.offset(l as (isize));
+                    if dict_id < kInvalidMatch {
+                        InitDictionaryBackwardMatch(
+                            {
+                                let _old = matches;
+                                matches = matches.offset(1 as (isize));
+                                _old
+                            },
+                            max_backward.wrapping_add(
+                                (dict_id >> 5i32) as (usize)
+                            ).wrapping_add(
+                                1i32 as (usize)
+                            ),
+                            l,
+                            (dict_id & 31i32 as (u32)) as (usize)
+                        );
+                    }
                 }
                 l = l.wrapping_add(1 as (usize));
-                continue 'loop15;
-            } else {
-                break 'loop15;
             }
         }
     }
     ((matches as (isize)).wrapping_sub(
          orig_matches as (isize)
-     ) / ::std::mem::size_of::<BackwardMatch>() as (isize)) as (usize)
+     ) / std::mem::size_of::<*mut BackwardMatch>(
+         ) as (isize)) as (usize)
 }
 
 unsafe extern fn BackwardMatchLength(
@@ -1457,38 +1144,33 @@ unsafe extern fn ComputeDistanceCache(
     let mut p
         : usize
         = (*nodes.offset(pos as (isize))).u.shortcut as (usize);
-    'loop1: loop {
-        if idx < 4i32 && (p > 0i32 as (usize)) {
-            let ilen
-                : usize
-                = (*nodes.offset(p as (isize))).insert_length as (usize);
-            let clen
-                : usize
-                = ZopfliNodeCopyLength(
-                      &*nodes.offset(p as (isize)) as (*const ZopfliNode)
-                  ) as (usize);
-            let dist
-                : usize
-                = ZopfliNodeCopyDistance(
-                      &*nodes.offset(p as (isize)) as (*const ZopfliNode)
-                  ) as (usize);
-            *dist_cache.offset(
-                 {
-                     let _old = idx;
-                     idx = idx + 1;
-                     _old
-                 } as (isize)
-             ) = dist as (i32);
-            p = (*nodes.offset(
-                      p.wrapping_sub(clen).wrapping_sub(ilen) as (isize)
-                  )).u.shortcut as (usize);
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
+    while idx < 4i32 && (p > 0i32 as (usize)) {
+        let ilen
+            : usize
+            = (*nodes.offset(p as (isize))).insert_length as (usize);
+        let clen
+            : usize
+            = ZopfliNodeCopyLength(
+                  &*nodes.offset(p as (isize)) as (*const ZopfliNode)
+              ) as (usize);
+        let dist
+            : usize
+            = ZopfliNodeCopyDistance(
+                  &*nodes.offset(p as (isize)) as (*const ZopfliNode)
+              ) as (usize);
+        *dist_cache.offset(
+             {
+                 let _old = idx;
+                 idx = idx + 1;
+                 _old
+             } as (isize)
+         ) = dist as (i32);
+        p = (*nodes.offset(
+                  p.wrapping_sub(clen).wrapping_sub(ilen) as (isize)
+              )).u.shortcut as (usize);
     }
-    'loop2: loop {
-        if idx < 4i32 {
+    while idx < 4i32 {
+        {
             *dist_cache.offset(idx as (isize)) = *{
                                                       let _old = starting_dist_cache;
                                                       starting_dist_cache = starting_dist_cache.offset(
@@ -1496,11 +1178,8 @@ unsafe extern fn ComputeDistanceCache(
                                                                             );
                                                       _old
                                                   };
-            idx = idx + 1;
-            continue 'loop2;
-        } else {
-            break 'loop2;
         }
+        idx = idx + 1;
     }
 }
 
@@ -1524,11 +1203,11 @@ unsafe extern fn StartPosQueuePush(
         : usize
         = StartPosQueueSize(self as (*const StartPosQueue));
     let mut i : usize;
-    let mut q : *mut PosData = (*self).q_.as_mut_ptr();
+    let mut q : *mut PosData = (*self).q_;
     *q.offset(offset as (isize)) = *posdata;
     i = 1i32 as (usize);
-    'loop1: loop {
-        if i < len {
+    while i < len {
+        {
             if (*q.offset(
                      (offset & 7i32 as (usize)) as (isize)
                  )).costdiff > (*q.offset(
@@ -1549,11 +1228,8 @@ unsafe extern fn StartPosQueuePush(
                  ) = __brotli_swap_tmp;
             }
             offset = offset.wrapping_add(1 as (usize));
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -1592,7 +1268,7 @@ unsafe extern fn EvaluateNode(
             pos,
             starting_dist_cache,
             nodes as (*const ZopfliNode),
-            posdata.distance_cache.as_mut_ptr()
+            posdata.distance_cache
         );
         StartPosQueuePush(
             queue,
@@ -1604,9 +1280,9 @@ unsafe extern fn EvaluateNode(
 unsafe extern fn StartPosQueueAt(
     mut self : *const StartPosQueue, mut k : usize
 ) -> *const PosData {
-    &mut (*self).q_[
-             k.wrapping_sub((*self).idx_) & 7i32 as (usize)
-         ] as (*mut PosData) as (*const PosData)
+    &mut *(*self).q_.offset(
+              (k.wrapping_sub((*self).idx_) & 7i32 as (usize)) as (isize)
+          ) as (*mut PosData) as (*const PosData)
 }
 
 unsafe extern fn ZopfliCostModelGetMinCostCmd(
@@ -1625,44 +1301,37 @@ unsafe extern fn ComputeMinimumCopyLength(
     let mut len : usize = 2i32 as (usize);
     let mut next_len_bucket : usize = 4i32 as (usize);
     let mut next_len_offset : usize = 10i32 as (usize);
-    'loop1: loop {
-        if pos.wrapping_add(len) <= num_bytes && ((*nodes.offset(
-                                                        pos.wrapping_add(len) as (isize)
-                                                    )).u.cost <= min_cost) {
-            len = len.wrapping_add(1 as (usize));
-            if len == next_len_offset {
-                min_cost = min_cost + 1.0f32;
-                next_len_offset = next_len_offset.wrapping_add(next_len_bucket);
-                next_len_bucket = next_len_bucket.wrapping_mul(2i32 as (usize));
-                continue 'loop1;
-            } else {
-                continue 'loop1;
-            }
-        } else {
-            break 'loop1;
+    while pos.wrapping_add(len) <= num_bytes && ((*nodes.offset(
+                                                       pos.wrapping_add(len) as (isize)
+                                                   )).u.cost <= min_cost) {
+        len = len.wrapping_add(1 as (usize));
+        if len == next_len_offset {
+            min_cost = min_cost + 1.0f32;
+            next_len_offset = next_len_offset.wrapping_add(next_len_bucket);
+            next_len_bucket = next_len_bucket.wrapping_mul(2i32 as (usize));
         }
     }
     len
 }
 
 unsafe extern fn GetInsertExtra(mut inscode : u16) -> u32 {
-    kInsExtra[inscode as (usize)]
+    *kInsExtra.offset(inscode as (isize))
 }
 
 unsafe extern fn ZopfliCostModelGetDistanceCost(
     mut self : *const ZopfliCostModel, mut distcode : usize
 ) -> f32 {
-    (*self).cost_dist_[distcode]
+    *(*self).cost_dist_.offset(distcode as (isize))
 }
 
 unsafe extern fn GetCopyExtra(mut copycode : u16) -> u32 {
-    kCopyExtra[copycode as (usize)]
+    *kCopyExtra.offset(copycode as (isize))
 }
 
 unsafe extern fn ZopfliCostModelGetCommandCost(
     mut self : *const ZopfliCostModel, mut cmdcode : u16
 ) -> f32 {
-    (*self).cost_cmd_[cmdcode as (usize)]
+    *(*self).cost_cmd_.offset(cmdcode as (isize))
 }
 
 unsafe extern fn UpdateZopfliNode(
@@ -1734,67 +1403,86 @@ unsafe extern fn UpdateNodes(
         queue,
         nodes
     );
-    let mut posdata
-        : *const PosData
-        = StartPosQueueAt(queue as (*const StartPosQueue),0i32 as (usize));
-    let mut min_cost
-        : f32
-        = (*posdata).cost + ZopfliCostModelGetMinCostCmd(
-                                model
-                            ) + ZopfliCostModelGetLiteralCosts(model,(*posdata).pos,pos);
-    min_len = ComputeMinimumCopyLength(
-                  min_cost,
-                  nodes as (*const ZopfliNode),
-                  num_bytes,
-                  pos
-              );
+    {
+        let mut posdata
+            : *const PosData
+            = StartPosQueueAt(queue as (*const StartPosQueue),0i32 as (usize));
+        let mut min_cost
+            : f32
+            = (*posdata).cost + ZopfliCostModelGetMinCostCmd(
+                                    model
+                                ) + ZopfliCostModelGetLiteralCosts(model,(*posdata).pos,pos);
+        min_len = ComputeMinimumCopyLength(
+                      min_cost,
+                      nodes as (*const ZopfliNode),
+                      num_bytes,
+                      pos
+                  );
+    }
     k = 0i32 as (usize);
-    'loop1: loop {
-        if k < max_iters && (k < StartPosQueueSize(
-                                     queue as (*const StartPosQueue)
-                                 )) {
-            let mut posdata
-                : *const PosData
-                = StartPosQueueAt(queue as (*const StartPosQueue),k);
-            let start : usize = (*posdata).pos;
-            let inscode : u16 = GetInsertLengthCode(pos.wrapping_sub(start));
-            let start_costdiff : f32 = (*posdata).costdiff;
-            let base_cost
-                : f32
-                = start_costdiff + GetInsertExtra(
-                                       inscode
-                                   ) as (f32) + ZopfliCostModelGetLiteralCosts(
-                                                    model,
-                                                    0i32 as (usize),
-                                                    pos
-                                                );
-            let mut best_len : usize = min_len.wrapping_sub(1i32 as (usize));
-            let mut j : usize = 0i32 as (usize);
-            'loop4: loop {
-                if j < 16i32 as (usize) && (best_len < max_len) {
-                    let idx : usize = kDistanceCacheIndex[j] as (usize);
-                    let backward
-                        : usize
-                        = ((*posdata).distance_cache[idx] + kDistanceCacheOffset[
-                                                                j
-                                                            ]) as (usize);
-                    let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-                    if !(prev_ix >= cur_ix) {
-                        if !(backward > max_distance) {
+    while k < max_iters && (k < StartPosQueueSize(
+                                    queue as (*const StartPosQueue)
+                                )) {
+        'continue28: loop {
+            {
+                let mut posdata
+                    : *const PosData
+                    = StartPosQueueAt(queue as (*const StartPosQueue),k);
+                let start : usize = (*posdata).pos;
+                let inscode : u16 = GetInsertLengthCode(pos.wrapping_sub(start));
+                let start_costdiff : f32 = (*posdata).costdiff;
+                let base_cost
+                    : f32
+                    = start_costdiff + GetInsertExtra(
+                                           inscode
+                                       ) as (f32) + ZopfliCostModelGetLiteralCosts(
+                                                        model,
+                                                        0i32 as (usize),
+                                                        pos
+                                                    );
+                let mut best_len : usize = min_len.wrapping_sub(1i32 as (usize));
+                let mut j : usize = 0i32 as (usize);
+                while j < 16i32 as (usize) && (best_len < max_len) {
+                    'continue30: loop {
+                        {
+                            let idx
+                                : usize
+                                = *kDistanceCacheIndex.offset(j as (isize)) as (usize);
+                            let backward
+                                : usize
+                                = (*(*posdata).distance_cache.offset(
+                                        idx as (isize)
+                                    ) + *kDistanceCacheOffset.offset(j as (isize))) as (usize);
+                            let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
+                            if prev_ix >= cur_ix {
+                                if 1337i32 != 0 {
+                                    break 'continue30;
+                                }
+                            }
+                            if backward > max_distance {
+                                if 1337i32 != 0 {
+                                    break 'continue30;
+                                }
+                            }
                             prev_ix = prev_ix & ringbuffer_mask;
-                            if !(cur_ix_masked.wrapping_add(
-                                     best_len
-                                 ) > ringbuffer_mask || prev_ix.wrapping_add(
-                                                            best_len
-                                                        ) > ringbuffer_mask || *ringbuffer.offset(
-                                                                                    cur_ix_masked.wrapping_add(
-                                                                                        best_len
-                                                                                    ) as (isize)
-                                                                                ) as (i32) != *ringbuffer.offset(
-                                                                                                   prev_ix.wrapping_add(
-                                                                                                       best_len
-                                                                                                   ) as (isize)
-                                                                                               ) as (i32)) {
+                            if cur_ix_masked.wrapping_add(
+                                   best_len
+                               ) > ringbuffer_mask || prev_ix.wrapping_add(
+                                                          best_len
+                                                      ) > ringbuffer_mask || *ringbuffer.offset(
+                                                                                  cur_ix_masked.wrapping_add(
+                                                                                      best_len
+                                                                                  ) as (isize)
+                                                                              ) as (i32) != *ringbuffer.offset(
+                                                                                                 prev_ix.wrapping_add(
+                                                                                                     best_len
+                                                                                                 ) as (isize)
+                                                                                             ) as (i32) {
+                                if 1337i32 != 0 {
+                                    break 'continue30;
+                                }
+                            }
+                            {
                                 let len
                                     : usize
                                     = FindMatchLengthWithLimit(
@@ -1809,8 +1497,8 @@ unsafe extern fn UpdateNodes(
                                     = base_cost + ZopfliCostModelGetDistanceCost(model,j);
                                 let mut l : usize;
                                 l = best_len.wrapping_add(1i32 as (usize));
-                                'loop20: loop {
-                                    if l <= len {
+                                while l <= len {
+                                    {
                                         let copycode : u16 = GetCopyLengthCode(l);
                                         let cmdcode
                                             : u16
@@ -1847,113 +1535,105 @@ unsafe extern fn UpdateNodes(
                                             result = brotli_max_size_t(result,l);
                                         }
                                         best_len = l;
-                                        l = l.wrapping_add(1 as (usize));
-                                        continue 'loop20;
-                                    } else {
-                                        break 'loop20;
                                     }
+                                    l = l.wrapping_add(1 as (usize));
                                 }
                             }
                         }
+                        break;
                     }
                     j = j.wrapping_add(1 as (usize));
-                    continue 'loop4;
-                } else {
-                    break 'loop4;
                 }
-            }
-            if !(k >= 2i32 as (usize)) {
-                let mut len : usize = min_len;
-                j = 0i32 as (usize);
-                'loop7: loop {
-                    if j < num_matches {
-                        let mut match_ : BackwardMatch = *matches.offset(j as (isize));
-                        let mut dist : usize = match_.distance as (usize);
-                        let mut is_dictionary_match
-                            : i32
-                            = if !!(dist > max_distance) { 1i32 } else { 0i32 };
-                        let mut dist_code
-                            : usize
-                            = dist.wrapping_add(16i32 as (usize)).wrapping_sub(
-                                  1i32 as (usize)
-                              );
-                        let mut dist_symbol : u16;
-                        let mut distextra : u32;
-                        let mut distnumextra : u32;
-                        let mut dist_cost : f32;
-                        let mut max_match_len : usize;
-                        PrefixEncodeCopyDistance(
-                            dist_code,
-                            0i32 as (usize),
-                            0i32 as (usize),
-                            &mut dist_symbol as (*mut u16),
-                            &mut distextra as (*mut u32)
-                        );
-                        distnumextra = distextra >> 24i32;
-                        dist_cost = base_cost + distnumextra as (f32) + ZopfliCostModelGetDistanceCost(
-                                                                            model,
-                                                                            dist_symbol as (usize)
-                                                                        );
-                        max_match_len = BackwardMatchLength(
-                                            &mut match_ as (*mut BackwardMatch) as (*const BackwardMatch)
+                if k >= 2i32 as (usize) {
+                    if 1337i32 != 0 {
+                        break 'continue28;
+                    }
+                }
+                {
+                    let mut len : usize = min_len;
+                    j = 0i32 as (usize);
+                    while j < num_matches {
+                        {
+                            let mut match_ : BackwardMatch = *matches.offset(j as (isize));
+                            let mut dist : usize = match_.distance as (usize);
+                            let mut is_dictionary_match
+                                : i32
+                                = if !!(dist > max_distance) { 1i32 } else { 0i32 };
+                            let mut dist_code
+                                : usize
+                                = dist.wrapping_add(16i32 as (usize)).wrapping_sub(
+                                      1i32 as (usize)
+                                  );
+                            let mut dist_symbol : u16;
+                            let mut distextra : u32;
+                            let mut distnumextra : u32;
+                            let mut dist_cost : f32;
+                            let mut max_match_len : usize;
+                            PrefixEncodeCopyDistance(
+                                dist_code,
+                                0i32 as (usize),
+                                0i32 as (usize),
+                                &mut dist_symbol as (*mut u16),
+                                &mut distextra as (*mut u32)
+                            );
+                            distnumextra = distextra >> 24i32;
+                            dist_cost = base_cost + distnumextra as (f32) + ZopfliCostModelGetDistanceCost(
+                                                                                model,
+                                                                                dist_symbol as (usize)
+                                                                            );
+                            max_match_len = BackwardMatchLength(
+                                                &mut match_ as (*mut BackwardMatch) as (*const BackwardMatch)
+                                            );
+                            if len < max_match_len && (is_dictionary_match != 0 || max_match_len > max_zopfli_len) {
+                                len = max_match_len;
+                            }
+                            while len <= max_match_len {
+                                {
+                                    let len_code
+                                        : usize
+                                        = if is_dictionary_match != 0 {
+                                              BackwardMatchLengthCode(
+                                                  &mut match_ as (*mut BackwardMatch) as (*const BackwardMatch)
+                                              )
+                                          } else {
+                                              len
+                                          };
+                                    let copycode : u16 = GetCopyLengthCode(len_code);
+                                    let cmdcode : u16 = CombineLengthCodes(inscode,copycode,0i32);
+                                    let cost
+                                        : f32
+                                        = dist_cost + GetCopyExtra(
+                                                          copycode
+                                                      ) as (f32) + ZopfliCostModelGetCommandCost(
+                                                                       model,
+                                                                       cmdcode
+                                                                   );
+                                    if cost < (*nodes.offset(
+                                                    pos.wrapping_add(len) as (isize)
+                                                )).u.cost {
+                                        UpdateZopfliNode(
+                                            nodes,
+                                            pos,
+                                            start,
+                                            len,
+                                            len_code,
+                                            dist,
+                                            0i32 as (usize),
+                                            cost
                                         );
-                        if len < max_match_len && (is_dictionary_match != 0 || max_match_len > max_zopfli_len) {
-                            len = max_match_len;
-                        }
-                        'loop10: loop {
-                            if len <= max_match_len {
-                                let len_code
-                                    : usize
-                                    = if is_dictionary_match != 0 {
-                                          BackwardMatchLengthCode(
-                                              &mut match_ as (*mut BackwardMatch) as (*const BackwardMatch)
-                                          )
-                                      } else {
-                                          len
-                                      };
-                                let copycode : u16 = GetCopyLengthCode(len_code);
-                                let cmdcode : u16 = CombineLengthCodes(inscode,copycode,0i32);
-                                let cost
-                                    : f32
-                                    = dist_cost + GetCopyExtra(
-                                                      copycode
-                                                  ) as (f32) + ZopfliCostModelGetCommandCost(
-                                                                   model,
-                                                                   cmdcode
-                                                               );
-                                if cost < (*nodes.offset(
-                                                pos.wrapping_add(len) as (isize)
-                                            )).u.cost {
-                                    UpdateZopfliNode(
-                                        nodes,
-                                        pos,
-                                        start,
-                                        len,
-                                        len_code,
-                                        dist,
-                                        0i32 as (usize),
-                                        cost
-                                    );
-                                    result = brotli_max_size_t(result,len);
+                                        result = brotli_max_size_t(result,len);
+                                    }
                                 }
                                 len = len.wrapping_add(1 as (usize));
-                                continue 'loop10;
-                            } else {
-                                break 'loop10;
                             }
                         }
                         j = j.wrapping_add(1 as (usize));
-                        continue 'loop7;
-                    } else {
-                        break 'loop7;
                     }
                 }
             }
-            k = k.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
+            break;
         }
+        k = k.wrapping_add(1 as (usize));
     }
     result
 }
@@ -1977,8 +1657,8 @@ unsafe extern fn StoreH10(
         mask,
         128i32 as (usize),
         max_backward,
-        0i32 as (*mut ::std::os::raw::c_void) as (*mut usize),
-        0i32 as (*mut ::std::os::raw::c_void) as (*mut BackwardMatch)
+        0i32 as (*mut std::os::raw::c_void) as (*mut usize),
+        0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch)
     );
 }
 
@@ -1995,24 +1675,18 @@ unsafe extern fn StoreRangeH10(
         i = ix_end.wrapping_sub(63i32 as (usize));
     }
     if ix_start.wrapping_add(512i32 as (usize)) <= i {
-        'loop3: loop {
-            if j < i {
+        while j < i {
+            {
                 StoreH10(handle,data,mask,j);
-                j = j.wrapping_add(8i32 as (usize));
-                continue 'loop3;
-            } else {
-                break 'loop3;
             }
+            j = j.wrapping_add(8i32 as (usize));
         }
     }
-    'loop4: loop {
-        if i < ix_end {
+    while i < ix_end {
+        {
             StoreH10(handle,data,mask,i);
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop4;
-        } else {
-            break 'loop4;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -2023,9 +1697,9 @@ unsafe extern fn CleanupZopfliCostModel(
 ) {
     BrotliFree(
         m,
-        (*self).literal_costs_ as (*mut ::std::os::raw::c_void)
+        (*self).literal_costs_ as (*mut std::os::raw::c_void)
     );
-    (*self).literal_costs_ = 0i32 as (*mut ::std::os::raw::c_void) as (*mut f32);
+    (*self).literal_costs_ = 0i32 as (*mut std::os::raw::c_void) as (*mut f32);
 }
 
 unsafe extern fn ZopfliNodeCommandLength(
@@ -2039,35 +1713,25 @@ unsafe extern fn ComputeShortestPathFromNodes(
 ) -> usize {
     let mut index : usize = num_bytes;
     let mut num_commands : usize = 0i32 as (usize);
-    'loop1: loop {
-        if (*nodes.offset(
-                 index as (isize)
-             )).insert_length == 0i32 as (u32) && ((*nodes.offset(
-                                                         index as (isize)
-                                                     )).length == 1i32 as (u32)) {
-            index = index.wrapping_sub(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
-        }
+    while (*nodes.offset(
+                index as (isize)
+            )).insert_length == 0i32 as (u32) && ((*nodes.offset(
+                                                        index as (isize)
+                                                    )).length == 1i32 as (u32)) {
+        index = index.wrapping_sub(1 as (usize));
     }
     (*nodes.offset(index as (isize))).u.next = !(0i32 as (u32));
-    'loop3: loop {
-        if index != 0i32 as (usize) {
-            let mut len
-                : usize
-                = ZopfliNodeCommandLength(
-                      &mut *nodes.offset(
-                                index as (isize)
-                            ) as (*mut ZopfliNode) as (*const ZopfliNode)
-                  ) as (usize);
-            index = index.wrapping_sub(len);
-            (*nodes.offset(index as (isize))).u.next = len as (u32);
-            num_commands = num_commands.wrapping_add(1 as (usize));
-            continue 'loop3;
-        } else {
-            break 'loop3;
-        }
+    while index != 0i32 as (usize) {
+        let mut len
+            : usize
+            = ZopfliNodeCommandLength(
+                  &mut *nodes.offset(
+                            index as (isize)
+                        ) as (*mut ZopfliNode) as (*const ZopfliNode)
+              ) as (usize);
+        index = index.wrapping_sub(len);
+        (*nodes.offset(index as (isize))).u.next = len as (u32);
+        num_commands = num_commands.wrapping_add(1 as (usize));
     }
     num_commands
 }
@@ -2089,7 +1753,7 @@ pub unsafe extern fn BrotliZopfliComputeShortestPath(
     let max_zopfli_len : usize = MaxZopfliLen(params);
     let mut model : ZopfliCostModel;
     let mut queue : StartPosQueue;
-    let mut matches : [BackwardMatch; 128];
+    let mut matches : *mut BackwardMatch;
     let store_end
         : usize
         = if num_bytes >= StoreLookaheadH10() {
@@ -2110,125 +1774,119 @@ pub unsafe extern fn BrotliZopfliComputeShortestPath(
         num_bytes
     );
     if !(0i32 == 0) {
-        0i32 as (usize)
-    } else {
-        ZopfliCostModelSetFromLiteralCosts(
-            &mut model as (*mut ZopfliCostModel),
-            position,
-            ringbuffer,
-            ringbuffer_mask
-        );
-        InitStartPosQueue(&mut queue as (*mut StartPosQueue));
-        i = 0i32 as (usize);
-        'loop2: loop {
-            if i.wrapping_add(HashTypeLengthH10()).wrapping_sub(
-                   1i32 as (usize)
-               ) < num_bytes {
-                let pos : usize = position.wrapping_add(i);
-                let max_distance
-                    : usize
-                    = brotli_min_size_t(pos,max_backward_limit);
-                let mut num_matches
-                    : usize
-                    = FindAllMatchesH10(
-                          hasher,
-                          dictionary,
-                          ringbuffer,
-                          ringbuffer_mask,
-                          pos,
-                          num_bytes.wrapping_sub(i),
-                          max_distance,
-                          params,
-                          matches.as_mut_ptr()
-                      );
-                let mut skip : usize;
-                if num_matches > 0i32 as (usize) && (BackwardMatchLength(
-                                                         &mut matches[
-                                                                  num_matches.wrapping_sub(
-                                                                      1i32 as (usize)
-                                                                  )
-                                                              ] as (*mut BackwardMatch) as (*const BackwardMatch)
-                                                     ) > max_zopfli_len) {
-                    matches[0i32 as (usize)] = matches[
-                                                   num_matches.wrapping_sub(1i32 as (usize))
-                                               ];
-                    num_matches = 1i32 as (usize);
-                }
-                skip = UpdateNodes(
-                           num_bytes,
-                           position,
-                           i,
-                           ringbuffer,
-                           ringbuffer_mask,
-                           params,
-                           max_backward_limit,
-                           dist_cache,
-                           num_matches,
-                           matches.as_mut_ptr() as (*const BackwardMatch),
-                           &mut model as (*mut ZopfliCostModel) as (*const ZopfliCostModel),
-                           &mut queue as (*mut StartPosQueue),
-                           nodes
+        return 0i32 as (usize);
+    }
+    ZopfliCostModelSetFromLiteralCosts(
+        &mut model as (*mut ZopfliCostModel),
+        position,
+        ringbuffer,
+        ringbuffer_mask
+    );
+    InitStartPosQueue(&mut queue as (*mut StartPosQueue));
+    i = 0i32 as (usize);
+    while i.wrapping_add(HashTypeLengthH10()).wrapping_sub(
+              1i32 as (usize)
+          ) < num_bytes {
+        {
+            let pos : usize = position.wrapping_add(i);
+            let max_distance
+                : usize
+                = brotli_min_size_t(pos,max_backward_limit);
+            let mut num_matches
+                : usize
+                = FindAllMatchesH10(
+                      hasher,
+                      dictionary,
+                      ringbuffer,
+                      ringbuffer_mask,
+                      pos,
+                      num_bytes.wrapping_sub(i),
+                      max_distance,
+                      params,
+                      matches
+                  );
+            let mut skip : usize;
+            if num_matches > 0i32 as (usize) && (BackwardMatchLength(
+                                                     &mut *matches.offset(
+                                                               num_matches.wrapping_sub(
+                                                                   1i32 as (usize)
+                                                               ) as (isize)
+                                                           ) as (*mut BackwardMatch) as (*const BackwardMatch)
+                                                 ) > max_zopfli_len) {
+                *matches.offset(0i32 as (isize)) = *matches.offset(
+                                                        num_matches.wrapping_sub(
+                                                            1i32 as (usize)
+                                                        ) as (isize)
+                                                    );
+                num_matches = 1i32 as (usize);
+            }
+            skip = UpdateNodes(
+                       num_bytes,
+                       position,
+                       i,
+                       ringbuffer,
+                       ringbuffer_mask,
+                       params,
+                       max_backward_limit,
+                       dist_cache,
+                       num_matches,
+                       matches as (*const BackwardMatch),
+                       &mut model as (*mut ZopfliCostModel) as (*const ZopfliCostModel),
+                       &mut queue as (*mut StartPosQueue),
+                       nodes
+                   );
+            if skip < 16384i32 as (usize) {
+                skip = 0i32 as (usize);
+            }
+            if num_matches == 1i32 as (usize) && (BackwardMatchLength(
+                                                      &mut *matches.offset(
+                                                                0i32 as (isize)
+                                                            ) as (*mut BackwardMatch) as (*const BackwardMatch)
+                                                  ) > max_zopfli_len) {
+                skip = brotli_max_size_t(
+                           BackwardMatchLength(
+                               &mut *matches.offset(
+                                         0i32 as (isize)
+                                     ) as (*mut BackwardMatch) as (*const BackwardMatch)
+                           ),
+                           skip
                        );
-                if skip < 16384i32 as (usize) {
-                    skip = 0i32 as (usize);
-                }
-                if num_matches == 1i32 as (usize) && (BackwardMatchLength(
-                                                          &mut matches[
-                                                                   0i32 as (usize)
-                                                               ] as (*mut BackwardMatch) as (*const BackwardMatch)
-                                                      ) > max_zopfli_len) {
-                    skip = brotli_max_size_t(
-                               BackwardMatchLength(
-                                   &mut matches[
-                                            0i32 as (usize)
-                                        ] as (*mut BackwardMatch) as (*const BackwardMatch)
-                               ),
-                               skip
-                           );
-                }
-                if skip > 1i32 as (usize) {
-                    StoreRangeH10(
-                        hasher,
-                        ringbuffer,
-                        ringbuffer_mask,
-                        pos.wrapping_add(1i32 as (usize)),
-                        brotli_min_size_t(pos.wrapping_add(skip),store_end)
-                    );
-                    skip = skip.wrapping_sub(1 as (usize));
-                    'loop12: loop {
-                        if skip != 0 {
-                            i = i.wrapping_add(1 as (usize));
-                            if i.wrapping_add(HashTypeLengthH10()).wrapping_sub(
-                                   1i32 as (usize)
-                               ) >= num_bytes {
-                                break 'loop12;
-                            } else {
-                                EvaluateNode(
-                                    position,
-                                    i,
-                                    max_backward_limit,
-                                    dist_cache,
-                                    &mut model as (*mut ZopfliCostModel) as (*const ZopfliCostModel),
-                                    &mut queue as (*mut StartPosQueue),
-                                    nodes
-                                );
-                                skip = skip.wrapping_sub(1 as (usize));
-                                continue 'loop12;
-                            }
-                        } else {
-                            break 'loop12;
+            }
+            if skip > 1i32 as (usize) {
+                StoreRangeH10(
+                    hasher,
+                    ringbuffer,
+                    ringbuffer_mask,
+                    pos.wrapping_add(1i32 as (usize)),
+                    brotli_min_size_t(pos.wrapping_add(skip),store_end)
+                );
+                skip = skip.wrapping_sub(1 as (usize));
+                while skip != 0 {
+                    i = i.wrapping_add(1 as (usize));
+                    if i.wrapping_add(HashTypeLengthH10()).wrapping_sub(
+                           1i32 as (usize)
+                       ) >= num_bytes {
+                        if 1337i32 != 0 {
+                            break;
                         }
                     }
+                    EvaluateNode(
+                        position,
+                        i,
+                        max_backward_limit,
+                        dist_cache,
+                        &mut model as (*mut ZopfliCostModel) as (*const ZopfliCostModel),
+                        &mut queue as (*mut StartPosQueue),
+                        nodes
+                    );
+                    skip = skip.wrapping_sub(1 as (usize));
                 }
-                i = i.wrapping_add(1 as (usize));
-                continue 'loop2;
-            } else {
-                break 'loop2;
             }
         }
-        CleanupZopfliCostModel(m,&mut model as (*mut ZopfliCostModel));
-        ComputeShortestPathFromNodes(num_bytes,nodes)
+        i = i.wrapping_add(1 as (usize));
     }
+    CleanupZopfliCostModel(m,&mut model as (*mut ZopfliCostModel));
+    ComputeShortestPathFromNodes(num_bytes,nodes)
 }
 
 #[no_mangle]
@@ -2257,48 +1915,50 @@ pub unsafe extern fn BrotliCreateZopfliBackwardReferences(
                 BrotliAllocate(
                     m,
                     num_bytes.wrapping_add(1i32 as (usize)).wrapping_mul(
-                        ::std::mem::size_of::<ZopfliNode>()
+                        std::mem::size_of::<ZopfliNode>()
                     )
                 ) as (*mut ZopfliNode)
             } else {
-                0i32 as (*mut ::std::os::raw::c_void) as (*mut ZopfliNode)
+                0i32 as (*mut std::os::raw::c_void) as (*mut ZopfliNode)
             };
     if !(0i32 == 0) {
-    } else {
-        BrotliInitZopfliNodes(
-            nodes,
-            num_bytes.wrapping_add(1i32 as (usize))
-        );
-        *num_commands = (*num_commands).wrapping_add(
-                            BrotliZopfliComputeShortestPath(
-                                m,
-                                dictionary,
-                                num_bytes,
-                                position,
-                                ringbuffer,
-                                ringbuffer_mask,
-                                params,
-                                max_backward_limit,
-                                dist_cache as (*const i32),
-                                hasher,
-                                nodes
-                            )
-                        );
-        if !(0i32 == 0) {
-        } else {
-            BrotliZopfliCreateCommands(
-                num_bytes,
-                position,
-                max_backward_limit,
-                nodes as (*const ZopfliNode),
-                dist_cache,
-                last_insert_len,
-                commands,
-                num_literals
-            );
-            BrotliFree(m,nodes as (*mut ::std::os::raw::c_void));
-            nodes = 0i32 as (*mut ::std::os::raw::c_void) as (*mut ZopfliNode);
-        }
+        return;
+    }
+    BrotliInitZopfliNodes(
+        nodes,
+        num_bytes.wrapping_add(1i32 as (usize))
+    );
+    *num_commands = (*num_commands).wrapping_add(
+                        BrotliZopfliComputeShortestPath(
+                            m,
+                            dictionary,
+                            num_bytes,
+                            position,
+                            ringbuffer,
+                            ringbuffer_mask,
+                            params,
+                            max_backward_limit,
+                            dist_cache as (*const i32),
+                            hasher,
+                            nodes
+                        )
+                    );
+    if !(0i32 == 0) {
+        return;
+    }
+    BrotliZopfliCreateCommands(
+        num_bytes,
+        position,
+        max_backward_limit,
+        nodes as (*const ZopfliNode),
+        dist_cache,
+        last_insert_len,
+        commands,
+        num_literals
+    );
+    {
+        BrotliFree(m,nodes as (*mut std::os::raw::c_void));
+        nodes = 0i32 as (*mut std::os::raw::c_void) as (*mut ZopfliNode);
     }
 }
 
@@ -2315,22 +1975,25 @@ unsafe extern fn SetCost(
     let mut log2sum : f32;
     let mut i : usize;
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < histogram_size {
+    while i < histogram_size {
+        {
             sum = sum.wrapping_add(*histogram.offset(i as (isize)) as (usize));
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     log2sum = FastLog2(sum) as (f32);
     i = 0i32 as (usize);
-    'loop3: loop {
-        if i < histogram_size {
-            if *histogram.offset(i as (isize)) == 0i32 as (u32) {
-                *cost.offset(i as (isize)) = log2sum + 2i32 as (f32);
-            } else {
+    while i < histogram_size {
+        'continue54: loop {
+            {
+                if *histogram.offset(i as (isize)) == 0i32 as (u32) {
+                    *cost.offset(i as (isize)) = log2sum + 2i32 as (f32);
+                    {
+                        if 1337i32 != 0 {
+                            break 'continue54;
+                        }
+                    }
+                }
                 *cost.offset(i as (isize)) = log2sum - FastLog2(
                                                            *histogram.offset(
                                                                 i as (isize)
@@ -2340,11 +2003,9 @@ unsafe extern fn SetCost(
                     *cost.offset(i as (isize)) = 1i32 as (f32);
                 }
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop3;
-        } else {
-            break 'loop3;
+            break;
         }
+        i = i.wrapping_add(1 as (usize));
     }
 }
 
@@ -2363,32 +2024,32 @@ unsafe extern fn ZopfliCostModelSetFromCommands(
     mut num_commands : usize,
     mut last_insert_len : usize
 ) {
-    let mut histogram_literal : [u32; 256];
-    let mut histogram_cmd : [u32; 704];
-    let mut histogram_dist : [u32; 520];
-    let mut cost_literal : [f32; 256];
+    let mut histogram_literal : *mut u32;
+    let mut histogram_cmd : *mut u32;
+    let mut histogram_dist : *mut u32;
+    let mut cost_literal : *mut f32;
     let mut pos : usize = position.wrapping_sub(last_insert_len);
     let mut min_cost_cmd : f32 = kInfinity;
     let mut i : usize;
-    let mut cost_cmd : *mut f32 = (*self).cost_cmd_.as_mut_ptr();
+    let mut cost_cmd : *mut f32 = (*self).cost_cmd_;
     memset(
-        histogram_literal.as_mut_ptr() as (*mut ::std::os::raw::c_void),
+        histogram_literal as (*mut std::os::raw::c_void),
         0i32,
-        ::std::mem::size_of::<[u32; 256]>()
+        std::mem::size_of::<*mut u32>()
     );
     memset(
-        histogram_cmd.as_mut_ptr() as (*mut ::std::os::raw::c_void),
+        histogram_cmd as (*mut std::os::raw::c_void),
         0i32,
-        ::std::mem::size_of::<[u32; 704]>()
+        std::mem::size_of::<*mut u32>()
     );
     memset(
-        histogram_dist.as_mut_ptr() as (*mut ::std::os::raw::c_void),
+        histogram_dist as (*mut std::os::raw::c_void),
         0i32,
-        ::std::mem::size_of::<[u32; 520]>()
+        std::mem::size_of::<*mut u32>()
     );
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i < num_commands {
+    while i < num_commands {
+        {
             let mut inslength
                 : usize
                 = (*commands.offset(i as (isize))).insert_len_ as (usize);
@@ -2406,88 +2067,72 @@ unsafe extern fn ZopfliCostModelSetFromCommands(
             let mut j : usize;
             {
                 let _rhs = 1;
-                let _lhs = &mut histogram_cmd[cmdcode];
+                let _lhs = &mut *histogram_cmd.offset(cmdcode as (isize));
                 *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
             if cmdcode >= 128i32 as (usize) {
                 let _rhs = 1;
-                let _lhs = &mut histogram_dist[distcode];
+                let _lhs = &mut *histogram_dist.offset(distcode as (isize));
                 *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
             j = 0i32 as (usize);
-            'loop14: loop {
-                if j < inslength {
-                    {
-                        let _rhs = 1;
-                        let _lhs
-                            = &mut histogram_literal[
-                                       *ringbuffer.offset(
-                                            (pos.wrapping_add(j) & ringbuffer_mask) as (isize)
-                                        ) as (usize)
-                                   ];
-                        *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-                    }
-                    j = j.wrapping_add(1 as (usize));
-                    continue 'loop14;
-                } else {
-                    break 'loop14;
+            while j < inslength {
+                {
+                    let _rhs = 1;
+                    let _lhs
+                        = &mut *histogram_literal.offset(
+                                    *ringbuffer.offset(
+                                         (pos.wrapping_add(j) & ringbuffer_mask) as (isize)
+                                     ) as (isize)
+                                );
+                    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
                 }
+                j = j.wrapping_add(1 as (usize));
             }
             pos = pos.wrapping_add(inslength.wrapping_add(copylength));
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     SetCost(
-        histogram_literal.as_mut_ptr() as (*const u32),
+        histogram_literal as (*const u32),
         256i32 as (usize),
-        cost_literal.as_mut_ptr()
+        cost_literal
     );
+    SetCost(histogram_cmd as (*const u32),704i32 as (usize),cost_cmd);
     SetCost(
-        histogram_cmd.as_mut_ptr() as (*const u32),
-        704i32 as (usize),
-        cost_cmd
-    );
-    SetCost(
-        histogram_dist.as_mut_ptr() as (*const u32),
+        histogram_dist as (*const u32),
         520i32 as (usize),
-        (*self).cost_dist_.as_mut_ptr()
+        (*self).cost_dist_
     );
     i = 0i32 as (usize);
-    'loop3: loop {
-        if i < 704i32 as (usize) {
+    while i < 704i32 as (usize) {
+        {
             min_cost_cmd = brotli_min_float(
                                min_cost_cmd,
                                *cost_cmd.offset(i as (isize))
                            );
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop3;
-        } else {
-            break 'loop3;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     (*self).min_cost_cmd_ = min_cost_cmd;
-    let mut literal_costs : *mut f32 = (*self).literal_costs_;
-    let mut num_bytes : usize = (*self).num_bytes_;
-    *literal_costs.offset(0i32 as (isize)) = 0.0f64 as (f32);
-    i = 0i32 as (usize);
-    'loop5: loop {
-        if i < num_bytes {
-            *literal_costs.offset(
-                 i.wrapping_add(1i32 as (usize)) as (isize)
-             ) = *literal_costs.offset(i as (isize)) + cost_literal[
-                                                           *ringbuffer.offset(
-                                                                (position.wrapping_add(
-                                                                     i
-                                                                 ) & ringbuffer_mask) as (isize)
-                                                            ) as (usize)
-                                                       ];
+    {
+        let mut literal_costs : *mut f32 = (*self).literal_costs_;
+        let mut num_bytes : usize = (*self).num_bytes_;
+        *literal_costs.offset(0i32 as (isize)) = 0.0f64 as (f32);
+        i = 0i32 as (usize);
+        while i < num_bytes {
+            {
+                *literal_costs.offset(
+                     i.wrapping_add(1i32 as (usize)) as (isize)
+                 ) = *literal_costs.offset(i as (isize)) + *cost_literal.offset(
+                                                                *ringbuffer.offset(
+                                                                     (position.wrapping_add(
+                                                                          i
+                                                                      ) & ringbuffer_mask) as (isize)
+                                                                 ) as (isize)
+                                                            );
+            }
             i = i.wrapping_add(1 as (usize));
-            continue 'loop5;
-        } else {
-            break 'loop5;
         }
     }
 }
@@ -2513,8 +2158,8 @@ unsafe extern fn ZopfliIterate(
     (*nodes.offset(0i32 as (isize))).u.cost = 0i32 as (f32);
     InitStartPosQueue(&mut queue as (*mut StartPosQueue));
     i = 0i32 as (usize);
-    'loop1: loop {
-        if i.wrapping_add(3i32 as (usize)) < num_bytes {
+    while i.wrapping_add(3i32 as (usize)) < num_bytes {
+        {
             let mut skip
                 : usize
                 = UpdateNodes(
@@ -2560,37 +2205,30 @@ unsafe extern fn ZopfliIterate(
             }
             if skip > 1i32 as (usize) {
                 skip = skip.wrapping_sub(1 as (usize));
-                'loop9: loop {
-                    if skip != 0 {
-                        i = i.wrapping_add(1 as (usize));
-                        if i.wrapping_add(3i32 as (usize)) >= num_bytes {
-                            break 'loop9;
-                        } else {
-                            EvaluateNode(
-                                position,
-                                i,
-                                max_backward_limit,
-                                dist_cache,
-                                model,
-                                &mut queue as (*mut StartPosQueue),
-                                nodes
-                            );
-                            cur_match_pos = cur_match_pos.wrapping_add(
-                                                *num_matches.offset(i as (isize)) as (usize)
-                                            );
-                            skip = skip.wrapping_sub(1 as (usize));
-                            continue 'loop9;
+                while skip != 0 {
+                    i = i.wrapping_add(1 as (usize));
+                    if i.wrapping_add(3i32 as (usize)) >= num_bytes {
+                        if 1337i32 != 0 {
+                            break;
                         }
-                    } else {
-                        break 'loop9;
                     }
+                    EvaluateNode(
+                        position,
+                        i,
+                        max_backward_limit,
+                        dist_cache,
+                        model,
+                        &mut queue as (*mut StartPosQueue),
+                        nodes
+                    );
+                    cur_match_pos = cur_match_pos.wrapping_add(
+                                        *num_matches.offset(i as (isize)) as (usize)
+                                    );
+                    skip = skip.wrapping_sub(1 as (usize));
                 }
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop1;
-        } else {
-            break 'loop1;
         }
+        i = i.wrapping_add(1 as (usize));
     }
     ComputeShortestPathFromNodes(num_bytes,nodes)
 }
@@ -2621,10 +2259,10 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
         = if num_bytes != 0 {
               BrotliAllocate(
                   m,
-                  num_bytes.wrapping_mul(::std::mem::size_of::<u32>())
+                  num_bytes.wrapping_mul(std::mem::size_of::<u32>())
               ) as (*mut u32)
           } else {
-              0i32 as (*mut ::std::os::raw::c_void) as (*mut u32)
+              0i32 as (*mut std::os::raw::c_void) as (*mut u32)
           };
     let mut matches_size
         : usize
@@ -2644,7 +2282,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
     let mut i : usize;
     let mut orig_num_literals : usize;
     let mut orig_last_insert_len : usize;
-    let mut orig_dist_cache : [i32; 4];
+    let mut orig_dist_cache : *mut i32;
     let mut orig_num_commands : usize;
     let mut model : ZopfliCostModel;
     let mut nodes : *mut ZopfliNode;
@@ -2653,26 +2291,28 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
         = if matches_size != 0 {
               BrotliAllocate(
                   m,
-                  matches_size.wrapping_mul(::std::mem::size_of::<BackwardMatch>())
+                  matches_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
               ) as (*mut BackwardMatch)
           } else {
-              0i32 as (*mut ::std::os::raw::c_void) as (*mut BackwardMatch)
+              0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch)
           };
     if !(0i32 == 0) {
-    } else {
-        i = 0i32 as (usize);
-        'loop2: loop {
-            if i.wrapping_add(HashTypeLengthH10()).wrapping_sub(
-                   1i32 as (usize)
-               ) < num_bytes {
-                let pos : usize = position.wrapping_add(i);
-                let mut max_distance
-                    : usize
-                    = brotli_min_size_t(pos,max_backward_limit);
-                let mut max_length : usize = num_bytes.wrapping_sub(i);
-                let mut num_found_matches : usize;
-                let mut cur_match_end : usize;
-                let mut j : usize;
+        return;
+    }
+    i = 0i32 as (usize);
+    while i.wrapping_add(HashTypeLengthH10()).wrapping_sub(
+              1i32 as (usize)
+          ) < num_bytes {
+        {
+            let pos : usize = position.wrapping_add(i);
+            let mut max_distance
+                : usize
+                = brotli_min_size_t(pos,max_backward_limit);
+            let mut max_length : usize = num_bytes.wrapping_sub(i);
+            let mut num_found_matches : usize;
+            let mut cur_match_end : usize;
+            let mut j : usize;
+            {
                 if matches_size < cur_match_pos.wrapping_add(128i32 as (usize)) {
                     let mut _new_size
                         : usize
@@ -2682,247 +2322,237 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
                               matches_size
                           };
                     let mut new_array : *mut BackwardMatch;
-                    'loop17: loop {
-                        if _new_size < cur_match_pos.wrapping_add(128i32 as (usize)) {
-                            _new_size = _new_size.wrapping_mul(2i32 as (usize));
-                            continue 'loop17;
-                        } else {
-                            break 'loop17;
-                        }
+                    while _new_size < cur_match_pos.wrapping_add(128i32 as (usize)) {
+                        _new_size = _new_size.wrapping_mul(2i32 as (usize));
                     }
                     new_array = if _new_size != 0 {
                                     BrotliAllocate(
                                         m,
-                                        _new_size.wrapping_mul(
-                                            ::std::mem::size_of::<BackwardMatch>()
-                                        )
+                                        _new_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
                                     ) as (*mut BackwardMatch)
                                 } else {
-                                    0i32 as (*mut ::std::os::raw::c_void) as (*mut BackwardMatch)
+                                    0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch)
                                 };
                     if !!(0i32 == 0) && (matches_size != 0i32 as (usize)) {
                         memcpy(
-                            new_array as (*mut ::std::os::raw::c_void),
-                            matches as (*const ::std::os::raw::c_void),
-                            matches_size.wrapping_mul(::std::mem::size_of::<BackwardMatch>())
+                            new_array as (*mut std::os::raw::c_void),
+                            matches as (*const std::os::raw::c_void),
+                            matches_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
                         );
                     }
-                    BrotliFree(m,matches as (*mut ::std::os::raw::c_void));
-                    matches = 0i32 as (*mut ::std::os::raw::c_void) as (*mut BackwardMatch);
+                    {
+                        BrotliFree(m,matches as (*mut std::os::raw::c_void));
+                        matches = 0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch);
+                    }
                     matches = new_array;
                     matches_size = _new_size;
                 }
-                if !(0i32 == 0) {
-                    break 'loop2;
-                } else {
-                    num_found_matches = FindAllMatchesH10(
-                                            hasher,
-                                            dictionary,
-                                            ringbuffer,
-                                            ringbuffer_mask,
-                                            pos,
-                                            max_length,
-                                            max_distance,
-                                            params,
-                                            &mut *matches.offset(
-                                                      cur_match_pos as (isize)
-                                                  ) as (*mut BackwardMatch)
-                                        );
-                    cur_match_end = cur_match_pos.wrapping_add(num_found_matches);
-                    j = cur_match_pos;
-                    'loop23: loop {
-                        if j.wrapping_add(1i32 as (usize)) < cur_match_end {
-                            if BackwardMatchLength(
-                                   &mut *matches.offset(
-                                             j as (isize)
-                                         ) as (*mut BackwardMatch) as (*const BackwardMatch)
-                               ) < BackwardMatchLength(
-                                       &mut *matches.offset(
-                                                 j.wrapping_add(1i32 as (usize)) as (isize)
-                                             ) as (*mut BackwardMatch) as (*const BackwardMatch)
-                                   ) {
-                                0i32;
-                            } else {
-                                __assert_fail(
-                                    (*b"BackwardMatchLength(&matches[j]) < BackwardMatchLength(&matches[j + 1])\0").as_ptr(
-                                    ),
-                                    file!().as_ptr(),
-                                    line!(),
-                                    (*b"BrotliCreateHqZopfliBackwardReferences\0").as_ptr()
+            }
+            if !(0i32 == 0) {
+                return;
+            }
+            num_found_matches = FindAllMatchesH10(
+                                    hasher,
+                                    dictionary,
+                                    ringbuffer,
+                                    ringbuffer_mask,
+                                    pos,
+                                    max_length,
+                                    max_distance,
+                                    params,
+                                    &mut *matches.offset(
+                                              cur_match_pos as (isize)
+                                          ) as (*mut BackwardMatch)
                                 );
-                            }
-                            if (*matches.offset(
+            cur_match_end = cur_match_pos.wrapping_add(num_found_matches);
+            j = cur_match_pos;
+            while j.wrapping_add(1i32 as (usize)) < cur_match_end {
+                {
+                    if BackwardMatchLength(
+                           &mut *matches.offset(
                                      j as (isize)
-                                 )).distance as (usize) > max_distance || (*matches.offset(
-                                                                                j as (isize)
-                                                                            )).distance <= (*matches.offset(
-                                                                                                 j.wrapping_add(
-                                                                                                     1i32 as (usize)
-                                                                                                 ) as (isize)
-                                                                                             )).distance {
-                                0i32;
-                            } else {
-                                __assert_fail(
-                                    (*b"matches[j].distance > max_distance || matches[j].distance <= matches[j + 1].distance\0").as_ptr(
-                                    ),
-                                    file!().as_ptr(),
-                                    line!(),
-                                    (*b"BrotliCreateHqZopfliBackwardReferences\0").as_ptr()
-                                );
-                            }
-                            j = j.wrapping_add(1 as (usize));
-                            continue 'loop23;
-                        } else {
-                            break 'loop23;
-                        }
-                    }
-                    *num_matches.offset(i as (isize)) = num_found_matches as (u32);
-                    if num_found_matches > 0i32 as (usize) {
-                        let match_len
-                            : usize
-                            = BackwardMatchLength(
-                                  &mut *matches.offset(
-                                            cur_match_end.wrapping_sub(1i32 as (usize)) as (isize)
-                                        ) as (*mut BackwardMatch) as (*const BackwardMatch)
-                              );
-                        if match_len > 325i32 as (usize) {
-                            let skip : usize = match_len.wrapping_sub(1i32 as (usize));
-                            *matches.offset(
-                                 {
-                                     let _old = cur_match_pos;
-                                     cur_match_pos = cur_match_pos.wrapping_add(1 as (usize));
-                                     _old
-                                 } as (isize)
-                             ) = *matches.offset(
-                                      cur_match_end.wrapping_sub(1i32 as (usize)) as (isize)
-                                  );
-                            *num_matches.offset(i as (isize)) = 1i32 as (u32);
-                            StoreRangeH10(
-                                hasher,
-                                ringbuffer,
-                                ringbuffer_mask,
-                                pos.wrapping_add(1i32 as (usize)),
-                                brotli_min_size_t(pos.wrapping_add(match_len),store_end)
-                            );
-                            memset(
-                                &mut *num_matches.offset(
-                                          i.wrapping_add(1i32 as (usize)) as (isize)
-                                      ) as (*mut u32) as (*mut ::std::os::raw::c_void),
-                                0i32,
-                                skip.wrapping_mul(::std::mem::size_of::<u32>())
-                            );
-                            i = i.wrapping_add(skip);
-                        } else {
-                            cur_match_pos = cur_match_end;
-                        }
-                    }
-                    i = i.wrapping_add(1 as (usize));
-                    continue 'loop2;
-                }
-            } else {
-                orig_num_literals = *num_literals;
-                orig_last_insert_len = *last_insert_len;
-                memcpy(
-                    orig_dist_cache.as_mut_ptr() as (*mut ::std::os::raw::c_void),
-                    dist_cache as (*const ::std::os::raw::c_void),
-                    (4i32 as (usize)).wrapping_mul(::std::mem::size_of::<i32>())
-                );
-                orig_num_commands = *num_commands;
-                nodes = if num_bytes.wrapping_add(1i32 as (usize)) != 0 {
-                            BrotliAllocate(
-                                m,
-                                num_bytes.wrapping_add(1i32 as (usize)).wrapping_mul(
-                                    ::std::mem::size_of::<ZopfliNode>()
-                                )
-                            ) as (*mut ZopfliNode)
-                        } else {
-                            0i32 as (*mut ::std::os::raw::c_void) as (*mut ZopfliNode)
-                        };
-                if !(0i32 == 0) {
-                    return;
-                } else {
-                    InitZopfliCostModel(
-                        m,
-                        &mut model as (*mut ZopfliCostModel),
-                        num_bytes
-                    );
-                    if !(0i32 == 0) {
-                        return;
+                                 ) as (*mut BackwardMatch) as (*const BackwardMatch)
+                       ) < BackwardMatchLength(
+                               &mut *matches.offset(
+                                         j.wrapping_add(1i32 as (usize)) as (isize)
+                                     ) as (*mut BackwardMatch) as (*const BackwardMatch)
+                           ) {
+                        0i32;
                     } else {
-                        i = 0i32 as (usize);
-                        'loop6: loop {
-                            if i < 2i32 as (usize) {
-                                BrotliInitZopfliNodes(
-                                    nodes,
-                                    num_bytes.wrapping_add(1i32 as (usize))
-                                );
-                                if i == 0i32 as (usize) {
-                                    ZopfliCostModelSetFromLiteralCosts(
-                                        &mut model as (*mut ZopfliCostModel),
-                                        position,
-                                        ringbuffer,
-                                        ringbuffer_mask
-                                    );
-                                } else {
-                                    ZopfliCostModelSetFromCommands(
-                                        &mut model as (*mut ZopfliCostModel),
-                                        position,
-                                        ringbuffer,
-                                        ringbuffer_mask,
-                                        commands as (*const Command),
-                                        (*num_commands).wrapping_sub(orig_num_commands),
-                                        orig_last_insert_len
-                                    );
-                                }
-                                *num_commands = orig_num_commands;
-                                *num_literals = orig_num_literals;
-                                *last_insert_len = orig_last_insert_len;
-                                memcpy(
-                                    dist_cache as (*mut ::std::os::raw::c_void),
-                                    orig_dist_cache.as_mut_ptr() as (*const ::std::os::raw::c_void),
-                                    (4i32 as (usize)).wrapping_mul(::std::mem::size_of::<i32>())
-                                );
-                                *num_commands = (*num_commands).wrapping_add(
-                                                    ZopfliIterate(
-                                                        num_bytes,
-                                                        position,
-                                                        ringbuffer,
-                                                        ringbuffer_mask,
-                                                        params,
-                                                        max_backward_limit,
-                                                        dist_cache as (*const i32),
-                                                        &mut model as (*mut ZopfliCostModel) as (*const ZopfliCostModel),
-                                                        num_matches as (*const u32),
-                                                        matches as (*const BackwardMatch),
-                                                        nodes
-                                                    )
-                                                );
-                                BrotliZopfliCreateCommands(
-                                    num_bytes,
-                                    position,
-                                    max_backward_limit,
-                                    nodes as (*const ZopfliNode),
-                                    dist_cache,
-                                    last_insert_len,
-                                    commands,
-                                    num_literals
-                                );
-                                i = i.wrapping_add(1 as (usize));
-                                continue 'loop6;
-                            } else {
-                                break 'loop6;
-                            }
-                        }
-                        CleanupZopfliCostModel(m,&mut model as (*mut ZopfliCostModel));
-                        BrotliFree(m,nodes as (*mut ::std::os::raw::c_void));
-                        nodes = 0i32 as (*mut ::std::os::raw::c_void) as (*mut ZopfliNode);
-                        BrotliFree(m,matches as (*mut ::std::os::raw::c_void));
-                        matches = 0i32 as (*mut ::std::os::raw::c_void) as (*mut BackwardMatch);
-                        BrotliFree(m,num_matches as (*mut ::std::os::raw::c_void));
-                        num_matches = 0i32 as (*mut ::std::os::raw::c_void) as (*mut u32);
+                        __assert_fail(
+                            b"BackwardMatchLength(&matches[j]) < BackwardMatchLength(&matches[j + 1])\0".as_ptr(
+                            ),
+                            file!().as_ptr(),
+                            line!(),
+                            b"BrotliCreateHqZopfliBackwardReferences\0".as_ptr()
+                        );
                     }
+                    if (*matches.offset(
+                             j as (isize)
+                         )).distance as (usize) > max_distance || (*matches.offset(
+                                                                        j as (isize)
+                                                                    )).distance <= (*matches.offset(
+                                                                                         j.wrapping_add(
+                                                                                             1i32 as (usize)
+                                                                                         ) as (isize)
+                                                                                     )).distance {
+                        0i32;
+                    } else {
+                        __assert_fail(
+                            b"matches[j].distance > max_distance || matches[j].distance <= matches[j + 1].distance\0".as_ptr(
+                            ),
+                            file!().as_ptr(),
+                            line!(),
+                            b"BrotliCreateHqZopfliBackwardReferences\0".as_ptr()
+                        );
+                    }
+                }
+                j = j.wrapping_add(1 as (usize));
+            }
+            *num_matches.offset(i as (isize)) = num_found_matches as (u32);
+            if num_found_matches > 0i32 as (usize) {
+                let match_len
+                    : usize
+                    = BackwardMatchLength(
+                          &mut *matches.offset(
+                                    cur_match_end.wrapping_sub(1i32 as (usize)) as (isize)
+                                ) as (*mut BackwardMatch) as (*const BackwardMatch)
+                      );
+                if match_len > 325i32 as (usize) {
+                    let skip : usize = match_len.wrapping_sub(1i32 as (usize));
+                    *matches.offset(
+                         {
+                             let _old = cur_match_pos;
+                             cur_match_pos = cur_match_pos.wrapping_add(1 as (usize));
+                             _old
+                         } as (isize)
+                     ) = *matches.offset(
+                              cur_match_end.wrapping_sub(1i32 as (usize)) as (isize)
+                          );
+                    *num_matches.offset(i as (isize)) = 1i32 as (u32);
+                    StoreRangeH10(
+                        hasher,
+                        ringbuffer,
+                        ringbuffer_mask,
+                        pos.wrapping_add(1i32 as (usize)),
+                        brotli_min_size_t(pos.wrapping_add(match_len),store_end)
+                    );
+                    memset(
+                        &mut *num_matches.offset(
+                                  i.wrapping_add(1i32 as (usize)) as (isize)
+                              ) as (*mut u32) as (*mut std::os::raw::c_void),
+                        0i32,
+                        skip.wrapping_mul(std::mem::size_of::<u32>())
+                    );
+                    i = i.wrapping_add(skip);
+                } else {
+                    cur_match_pos = cur_match_end;
                 }
             }
         }
+        i = i.wrapping_add(1 as (usize));
+    }
+    orig_num_literals = *num_literals;
+    orig_last_insert_len = *last_insert_len;
+    memcpy(
+        orig_dist_cache as (*mut std::os::raw::c_void),
+        dist_cache as (*const std::os::raw::c_void),
+        (4i32 as (usize)).wrapping_mul(std::mem::size_of::<i32>())
+    );
+    orig_num_commands = *num_commands;
+    nodes = if num_bytes.wrapping_add(1i32 as (usize)) != 0 {
+                BrotliAllocate(
+                    m,
+                    num_bytes.wrapping_add(1i32 as (usize)).wrapping_mul(
+                        std::mem::size_of::<ZopfliNode>()
+                    )
+                ) as (*mut ZopfliNode)
+            } else {
+                0i32 as (*mut std::os::raw::c_void) as (*mut ZopfliNode)
+            };
+    if !(0i32 == 0) {
+        return;
+    }
+    InitZopfliCostModel(
+        m,
+        &mut model as (*mut ZopfliCostModel),
+        num_bytes
+    );
+    if !(0i32 == 0) {
+        return;
+    }
+    i = 0i32 as (usize);
+    while i < 2i32 as (usize) {
+        {
+            BrotliInitZopfliNodes(
+                nodes,
+                num_bytes.wrapping_add(1i32 as (usize))
+            );
+            if i == 0i32 as (usize) {
+                ZopfliCostModelSetFromLiteralCosts(
+                    &mut model as (*mut ZopfliCostModel),
+                    position,
+                    ringbuffer,
+                    ringbuffer_mask
+                );
+            } else {
+                ZopfliCostModelSetFromCommands(
+                    &mut model as (*mut ZopfliCostModel),
+                    position,
+                    ringbuffer,
+                    ringbuffer_mask,
+                    commands as (*const Command),
+                    (*num_commands).wrapping_sub(orig_num_commands),
+                    orig_last_insert_len
+                );
+            }
+            *num_commands = orig_num_commands;
+            *num_literals = orig_num_literals;
+            *last_insert_len = orig_last_insert_len;
+            memcpy(
+                dist_cache as (*mut std::os::raw::c_void),
+                orig_dist_cache as (*const std::os::raw::c_void),
+                (4i32 as (usize)).wrapping_mul(std::mem::size_of::<i32>())
+            );
+            *num_commands = (*num_commands).wrapping_add(
+                                ZopfliIterate(
+                                    num_bytes,
+                                    position,
+                                    ringbuffer,
+                                    ringbuffer_mask,
+                                    params,
+                                    max_backward_limit,
+                                    dist_cache as (*const i32),
+                                    &mut model as (*mut ZopfliCostModel) as (*const ZopfliCostModel),
+                                    num_matches as (*const u32),
+                                    matches as (*const BackwardMatch),
+                                    nodes
+                                )
+                            );
+            BrotliZopfliCreateCommands(
+                num_bytes,
+                position,
+                max_backward_limit,
+                nodes as (*const ZopfliNode),
+                dist_cache,
+                last_insert_len,
+                commands,
+                num_literals
+            );
+        }
+        i = i.wrapping_add(1 as (usize));
+    }
+    CleanupZopfliCostModel(m,&mut model as (*mut ZopfliCostModel));
+    {
+        BrotliFree(m,nodes as (*mut std::os::raw::c_void));
+        nodes = 0i32 as (*mut std::os::raw::c_void) as (*mut ZopfliNode);
+    }
+    {
+        BrotliFree(m,matches as (*mut std::os::raw::c_void));
+        matches = 0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch);
+    }
+    {
+        BrotliFree(m,num_matches as (*mut std::os::raw::c_void));
+        num_matches = 0i32 as (*mut std::os::raw::c_void) as (*mut u32);
     }
 }
