@@ -1,13 +1,7 @@
 extern {
-    fn __assert_fail(
-        __assertion : *const u8,
-        __file : *const u8,
-        __line : u32,
-        __function : *const u8
-    );
     fn memset(
-        __s : *mut std::os::raw::c_void, __c : i32, __n : usize
-    ) -> *mut std::os::raw::c_void;
+        __b : *mut ::std::os::raw::c_void, __c : i32, __len : usize
+    ) -> *mut ::std::os::raw::c_void;
 }
 
 #[derive(Clone, Copy)]
@@ -25,29 +19,20 @@ pub unsafe extern fn BrotliSetDepth(
     mut depth : *mut u8,
     mut max_depth : i32
 ) -> i32 {
-    let mut stack : *mut i32;
+    let mut stack : [i32; 16];
     let mut level : i32 = 0i32;
     let mut p : i32 = p0;
-    if max_depth <= 15i32 {
-        0i32;
-    } else {
-        __assert_fail(
-            b"max_depth <= 15\0".as_ptr(),
-            file!().as_ptr(),
-            line!(),
-            b"BrotliSetDepth\0".as_ptr()
-        );
-    }
-    *stack.offset(0i32 as (isize)) = -1i32;
+    0i32;
+    stack[0i32 as (usize)] = -1i32;
     while 1i32 != 0 {
         if (*pool.offset(p as (isize))).index_left_ as (i32) >= 0i32 {
             level = level + 1;
             if level > max_depth {
                 return 0i32;
             }
-            *stack.offset(level as (isize)) = (*pool.offset(
-                                                    p as (isize)
-                                                )).index_right_or_value_ as (i32);
+            stack[level as (usize)] = (*pool.offset(
+                                            p as (isize)
+                                        )).index_right_or_value_ as (i32);
             p = (*pool.offset(p as (isize))).index_left_ as (i32);
             {
                 if 1337i32 != 0 {
@@ -59,14 +44,14 @@ pub unsafe extern fn BrotliSetDepth(
                  (*pool.offset(p as (isize))).index_right_or_value_ as (isize)
              ) = level as (u8);
         }
-        while level >= 0i32 && (*stack.offset(level as (isize)) == -1i32) {
+        while level >= 0i32 && (stack[level as (usize)] == -1i32) {
             level = level - 1;
         }
         if level < 0i32 {
             return 1i32;
         }
-        p = *stack.offset(level as (isize));
-        *stack.offset(level as (isize)) = -1i32;
+        p = stack[level as (usize)];
+        stack[level as (usize)] = -1i32;
     }
 }
 
@@ -95,7 +80,15 @@ unsafe extern fn SortHuffmanTreeItems(
     :
     unsafe extern fn(*const HuffmanTree, *const HuffmanTree) -> i32
 ) {
-    static mut gaps : *const usize = 132i32 as (*const usize);
+    static mut gaps
+        : [usize; 6]
+        = [   132i32 as (usize),
+              57i32 as (usize),
+              23i32 as (usize),
+              10i32 as (usize),
+              4i32 as (usize),
+              1i32 as (usize)
+          ];
     if n < 13i32 as (usize) {
         let mut i : usize;
         i = 1i32 as (usize);
@@ -130,7 +123,7 @@ unsafe extern fn SortHuffmanTreeItems(
         let mut g : i32 = if n < 57i32 as (usize) { 2i32 } else { 0i32 };
         while g < 6i32 {
             {
-                let mut gap : usize = *gaps.offset(g as (isize));
+                let mut gap : usize = gaps[g as (usize)];
                 let mut i : usize;
                 i = gap;
                 while i < n {
@@ -377,7 +370,7 @@ pub unsafe extern fn BrotliOptimizeHuffmanCountsForRle(
             return;
         }
     }
-    memset(good_for_rle as (*mut std::os::raw::c_void),0i32,length);
+    memset(good_for_rle as (*mut ::std::os::raw::c_void),0i32,length);
     {
         let mut symbol : u32 = *counts.offset(0i32 as (isize));
         let mut step : usize = 0i32 as (usize);
@@ -626,16 +619,7 @@ unsafe extern fn BrotliWriteHuffmanTreeRepetitions(
     mut tree : *mut u8,
     mut extra_bits_data : *mut u8
 ) {
-    if repetitions > 0i32 as (usize) {
-        0i32;
-    } else {
-        __assert_fail(
-            b"repetitions > 0\0".as_ptr(),
-            file!().as_ptr(),
-            line!(),
-            b"BrotliWriteHuffmanTreeRepetitions\0".as_ptr()
-        );
-    }
+    0i32;
     if previous_value as (i32) != value as (i32) {
         *tree.offset(*tree_size as (isize)) = value;
         *extra_bits_data.offset(*tree_size as (isize)) = 0i32 as (u8);
@@ -756,19 +740,33 @@ pub unsafe extern fn BrotliWriteHuffmanTree(
 unsafe extern fn BrotliReverseBits(
     mut num_bits : usize, mut bits : u16
 ) -> u16 {
-    static mut kLut : *const usize = 0x0i32 as (*const usize);
-    let mut retval
-        : usize
-        = *kLut.offset((bits as (i32) & 0xfi32) as (isize));
+    static mut kLut
+        : [usize; 16]
+        = [   0x0i32 as (usize),
+              0x8i32 as (usize),
+              0x4i32 as (usize),
+              0xci32 as (usize),
+              0x2i32 as (usize),
+              0xai32 as (usize),
+              0x6i32 as (usize),
+              0xei32 as (usize),
+              0x1i32 as (usize),
+              0x9i32 as (usize),
+              0x5i32 as (usize),
+              0xdi32 as (usize),
+              0x3i32 as (usize),
+              0xbi32 as (usize),
+              0x7i32 as (usize),
+              0xfi32 as (usize)
+          ];
+    let mut retval : usize = kLut[(bits as (i32) & 0xfi32) as (usize)];
     let mut i : usize;
     i = 4i32 as (usize);
     while i < num_bits {
         {
             retval = retval << 4i32;
             bits = (bits as (i32) >> 4i32) as (u16);
-            retval = retval | *kLut.offset(
-                                   (bits as (i32) & 0xfi32) as (isize)
-                               );
+            retval = retval | kLut[(bits as (i32) & 0xfi32) as (usize)];
         }
         i = i.wrapping_add(4i32 as (usize));
     }
@@ -782,29 +780,46 @@ unsafe extern fn BrotliReverseBits(
 pub unsafe extern fn BrotliConvertBitDepthsToSymbols(
     mut depth : *const u8, mut len : usize, mut bits : *mut u16
 ) {
-    let mut bl_count : *mut u16 = 0i32 as (*mut u16);
-    let mut next_code : *mut u16;
+    let mut bl_count
+        : [u16; 16]
+        = [   0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16),
+              0i32 as (u16)
+          ];
+    let mut next_code : [u16; 16];
     let mut i : usize;
     let mut code : i32 = 0i32;
     i = 0i32 as (usize);
     while i < len {
         {
             let _rhs = 1;
-            let _lhs
-                = &mut *bl_count.offset(*depth.offset(i as (isize)) as (isize));
+            let _lhs = &mut bl_count[*depth.offset(i as (isize)) as (usize)];
             *_lhs = (*_lhs as (i32) + _rhs) as (u16);
         }
         i = i.wrapping_add(1 as (usize));
     }
-    *bl_count.offset(0i32 as (isize)) = 0i32 as (u16);
-    *next_code.offset(0i32 as (isize)) = 0i32 as (u16);
+    bl_count[0i32 as (usize)] = 0i32 as (u16);
+    next_code[0i32 as (usize)] = 0i32 as (u16);
     i = 1i32 as (usize);
     while i < 16i32 as (usize) {
         {
-            code = code + *bl_count.offset(
-                               i.wrapping_sub(1i32 as (usize)) as (isize)
-                           ) as (i32) << 1i32;
-            *next_code.offset(i as (isize)) = code as (u16);
+            code = code + bl_count[
+                              i.wrapping_sub(1i32 as (usize))
+                          ] as (i32) << 1i32;
+            next_code[i] = code as (u16);
         }
         i = i.wrapping_add(1 as (usize));
     }
@@ -817,11 +832,11 @@ pub unsafe extern fn BrotliConvertBitDepthsToSymbols(
                                                  {
                                                      let _rhs = 1;
                                                      let _lhs
-                                                         = &mut *next_code.offset(
-                                                                     *depth.offset(
-                                                                          i as (isize)
-                                                                      ) as (isize)
-                                                                 );
+                                                         = &mut next_code[
+                                                                    *depth.offset(
+                                                                         i as (isize)
+                                                                     ) as (usize)
+                                                                ];
                                                      let _old = *_lhs;
                                                      *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                                                      _old

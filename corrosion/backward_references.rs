@@ -1,23 +1,661 @@
 extern {
-    static mut kStaticDictionaryHash : *const u16;
+    static mut kStaticDictionaryHash : [u16; 32768];
     fn memcpy(
-        __dest : *mut std::os::raw::c_void,
-        __src : *const std::os::raw::c_void,
+        __dst : *mut ::std::os::raw::c_void,
+        __src : *const ::std::os::raw::c_void,
         __n : usize
-    ) -> *mut std::os::raw::c_void;
+    ) -> *mut ::std::os::raw::c_void;
 }
 
 static mut kLog2Table
-    : *const f32
-    = 0.0000000000000000f32 as (*const f32);
+    : [f64; 256]
+    = [   0.0000000000000000f64,
+          0.0000000000000000f64,
+          1.0000000000000000f64,
+          1.5849625007211563f64,
+          2.0000000000000000f64,
+          2.3219280948873622f64,
+          2.5849625007211561f64,
+          2.8073549220576042f64,
+          3.0000000000000000f64,
+          3.1699250014423126f64,
+          3.3219280948873626f64,
+          3.4594316186372978f64,
+          3.5849625007211565f64,
+          3.7004397181410922f64,
+          3.8073549220576037f64,
+          3.9068905956085187f64,
+          4.0000000000000000f64,
+          4.0874628412503400f64,
+          4.1699250014423122f64,
+          4.2479275134435852f64,
+          4.3219280948873626f64,
+          4.3923174227787607f64,
+          4.4594316186372973f64,
+          4.5235619560570131f64,
+          4.5849625007211570f64,
+          4.6438561897747244f64,
+          4.7004397181410926f64,
+          4.7548875021634691f64,
+          4.8073549220576037f64,
+          4.8579809951275728f64,
+          4.9068905956085187f64,
+          4.9541963103868758f64,
+          5.0000000000000000f64,
+          5.0443941193584534f64,
+          5.0874628412503400f64,
+          5.1292830169449664f64,
+          5.1699250014423122f64,
+          5.2094533656289501f64,
+          5.2479275134435852f64,
+          5.2854022188622487f64,
+          5.3219280948873626f64,
+          5.3575520046180838f64,
+          5.3923174227787607f64,
+          5.4262647547020979f64,
+          5.4594316186372973f64,
+          5.4918530963296748f64,
+          5.5235619560570131f64,
+          5.5545888516776376f64,
+          5.5849625007211570f64,
+          5.6147098441152083f64,
+          5.6438561897747244f64,
+          5.6724253419714961f64,
+          5.7004397181410926f64,
+          5.7279204545631996f64,
+          5.7548875021634691f64,
+          5.7813597135246599f64,
+          5.8073549220576046f64,
+          5.8328900141647422f64,
+          5.8579809951275719f64,
+          5.8826430493618416f64,
+          5.9068905956085187f64,
+          5.9307373375628867f64,
+          5.9541963103868758f64,
+          5.9772799234999168f64,
+          6.0000000000000000f64,
+          6.0223678130284544f64,
+          6.0443941193584534f64,
+          6.0660891904577721f64,
+          6.0874628412503400f64,
+          6.1085244567781700f64,
+          6.1292830169449672f64,
+          6.1497471195046822f64,
+          6.1699250014423122f64,
+          6.1898245588800176f64,
+          6.2094533656289510f64,
+          6.2288186904958804f64,
+          6.2479275134435861f64,
+          6.2667865406949019f64,
+          6.2854022188622487f64,
+          6.3037807481771031f64,
+          6.3219280948873617f64,
+          6.3398500028846252f64,
+          6.3575520046180847f64,
+          6.3750394313469254f64,
+          6.3923174227787598f64,
+          6.4093909361377026f64,
+          6.4262647547020979f64,
+          6.4429434958487288f64,
+          6.4594316186372982f64,
+          6.4757334309663976f64,
+          6.4918530963296748f64,
+          6.5077946401986964f64,
+          6.5235619560570131f64,
+          6.5391588111080319f64,
+          6.5545888516776376f64,
+          6.5698556083309478f64,
+          6.5849625007211561f64,
+          6.5999128421871278f64,
+          6.6147098441152092f64,
+          6.6293566200796095f64,
+          6.6438561897747253f64,
+          6.6582114827517955f64,
+          6.6724253419714952f64,
+          6.6865005271832185f64,
+          6.7004397181410917f64,
+          6.7142455176661224f64,
+          6.7279204545631988f64,
+          6.7414669864011465f64,
+          6.7548875021634691f64,
+          6.7681843247769260f64,
+          6.7813597135246599f64,
+          6.7944158663501062f64,
+          6.8073549220576037f64,
+          6.8201789624151887f64,
+          6.8328900141647422f64,
+          6.8454900509443757f64,
+          6.8579809951275719f64,
+          6.8703647195834048f64,
+          6.8826430493618416f64,
+          6.8948177633079437f64,
+          6.9068905956085187f64,
+          6.9188632372745955f64,
+          6.9307373375628867f64,
+          6.9425145053392399f64,
+          6.9541963103868758f64,
+          6.9657842846620879f64,
+          6.9772799234999168f64,
+          6.9886846867721664f64,
+          7.0000000000000000f64,
+          7.0112272554232540f64,
+          7.0223678130284544f64,
+          7.0334230015374501f64,
+          7.0443941193584534f64,
+          7.0552824355011898f64,
+          7.0660891904577721f64,
+          7.0768155970508317f64,
+          7.0874628412503400f64,
+          7.0980320829605272f64,
+          7.1085244567781700f64,
+          7.1189410727235076f64,
+          7.1292830169449664f64,
+          7.1395513523987937f64,
+          7.1497471195046822f64,
+          7.1598713367783891f64,
+          7.1699250014423130f64,
+          7.1799090900149345f64,
+          7.1898245588800176f64,
+          7.1996723448363644f64,
+          7.2094533656289492f64,
+          7.2191685204621621f64,
+          7.2288186904958804f64,
+          7.2384047393250794f64,
+          7.2479275134435861f64,
+          7.2573878426926521f64,
+          7.2667865406949019f64,
+          7.2761244052742384f64,
+          7.2854022188622487f64,
+          7.2946207488916270f64,
+          7.3037807481771031f64,
+          7.3128829552843557f64,
+          7.3219280948873617f64,
+          7.3309168781146177f64,
+          7.3398500028846243f64,
+          7.3487281542310781f64,
+          7.3575520046180847f64,
+          7.3663222142458151f64,
+          7.3750394313469254f64,
+          7.3837042924740528f64,
+          7.3923174227787607f64,
+          7.4008794362821844f64,
+          7.4093909361377026f64,
+          7.4178525148858991f64,
+          7.4262647547020979f64,
+          7.4346282276367255f64,
+          7.4429434958487288f64,
+          7.4512111118323299f64,
+          7.4594316186372973f64,
+          7.4676055500829976f64,
+          7.4757334309663976f64,
+          7.4838157772642564f64,
+          7.4918530963296748f64,
+          7.4998458870832057f64,
+          7.5077946401986964f64,
+          7.5156998382840436f64,
+          7.5235619560570131f64,
+          7.5313814605163119f64,
+          7.5391588111080319f64,
+          7.5468944598876373f64,
+          7.5545888516776376f64,
+          7.5622424242210728f64,
+          7.5698556083309478f64,
+          7.5774288280357487f64,
+          7.5849625007211561f64,
+          7.5924570372680806f64,
+          7.5999128421871278f64,
+          7.6073303137496113f64,
+          7.6147098441152075f64,
+          7.6220518194563764f64,
+          7.6293566200796095f64,
+          7.6366246205436488f64,
+          7.6438561897747244f64,
+          7.6510516911789290f64,
+          7.6582114827517955f64,
+          7.6653359171851765f64,
+          7.6724253419714952f64,
+          7.6794800995054464f64,
+          7.6865005271832185f64,
+          7.6934869574993252f64,
+          7.7004397181410926f64,
+          7.7073591320808825f64,
+          7.7142455176661224f64,
+          7.7210991887071856f64,
+          7.7279204545631996f64,
+          7.7347096202258392f64,
+          7.7414669864011465f64,
+          7.7481928495894596f64,
+          7.7548875021634691f64,
+          7.7615512324444795f64,
+          7.7681843247769260f64,
+          7.7747870596011737f64,
+          7.7813597135246608f64,
+          7.7879025593914317f64,
+          7.7944158663501062f64,
+          7.8008998999203047f64,
+          7.8073549220576037f64,
+          7.8137811912170374f64,
+          7.8201789624151887f64,
+          7.8265484872909159f64,
+          7.8328900141647422f64,
+          7.8392037880969445f64,
+          7.8454900509443757f64,
+          7.8517490414160571f64,
+          7.8579809951275719f64,
+          7.8641861446542798f64,
+          7.8703647195834048f64,
+          7.8765169465650002f64,
+          7.8826430493618425f64,
+          7.8887432488982601f64,
+          7.8948177633079446f64,
+          7.9008668079807496f64,
+          7.9068905956085187f64,
+          7.9128893362299619f64,
+          7.9188632372745955f64,
+          7.9248125036057813f64,
+          7.9307373375628867f64,
+          7.9366379390025719f64,
+          7.9425145053392399f64,
+          7.9483672315846778f64,
+          7.9541963103868758f64,
+          7.9600019320680806f64,
+          7.9657842846620870f64,
+          7.9715435539507720f64,
+          7.9772799234999168f64,
+          7.9829935746943104f64,
+          7.9886846867721664f64,
+          7.9943534368588578f64
+      ];
 
-static mut kInsBase : *mut u32 = 0i32 as (*mut u32);
+#[no_mangle]
+pub unsafe extern fn log2(mut v : f64) -> f64 {
+    if v < 0i32 as (f64) {
+        0i32 as (f64)
+    } else if v < 256i32 as (f64) {
+        kLog2Table[v as (usize)]
+    } else {
+        let mut count : f64 = 0i32 as (f64);
+        while 1i32 != 0 {
+            v = v / 2i32 as (f64);
+            count = count + 1.0f64;
+            if v < 256i32 as (f64) {
+                return kLog2Table[v as (usize)] + count;
+            }
+        }
+    }
+}
 
-static mut kInsExtra : *mut u32 = 0i32 as (*mut u32);
+static mut kLog2Table
+    : [f32; 256]
+    = [   0.0000000000000000f32,
+          0.0000000000000000f32,
+          1.0000000000000000f32,
+          1.5849625007211563f32,
+          2.0000000000000000f32,
+          2.3219280948873622f32,
+          2.5849625007211561f32,
+          2.8073549220576042f32,
+          3.0000000000000000f32,
+          3.1699250014423126f32,
+          3.3219280948873626f32,
+          3.4594316186372978f32,
+          3.5849625007211565f32,
+          3.7004397181410922f32,
+          3.8073549220576037f32,
+          3.9068905956085187f32,
+          4.0000000000000000f32,
+          4.0874628412503400f32,
+          4.1699250014423122f32,
+          4.2479275134435852f32,
+          4.3219280948873626f32,
+          4.3923174227787607f32,
+          4.4594316186372973f32,
+          4.5235619560570131f32,
+          4.5849625007211570f32,
+          4.6438561897747244f32,
+          4.7004397181410926f32,
+          4.7548875021634691f32,
+          4.8073549220576037f32,
+          4.8579809951275728f32,
+          4.9068905956085187f32,
+          4.9541963103868758f32,
+          5.0000000000000000f32,
+          5.0443941193584534f32,
+          5.0874628412503400f32,
+          5.1292830169449664f32,
+          5.1699250014423122f32,
+          5.2094533656289501f32,
+          5.2479275134435852f32,
+          5.2854022188622487f32,
+          5.3219280948873626f32,
+          5.3575520046180838f32,
+          5.3923174227787607f32,
+          5.4262647547020979f32,
+          5.4594316186372973f32,
+          5.4918530963296748f32,
+          5.5235619560570131f32,
+          5.5545888516776376f32,
+          5.5849625007211570f32,
+          5.6147098441152083f32,
+          5.6438561897747244f32,
+          5.6724253419714961f32,
+          5.7004397181410926f32,
+          5.7279204545631996f32,
+          5.7548875021634691f32,
+          5.7813597135246599f32,
+          5.8073549220576046f32,
+          5.8328900141647422f32,
+          5.8579809951275719f32,
+          5.8826430493618416f32,
+          5.9068905956085187f32,
+          5.9307373375628867f32,
+          5.9541963103868758f32,
+          5.9772799234999168f32,
+          6.0000000000000000f32,
+          6.0223678130284544f32,
+          6.0443941193584534f32,
+          6.0660891904577721f32,
+          6.0874628412503400f32,
+          6.1085244567781700f32,
+          6.1292830169449672f32,
+          6.1497471195046822f32,
+          6.1699250014423122f32,
+          6.1898245588800176f32,
+          6.2094533656289510f32,
+          6.2288186904958804f32,
+          6.2479275134435861f32,
+          6.2667865406949019f32,
+          6.2854022188622487f32,
+          6.3037807481771031f32,
+          6.3219280948873617f32,
+          6.3398500028846252f32,
+          6.3575520046180847f32,
+          6.3750394313469254f32,
+          6.3923174227787598f32,
+          6.4093909361377026f32,
+          6.4262647547020979f32,
+          6.4429434958487288f32,
+          6.4594316186372982f32,
+          6.4757334309663976f32,
+          6.4918530963296748f32,
+          6.5077946401986964f32,
+          6.5235619560570131f32,
+          6.5391588111080319f32,
+          6.5545888516776376f32,
+          6.5698556083309478f32,
+          6.5849625007211561f32,
+          6.5999128421871278f32,
+          6.6147098441152092f32,
+          6.6293566200796095f32,
+          6.6438561897747253f32,
+          6.6582114827517955f32,
+          6.6724253419714952f32,
+          6.6865005271832185f32,
+          6.7004397181410917f32,
+          6.7142455176661224f32,
+          6.7279204545631988f32,
+          6.7414669864011465f32,
+          6.7548875021634691f32,
+          6.7681843247769260f32,
+          6.7813597135246599f32,
+          6.7944158663501062f32,
+          6.8073549220576037f32,
+          6.8201789624151887f32,
+          6.8328900141647422f32,
+          6.8454900509443757f32,
+          6.8579809951275719f32,
+          6.8703647195834048f32,
+          6.8826430493618416f32,
+          6.8948177633079437f32,
+          6.9068905956085187f32,
+          6.9188632372745955f32,
+          6.9307373375628867f32,
+          6.9425145053392399f32,
+          6.9541963103868758f32,
+          6.9657842846620879f32,
+          6.9772799234999168f32,
+          6.9886846867721664f32,
+          7.0000000000000000f32,
+          7.0112272554232540f32,
+          7.0223678130284544f32,
+          7.0334230015374501f32,
+          7.0443941193584534f32,
+          7.0552824355011898f32,
+          7.0660891904577721f32,
+          7.0768155970508317f32,
+          7.0874628412503400f32,
+          7.0980320829605272f32,
+          7.1085244567781700f32,
+          7.1189410727235076f32,
+          7.1292830169449664f32,
+          7.1395513523987937f32,
+          7.1497471195046822f32,
+          7.1598713367783891f32,
+          7.1699250014423130f32,
+          7.1799090900149345f32,
+          7.1898245588800176f32,
+          7.1996723448363644f32,
+          7.2094533656289492f32,
+          7.2191685204621621f32,
+          7.2288186904958804f32,
+          7.2384047393250794f32,
+          7.2479275134435861f32,
+          7.2573878426926521f32,
+          7.2667865406949019f32,
+          7.2761244052742384f32,
+          7.2854022188622487f32,
+          7.2946207488916270f32,
+          7.3037807481771031f32,
+          7.3128829552843557f32,
+          7.3219280948873617f32,
+          7.3309168781146177f32,
+          7.3398500028846243f32,
+          7.3487281542310781f32,
+          7.3575520046180847f32,
+          7.3663222142458151f32,
+          7.3750394313469254f32,
+          7.3837042924740528f32,
+          7.3923174227787607f32,
+          7.4008794362821844f32,
+          7.4093909361377026f32,
+          7.4178525148858991f32,
+          7.4262647547020979f32,
+          7.4346282276367255f32,
+          7.4429434958487288f32,
+          7.4512111118323299f32,
+          7.4594316186372973f32,
+          7.4676055500829976f32,
+          7.4757334309663976f32,
+          7.4838157772642564f32,
+          7.4918530963296748f32,
+          7.4998458870832057f32,
+          7.5077946401986964f32,
+          7.5156998382840436f32,
+          7.5235619560570131f32,
+          7.5313814605163119f32,
+          7.5391588111080319f32,
+          7.5468944598876373f32,
+          7.5545888516776376f32,
+          7.5622424242210728f32,
+          7.5698556083309478f32,
+          7.5774288280357487f32,
+          7.5849625007211561f32,
+          7.5924570372680806f32,
+          7.5999128421871278f32,
+          7.6073303137496113f32,
+          7.6147098441152075f32,
+          7.6220518194563764f32,
+          7.6293566200796095f32,
+          7.6366246205436488f32,
+          7.6438561897747244f32,
+          7.6510516911789290f32,
+          7.6582114827517955f32,
+          7.6653359171851765f32,
+          7.6724253419714952f32,
+          7.6794800995054464f32,
+          7.6865005271832185f32,
+          7.6934869574993252f32,
+          7.7004397181410926f32,
+          7.7073591320808825f32,
+          7.7142455176661224f32,
+          7.7210991887071856f32,
+          7.7279204545631996f32,
+          7.7347096202258392f32,
+          7.7414669864011465f32,
+          7.7481928495894596f32,
+          7.7548875021634691f32,
+          7.7615512324444795f32,
+          7.7681843247769260f32,
+          7.7747870596011737f32,
+          7.7813597135246608f32,
+          7.7879025593914317f32,
+          7.7944158663501062f32,
+          7.8008998999203047f32,
+          7.8073549220576037f32,
+          7.8137811912170374f32,
+          7.8201789624151887f32,
+          7.8265484872909159f32,
+          7.8328900141647422f32,
+          7.8392037880969445f32,
+          7.8454900509443757f32,
+          7.8517490414160571f32,
+          7.8579809951275719f32,
+          7.8641861446542798f32,
+          7.8703647195834048f32,
+          7.8765169465650002f32,
+          7.8826430493618425f32,
+          7.8887432488982601f32,
+          7.8948177633079446f32,
+          7.9008668079807496f32,
+          7.9068905956085187f32,
+          7.9128893362299619f32,
+          7.9188632372745955f32,
+          7.9248125036057813f32,
+          7.9307373375628867f32,
+          7.9366379390025719f32,
+          7.9425145053392399f32,
+          7.9483672315846778f32,
+          7.9541963103868758f32,
+          7.9600019320680806f32,
+          7.9657842846620870f32,
+          7.9715435539507720f32,
+          7.9772799234999168f32,
+          7.9829935746943104f32,
+          7.9886846867721664f32,
+          7.9943534368588578f32
+      ];
 
-static mut kCopyBase : *mut u32 = 2i32 as (*mut u32);
+static mut kInsBase
+    : [u32; 24]
+    = [   0i32 as (u32),
+          1i32 as (u32),
+          2i32 as (u32),
+          3i32 as (u32),
+          4i32 as (u32),
+          5i32 as (u32),
+          6i32 as (u32),
+          8i32 as (u32),
+          10i32 as (u32),
+          14i32 as (u32),
+          18i32 as (u32),
+          26i32 as (u32),
+          34i32 as (u32),
+          50i32 as (u32),
+          66i32 as (u32),
+          98i32 as (u32),
+          130i32 as (u32),
+          194i32 as (u32),
+          322i32 as (u32),
+          578i32 as (u32),
+          1090i32 as (u32),
+          2114i32 as (u32),
+          6210i32 as (u32),
+          22594i32 as (u32)
+      ];
 
-static mut kCopyExtra : *mut u32 = 0i32 as (*mut u32);
+static mut kInsExtra
+    : [u32; 24]
+    = [   0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          1i32 as (u32),
+          1i32 as (u32),
+          2i32 as (u32),
+          2i32 as (u32),
+          3i32 as (u32),
+          3i32 as (u32),
+          4i32 as (u32),
+          4i32 as (u32),
+          5i32 as (u32),
+          5i32 as (u32),
+          6i32 as (u32),
+          7i32 as (u32),
+          8i32 as (u32),
+          9i32 as (u32),
+          10i32 as (u32),
+          12i32 as (u32),
+          14i32 as (u32),
+          24i32 as (u32)
+      ];
+
+static mut kCopyBase
+    : [u32; 24]
+    = [   2i32 as (u32),
+          3i32 as (u32),
+          4i32 as (u32),
+          5i32 as (u32),
+          6i32 as (u32),
+          7i32 as (u32),
+          8i32 as (u32),
+          9i32 as (u32),
+          10i32 as (u32),
+          12i32 as (u32),
+          14i32 as (u32),
+          18i32 as (u32),
+          22i32 as (u32),
+          30i32 as (u32),
+          38i32 as (u32),
+          54i32 as (u32),
+          70i32 as (u32),
+          102i32 as (u32),
+          134i32 as (u32),
+          198i32 as (u32),
+          326i32 as (u32),
+          582i32 as (u32),
+          1094i32 as (u32),
+          2118i32 as (u32)
+      ];
+
+static mut kCopyExtra
+    : [u32; 24]
+    = [   0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          0i32 as (u32),
+          1i32 as (u32),
+          1i32 as (u32),
+          2i32 as (u32),
+          2i32 as (u32),
+          3i32 as (u32),
+          3i32 as (u32),
+          4i32 as (u32),
+          4i32 as (u32),
+          5i32 as (u32),
+          5i32 as (u32),
+          6i32 as (u32),
+          7i32 as (u32),
+          8i32 as (u32),
+          9i32 as (u32),
+          10i32 as (u32),
+          24i32 as (u32)
+      ];
 
 static kBrotliMinWindowBits : i32 = 10i32;
 
@@ -44,9 +682,9 @@ static kHashMul64Long
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BrotliDictionary {
-    pub size_bits_by_length : *mut u8,
-    pub offsets_by_length : *mut u32,
-    pub data : *mut u8,
+    pub size_bits_by_length : [u8; 32],
+    pub offsets_by_length : [u32; 32],
+    pub data : [u8; 122784],
 }
 
 #[derive(Clone, Copy)]
@@ -124,7 +762,7 @@ pub struct HasherSearchResult {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H2 {
-    pub buckets_ : *mut u32,
+    pub buckets_ : [u32; 65537],
 }
 
 #[derive(Clone, Copy)]
@@ -149,13 +787,13 @@ unsafe extern fn SelfH2(mut handle : *mut u8) -> *mut H2 {
 }
 
 unsafe extern fn BROTLI_UNALIGNED_LOAD64(
-    mut p : *const std::os::raw::c_void
+    mut p : *const ::std::os::raw::c_void
 ) -> usize {
     let mut t : usize;
     memcpy(
-        &mut t as (*mut usize) as (*mut std::os::raw::c_void),
+        &mut t as (*mut usize) as (*mut ::std::os::raw::c_void),
         p,
-        std::mem::size_of::<usize>()
+        ::std::mem::size_of::<usize>()
     );
     t
 }
@@ -164,7 +802,7 @@ unsafe extern fn HashBytesH2(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const std::os::raw::c_void)
+               data as (*const ::std::os::raw::c_void)
            ) << 64i32 - 8i32 * 5i32).wrapping_mul(
               kHashMul64
           );
@@ -192,9 +830,9 @@ unsafe extern fn FindMatchLengthWithLimit(
               limit2
           } != 0 {
         if BROTLI_UNALIGNED_LOAD64(
-               s2 as (*const std::os::raw::c_void)
+               s2 as (*const ::std::os::raw::c_void)
            ) == BROTLI_UNALIGNED_LOAD64(
-                    s1.offset(matched as (isize)) as (*const std::os::raw::c_void)
+                    s1.offset(matched as (isize)) as (*const ::std::os::raw::c_void)
                 ) {
             s2 = s2.offset(8i32 as (isize));
             matched = matched.wrapping_add(8i32 as (usize));
@@ -202,9 +840,9 @@ unsafe extern fn FindMatchLengthWithLimit(
             let mut x
                 : usize
                 = BROTLI_UNALIGNED_LOAD64(
-                      s2 as (*const std::os::raw::c_void)
+                      s2 as (*const ::std::os::raw::c_void)
                   ) ^ BROTLI_UNALIGNED_LOAD64(
-                          s1.offset(matched as (isize)) as (*const std::os::raw::c_void)
+                          s1.offset(matched as (isize)) as (*const ::std::os::raw::c_void)
                       );
             let mut matching_bits : usize = unopt_ctzll(x) as (usize);
             matched = matched.wrapping_add(matching_bits >> 3i32);
@@ -229,11 +867,9 @@ unsafe extern fn FindMatchLengthWithLimit(
 unsafe extern fn BackwardReferenceScoreUsingLastDistance(
     mut copy_length : usize
 ) -> usize {
-    (135i32 as (usize)).wrapping_mul(
-        copy_length as (usize)
-    ).wrapping_add(
+    (135i32 as (usize)).wrapping_mul(copy_length).wrapping_add(
         ((30i32 * 8i32) as (usize)).wrapping_mul(
-            std::mem::size_of::<usize>()
+            ::std::mem::size_of::<usize>()
         )
     ).wrapping_add(
         15i32 as (usize)
@@ -255,9 +891,9 @@ unsafe extern fn BackwardReferenceScore(
     mut copy_length : usize, mut backward_reference_offset : usize
 ) -> usize {
     ((30i32 * 8i32) as (usize)).wrapping_mul(
-        std::mem::size_of::<usize>()
+        ::std::mem::size_of::<usize>()
     ).wrapping_add(
-        (135i32 as (usize)).wrapping_mul(copy_length as (usize))
+        (135i32 as (usize)).wrapping_mul(copy_length)
     ).wrapping_sub(
         (30i32 as (u32)).wrapping_mul(
             Log2FloorNonZero(backward_reference_offset)
@@ -266,13 +902,13 @@ unsafe extern fn BackwardReferenceScore(
 }
 
 unsafe extern fn BROTLI_UNALIGNED_LOAD32(
-    mut p : *const std::os::raw::c_void
+    mut p : *const ::std::os::raw::c_void
 ) -> u32 {
     let mut t : u32;
     memcpy(
-        &mut t as (*mut u32) as (*mut std::os::raw::c_void),
+        &mut t as (*mut u32) as (*mut ::std::os::raw::c_void),
         p,
-        std::mem::size_of::<u32>()
+        ::std::mem::size_of::<u32>()
     );
     t
 }
@@ -281,7 +917,7 @@ unsafe extern fn Hash14(mut data : *const u8) -> u32 {
     let mut h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const std::os::raw::c_void)
+              data as (*const ::std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -304,9 +940,9 @@ unsafe extern fn TestStaticDictionaryItem(
     let mut score : usize;
     len = item & 0x1fi32 as (usize);
     dist = item >> 5i32;
-    offset = (*(*dictionary).offsets_by_length.offset(
-                   len as (isize)
-               ) as (usize)).wrapping_add(
+    offset = ((*dictionary).offsets_by_length[
+                  len
+              ] as (usize)).wrapping_add(
                  len.wrapping_mul(dist)
              );
     if len > max_length {
@@ -314,9 +950,7 @@ unsafe extern fn TestStaticDictionaryItem(
     }
     matchlen = FindMatchLengthWithLimit(
                    data,
-                   &mut *(*dictionary).data.offset(
-                             offset as (isize)
-                         ) as (*mut u8) as (*const u8),
+                   &mut (*dictionary).data[offset] as (*mut u8) as (*const u8),
                    len
                );
     if matchlen.wrapping_add(
@@ -329,16 +963,14 @@ unsafe extern fn TestStaticDictionaryItem(
         let mut transform_id
             : usize
             = (cut << 2i32).wrapping_add(
-                  (kCutoffTransforms >> cut.wrapping_mul(
-                                            6i32 as (usize)
-                                        ) & 0x3fi32 as (usize)) as (usize)
+                  kCutoffTransforms >> cut.wrapping_mul(
+                                           6i32 as (usize)
+                                       ) & 0x3fi32 as (usize)
               );
         backward = max_backward.wrapping_add(dist).wrapping_add(
                        1i32 as (usize)
                    ).wrapping_add(
-                       transform_id << *(*dictionary).size_bits_by_length.offset(
-                                            len as (isize)
-                                        ) as (i32)
+                       transform_id << (*dictionary).size_bits_by_length[len] as (i32)
                    );
     }
     score = BackwardReferenceScore(matchlen,backward);
@@ -459,7 +1091,7 @@ unsafe extern fn FindLongestMatchH2(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 1i32 == 1i32 {
-                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -470,8 +1102,8 @@ unsafe extern fn FindLongestMatchH2(
     if 1i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
-        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+        prev_ix = (*self).buckets_[key as (usize)] as (usize);
+        (*self).buckets_[key as (usize)] = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
@@ -496,7 +1128,7 @@ unsafe extern fn FindLongestMatchH2(
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.offset(key as (isize));
+            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -564,11 +1196,11 @@ unsafe extern fn FindLongestMatchH2(
                              1i32
                          );
     }
-    *(*self).buckets_.offset(
-         (key as (usize)).wrapping_add(
-             (cur_ix >> 3i32).wrapping_rem(1i32 as (usize))
-         ) as (isize)
-     ) = cur_ix as (u32);
+    (*self).buckets_[
+        (key as (usize)).wrapping_add(
+            (cur_ix >> 3i32).wrapping_rem(1i32 as (usize))
+        )
+    ] = cur_ix as (u32);
     is_match_found
 }
 
@@ -740,10 +1372,11 @@ unsafe extern fn CombineLengthCodes(
         = (copycode as (u32) & 0x7u32 | (inscode as (u32) & 0x7u32) << 3i32) as (u16);
     if use_last_distance != 0 && (inscode as (i32) < 8i32) && (copycode as (i32) < 16i32) {
         if copycode as (i32) < 8i32 {
-            bits64 as (i32)
+            bits64
         } else {
-            bits64 as (i32) | 64i32
-        } as (u16)
+            let mut s64 : u16 = 64i32 as (u16);
+            (bits64 as (i32) | s64 as (i32)) as (u16)
+        }
     } else {
         let mut offset
             : i32
@@ -806,9 +1439,9 @@ unsafe extern fn StoreH2(
     let off
         : u32
         = (ix >> 3i32).wrapping_rem(1i32 as (usize)) as (u32);
-    *(*SelfH2(handle)).buckets_.offset(
-         key.wrapping_add(off) as (isize)
-     ) = ix as (u32);
+    (*SelfH2(handle)).buckets_[
+        key.wrapping_add(off) as (usize)
+    ] = ix as (u32);
 }
 
 unsafe extern fn StoreRangeH2(
@@ -877,7 +1510,7 @@ unsafe extern fn CreateBackwardReferencesH2(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -1070,7 +1703,7 @@ unsafe extern fn CreateBackwardReferencesH2(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -1088,7 +1721,7 @@ unsafe extern fn HashTypeLengthH3() -> usize { 8i32 as (usize) }
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H3 {
-    pub buckets_ : *mut u32,
+    pub buckets_ : [u32; 65538],
 }
 
 unsafe extern fn SelfH3(mut handle : *mut u8) -> *mut H3 {
@@ -1101,7 +1734,7 @@ unsafe extern fn HashBytesH3(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const std::os::raw::c_void)
+               data as (*const ::std::os::raw::c_void)
            ) << 64i32 - 8i32 * 5i32).wrapping_mul(
               kHashMul64
           );
@@ -1163,7 +1796,7 @@ unsafe extern fn FindLongestMatchH3(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 2i32 == 1i32 {
-                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -1174,8 +1807,8 @@ unsafe extern fn FindLongestMatchH3(
     if 2i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
-        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+        prev_ix = (*self).buckets_[key as (usize)] as (usize);
+        (*self).buckets_[key as (usize)] = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
@@ -1200,7 +1833,7 @@ unsafe extern fn FindLongestMatchH3(
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.offset(key as (isize));
+            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -1268,11 +1901,11 @@ unsafe extern fn FindLongestMatchH3(
                              1i32
                          );
     }
-    *(*self).buckets_.offset(
-         (key as (usize)).wrapping_add(
-             (cur_ix >> 3i32).wrapping_rem(2i32 as (usize))
-         ) as (isize)
-     ) = cur_ix as (u32);
+    (*self).buckets_[
+        (key as (usize)).wrapping_add(
+            (cur_ix >> 3i32).wrapping_rem(2i32 as (usize))
+        )
+    ] = cur_ix as (u32);
     is_match_found
 }
 
@@ -1290,9 +1923,9 @@ unsafe extern fn StoreH3(
     let off
         : u32
         = (ix >> 3i32).wrapping_rem(2i32 as (usize)) as (u32);
-    *(*SelfH3(handle)).buckets_.offset(
-         key.wrapping_add(off) as (isize)
-     ) = ix as (u32);
+    (*SelfH3(handle)).buckets_[
+        key.wrapping_add(off) as (usize)
+    ] = ix as (u32);
 }
 
 unsafe extern fn StoreRangeH3(
@@ -1355,7 +1988,7 @@ unsafe extern fn CreateBackwardReferencesH3(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -1548,7 +2181,7 @@ unsafe extern fn CreateBackwardReferencesH3(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -1566,7 +2199,7 @@ unsafe extern fn HashTypeLengthH4() -> usize { 8i32 as (usize) }
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H4 {
-    pub buckets_ : *mut u32,
+    pub buckets_ : [u32; 131076],
 }
 
 unsafe extern fn SelfH4(mut handle : *mut u8) -> *mut H4 {
@@ -1579,7 +2212,7 @@ unsafe extern fn HashBytesH4(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const std::os::raw::c_void)
+               data as (*const ::std::os::raw::c_void)
            ) << 64i32 - 8i32 * 5i32).wrapping_mul(
               kHashMul64
           );
@@ -1641,7 +2274,7 @@ unsafe extern fn FindLongestMatchH4(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 4i32 == 1i32 {
-                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -1652,8 +2285,8 @@ unsafe extern fn FindLongestMatchH4(
     if 4i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
-        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+        prev_ix = (*self).buckets_[key as (usize)] as (usize);
+        (*self).buckets_[key as (usize)] = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
@@ -1678,7 +2311,7 @@ unsafe extern fn FindLongestMatchH4(
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.offset(key as (isize));
+            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -1746,11 +2379,11 @@ unsafe extern fn FindLongestMatchH4(
                              1i32
                          );
     }
-    *(*self).buckets_.offset(
-         (key as (usize)).wrapping_add(
-             (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
-         ) as (isize)
-     ) = cur_ix as (u32);
+    (*self).buckets_[
+        (key as (usize)).wrapping_add(
+            (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
+        )
+    ] = cur_ix as (u32);
     is_match_found
 }
 
@@ -1768,9 +2401,9 @@ unsafe extern fn StoreH4(
     let off
         : u32
         = (ix >> 3i32).wrapping_rem(4i32 as (usize)) as (u32);
-    *(*SelfH4(handle)).buckets_.offset(
-         key.wrapping_add(off) as (isize)
-     ) = ix as (u32);
+    (*SelfH4(handle)).buckets_[
+        key.wrapping_add(off) as (usize)
+    ] = ix as (u32);
 }
 
 unsafe extern fn StoreRangeH4(
@@ -1833,7 +2466,7 @@ unsafe extern fn CreateBackwardReferencesH4(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -2026,7 +2659,7 @@ unsafe extern fn CreateBackwardReferencesH4(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -2120,11 +2753,11 @@ unsafe extern fn HashBytesH5(
     let mut h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const std::os::raw::c_void)
+              data as (*const ::std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
-    (h >> shift) as (u32)
+    h >> shift
 }
 
 unsafe extern fn FindLongestMatchH5(
@@ -2157,7 +2790,7 @@ unsafe extern fn FindLongestMatchH5(
                 let backward
                     : usize
                     = *distance_cache.offset(i as (isize)) as (usize);
-                let mut prev_ix : usize = cur_ix.wrapping_sub(backward) as (usize);
+                let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
                 if prev_ix >= cur_ix {
                     if 1337i32 != 0 {
                         break 'continue35;
@@ -2414,7 +3047,7 @@ unsafe extern fn CreateBackwardReferencesH5(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -2607,7 +3240,7 @@ unsafe extern fn CreateBackwardReferencesH5(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -2656,7 +3289,7 @@ unsafe extern fn HashBytesH6(
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const std::os::raw::c_void)
+               data as (*const ::std::os::raw::c_void)
            ) & mask).wrapping_mul(
               kHashMul64Long
           );
@@ -2693,7 +3326,7 @@ unsafe extern fn FindLongestMatchH6(
                 let backward
                     : usize
                     = *distance_cache.offset(i as (isize)) as (usize);
-                let mut prev_ix : usize = cur_ix.wrapping_sub(backward) as (usize);
+                let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
                 if prev_ix >= cur_ix {
                     if 1337i32 != 0 {
                         break 'continue45;
@@ -2952,7 +3585,7 @@ unsafe extern fn CreateBackwardReferencesH6(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -3145,7 +3778,7 @@ unsafe extern fn CreateBackwardReferencesH6(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -3170,17 +3803,17 @@ pub struct SlotH40 {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BankH40 {
-    pub slots : *mut SlotH40,
+    pub slots : [SlotH40; 65536],
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H40 {
-    pub addr : *mut u32,
-    pub head : *mut u16,
-    pub tiny_hash : *mut u8,
-    pub banks : *mut BankH40,
-    pub free_slot_idx : *mut u16,
+    pub addr : [u32; 32768],
+    pub head : [u16; 32768],
+    pub tiny_hash : [u8; 65536],
+    pub banks : [BankH40; 1],
+    pub free_slot_idx : [u16; 1],
     pub max_hops : usize,
 }
 
@@ -3194,7 +3827,7 @@ unsafe extern fn HashBytesH40(mut data : *const u8) -> usize {
     let h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const std::os::raw::c_void)
+              data as (*const ::std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -3218,26 +3851,22 @@ unsafe extern fn StoreH40(
         : usize
         = (({
                 let _rhs = 1;
-                let _lhs = &mut *(*self).free_slot_idx.offset(bank as (isize));
+                let _lhs = &mut (*self).free_slot_idx[bank];
                 let _old = *_lhs;
                 *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                 _old
             }) as (i32) & 65536i32 - 1i32) as (usize);
     let mut delta
         : usize
-        = ix.wrapping_sub(*(*self).addr.offset(key as (isize)) as (usize));
-    *(*self).tiny_hash.offset(ix as (u16) as (isize)) = key as (u8);
+        = ix.wrapping_sub((*self).addr[key] as (usize));
+    (*self).tiny_hash[ix as (u16) as (usize)] = key as (u8);
     if delta > 0xffffi32 as (usize) {
         delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
     }
-    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-          idx as (isize)
-      )).delta = delta as (u16);
-    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-          idx as (isize)
-      )).next = *(*self).head.offset(key as (isize));
-    *(*self).addr.offset(key as (isize)) = ix as (u32);
-    *(*self).head.offset(key as (isize)) = idx as (u16);
+    (*self).banks[bank].slots[idx].delta = delta as (u16);
+    (*self).banks[bank].slots[idx].next = (*self).head[key];
+    (*self).addr[key] = ix as (u32);
+    (*self).head[key] = idx as (u16);
 }
 
 unsafe extern fn FindLongestMatchH40(
@@ -3274,9 +3903,9 @@ unsafe extern fn FindLongestMatchH40(
                     : usize
                     = *distance_cache.offset(i as (isize)) as (usize);
                 let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-                if i > 0i32 as (usize) && (*(*self).tiny_hash.offset(
-                                                prev_ix as (u16) as (isize)
-                                            ) as (i32) != tiny_hash as (i32)) {
+                if i > 0i32 as (usize) && ((*self).tiny_hash[
+                                               prev_ix as (u16) as (usize)
+                                           ] as (i32) != tiny_hash as (i32)) {
                     if 1337i32 != 0 {
                         break 'continue55;
                     }
@@ -3327,12 +3956,8 @@ unsafe extern fn FindLongestMatchH40(
         let mut hops : usize = (*self).max_hops;
         let mut delta
             : usize
-            = cur_ix.wrapping_sub(
-                  *(*self).addr.offset(key as (isize)) as (usize)
-              );
-        let mut slot
-            : usize
-            = *(*self).head.offset(key as (isize)) as (usize);
+            = cur_ix.wrapping_sub((*self).addr[key] as (usize));
+        let mut slot : usize = (*self).head[key] as (usize);
         while {
                   let _old = hops;
                   hops = hops.wrapping_sub(1 as (usize));
@@ -3347,12 +3972,8 @@ unsafe extern fn FindLongestMatchH40(
                 }
             }
             prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
-            slot = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-                         last as (isize)
-                     )).next as (usize);
-            delta = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-                          last as (isize)
-                      )).delta as (usize);
+            slot = (*self).banks[bank].slots[last].next as (usize);
+            delta = (*self).banks[bank].slots[last].delta as (usize);
             if cur_ix_masked.wrapping_add(
                    best_len
                ) > ring_buffer_mask || prev_ix.wrapping_add(
@@ -3468,7 +4089,7 @@ unsafe extern fn CreateBackwardReferencesH40(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -3663,7 +4284,7 @@ unsafe extern fn CreateBackwardReferencesH40(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -3688,17 +4309,17 @@ pub struct SlotH41 {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BankH41 {
-    pub slots : *mut SlotH41,
+    pub slots : [SlotH41; 65536],
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H41 {
-    pub addr : *mut u32,
-    pub head : *mut u16,
-    pub tiny_hash : *mut u8,
-    pub banks : *mut BankH41,
-    pub free_slot_idx : *mut u16,
+    pub addr : [u32; 32768],
+    pub head : [u16; 32768],
+    pub tiny_hash : [u8; 65536],
+    pub banks : [BankH41; 1],
+    pub free_slot_idx : [u16; 1],
     pub max_hops : usize,
 }
 
@@ -3712,7 +4333,7 @@ unsafe extern fn HashBytesH41(mut data : *const u8) -> usize {
     let h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const std::os::raw::c_void)
+              data as (*const ::std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -3736,26 +4357,22 @@ unsafe extern fn StoreH41(
         : usize
         = (({
                 let _rhs = 1;
-                let _lhs = &mut *(*self).free_slot_idx.offset(bank as (isize));
+                let _lhs = &mut (*self).free_slot_idx[bank];
                 let _old = *_lhs;
                 *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                 _old
             }) as (i32) & 65536i32 - 1i32) as (usize);
     let mut delta
         : usize
-        = ix.wrapping_sub(*(*self).addr.offset(key as (isize)) as (usize));
-    *(*self).tiny_hash.offset(ix as (u16) as (isize)) = key as (u8);
+        = ix.wrapping_sub((*self).addr[key] as (usize));
+    (*self).tiny_hash[ix as (u16) as (usize)] = key as (u8);
     if delta > 0xffffi32 as (usize) {
         delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
     }
-    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-          idx as (isize)
-      )).delta = delta as (u16);
-    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-          idx as (isize)
-      )).next = *(*self).head.offset(key as (isize));
-    *(*self).addr.offset(key as (isize)) = ix as (u32);
-    *(*self).head.offset(key as (isize)) = idx as (u16);
+    (*self).banks[bank].slots[idx].delta = delta as (u16);
+    (*self).banks[bank].slots[idx].next = (*self).head[key];
+    (*self).addr[key] = ix as (u32);
+    (*self).head[key] = idx as (u16);
 }
 
 unsafe extern fn FindLongestMatchH41(
@@ -3792,9 +4409,9 @@ unsafe extern fn FindLongestMatchH41(
                     : usize
                     = *distance_cache.offset(i as (isize)) as (usize);
                 let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-                if i > 0i32 as (usize) && (*(*self).tiny_hash.offset(
-                                                prev_ix as (u16) as (isize)
-                                            ) as (i32) != tiny_hash as (i32)) {
+                if i > 0i32 as (usize) && ((*self).tiny_hash[
+                                               prev_ix as (u16) as (usize)
+                                           ] as (i32) != tiny_hash as (i32)) {
                     if 1337i32 != 0 {
                         break 'continue65;
                     }
@@ -3845,12 +4462,8 @@ unsafe extern fn FindLongestMatchH41(
         let mut hops : usize = (*self).max_hops;
         let mut delta
             : usize
-            = cur_ix.wrapping_sub(
-                  *(*self).addr.offset(key as (isize)) as (usize)
-              );
-        let mut slot
-            : usize
-            = *(*self).head.offset(key as (isize)) as (usize);
+            = cur_ix.wrapping_sub((*self).addr[key] as (usize));
+        let mut slot : usize = (*self).head[key] as (usize);
         while {
                   let _old = hops;
                   hops = hops.wrapping_sub(1 as (usize));
@@ -3865,12 +4478,8 @@ unsafe extern fn FindLongestMatchH41(
                 }
             }
             prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
-            slot = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-                         last as (isize)
-                     )).next as (usize);
-            delta = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-                          last as (isize)
-                      )).delta as (usize);
+            slot = (*self).banks[bank].slots[last].next as (usize);
+            delta = (*self).banks[bank].slots[last].delta as (usize);
             if cur_ix_masked.wrapping_add(
                    best_len
                ) > ring_buffer_mask || prev_ix.wrapping_add(
@@ -3986,7 +4595,7 @@ unsafe extern fn CreateBackwardReferencesH41(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -4181,7 +4790,7 @@ unsafe extern fn CreateBackwardReferencesH41(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -4206,17 +4815,17 @@ pub struct SlotH42 {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct BankH42 {
-    pub slots : *mut SlotH42,
+    pub slots : [SlotH42; 512],
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H42 {
-    pub addr : *mut u32,
-    pub head : *mut u16,
-    pub tiny_hash : *mut u8,
-    pub banks : *mut BankH42,
-    pub free_slot_idx : *mut u16,
+    pub addr : [u32; 32768],
+    pub head : [u16; 32768],
+    pub tiny_hash : [u8; 65536],
+    pub banks : [BankH42; 512],
+    pub free_slot_idx : [u16; 512],
     pub max_hops : usize,
 }
 
@@ -4230,7 +4839,7 @@ unsafe extern fn HashBytesH42(mut data : *const u8) -> usize {
     let h
         : u32
         = BROTLI_UNALIGNED_LOAD32(
-              data as (*const std::os::raw::c_void)
+              data as (*const ::std::os::raw::c_void)
           ).wrapping_mul(
               kHashMul32
           );
@@ -4254,26 +4863,22 @@ unsafe extern fn StoreH42(
         : usize
         = (({
                 let _rhs = 1;
-                let _lhs = &mut *(*self).free_slot_idx.offset(bank as (isize));
+                let _lhs = &mut (*self).free_slot_idx[bank];
                 let _old = *_lhs;
                 *_lhs = (*_lhs as (i32) + _rhs) as (u16);
                 _old
             }) as (i32) & 512i32 - 1i32) as (usize);
     let mut delta
         : usize
-        = ix.wrapping_sub(*(*self).addr.offset(key as (isize)) as (usize));
-    *(*self).tiny_hash.offset(ix as (u16) as (isize)) = key as (u8);
+        = ix.wrapping_sub((*self).addr[key] as (usize));
+    (*self).tiny_hash[ix as (u16) as (usize)] = key as (u8);
     if delta > 0xffffi32 as (usize) {
         delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
     }
-    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-          idx as (isize)
-      )).delta = delta as (u16);
-    (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-          idx as (isize)
-      )).next = *(*self).head.offset(key as (isize));
-    *(*self).addr.offset(key as (isize)) = ix as (u32);
-    *(*self).head.offset(key as (isize)) = idx as (u16);
+    (*self).banks[bank].slots[idx].delta = delta as (u16);
+    (*self).banks[bank].slots[idx].next = (*self).head[key];
+    (*self).addr[key] = ix as (u32);
+    (*self).head[key] = idx as (u16);
 }
 
 unsafe extern fn FindLongestMatchH42(
@@ -4310,9 +4915,9 @@ unsafe extern fn FindLongestMatchH42(
                     : usize
                     = *distance_cache.offset(i as (isize)) as (usize);
                 let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
-                if i > 0i32 as (usize) && (*(*self).tiny_hash.offset(
-                                                prev_ix as (u16) as (isize)
-                                            ) as (i32) != tiny_hash as (i32)) {
+                if i > 0i32 as (usize) && ((*self).tiny_hash[
+                                               prev_ix as (u16) as (usize)
+                                           ] as (i32) != tiny_hash as (i32)) {
                     if 1337i32 != 0 {
                         break 'continue75;
                     }
@@ -4363,12 +4968,8 @@ unsafe extern fn FindLongestMatchH42(
         let mut hops : usize = (*self).max_hops;
         let mut delta
             : usize
-            = cur_ix.wrapping_sub(
-                  *(*self).addr.offset(key as (isize)) as (usize)
-              );
-        let mut slot
-            : usize
-            = *(*self).head.offset(key as (isize)) as (usize);
+            = cur_ix.wrapping_sub((*self).addr[key] as (usize));
+        let mut slot : usize = (*self).head[key] as (usize);
         while {
                   let _old = hops;
                   hops = hops.wrapping_sub(1 as (usize));
@@ -4383,12 +4984,8 @@ unsafe extern fn FindLongestMatchH42(
                 }
             }
             prev_ix = cur_ix.wrapping_sub(backward) & ring_buffer_mask;
-            slot = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-                         last as (isize)
-                     )).next as (usize);
-            delta = (*(*(*self).banks.offset(bank as (isize))).slots.offset(
-                          last as (isize)
-                      )).delta as (usize);
+            slot = (*self).banks[bank].slots[last].next as (usize);
+            delta = (*self).banks[bank].slots[last].delta as (usize);
             if cur_ix_masked.wrapping_add(
                    best_len
                ) > ring_buffer_mask || prev_ix.wrapping_add(
@@ -4504,7 +5101,7 @@ unsafe extern fn CreateBackwardReferencesH42(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -4699,7 +5296,7 @@ unsafe extern fn CreateBackwardReferencesH42(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -4717,7 +5314,7 @@ unsafe extern fn HashTypeLengthH54() -> usize { 8i32 as (usize) }
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct H54 {
-    pub buckets_ : *mut u32,
+    pub buckets_ : [u32; 1048580],
 }
 
 unsafe extern fn SelfH54(mut handle : *mut u8) -> *mut H54 {
@@ -4730,7 +5327,7 @@ unsafe extern fn HashBytesH54(mut data : *const u8) -> u32 {
     let h
         : usize
         = (BROTLI_UNALIGNED_LOAD64(
-               data as (*const std::os::raw::c_void)
+               data as (*const ::std::os::raw::c_void)
            ) << 64i32 - 8i32 * 7i32).wrapping_mul(
               kHashMul64
           );
@@ -4792,7 +5389,7 @@ unsafe extern fn FindLongestMatchH54(
                                     cur_ix_masked.wrapping_add(best_len) as (isize)
                                 ) as (i32);
                 if 4i32 == 1i32 {
-                    *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+                    (*self).buckets_[key as (usize)] = cur_ix as (u32);
                     return 1i32;
                 } else {
                     is_match_found = 1i32;
@@ -4803,8 +5400,8 @@ unsafe extern fn FindLongestMatchH54(
     if 4i32 == 1i32 {
         let mut backward : usize;
         let mut len : usize;
-        prev_ix = *(*self).buckets_.offset(key as (isize)) as (usize);
-        *(*self).buckets_.offset(key as (isize)) = cur_ix as (u32);
+        prev_ix = (*self).buckets_[key as (usize)] as (usize);
+        (*self).buckets_[key as (usize)] = cur_ix as (u32);
         backward = cur_ix.wrapping_sub(prev_ix);
         prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
         if compare_char != *data.offset(
@@ -4829,7 +5426,7 @@ unsafe extern fn FindLongestMatchH54(
     } else {
         let mut bucket
             : *mut u32
-            = (*self).buckets_.offset(key as (isize));
+            = (*self).buckets_.as_mut_ptr().offset(key as (isize));
         let mut i : i32;
         prev_ix = *{
                        let _old = bucket;
@@ -4897,11 +5494,11 @@ unsafe extern fn FindLongestMatchH54(
                              1i32
                          );
     }
-    *(*self).buckets_.offset(
-         (key as (usize)).wrapping_add(
-             (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
-         ) as (isize)
-     ) = cur_ix as (u32);
+    (*self).buckets_[
+        (key as (usize)).wrapping_add(
+            (cur_ix >> 3i32).wrapping_rem(4i32 as (usize))
+        )
+    ] = cur_ix as (u32);
     is_match_found
 }
 
@@ -4919,9 +5516,9 @@ unsafe extern fn StoreH54(
     let off
         : u32
         = (ix >> 3i32).wrapping_rem(4i32 as (usize)) as (u32);
-    *(*SelfH54(handle)).buckets_.offset(
-         key.wrapping_add(off) as (isize)
-     ) = ix as (u32);
+    (*SelfH54(handle)).buckets_[
+        key.wrapping_add(off) as (usize)
+    ] = ix as (u32);
 }
 
 unsafe extern fn StoreRangeH54(
@@ -4984,7 +5581,7 @@ unsafe extern fn CreateBackwardReferencesH54(
     let kMinScore
         : usize
         = ((30i32 * 8i32) as (usize)).wrapping_mul(
-              std::mem::size_of::<usize>()
+              ::std::mem::size_of::<usize>()
           ).wrapping_add(
               100i32 as (usize)
           );
@@ -5179,7 +5776,7 @@ unsafe extern fn CreateBackwardReferencesH54(
     *num_commands = (*num_commands).wrapping_add(
                         ((commands as (isize)).wrapping_sub(
                              orig_commands as (isize)
-                         ) / std::mem::size_of::<*const Command>() as (isize)) as (usize)
+                         ) / ::std::mem::size_of::<*const Command>() as (isize)) as (usize)
                     );
 }
 
@@ -5202,7 +5799,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 2i32 {
         CreateBackwardReferencesH2(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5219,7 +5816,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 3i32 {
         CreateBackwardReferencesH3(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5236,7 +5833,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 4i32 {
         CreateBackwardReferencesH4(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5253,7 +5850,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 5i32 {
         CreateBackwardReferencesH5(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5270,7 +5867,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 6i32 {
         CreateBackwardReferencesH6(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5287,7 +5884,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 40i32 {
         CreateBackwardReferencesH40(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5304,7 +5901,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 41i32 {
         CreateBackwardReferencesH41(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5321,7 +5918,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 42i32 {
         CreateBackwardReferencesH42(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
@@ -5338,7 +5935,7 @@ pub unsafe extern fn BrotliCreateBackwardReferences(
     if hasher_type == 54i32 {
         CreateBackwardReferencesH54(
             dictionary,
-            kStaticDictionaryHash,
+            kStaticDictionaryHash.as_ptr(),
             num_bytes,
             position,
             ringbuffer,
