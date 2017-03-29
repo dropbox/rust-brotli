@@ -72,7 +72,7 @@ pub fn BrotliPopulationCostLiteral(mut histogram: &[HistogramLiteral]) -> f64 {
   let mut s: [usize; 5];
   let mut bits: f64 = 0.0f64;
   let mut i: usize;
-  if (*histogram).total_count_ == 0usize {
+  if (*histogram).total_count() == 0usize {
     return kOneSymbolHistogramCost;
   }
   i = 0usize;

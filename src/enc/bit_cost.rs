@@ -55,7 +55,7 @@ fn BitsEntropy(mut population: &[u32], mut size: usize) -> f64 {
 }
 
 pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
-    mut histogram : &HistogramLiteral
+    mut histogram : &HistogramType
 ) -> f64{
   static kOneSymbolHistogramCost: f64 = 12i32 as (f64);
   static kTwoSymbolHistogramCost: f64 = 20i32 as (f64);
@@ -66,156 +66,135 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
   let mut s: [usize; 5] = [0; 5];
   let mut bits: f64 = 0.0f64;
   let mut i: usize;
-  if (*histogram).total_count() == 0i32 as (usize) {
-    kOneSymbolHistogramCost
-  } else {
-    i = 0i32 as (usize);
-    'loop2: loop {
-      if i < data_size {
-        if (*histogram).slice()[i] > 0 {
-          s[count as (usize)] = i;
-          count = count + 1;
-          if count > 4i32 {
-            break 'loop2;
+    if (*histogram).total_count() == 0usize {
+    return kOneSymbolHistogramCost;
+  }
+  i = 0usize;
+  'break1: while i < data_size {
+    {
+      if (*histogram).slice()[i] > 0u32 {
+        s[count as (usize)] = i;
+        count = count + 1;
+        if count > 4i32 {
+          {
+            break 'break1;
           }
+        }
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  if count == 1i32 {
+    return kOneSymbolHistogramCost;
+  }
+  if count == 2i32 {
+    return kTwoSymbolHistogramCost + (*histogram).total_count() as (f64);
+  }
+  if count == 3i32 {
+    let histo0: u32 = (*histogram).slice()[s[0usize]];
+    let histo1: u32 = (*histogram).slice()[s[1usize]];
+    let histo2: u32 = (*histogram).slice()[s[2usize]];
+    let histomax: u32 = brotli_max_uint32_t(histo0, brotli_max_uint32_t(histo1, histo2));
+    return kThreeSymbolHistogramCost +
+           (2u32).wrapping_mul(histo0.wrapping_add(histo1).wrapping_add(histo2)) as (f64) -
+           histomax as (f64);
+  }
+  if count == 4i32 {
+    let mut histo: [u32; 4] = [0;4];
+    let mut h23: u32;
+    let mut histomax: u32;
+    i = 0usize;
+    while i < 4usize {
+      {
+        histo[i] = (*histogram).slice()[s[i]];
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+    i = 0usize;
+    while i < 4usize {
+      {
+        let mut j: usize;
+        j = i.wrapping_add(1usize);
+        while j < 4usize {
+          {
+            if histo[j] > histo[i] {
+              let mut __brotli_swap_tmp: u32 = histo[j];
+              histo[j] = histo[i];
+              histo[i] = __brotli_swap_tmp;
+            }
+          }
+          j = j.wrapping_add(1 as (usize));
+        }
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+    h23 = histo[2usize].wrapping_add(histo[3usize]);
+    histomax = brotli_max_uint32_t(h23, histo[0usize]);
+    return kFourSymbolHistogramCost + (3u32).wrapping_mul(h23) as (f64) +
+           (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as (f64) -
+           histomax as (f64);
+  }
+  {
+    let mut max_depth: usize = 1usize;
+    let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+                                      0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
+    let log2total: f64 = FastLog2((*histogram).total_count());
+    i = 0usize;
+    while i < data_size {
+      if (*histogram).slice()[i] > 0u32 {
+        let mut log2p: f64 = log2total - FastLog2((*histogram).slice()[i] as (usize));
+        let mut depth: usize = (log2p + 0.5f64) as (usize);
+        bits = bits + (*histogram).slice()[i] as (f64) * log2p;
+        if depth > 15usize {
+          depth = 15usize;
+        }
+        if depth > max_depth {
+          max_depth = depth;
+        }
+        {
+          let _rhs = 1;
+          let _lhs = &mut depth_histo[depth];
+          *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
         }
         i = i.wrapping_add(1 as (usize));
-        continue 'loop2;
       } else {
-        break 'loop2;
-      }
-    }
-    if count == 1i32 {
-      kOneSymbolHistogramCost
-    } else if count == 2i32 {
-      kTwoSymbolHistogramCost + (*histogram).total_count() as (f64)
-    } else if count == 3i32 {
-      let histo0: u32 = (*histogram).slice()[s[0i32 as (usize)]];
-      let histo1: u32 = (*histogram).slice()[s[1i32 as (usize)]];
-      let histo2: u32 = (*histogram).slice()[s[2i32 as (usize)]];
-      let histomax: u32 = brotli_max_uint32_t(histo0, brotli_max_uint32_t(histo1, histo2));
-      kThreeSymbolHistogramCost +
-      (2i32 as (u32)).wrapping_mul(histo0.wrapping_add(histo1).wrapping_add(histo2)) as (f64) -
-      histomax as (f64)
-    } else if count == 4i32 {
-      let mut histo: [u32; 4] = [0; 4];
-      let mut h23: u32;
-      let mut histomax: u32;
-      i = 0i32 as (usize);
-      'loop30: loop {
-        if i < 4i32 as (usize) {
-          histo[i] = (*histogram).slice()[s[i]];
-          i = i.wrapping_add(1 as (usize));
-          continue 'loop30;
-        } else {
-          break 'loop30;
-        }
-      }
-      i = 0i32 as (usize);
-      'loop32: loop {
-        if i < 4i32 as (usize) {
-          let mut j: usize;
-          j = i.wrapping_add(1i32 as (usize));
-          'loop35: loop {
-            if j < 4i32 as (usize) {
-              if histo[j] > histo[i] {
-                let mut __brotli_swap_tmp: u32 = histo[j];
-                histo[j] = histo[i];
-                histo[i] = __brotli_swap_tmp;
-              }
-              j = j.wrapping_add(1 as (usize));
-              continue 'loop35;
-            } else {
-              break 'loop35;
-            }
+        let mut reps: u32 = 1u32;
+        let mut k: usize;
+        k = i.wrapping_add(1usize);
+        while k < data_size && ((*histogram).slice()[k] == 0u32) {
+          {
+            reps = reps.wrapping_add(1 as (u32));
           }
-          i = i.wrapping_add(1 as (usize));
-          continue 'loop32;
-        } else {
-          break 'loop32;
+          k = k.wrapping_add(1 as (usize));
         }
-      }
-      h23 = histo[2i32 as (usize)].wrapping_add(histo[3i32 as (usize)]);
-      histomax = brotli_max_uint32_t(h23, histo[0i32 as (usize)]);
-      kFourSymbolHistogramCost + (3i32 as (u32)).wrapping_mul(h23) as (f64) +
-      (2i32 as (u32)).wrapping_mul(histo[0i32 as (usize)].wrapping_add(histo[1i32 as
-                                                                       (usize)])) as (f64) -
-      histomax as (f64)
-    } else {
-      let mut max_depth: usize = 1i32 as (usize);
-      let mut depth_histo: [u32; 18] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-      let log2total: f64 = FastLog2((*histogram).total_count());
-      i = 0i32 as (usize);
-      'loop11: loop {
-        if i < data_size {
-          if (*histogram).slice()[i] > 0 {
-            let mut log2p: f64 = log2total - FastLog2((*histogram).slice()[i] as (usize));
-            let mut depth: usize = (log2p + 0.5f64) as (usize);
-            bits = bits + (*histogram).slice()[i] as (f64) * log2p;
-            if depth > 15i32 as (usize) {
-              depth = 15i32 as (usize);
-            }
-            if depth > max_depth {
-              max_depth = depth;
-            }
+        i = i.wrapping_add(reps as (usize));
+        if i == data_size {
+          {
+            break;
+          }
+        }
+        if reps < 3u32 {
+          let _rhs = reps;
+          let _lhs = &mut depth_histo[0usize];
+          *_lhs = (*_lhs).wrapping_add(_rhs);
+        } else {
+          reps = reps.wrapping_sub(2u32);
+          while reps > 0u32 {
             {
               let _rhs = 1;
-              let _lhs = &mut depth_histo[depth];
+              let _lhs = &mut depth_histo[17usize];
               *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop11;
-          } else {
-            let mut reps: u32 = 1;
-            let mut k: usize;
-            k = i.wrapping_add(1i32 as (usize));
-            'loop14: loop {
-              if k < data_size && ((*histogram).slice()[k] == 0) {
-                reps = reps.wrapping_add(1 as (u32));
-                k = k.wrapping_add(1 as (usize));
-                continue 'loop14;
-              } else {
-                break 'loop14;
-              }
-            }
-            i = i.wrapping_add(reps as (usize));
-            if i == data_size {
-              break 'loop11;
-            } else if reps < 3 {
-              {
-                let _rhs = reps;
-                let _lhs = &mut depth_histo[0i32 as (usize)];
-                *_lhs = (*_lhs).wrapping_add(_rhs);
-              }
-              continue 'loop11;
-            } else {
-              reps = reps.wrapping_sub(2);
-              'loop18: loop {
-                if reps > 0 {
-                  {
-                    let _rhs = 1;
-                    let _lhs = &mut depth_histo[17i32 as (usize)];
-                    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-                  }
-                  bits = bits + 3i32 as (f64);
-                  reps = reps >> 3i32;
-                  continue 'loop18;
-                } else {
-                  continue 'loop11;
-                }
-              }
-            }
+            bits = bits + 3i32 as (f64);
+            reps = reps >> 3i32;
           }
-        } else {
-          break 'loop11;
         }
       }
-      bits = bits +
-             (18i32 as (usize)).wrapping_add((2i32 as (usize)).wrapping_mul(max_depth)) as (f64);
-      bits = bits + BitsEntropy(&depth_histo[..], 18i32 as (usize));
-      bits
     }
+    bits = bits + (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as (f64);
+    bits = bits + BitsEntropy(&depth_histo[..], 18usize);
   }
+  bits
 }
 /*
 fn HistogramDataSizeCommand() -> usize {
