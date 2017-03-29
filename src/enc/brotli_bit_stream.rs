@@ -347,253 +347,215 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
     mut storage_ix : &mut usize,
     mut storage : &mut [u8]
 ){
-  let mut count: usize = 0usize;
-  let mut symbols: [usize; 4] = [0usize, 0usize, 0usize, 0usize];
-  let mut length: usize = 0usize;
+  let mut count: u64 = 0;
+  let mut symbols: [u64; 4] = [0; 4];
+  let mut length: u64 = 0;
   let mut total: usize = histogram_total;
-  'loop1: loop {
-    if total != 0usize {
-      if histogram[length as (usize)] != 0 {
-        if count < 4usize {
-          symbols[count] = length;
-        }
-        count = count.wrapping_add(1 as (usize));
-        total = total.wrapping_sub(histogram[length as (usize)] as (usize));
+  while total != 0usize {
+    if histogram[(length as (usize))] != 0 {
+      if count < 4 {
+        symbols[count as usize] = length;
       }
-      length = length.wrapping_add(1 as (usize));
-      continue 'loop1;
-    } else {
-      break 'loop1;
+      count = count.wrapping_add(1);
+      total = total.wrapping_sub(histogram[(length as (usize))] as (usize));
     }
+    length = length.wrapping_add(1);
   }
-  if count <= 1usize {
+  if count <= 1 {
     BrotliWriteBits(4, 1, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, symbols[0usize] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8, symbols[0usize], storage_ix, storage);
     depth[symbols[0usize] as (usize)] = 0i32 as (u8);
     bits[symbols[0usize] as (usize)] = 0i32 as (u16);
-  } else {
-    for depth_elem in depth[..length].iter_mut() {
-      *depth_elem = 0; // memset
-    }
-    let max_tree_size: usize = (2usize).wrapping_mul(length).wrapping_add(1usize);
+  }
+  for depth_elem in depth[..(length as usize)].iter_mut() {
+    *depth_elem = 0; // memset
+  }
+  {
+    let max_tree_size: u64 = (2u64).wrapping_mul(length).wrapping_add(1);
     let mut tree = if max_tree_size != 0 {
-      m.alloc_cell(max_tree_size)
+      m.alloc_cell(max_tree_size as usize)
     } else {
       AllocHT::AllocatedMemory::default() // null
     };
     let mut count_limit: u32;
     if !(0i32 == 0) {
-    } else {
-      count_limit = 1u32;
-      'loop5: loop {
-        let mut node_index: usize = 0;
-        let mut l: usize;
+      return;
+    }
+    count_limit = 1u32;
+    'break11: loop {
+      {
+        let mut node_index: u32 = 0u32;
+        let mut l: u64;
         l = length;
-        'loop6: loop {
-          if l != 0usize {
-            l = l.wrapping_sub(1 as (usize));
-            if histogram[l as (usize)] != 0 {
-              if histogram[l as (usize)] >= count_limit {
-                InitHuffmanTree(&mut tree.slice_mut()[node_index],
-                                histogram[l as (usize)],
-                                -1i32 as (i16),
-                                l as (i16));
-              } else {
-                InitHuffmanTree(&mut tree.slice_mut()[node_index],
-                                count_limit,
-                                -1i32 as (i16),
-                                l as (i16));
-              }
-              node_index += 1;
-              continue 'loop6;
+        while l != 0 {
+          l = l.wrapping_sub(1);
+          if histogram[(l as (usize))] != 0 {
+            if histogram[(l as (usize))] >= count_limit {
+              InitHuffmanTree(&mut tree.slice_mut()[(node_index as (usize))],
+                              histogram[(l as (usize))],
+                              -1i32 as (i16),
+                              l as (i16));
             } else {
-              continue 'loop6;
+              InitHuffmanTree(&mut tree.slice_mut()[(node_index as (usize))],
+                              count_limit,
+                              -1i32 as (i16),
+                              l as (i16));
             }
-          } else {
-            break 'loop6;
+            node_index = node_index.wrapping_add(1 as (u32));
           }
         }
-        let n: i32 = node_index as i32;
-
-        let mut i: i32 = 0i32; // Points to the next leaf node
-        let mut j: i32 = n + 1i32; // points to the next non-leaf node
-        let mut k: i32;
-
-        SortHuffmanTreeItems(&mut tree.slice_mut(), n as (usize), SortHuffmanTree {});
-        // The nodes are:
-        // [0, n): the sorted leaf nodes that we start with.
-        // [n]: we add a sentinel here.
-        // [n + 1, 2n): new parent nodes are added here, starting from
-        //              (n+1). These are naturally in ascending order.
-        // [2n]: we add a sentinel at the end as well.
-        // There will be (2n+1) elements at the end.
-        let mut sentinel: HuffmanTree = NewHuffmanTree(!(0u32), -1i16, -1i16);
         {
-          tree.slice_mut()[node_index + 1 as usize] = sentinel.clone();
-          tree.slice_mut()[node_index as usize] = sentinel.clone();
-          node_index += 2;
-        }
-        k = n - 1i32;
-        'loop8: loop {
-          if k > 0i32 {
-            let left: i32;
-            let right: i32;
-            if (tree.slice()[i as (usize)]).total_count_ <=
-               (tree.slice()[j as (usize)]).total_count_ {
-              left = i;
-              i = i + 1;
-            } else {
-              left = j;
-              j = j + 1;
+          let n: i32 = node_index as (i32);
+          let mut sentinel: HuffmanTree;
+          let mut i: i32 = 0i32;
+          let mut j: i32 = n + 1i32;
+          let mut k: i32;
+          SortHuffmanTreeItems(tree.slice_mut(), n as (usize), SortHuffmanTree{});
+          sentinel = NewHuffmanTree(!(0u32), -1i16, -1i16);
+          tree.slice_mut()[(node_index.wrapping_add(1u32) as (usize))] = sentinel.clone();
+          tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
+          node_index = node_index.wrapping_add(2u32);
+          k = n - 1i32;
+          while k > 0i32 {
+            {
+              let mut left: i32;
+              let mut right: i32;
+              if (tree.slice()[(i as (usize))]).total_count_ <= (tree.slice()[(j as (usize))]).total_count_ {
+                left = i;
+                i = i + 1;
+              } else {
+                left = j;
+                j = j + 1;
+              }
+              if (tree.slice()[(i as (usize))]).total_count_ <= (tree.slice()[(j as (usize))]).total_count_ {
+                right = i;
+                i = i + 1;
+              } else {
+                right = j;
+                j = j + 1;
+              }
+              let sum_total =
+                (tree.slice()[(left as (usize))])
+                  .total_count_
+                  .wrapping_add((tree.slice()[(right as (usize))]).total_count_);
+              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).total_count_ = sum_total;
+              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).index_left_ = left as (i16);
+              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).index_right_or_value_ = right as
+                                                                                         (i16);
+              tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
+              node_index = node_index.wrapping_add(1u32);
             }
-            if (tree.slice()[i as (usize)]).total_count_ <=
-               (tree.slice()[j as (usize)]).total_count_ {
-              right = i;
-              i = i + 1;
-            } else {
-              right = j;
-              j = j + 1;
-            }
-            (tree.slice_mut()[node_index - 1]).total_count_ =
-              (tree.slice()[left as (usize)]).total_count_.wrapping_add((tree.slice()[right as
-                                                                         (usize)])
-                                                                            .total_count_);
-            (tree.slice_mut()[node_index - 1]).index_left_ = left as (i16);
-            (tree.slice_mut()[node_index - 1]).index_right_or_value_ = right as (i16);
-            tree.slice_mut()[node_index] = sentinel.clone();
-            node_index += 1;
             k = k - 1;
-            continue 'loop8;
-          } else {
-            break 'loop8;
           }
-        }
-        if BrotliSetDepth(2i32 * n - 1i32, tree.slice_mut(), depth, 14i32) {
-          break 'loop5;
-        } else {
-          count_limit = count_limit.wrapping_mul(2u32);
-          continue 'loop5;
+          if BrotliSetDepth(2i32 * n - 1i32, tree.slice_mut(), depth, 14i32) {
+            {
+              break 'break11;
+            }
+          }
         }
       }
+      count_limit = count_limit.wrapping_mul(2u32);
+    }
+    {
       m.free_cell(core::mem::replace(&mut tree, AllocHT::AllocatedMemory::default()));
-      BrotliConvertBitDepthsToSymbols(depth, length, bits);
-      if count <= 4usize {
-        let mut i: usize;
-        BrotliWriteBits(2, 1, storage_ix, storage);
-        BrotliWriteBits(2, count.wrapping_sub(1usize) as u64, storage_ix, storage);
-        i = 0usize;
-        'loop28: loop {
-          if i < count {
-            let mut j: usize;
-            j = i.wrapping_add(1usize);
-            'loop36: loop {
-              if j < count {
-                if depth[symbols[j] as (usize)] as (i32) < depth[symbols[i] as (usize)] as (i32) {
-                  let mut __brotli_swap_tmp: usize = symbols[j];
-                  symbols[j] = symbols[i];
-                  symbols[i] = __brotli_swap_tmp;
-                }
-                j = j.wrapping_add(1 as (usize));
-                continue 'loop36;
-              } else {
-                break 'loop36;
-              }
+    }
+  }
+  BrotliConvertBitDepthsToSymbols(depth, length as usize, bits);
+  if count <= 4 {
+    let mut i: u64;
+    BrotliWriteBits(2, 1, storage_ix, storage);
+    BrotliWriteBits(2, count.wrapping_sub(1) as u64, storage_ix, storage);
+    i = 0;
+    while i < count {
+      {
+        let mut j: u64;
+        j = i.wrapping_add(1);
+        while j < count {
+          {
+            if depth[(symbols[j as usize] as (usize))] as (i32) < depth[(symbols[i as usize] as (usize)) as usize] as (i32) {
+              let mut brotli_swap_tmp: u64 = symbols[j as usize];
+              symbols[j as usize] = symbols[i as usize];
+              symbols[i as usize] = brotli_swap_tmp;
             }
-            i = i.wrapping_add(1 as (usize));
-            continue 'loop28;
-          } else {
-            break 'loop28;
           }
+          j = j.wrapping_add(1);
         }
-        if count == 2usize {
-          BrotliWriteBits(max_bits as u8, symbols[0usize] as u64, storage_ix, storage);
-          BrotliWriteBits(max_bits as u8, symbols[1usize] as u64, storage_ix, storage);
-        } else if count == 3usize {
-          BrotliWriteBits(max_bits as u8, symbols[0usize] as u64, storage_ix, storage);
-          BrotliWriteBits(max_bits as u8, symbols[1usize] as u64, storage_ix, storage);
-          BrotliWriteBits(max_bits as u8, symbols[2usize] as u64, storage_ix, storage);
+      }
+      i = i.wrapping_add(1);
+    }
+    if count == 2 {
+      BrotliWriteBits(max_bits as u8, symbols[0usize], storage_ix, storage);
+      BrotliWriteBits(max_bits as u8, symbols[1usize], storage_ix, storage);
+    } else if count == 3 {
+      BrotliWriteBits(max_bits as u8, symbols[0usize], storage_ix, storage);
+      BrotliWriteBits(max_bits as u8, symbols[1usize], storage_ix, storage);
+      BrotliWriteBits(max_bits as u8, symbols[2usize], storage_ix, storage);
+    } else {
+      BrotliWriteBits(max_bits as u8, symbols[0usize], storage_ix, storage);
+      BrotliWriteBits(max_bits as u8, symbols[1usize], storage_ix, storage);
+      BrotliWriteBits(max_bits as u8, symbols[2usize], storage_ix, storage);
+      BrotliWriteBits(max_bits as u8, symbols[3usize], storage_ix, storage);
+      BrotliWriteBits(1,
+                      if depth[(symbols[0usize] as (usize))] as (i32) == 1i32 {
+                        1i32
+                      } else {
+                        0i32
+                      } as (u64),
+                      storage_ix,
+                      storage);
+    }
+  } else {
+    let mut previous_value: u8 = 8i32 as (u8);
+    let mut i: u64;
+    StoreStaticCodeLengthCode(storage_ix, storage);
+    i = 0;
+    while i < length {
+      let value: u8 = depth[(i as (usize))];
+      let mut reps: u64 = 1;
+      let mut k: u64;
+      k = i.wrapping_add(1);
+      while k < length && (depth[(k as (usize))] as (i32) == value as (i32)) {
+        {
+          reps = reps.wrapping_add(1);
+        }
+        k = k.wrapping_add(1);
+      }
+      i = i.wrapping_add(reps);
+      if value as (i32) == 0i32 {
+        BrotliWriteBits(kZeroRepsDepth[reps as usize] as (u8),
+                        kZeroRepsBits[reps as usize] as u64,
+                        storage_ix,
+                        storage);
+      } else {
+        if previous_value as (i32) != value as (i32) {
+          BrotliWriteBits(kCodeLengthDepth[value as (usize)] as (u8),
+                          kCodeLengthBits[value as (usize)] as (u64),
+                          storage_ix,
+                          storage);
+          reps = reps.wrapping_sub(1);
+        }
+        if reps < 3 {
+          while reps != 0 {
+            reps = reps.wrapping_sub(1);
+            BrotliWriteBits(kCodeLengthDepth[value as (usize)] as (u8),
+                            kCodeLengthBits[value as (usize)] as (u64),
+                            storage_ix,
+                            storage);
+          }
         } else {
-          BrotliWriteBits(max_bits as u8, symbols[0usize] as u64, storage_ix, storage);
-          BrotliWriteBits(max_bits as u8, symbols[1usize] as u64, storage_ix, storage);
-          BrotliWriteBits(max_bits as u8, symbols[2usize] as u64, storage_ix, storage);
-          BrotliWriteBits(max_bits as u8, symbols[3usize] as u64, storage_ix, storage);
-          BrotliWriteBits(1,
-                          if depth[symbols[0usize] as (usize)] as (i32) == 1i32 {
-                            1i32
-                          } else {
-                            0i32
-                          } as (u64),
+          reps = reps.wrapping_sub(3);
+          BrotliWriteBits(kNonZeroRepsDepth[reps as usize] as (u8),
+                          kNonZeroRepsBits[reps as usize] as u64,
                           storage_ix,
                           storage);
         }
-      } else {
-        let mut previous_value: u8 = 8i32 as (u8);
-        let mut i: usize;
-        StoreStaticCodeLengthCode(storage_ix, storage);
-        i = 0usize;
-        'loop13: loop {
-          if i < length {
-            let value: u8 = depth[i as (usize)];
-            let mut reps: usize = 1usize;
-            let mut k: usize;
-            k = i.wrapping_add(1usize);
-            'loop15: loop {
-              if k < length && (depth[k as (usize)] as (i32) == value as (i32)) {
-                reps = reps.wrapping_add(1 as (usize));
-                k = k.wrapping_add(1 as (usize));
-                continue 'loop15;
-              } else {
-                break 'loop15;
-              }
-            }
-            i = i.wrapping_add(reps);
-            if value as (i32) == 0i32 {
-              BrotliWriteBits(kZeroRepsDepth[reps] as (u8),
-                              kZeroRepsBits[reps] as u64,
-                              storage_ix,
-                              storage);
-              continue 'loop13;
-            } else {
-              if previous_value as (i32) != value as (i32) {
-                BrotliWriteBits(kCodeLengthDepth[value as (usize)] as (u8),
-                                kCodeLengthBits[value as (usize)] as (u64),
-                                storage_ix,
-                                storage);
-                reps = reps.wrapping_sub(1 as (usize));
-              }
-              if reps < 3usize {
-                'loop21: loop {
-                  if reps != 0usize {
-                    reps = reps.wrapping_sub(1 as (usize));
-                    BrotliWriteBits(kCodeLengthDepth[value as (usize)] as (u8),
-                                    kCodeLengthBits[value as (usize)] as (u64),
-                                    storage_ix,
-                                    storage);
-                    continue 'loop21;
-                  } else {
-                    break 'loop21;
-                  }
-                }
-              } else {
-                reps = reps.wrapping_sub(3usize);
-                BrotliWriteBits(kNonZeroRepsDepth[reps] as (u8),
-                                kNonZeroRepsBits[reps] as u64,
-                                storage_ix,
-                                storage);
-              }
-              previous_value = value;
-              continue 'loop13;
-            }
-          } else {
-            break 'loop13;
-          }
-        }
+        previous_value = value;
       }
     }
   }
 }
 
-#[derive(Clone, Copy)]
+
 pub enum ContextType {
   CONTEXT_LSB6 = 0,
   CONTEXT_MSB6 = 1,

@@ -4909,6 +4909,10 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast(mut m: &mut [MemoryManager],
     bits[(symbols[0usize] as (usize))] = 0i32 as (u16);
     return;
   }
+  for depth_elem in depth[..length].iter_mut() {
+    *depth_elem = 0; // memset
+  }
+
   memset(depth,
          0i32,
          length.wrapping_mul(::std::mem::size_of::<u8>()));
