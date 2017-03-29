@@ -17,30 +17,26 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 
 
 fn ShannonEntropy(mut population: &[u32], mut size: usize, mut total: &mut usize) -> f64 {
-  let mut sum: usize = 0i32 as (usize);
+  let mut sum: usize = 0usize;
   let mut retval: f64 = 0i32 as (f64);
+  population = &population[..(size as usize)];
   let mut p: usize;
   let mut odd_number_of_elements_left: i32 = 0i32;
-  if size & 1i32 as (usize) != 0 {
+  if size & 1usize != 0 {
     odd_number_of_elements_left = 1i32;
   }
-  'loop2: loop {
-    if population.len() != 0 {
-      if odd_number_of_elements_left == 0 {
-        p = population[0] as usize;
-        population = &population[1..];
-        sum = sum.wrapping_add(p);
-        retval = retval - p as (f64) * FastLog2(p);
-      }
-      odd_number_of_elements_left = 0i32;
+  while population.len() != 0 {
+    if odd_number_of_elements_left == 0 {
       p = population[0] as usize;
       population = &population[1..];
       sum = sum.wrapping_add(p);
       retval = retval - p as (f64) * FastLog2(p);
-      continue 'loop2;
-    } else {
-      break 'loop2;
     }
+    odd_number_of_elements_left = 0i32;
+    p = population[0] as usize;
+    population = &population[1..];
+    sum = sum.wrapping_add(p);
+    retval = retval - p as (f64) * FastLog2(p);
   }
   if sum != 0 {
     retval = retval + sum as (f64) * FastLog2(sum);

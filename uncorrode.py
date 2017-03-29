@@ -5,6 +5,7 @@ pointer_whitelist = set([
         'use_rle_for_non_zero',
         'use_rle_for_zero',
         'self',
+        'total',
 ])
 
 p = re.compile("""fn[^(]+[(]((([^),]*),)*)(([^),]*)[)])""")

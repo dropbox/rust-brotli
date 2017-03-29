@@ -184,7 +184,7 @@ fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAc
   let new_count = (*xself).total_count().wrapping_add(1 as (usize));
   (*xself).set_total_count(new_count);
 }
-
+/*
 fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
     mut xself : &mut HistogramType, mut v : &HistogramType
 ) {
@@ -211,7 +211,7 @@ fn HistogramSelfAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u
         xself[i0].slice_mut()[h_index] = val;
     }
 }
-
+*/
 fn Context(mut p1: u8, mut p2: u8, mode: ContextType) -> u8 {
   match mode {
     ContextType::CONTEXT_SIGNED => {
@@ -282,6 +282,7 @@ extern fn BrotliBuildHistogramsWithContext(
         &mut dist_it,
         dist_split
     );*/
+    /*FIXME
   i = 0i32 as (usize);
   'loop1: loop {
     if i < num_commands {
@@ -332,5 +333,5 @@ extern fn BrotliBuildHistogramsWithContext(
     } else {
       break 'loop1;
     }
-  }
+  }*/
 }
