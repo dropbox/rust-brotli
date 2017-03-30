@@ -4,8 +4,7 @@ use super::entropy_encode::{HuffmanTree, BrotliWriteHuffmanTree, BrotliCreateHuf
                             BrotliConvertBitDepthsToSymbols, NewHuffmanTree, InitHuffmanTree,
                             SortHuffmanTreeItems, SortHuffmanTree, BrotliSetDepth};
 use super::super::alloc;
-use super::super::alloc::SliceWrapper;
-use super::super::alloc::SliceWrapperMut;
+use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 use super::super::core;
 pub struct PrefixCodeRange {
   pub offset: u32,
@@ -1331,10 +1330,14 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(mut m: &mut AllocU32,
   BrotliWriteBits(1, 1, storage_ix, storage);
   m.free_cell(rle_symbols);
 }
-/* CONTINUE FROM HERE
-fn BuildAndStoreEntropyCodesLiteral(mut m: &mut [MemoryManager],
-                                    mut xself: &mut BlockEncoder,
-                                    mut histograms: &[HistogramLiteral],
+
+fn BuildAndStoreEntropyCodes<AllocU8: alloc::Allocator<u8>,
+                             AllocU16: alloc::Allocator<u16>,
+                             AllocU32: alloc::Allocator<u32>,
+                              HistogramType:SliceWrapper<u32> >(mut m8: &mut AllocU8,
+                                   mut m16: &mut AllocU16,
+                                   mut xself: &mut BlockEncoder<AllocU8, AllocU16, AllocU32>,
+                                    mut histograms: &[HistogramType],
                                     histograms_size: usize,
                                     mut tree: &mut [HuffmanTree],
                                     mut storage_ix: &mut usize,
@@ -1342,29 +1345,26 @@ fn BuildAndStoreEntropyCodesLiteral(mut m: &mut [MemoryManager],
   let alphabet_size: usize = (*xself).alphabet_size_;
   let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
   (*xself).depths_ = if table_size != 0 {
-    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u8>()))
+    m8.alloc_cell(table_size)
   } else {
-    0i32
+    AllocU8::AllocatedMemory::default()
   };
   (*xself).bits_ = if table_size != 0 {
-    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u16>()))
+    m16.alloc_cell(table_size)
   } else {
-    0i32
+    AllocU16::AllocatedMemory::default()
   };
-  if !(0i32 == 0) {
-    return;
-  }
   {
     let mut i: usize;
     i = 0usize;
     while i < histograms_size {
       {
         let mut ix: usize = i.wrapping_mul(alphabet_size);
-        BuildAndStoreHuffmanTree(&mut (histograms[(i as (usize))]).data_[0usize],
+        BuildAndStoreHuffmanTree(&(histograms[(i as (usize))]).slice()[0..],
                                  alphabet_size,
                                  tree,
-                                 &mut *(*xself).depths_[(ix as (usize))..],
-                                 &mut *(*xself).bits_[(ix as (usize))..],
+                                 &mut (*xself).depths_.slice_mut()[(ix as (usize))..],
+                                 &mut (*xself).bits_.slice_mut()[(ix as (usize))..],
                                  storage_ix,
                                  storage);
       }
@@ -1372,89 +1372,7 @@ fn BuildAndStoreEntropyCodesLiteral(mut m: &mut [MemoryManager],
     }
   }
 }
-
-fn BuildAndStoreEntropyCodesCommand(mut m: &mut [MemoryManager],
-                                    mut xself: &mut BlockEncoder,
-                                    mut histograms: &[HistogramCommand],
-                                    histograms_size: usize,
-                                    mut tree: &mut [HuffmanTree],
-                                    mut storage_ix: &mut usize,
-                                    mut storage: &mut [u8]) {
-  let alphabet_size: usize = (*xself).alphabet_size_;
-  let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
-  (*xself).depths_ = if table_size != 0 {
-    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u8>()))
-  } else {
-    0i32
-  };
-  (*xself).bits_ = if table_size != 0 {
-    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u16>()))
-  } else {
-    0i32
-  };
-  if !(0i32 == 0) {
-    return;
-  }
-  {
-    let mut i: usize;
-    i = 0usize;
-    while i < histograms_size {
-      {
-        let mut ix: usize = i.wrapping_mul(alphabet_size);
-        BuildAndStoreHuffmanTree(&mut (histograms[(i as (usize))]).data_[0usize],
-                                 alphabet_size,
-                                 tree,
-                                 &mut *(*xself).depths_[(ix as (usize))..],
-                                 &mut *(*xself).bits_[(ix as (usize))..],
-                                 storage_ix,
-                                 storage);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-}
-
-fn BuildAndStoreEntropyCodesDistance(mut m: &mut [MemoryManager],
-                                     mut xself: &mut BlockEncoder,
-                                     mut histograms: &[HistogramDistance],
-                                     histograms_size: usize,
-                                     mut tree: &mut [HuffmanTree],
-                                     mut storage_ix: &mut usize,
-                                     mut storage: &mut [u8]) {
-  let alphabet_size: usize = (*xself).alphabet_size_;
-  let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
-  (*xself).depths_ = if table_size != 0 {
-    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u8>()))
-  } else {
-    0i32
-  };
-  (*xself).bits_ = if table_size != 0 {
-    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u16>()))
-  } else {
-    0i32
-  };
-  if !(0i32 == 0) {
-    return;
-  }
-  {
-    let mut i: usize;
-    i = 0usize;
-    while i < histograms_size {
-      {
-        let mut ix: usize = i.wrapping_mul(alphabet_size);
-        BuildAndStoreHuffmanTree(&mut (histograms[(i as (usize))]).data_[0usize],
-                                 alphabet_size,
-                                 tree,
-                                 &mut *(*xself).depths_[(ix as (usize))..],
-                                 &mut *(*xself).bits_[(ix as (usize))..],
-                                 storage_ix,
-                                 storage);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-}
-
+/*
 fn StoreSymbol(mut xself: &mut BlockEncoder,
                mut symbol: usize,
                mut storage_ix: &mut usize,
