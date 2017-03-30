@@ -2177,8 +2177,7 @@ fn FindLongestMatchH5(mut handle: &mut [u8],
         }
       }
     }
-    *bucket[((num[(key as (usize))] as (u32) & (*xself).block_mask_) as (usize))..] = cur_ix as
-                                                                                      (u32);
+    bucket[((num[(key as (usize))] as (u32) & (*xself).block_mask_) as (usize))] = cur_ix as (u32);
     {
       let _rhs = 1;
       let _lhs = &mut num[(key as (usize))];
@@ -2556,8 +2555,7 @@ fn FindLongestMatchH6(mut handle: &mut [u8],
         }
       }
     }
-    *bucket[((num[(key as (usize))] as (u32) & (*xself).block_mask_) as (usize))..] = cur_ix as
-                                                                                      (u32);
+    bucket[((num[(key as (usize))] as (u32) & (*xself).block_mask_) as (usize))] = cur_ix as (u32);
     {
       let _rhs = 1;
       let _lhs = &mut num[(key as (usize))];

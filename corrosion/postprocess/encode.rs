@@ -1553,8 +1553,6 @@ pub struct __sFILE {
 }
 
 
-
-
 #[repr(i32)]
 pub enum BrotliEncoderParameter {
   BROTLI_PARAM_MODE = 0i32,

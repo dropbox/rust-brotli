@@ -789,8 +789,6 @@ fn NewBlockEncoder<AllocU8: alloc::Allocator<u8>,
 
 
 
-
-
 extern "C" fn NextBlockTypeCode(mut calculator: &mut BlockTypeCodeCalculator,
                                 mut type_: u8)
                                 -> usize {
@@ -815,14 +813,9 @@ fn BlockLengthPrefixCode(mut len: u32) -> u32 {
   } else {
     0i32
   }) as (u32);
-  'loop1: loop {
-    if code < (26i32 - 1i32) as (u32) &&
-       (len >= kBlockLengthPrefixCode[code.wrapping_add(1u32) as (usize)].offset) {
-      code = code.wrapping_add(1 as (u32));
-      continue 'loop1;
-    } else {
-      break 'loop1;
-    }
+  while code < (26i32 - 1i32) as (u32) &&
+        (len >= kBlockLengthPrefixCode[code.wrapping_add(1u32) as (usize)].offset) {
+    code = code.wrapping_add(1 as (u32));
   }
   code
 }
@@ -842,85 +835,53 @@ fn StoreVarLenUint8(mut n: u64, mut storage_ix: &mut usize, mut storage: &mut [u
 fn StoreSimpleHuffmanTree(mut depths: &[u8],
                           mut symbols: &mut [usize],
                           mut num_symbols: usize,
-                          mut max_bits_usize: usize,
+                          mut max_bits: usize,
                           mut storage_ix: &mut usize,
                           mut storage: &mut [u8]) {
-  let max_bits: u8 = max_bits_usize as u8;
   BrotliWriteBits(2, 1, storage_ix, storage);
   BrotliWriteBits(2,
-                  num_symbols.wrapping_sub(1usize) as u64,
+                  num_symbols.wrapping_sub(1) as u64,
                   storage_ix,
                   storage);
-  let mut i: usize;
-  i = 0usize;
-  'loop1: loop {
-    if i < num_symbols {
-      let mut j: usize;
-      j = i.wrapping_add(1usize);
-      'loop9: loop {
-        if j < num_symbols {
-          if depths[symbols[j as (usize)] as (usize)] as (i32) <
-             depths[symbols[i as (usize)] as (usize)] as (i32) {
-            let mut __brotli_swap_tmp: usize = symbols[j as (usize)];
-            symbols[j as (usize)] = symbols[i as (usize)];
-            symbols[i as (usize)] = __brotli_swap_tmp;
+  {
+    let mut i: usize;
+    i = 0usize;
+    while i < num_symbols {
+      {
+        let mut j: usize;
+        j = i.wrapping_add(1usize);
+        while j < num_symbols {
+          {
+            if depths[(symbols[(j as (usize))] as (usize))] as (i32) <
+               depths[(symbols[(i as (usize))] as (usize))] as (i32) {
+              let mut __brotli_swap_tmp: usize = symbols[(j as (usize))];
+              symbols[(j as (usize))] = symbols[(i as (usize))];
+              symbols[(i as (usize))] = __brotli_swap_tmp;
+            }
           }
           j = j.wrapping_add(1 as (usize));
-          continue 'loop9;
-        } else {
-          break 'loop9;
         }
       }
       i = i.wrapping_add(1 as (usize));
-      continue 'loop1;
-    } else {
-      break 'loop1;
     }
   }
   if num_symbols == 2usize {
-    BrotliWriteBits(max_bits,
-                    symbols[0i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
-    BrotliWriteBits(max_bits,
-                    symbols[1i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
+    BrotliWriteBits(max_bits as u8, symbols[(0usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8, symbols[(1usize)] as u64, storage_ix, storage);
   } else if num_symbols == 3usize {
-    BrotliWriteBits(max_bits,
-                    symbols[0i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
-    BrotliWriteBits(max_bits,
-                    symbols[1i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
-    BrotliWriteBits(max_bits,
-                    symbols[2i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
+    BrotliWriteBits(max_bits as u8, symbols[(0usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8, symbols[(1usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8, symbols[(2usize)] as u64, storage_ix, storage);
   } else {
-    BrotliWriteBits(max_bits,
-                    symbols[0i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
-    BrotliWriteBits(max_bits,
-                    symbols[1i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
-    BrotliWriteBits(max_bits,
-                    symbols[2i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
-    BrotliWriteBits(max_bits,
-                    symbols[3i32 as (usize)] as u64,
-                    storage_ix,
-                    storage);
+    BrotliWriteBits(max_bits as u8, symbols[(0usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8, symbols[(1usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8, symbols[(2usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8, symbols[(3usize)] as u64, storage_ix, storage);
     BrotliWriteBits(1,
-                    if depths[symbols[0i32 as (usize)] as (usize)] as (i32) == 1i32 {
-                      1
+                    if depths[(symbols[(0usize)] as (usize))] as (i32) == 1i32 {
+                      1i32
                     } else {
-                      0
+                      0i32
                     } as (u64),
                     storage_ix,
                     storage);
@@ -935,50 +896,1409 @@ fn BuildAndStoreHuffmanTree(mut histogram: &[u32],
                             mut storage_ix: &mut usize,
                             mut storage: &mut [u8]) {
   let mut count: usize = 0usize;
-  let mut s4: [usize; 4] = [0; 4];
-  let mut i: usize = 0;
+  let mut s4: [usize; 4] = [0usize, 0usize, 0usize, 0usize];
+  let mut i: usize;
   let mut max_bits: usize = 0usize;
-  'loop1: loop {
-    if i < length {
-      if histogram[i as (usize)] != 0 {
+  i = 0usize;
+  'break31: while i < length {
+    {
+      if histogram[(i as (usize))] != 0 {
         if count < 4usize {
           s4[count] = i;
         } else if count > 4usize {
-          break 'loop1;
+          {
+            break 'break31;
+          }
         }
         count = count.wrapping_add(1 as (usize));
       }
-      i = i.wrapping_add(1);
-      continue 'loop1;
-    } else {
-      break 'loop1;
     }
+    i = i.wrapping_add(1 as (usize));
   }
-  let mut max_bits_counter: usize = length.wrapping_sub(1usize);
-  'loop6: loop {
-    if max_bits_counter != 0 {
+  {
+    let mut max_bits_counter: usize = length.wrapping_sub(1usize);
+    while max_bits_counter != 0 {
       max_bits_counter = max_bits_counter >> 1i32;
       max_bits = max_bits.wrapping_add(1 as (usize));
-      continue 'loop6;
-    } else {
-      break 'loop6;
     }
   }
   if count <= 1usize {
     BrotliWriteBits(4, 1, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, s4[0] as u64, storage_ix, storage);
-    depth[s4[0usize] as (usize)] = 0i32 as (u8);
-    bits[s4[0usize] as (usize)] = 0i32 as (u16);
+    BrotliWriteBits(max_bits as u8, s4[0usize] as u64, storage_ix, storage);
+    depth[(s4[0usize] as (usize))] = 0i32 as (u8);
+    bits[(s4[0usize] as (usize))] = 0i32 as (u16);
+    return;
+  }
+  
+  for depth_elem in depth[..length].iter_mut() {
+    *depth_elem = 0; // memset
+  }
+  BrotliCreateHuffmanTree(histogram, length, 15i32, tree, depth);
+  BrotliConvertBitDepthsToSymbols(depth, length, bits);
+  if count <= 4usize {
+    StoreSimpleHuffmanTree(depth, &mut s4[..], count, max_bits, storage_ix, storage);
   } else {
-    for depth_elem in depth[..length].iter_mut() {
-      *depth_elem = 0;
+    BrotliStoreHuffmanTree(depth, length, tree, storage_ix, storage);
+  }
+}
+
+fn GetBlockLengthPrefixCode(mut len: u32,
+                            mut code: &mut usize,
+                            mut n_extra: &mut u32,
+                            mut extra: &mut u32) {
+  *code = BlockLengthPrefixCode(len) as (usize);
+  *n_extra = kBlockLengthPrefixCode[*code].nbits;
+  *extra = len.wrapping_sub(kBlockLengthPrefixCode[*code].offset);
+}
+
+fn StoreBlockSwitch(mut code: &mut BlockSplitCode,
+                    block_len: u32,
+                    block_type: u8,
+                    mut is_first_block: i32,
+                    mut storage_ix: &mut usize,
+                    mut storage: &mut [u8]) {
+  let mut typecode: usize = NextBlockTypeCode(&mut (*code).type_code_calculator, block_type);
+  let mut lencode: usize = 0;
+  let mut len_nextra: u32 = 0;
+  let mut len_extra: u32 = 0;
+  if is_first_block == 0 {
+    BrotliWriteBits((*code).type_depths[typecode] as (u8),
+                    (*code).type_bits[typecode] as (u64),
+                    storage_ix,
+                    storage);
+  }
+  GetBlockLengthPrefixCode(block_len, &mut lencode, &mut len_nextra, &mut len_extra);
+  BrotliWriteBits((*code).length_depths[lencode] as (u8),
+                  (*code).length_bits[lencode] as (u64),
+                  storage_ix,
+                  storage);
+  BrotliWriteBits(len_nextra as (u8),
+                  len_extra as (u64),
+                  storage_ix,
+                  storage);
+}
+
+fn BuildAndStoreBlockSplitCode(mut types: &[u8],
+                               mut lengths: &[u32],
+                               num_blocks: usize,
+                               num_types: usize,
+                               mut tree: &mut [HuffmanTree],
+                               mut code: &mut BlockSplitCode,
+                               mut storage_ix: &mut usize,
+                               mut storage: &mut [u8]) {
+  let mut type_histo: [u32; 258] = [0;258];
+  let mut length_histo: [u32; 26] = [0;26];
+  let mut i: usize;
+  let mut type_code_calculator = NewBlockTypeCodeCalculator();
+  i = 0usize;
+  while i < num_blocks {
+    {
+      let mut type_code: usize = NextBlockTypeCode(&mut type_code_calculator,
+                                                   types[(i as (usize))]);
+      if i != 0usize {
+        let _rhs = 1;
+        let _lhs = &mut type_histo[type_code];
+        *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+      }
+      {
+        let _rhs = 1;
+        let _lhs = &mut length_histo[BlockLengthPrefixCode(lengths[(i as (usize))]) as (usize)];
+        *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+      }
     }
-    BrotliCreateHuffmanTree(histogram, length, 15i32, tree, depth);
-    BrotliConvertBitDepthsToSymbols(depth, length, bits);
-    if count <= 4usize {
-      StoreSimpleHuffmanTree(depth, &mut s4[..], count, max_bits, storage_ix, storage);
-    } else {
-      BrotliStoreHuffmanTree(depth, length, tree, storage_ix, storage);
+    i = i.wrapping_add(1 as (usize));
+  }
+  StoreVarLenUint8(num_types.wrapping_sub(1) as u64, storage_ix, storage);
+  if num_types > 1usize {
+    BuildAndStoreHuffmanTree(&mut type_histo[0usize..],
+                             num_types.wrapping_add(2usize),
+                             tree,
+                             &mut (*code).type_depths[0usize..],
+                             &mut (*code).type_bits[0usize..],
+                             storage_ix,
+                             storage);
+    BuildAndStoreHuffmanTree(&mut length_histo[0usize..],
+                             26usize,
+                             tree,
+                             &mut (*code).length_depths[0usize..],
+                             &mut (*code).length_bits[0usize..],
+                             storage_ix,
+                             storage);
+    StoreBlockSwitch(code,
+                     lengths[(0usize)],
+                     types[(0usize)],
+                     1i32,
+                     storage_ix,
+                     storage);
+  }
+}
+
+fn BuildAndStoreBlockSwitchEntropyCodes<AllocU8: alloc::Allocator<u8>,
+                        AllocU16: alloc::Allocator<u16>,
+                        AllocU32: alloc::Allocator<u32>>(mut xself: &mut BlockEncoder<AllocU8, AllocU16, AllocU32>,
+                                        mut tree: &mut [HuffmanTree],
+                                        mut storage_ix: &mut usize,
+                                        mut storage: &mut [u8]) {
+  BuildAndStoreBlockSplitCode((*xself).block_types_.slice(),
+                              (*xself).block_lengths_.slice(),
+                              (*xself).num_blocks_,
+                              (*xself).num_block_types_,
+                              tree,
+                              &mut (*xself).block_split_code_,
+                              storage_ix,
+                              storage);
+}
+
+fn StoreTrivialContextMap(mut num_types: usize,
+                          mut context_bits: usize,
+                          mut tree: &mut [HuffmanTree],
+                          mut storage_ix: &mut usize,
+                          mut storage: &mut [u8]) {
+  StoreVarLenUint8(num_types.wrapping_sub(1usize) as u64, storage_ix, storage);
+  if num_types > 1usize {
+    let mut repeat_code: usize = context_bits.wrapping_sub(1u32 as (usize));
+    let mut repeat_bits: usize = (1u32 << repeat_code).wrapping_sub(1u32) as (usize);
+    let mut alphabet_size: usize = num_types.wrapping_add(repeat_code);
+    let mut histogram: [u32; 272] = [0;272];
+    let mut depths: [u8; 272] = [0;272];
+    let mut bits: [u16; 272] = [0;272];
+    let mut i: usize;
+    BrotliWriteBits(1u8, 1u64, storage_ix, storage);
+    BrotliWriteBits(4u8,
+                    repeat_code.wrapping_sub(1usize) as u64,
+                    storage_ix,
+                    storage);
+    histogram[repeat_code] = num_types as (u32);
+    histogram[0usize] = 1u32;
+    i = context_bits;
+    while i < alphabet_size {
+      {
+        histogram[i] = 1u32;
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+    BuildAndStoreHuffmanTree(&mut histogram[..],
+                             alphabet_size,
+                             tree,
+                             &mut depths[..],
+                             &mut bits[..],
+                             storage_ix,
+                             storage);
+    i = 0usize;
+    while i < num_types {
+      {
+        let mut code: usize = if i == 0usize {
+          0usize
+        } else {
+          i.wrapping_add(context_bits).wrapping_sub(1usize)
+        };
+        BrotliWriteBits(depths[code] as (u8),
+                        bits[code] as (u64),
+                        storage_ix,
+                        storage);
+        BrotliWriteBits(depths[repeat_code] as (u8),
+                        bits[repeat_code] as (u64),
+                        storage_ix,
+                        storage);
+        BrotliWriteBits(repeat_code as u8, repeat_bits as u64, storage_ix, storage);
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+    BrotliWriteBits(1, 1, storage_ix, storage);
+  }
+}
+
+fn IndexOf(mut v: &[u8], mut v_size: usize, mut value: u8) -> usize {
+  let mut i: usize = 0usize;
+  while i < v_size {
+    {
+      if v[(i as (usize))] as (i32) == value as (i32) {
+        return i;
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  i
+}
+
+fn MoveToFront(mut v: &mut [u8], mut index: usize) {
+  let mut value: u8 = v[(index as (usize))];
+  let mut i: usize;
+  i = index;
+  while i != 0usize {
+    {
+      v[(i as (usize))] = v[(i.wrapping_sub(1usize) as (usize))];
+    }
+    i = i.wrapping_sub(1 as (usize));
+  }
+  v[(0usize)] = value;
+}
+
+fn MoveToFrontTransform(mut v_in: &[u32], v_size: usize, mut v_out: &mut [u32]) {
+  let mut i: usize;
+  let mut mtf: [u8; 256] = [0;256];
+  let mut max_value: u32;
+  if v_size == 0usize {
+    return;
+  }
+  max_value = v_in[(0usize)];
+  i = 1usize;
+  while i < v_size {
+    {
+      if v_in[(i as (usize))] > max_value {
+        max_value = v_in[(i as (usize))];
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  0i32;
+  i = 0usize;
+  while i <= max_value as (usize) {
+    {
+      mtf[i] = i as (u8);
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  {
+    let mut mtf_size: usize = max_value.wrapping_add(1u32) as (usize);
+    i = 0usize;
+    while i < v_size {
+      {
+        let mut index: usize = IndexOf(&mtf[..], mtf_size, v_in[(i as (usize))] as (u8));
+        0i32;
+        v_out[(i as (usize))] = index as (u32);
+        MoveToFront(&mut mtf[..], index);
+      }
+      i = i.wrapping_add(1 as (usize));
     }
   }
 }
+
+fn brotli_max_uint32_t(mut a: u32, mut b: u32) -> u32 {
+  if a > b { a } else { b }
+}
+
+fn brotli_min_uint32_t(mut a: u32, mut b: u32) -> u32 {
+  if a < b { a } else { b }
+}
+
+fn RunLengthCodeZeros(in_size: usize,
+                      mut v: &mut [u32],
+                      mut out_size: &mut usize,
+                      mut max_run_length_prefix: &mut u32) {
+  let mut max_reps: u32 = 0u32;
+  let mut i: usize;
+  let mut max_prefix: u32;
+  i = 0usize;
+  while i < in_size {
+    let mut reps: u32 = 0u32;
+    while i < in_size && (v[(i as (usize))] != 0u32) {
+      i = i.wrapping_add(1 as (usize));
+    }
+    while i < in_size && (v[(i as (usize))] == 0u32) {
+      {
+        reps = reps.wrapping_add(1 as (u32));
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+    max_reps = brotli_max_uint32_t(reps, max_reps);
+  }
+  max_prefix = if max_reps > 0u32 {
+    Log2FloorNonZero(max_reps as (u64))
+  } else {
+    0u32
+  };
+  max_prefix = brotli_min_uint32_t(max_prefix, *max_run_length_prefix);
+  *max_run_length_prefix = max_prefix;
+  *out_size = 0usize;
+  i = 0usize;
+  while i < in_size {
+    0i32;
+    if v[(i as (usize))] != 0u32 {
+      v[(*out_size as (usize))] = (v[(i as (usize))]).wrapping_add(*max_run_length_prefix);
+      i = i.wrapping_add(1 as (usize));
+      *out_size = (*out_size).wrapping_add(1 as (usize));
+    } else {
+      let mut reps: u32 = 1u32;
+      let mut k: usize;
+      k = i.wrapping_add(1usize);
+      while k < in_size && (v[(k as (usize))] == 0u32) {
+        {
+          reps = reps.wrapping_add(1 as (u32));
+        }
+        k = k.wrapping_add(1 as (usize));
+      }
+      i = i.wrapping_add(reps as (usize));
+      while reps != 0u32 {
+        if reps < 2u32 << max_prefix {
+          let mut run_length_prefix: u32 = Log2FloorNonZero(reps as (u64));
+          let extra_bits: u32 = reps.wrapping_sub(1u32 << run_length_prefix);
+          v[(*out_size as (usize))] = run_length_prefix.wrapping_add(extra_bits << 9i32);
+          *out_size = (*out_size).wrapping_add(1 as (usize));
+          {
+            {
+              break;
+            }
+          }
+        } else {
+          let extra_bits: u32 = (1u32 << max_prefix).wrapping_sub(1u32);
+          v[(*out_size as (usize))] = max_prefix.wrapping_add(extra_bits << 9i32);
+          reps = reps.wrapping_sub((2u32 << max_prefix).wrapping_sub(1u32));
+          *out_size = (*out_size).wrapping_add(1 as (usize));
+        }
+      }
+    }
+  }
+}
+
+fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(mut m: &mut AllocU32,
+                    mut context_map: &[u32],
+                    mut context_map_size: usize,
+                    mut num_clusters: usize,
+                    mut tree: &mut [HuffmanTree],
+                    mut storage_ix: &mut usize,
+                    mut storage: &mut [u8]) {
+  let mut i: usize;
+  let mut rle_symbols: AllocU32::AllocatedMemory;
+  let mut max_run_length_prefix: u32 = 6u32;
+  let mut num_rle_symbols: usize = 0usize;
+  static kSymbolMask: u32 = (1u32 << 9i32) - 1;
+  let mut depths: [u8; 272] = [0;272];
+  let mut bits: [u16; 272] = [0;272];
+  StoreVarLenUint8(num_clusters.wrapping_sub(1usize) as u64, storage_ix, storage);
+  if num_clusters == 1usize {
+    return;
+  }
+  rle_symbols = if context_map_size != 0 {
+    m.alloc_cell(context_map_size)
+  } else {
+    AllocU32::AllocatedMemory::default()
+  };
+  MoveToFrontTransform(context_map, context_map_size, rle_symbols.slice_mut());
+  RunLengthCodeZeros(context_map_size,
+                     rle_symbols.slice_mut(),
+                     &mut num_rle_symbols,
+                     &mut max_run_length_prefix);
+  let mut histogram: [u32; 272] = [0;272];
+  i = 0usize;
+  while i < num_rle_symbols {
+    {
+      let _rhs = 1;
+      let _lhs = &mut histogram[(rle_symbols.slice()[(i as (usize))] & kSymbolMask) as (usize)];
+      *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  {
+    let mut use_rle: i32 = if !!(max_run_length_prefix > 0u32) {
+      1i32
+    } else {
+      0i32
+    };
+    BrotliWriteBits(1, use_rle as (u64), storage_ix, storage);
+    if use_rle != 0 {
+      BrotliWriteBits(4,
+                      max_run_length_prefix.wrapping_sub(1u32) as (u64),
+                      storage_ix,
+                      storage);
+    }
+  }
+  BuildAndStoreHuffmanTree(&mut histogram[..],
+                           num_clusters.wrapping_add(max_run_length_prefix as (usize)),
+                           tree,
+                           &mut depths[..],
+                           &mut bits[..],
+                           storage_ix,
+                           storage);
+  i = 0usize;
+  while i < num_rle_symbols {
+    {
+      let rle_symbol: u32 = rle_symbols.slice()[(i as (usize))] & kSymbolMask;
+      let extra_bits_val: u32 = rle_symbols.slice()[(i as (usize))] >> 9i32;
+      BrotliWriteBits(depths[rle_symbol as (usize)] as (u8),
+                      bits[rle_symbol as (usize)] as (u64),
+                      storage_ix,
+                      storage);
+      if rle_symbol > 0u32 && (rle_symbol <= max_run_length_prefix) {
+        BrotliWriteBits(rle_symbol as (u8),
+                        extra_bits_val as (u64),
+                        storage_ix,
+                        storage);
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  BrotliWriteBits(1, 1, storage_ix, storage);
+  m.free_cell(rle_symbols);
+}
+/* CONTINUE FROM HERE
+fn BuildAndStoreEntropyCodesLiteral(mut m: &mut [MemoryManager],
+                                    mut xself: &mut BlockEncoder,
+                                    mut histograms: &[HistogramLiteral],
+                                    histograms_size: usize,
+                                    mut tree: &mut [HuffmanTree],
+                                    mut storage_ix: &mut usize,
+                                    mut storage: &mut [u8]) {
+  let alphabet_size: usize = (*xself).alphabet_size_;
+  let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
+  (*xself).depths_ = if table_size != 0 {
+    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u8>()))
+  } else {
+    0i32
+  };
+  (*xself).bits_ = if table_size != 0 {
+    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u16>()))
+  } else {
+    0i32
+  };
+  if !(0i32 == 0) {
+    return;
+  }
+  {
+    let mut i: usize;
+    i = 0usize;
+    while i < histograms_size {
+      {
+        let mut ix: usize = i.wrapping_mul(alphabet_size);
+        BuildAndStoreHuffmanTree(&mut (histograms[(i as (usize))]).data_[0usize],
+                                 alphabet_size,
+                                 tree,
+                                 &mut *(*xself).depths_[(ix as (usize))..],
+                                 &mut *(*xself).bits_[(ix as (usize))..],
+                                 storage_ix,
+                                 storage);
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+  }
+}
+
+fn BuildAndStoreEntropyCodesCommand(mut m: &mut [MemoryManager],
+                                    mut xself: &mut BlockEncoder,
+                                    mut histograms: &[HistogramCommand],
+                                    histograms_size: usize,
+                                    mut tree: &mut [HuffmanTree],
+                                    mut storage_ix: &mut usize,
+                                    mut storage: &mut [u8]) {
+  let alphabet_size: usize = (*xself).alphabet_size_;
+  let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
+  (*xself).depths_ = if table_size != 0 {
+    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u8>()))
+  } else {
+    0i32
+  };
+  (*xself).bits_ = if table_size != 0 {
+    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u16>()))
+  } else {
+    0i32
+  };
+  if !(0i32 == 0) {
+    return;
+  }
+  {
+    let mut i: usize;
+    i = 0usize;
+    while i < histograms_size {
+      {
+        let mut ix: usize = i.wrapping_mul(alphabet_size);
+        BuildAndStoreHuffmanTree(&mut (histograms[(i as (usize))]).data_[0usize],
+                                 alphabet_size,
+                                 tree,
+                                 &mut *(*xself).depths_[(ix as (usize))..],
+                                 &mut *(*xself).bits_[(ix as (usize))..],
+                                 storage_ix,
+                                 storage);
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+  }
+}
+
+fn BuildAndStoreEntropyCodesDistance(mut m: &mut [MemoryManager],
+                                     mut xself: &mut BlockEncoder,
+                                     mut histograms: &[HistogramDistance],
+                                     histograms_size: usize,
+                                     mut tree: &mut [HuffmanTree],
+                                     mut storage_ix: &mut usize,
+                                     mut storage: &mut [u8]) {
+  let alphabet_size: usize = (*xself).alphabet_size_;
+  let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
+  (*xself).depths_ = if table_size != 0 {
+    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u8>()))
+  } else {
+    0i32
+  };
+  (*xself).bits_ = if table_size != 0 {
+    BrotliAllocate(m, table_size.wrapping_mul(::std::mem::size_of::<u16>()))
+  } else {
+    0i32
+  };
+  if !(0i32 == 0) {
+    return;
+  }
+  {
+    let mut i: usize;
+    i = 0usize;
+    while i < histograms_size {
+      {
+        let mut ix: usize = i.wrapping_mul(alphabet_size);
+        BuildAndStoreHuffmanTree(&mut (histograms[(i as (usize))]).data_[0usize],
+                                 alphabet_size,
+                                 tree,
+                                 &mut *(*xself).depths_[(ix as (usize))..],
+                                 &mut *(*xself).bits_[(ix as (usize))..],
+                                 storage_ix,
+                                 storage);
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+  }
+}
+
+fn StoreSymbol(mut xself: &mut BlockEncoder,
+               mut symbol: usize,
+               mut storage_ix: &mut usize,
+               mut storage: &mut [u8]) {
+  if (*xself).block_len_ == 0usize {
+    let mut block_ix: usize = {
+      (*xself).block_ix_ = (*xself).block_ix_.wrapping_add(1 as (usize));
+      (*xself).block_ix_
+    };
+    let mut block_len: u32 = *(*xself).block_lengths_[(block_ix as (usize))..];
+    let mut block_type: u8 = *(*xself).block_types_[(block_ix as (usize))..];
+    (*xself).block_len_ = block_len as (usize);
+    (*xself).entropy_ix_ = (block_type as (usize)).wrapping_mul((*xself).alphabet_size_);
+    StoreBlockSwitch(&mut (*xself).block_split_code_,
+                     block_len,
+                     block_type,
+                     0i32,
+                     storage_ix,
+                     storage);
+  }
+  (*xself).block_len_ = (*xself).block_len_.wrapping_sub(1 as (usize));
+  {
+    let mut ix: usize = (*xself).entropy_ix_.wrapping_add(symbol);
+    BrotliWriteBits(*(*xself).depths_[(ix as (usize))..] as (usize),
+                    *(*xself).bits_[(ix as (usize))..] as (usize),
+                    storage_ix,
+                    storage);
+  }
+}
+
+fn CommandCopyLenCode(mut xself: &Command) -> u32 {
+  (*xself).copy_len_ & 0xffffffu32 ^ (*xself).copy_len_ >> 24i32
+}
+
+fn GetInsertLengthCode(mut insertlen: usize) -> u16 {
+  if insertlen < 6usize {
+    insertlen as (u16)
+  } else if insertlen < 130usize {
+    let mut nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2usize)).wrapping_sub(1u32);
+    ((nbits << 1i32) as (usize))
+      .wrapping_add(insertlen.wrapping_sub(2usize) >> nbits)
+      .wrapping_add(2usize) as (u16)
+  } else if insertlen < 2114usize {
+    Log2FloorNonZero(insertlen.wrapping_sub(66usize)).wrapping_add(10u32) as (u16)
+  } else if insertlen < 6210usize {
+    21u32 as (u16)
+  } else if insertlen < 22594usize {
+    22u32 as (u16)
+  } else {
+    23u32 as (u16)
+  }
+}
+
+fn GetCopyLengthCode(mut copylen: usize) -> u16 {
+  if copylen < 10usize {
+    copylen.wrapping_sub(2usize) as (u16)
+  } else if copylen < 134usize {
+    let mut nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize)).wrapping_sub(1u32);
+    ((nbits << 1i32) as (usize))
+      .wrapping_add(copylen.wrapping_sub(6usize) >> nbits)
+      .wrapping_add(4usize) as (u16)
+  } else if copylen < 2118usize {
+    Log2FloorNonZero(copylen.wrapping_sub(70usize)).wrapping_add(12u32) as (u16)
+  } else {
+    23u32 as (u16)
+  }
+}
+
+fn GetInsertExtra(mut inscode: u16) -> u32 {
+  kInsExtra[inscode as (usize)]
+}
+
+fn GetInsertBase(mut inscode: u16) -> u32 {
+  kInsBase[inscode as (usize)]
+}
+
+fn GetCopyBase(mut copycode: u16) -> u32 {
+  kCopyBase[copycode as (usize)]
+}
+
+fn GetCopyExtra(mut copycode: u16) -> u32 {
+  kCopyExtra[copycode as (usize)]
+}
+
+fn StoreCommandExtra(mut cmd: &[Command], mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+  let mut copylen_code: u32 = CommandCopyLenCode(cmd);
+  let mut inscode: u16 = GetInsertLengthCode((*cmd).insert_len_ as (usize));
+  let mut copycode: u16 = GetCopyLengthCode(copylen_code as (usize));
+  let mut insnumextra: u32 = GetInsertExtra(inscode);
+  let mut insextraval: usize = (*cmd).insert_len_.wrapping_sub(GetInsertBase(inscode)) as (usize);
+  let mut copyextraval: usize = copylen_code.wrapping_sub(GetCopyBase(copycode)) as (usize);
+  let mut bits: usize = copyextraval << insnumextra | insextraval;
+  BrotliWriteBits(insnumextra.wrapping_add(GetCopyExtra(copycode)) as (usize),
+                  bits,
+                  storage_ix,
+                  storage);
+}
+
+fn Context(mut p1: u8, mut p2: u8, mut mode: ContextType) -> u8 {
+  if mode as (i32) == ContextType::CONTEXT_LSB6 as (i32) {
+    return (p1 as (i32) & 0x3fi32) as (u8);
+  }
+  if mode as (i32) == ContextType::CONTEXT_MSB6 as (i32) {
+    return (p1 as (i32) >> 2i32) as (u8);
+  }
+  if mode as (i32) == ContextType::CONTEXT_UTF8 as (i32) {
+    return (kUTF8ContextLookup[p1 as (usize)] as (i32) |
+            kUTF8ContextLookup[(p2 as (i32) + 256i32) as (usize)] as (i32)) as (u8);
+  }
+  if mode as (i32) == ContextType::CONTEXT_SIGNED as (i32) {
+    return ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32) +
+            kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8);
+  }
+  0i32 as (u8)
+}
+
+fn StoreSymbolWithContext(mut xself: &mut BlockEncoder,
+                          mut symbol: usize,
+                          mut context: usize,
+                          mut context_map: &[u32],
+                          mut storage_ix: &mut usize,
+                          mut storage: &mut [u8],
+                          context_bits: usize) {
+  if (*xself).block_len_ == 0usize {
+    let mut block_ix: usize = {
+      (*xself).block_ix_ = (*xself).block_ix_.wrapping_add(1 as (usize));
+      (*xself).block_ix_
+    };
+    let mut block_len: u32 = *(*xself).block_lengths_[(block_ix as (usize))..];
+    let mut block_type: u8 = *(*xself).block_types_[(block_ix as (usize))..];
+    (*xself).block_len_ = block_len as (usize);
+    (*xself).entropy_ix_ = block_type as (usize) << context_bits;
+    StoreBlockSwitch(&mut (*xself).block_split_code_,
+                     block_len,
+                     block_type,
+                     0i32,
+                     storage_ix,
+                     storage);
+  }
+  (*xself).block_len_ = (*xself).block_len_.wrapping_sub(1 as (usize));
+  {
+    let mut histo_ix: usize = context_map[((*xself).entropy_ix_.wrapping_add(context) as
+     (usize))] as (usize);
+    let mut ix: usize = histo_ix.wrapping_mul((*xself).alphabet_size_).wrapping_add(symbol);
+    BrotliWriteBits(*(*xself).depths_[(ix as (usize))..] as (usize),
+                    *(*xself).bits_[(ix as (usize))..] as (usize),
+                    storage_ix,
+                    storage);
+  }
+}
+
+fn CommandCopyLen(mut xself: &Command) -> u32 {
+  (*xself).copy_len_ & 0xffffffu32
+}
+
+fn CommandDistanceContext(mut xself: &Command) -> u32 {
+  let mut r: u32 = ((*xself).cmd_prefix_ as (i32) >> 6i32) as (u32);
+  let mut c: u32 = ((*xself).cmd_prefix_ as (i32) & 7i32) as (u32);
+  if (r == 0u32 || r == 2u32 || r == 4u32 || r == 7u32) && (c <= 2u32) {
+    return c;
+  }
+  3u32
+}
+
+fn CleanupBlockEncoder(mut m: &mut [MemoryManager], mut xself: &mut BlockEncoder) {
+  {
+    BrotliFree(m, (*xself).depths_);
+    (*xself).depths_ = 0i32;
+  }
+  {
+    BrotliFree(m, (*xself).bits_);
+    (*xself).bits_ = 0i32;
+  }
+}
+
+fn JumpToByteBoundary(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+  *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
+  storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
+}
+
+
+pub fn BrotliStoreMetaBlock(mut m: &mut [MemoryManager],
+                            mut input: &[u8],
+                            mut start_pos: usize,
+                            mut length: usize,
+                            mut mask: usize,
+                            mut prev_byte: u8,
+                            mut prev_byte2: u8,
+                            mut is_last: i32,
+                            mut num_direct_distance_codes: u32,
+                            mut distance_postfix_bits: u32,
+                            mut literal_context_mode: ContextType,
+                            mut commands: &[Command],
+                            mut n_commands: usize,
+                            mut mb: &[MetaBlockSplit],
+                            mut storage_ix: &mut usize,
+                            mut storage: &mut [u8]) {
+  let mut pos: usize = start_pos;
+  let mut i: usize;
+  let mut num_distance_codes: usize = (16u32)
+    .wrapping_add(num_direct_distance_codes)
+    .wrapping_add(48u32 << distance_postfix_bits) as (usize);
+  let mut tree: *mut HuffmanTree;
+  let mut literal_enc: BlockEncoder;
+  let mut command_enc: BlockEncoder;
+  let mut distance_enc: BlockEncoder;
+  StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
+  tree = if 2i32 * 704i32 + 1i32 != 0 {
+    BrotliAllocate(m,
+                   ((2i32 * 704i32 + 1i32) as (usize))
+                     .wrapping_mul(::std::mem::size_of::<HuffmanTree>()))
+  } else {
+    0i32
+  };
+  if !(0i32 == 0) {
+    return;
+  }
+  InitBlockEncoder(&mut literal_enc,
+                   256usize,
+                   (*mb).literal_split.num_types,
+                   (*mb).literal_split.types,
+                   (*mb).literal_split.lengths,
+                   (*mb).literal_split.num_blocks);
+  InitBlockEncoder(&mut command_enc,
+                   704usize,
+                   (*mb).command_split.num_types,
+                   (*mb).command_split.types,
+                   (*mb).command_split.lengths,
+                   (*mb).command_split.num_blocks);
+  InitBlockEncoder(&mut distance_enc,
+                   num_distance_codes,
+                   (*mb).distance_split.num_types,
+                   (*mb).distance_split.types,
+                   (*mb).distance_split.lengths,
+                   (*mb).distance_split.num_blocks);
+  BuildAndStoreBlockSwitchEntropyCodes(&mut literal_enc, tree, storage_ix, storage);
+  BuildAndStoreBlockSwitchEntropyCodes(&mut command_enc, tree, storage_ix, storage);
+  BuildAndStoreBlockSwitchEntropyCodes(&mut distance_enc, tree, storage_ix, storage);
+  BrotliWriteBits(2usize,
+                  distance_postfix_bits as (usize),
+                  storage_ix,
+                  storage);
+  BrotliWriteBits(4usize,
+                  (num_direct_distance_codes >> distance_postfix_bits) as (usize),
+                  storage_ix,
+                  storage);
+  i = 0usize;
+  while i < (*mb).literal_split.num_types {
+    {
+      BrotliWriteBits(2usize, literal_context_mode as (usize), storage_ix, storage);
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  if (*mb).literal_context_map_size == 0usize {
+    StoreTrivialContextMap((*mb).literal_histograms_size,
+                           6usize,
+                           tree,
+                           storage_ix,
+                           storage);
+  } else {
+    EncodeContextMap(m,
+                     (*mb).literal_context_map,
+                     (*mb).literal_context_map_size,
+                     (*mb).literal_histograms_size,
+                     tree,
+                     storage_ix,
+                     storage);
+    if !(0i32 == 0) {
+      return;
+    }
+  }
+  if (*mb).distance_context_map_size == 0usize {
+    StoreTrivialContextMap((*mb).distance_histograms_size,
+                           2usize,
+                           tree,
+                           storage_ix,
+                           storage);
+  } else {
+    EncodeContextMap(m,
+                     (*mb).distance_context_map,
+                     (*mb).distance_context_map_size,
+                     (*mb).distance_histograms_size,
+                     tree,
+                     storage_ix,
+                     storage);
+    if !(0i32 == 0) {
+      return;
+    }
+  }
+  BuildAndStoreEntropyCodesLiteral(m,
+                                   &mut literal_enc,
+                                   (*mb).literal_histograms,
+                                   (*mb).literal_histograms_size,
+                                   tree,
+                                   storage_ix,
+                                   storage);
+  if !(0i32 == 0) {
+    return;
+  }
+  BuildAndStoreEntropyCodesCommand(m,
+                                   &mut command_enc,
+                                   (*mb).command_histograms,
+                                   (*mb).command_histograms_size,
+                                   tree,
+                                   storage_ix,
+                                   storage);
+  if !(0i32 == 0) {
+    return;
+  }
+  BuildAndStoreEntropyCodesDistance(m,
+                                    &mut distance_enc,
+                                    (*mb).distance_histograms,
+                                    (*mb).distance_histograms_size,
+                                    tree,
+                                    storage_ix,
+                                    storage);
+  if !(0i32 == 0) {
+    return;
+  }
+  {
+    BrotliFree(m, tree);
+    tree = 0i32;
+  }
+  i = 0usize;
+  while i < n_commands {
+    {
+      let cmd: Command = commands[(i as (usize))];
+      let mut cmd_code: usize = cmd.cmd_prefix_ as (usize);
+      StoreSymbol(&mut command_enc, cmd_code, storage_ix, storage);
+      StoreCommandExtra(&cmd, storage_ix, storage);
+      if (*mb).literal_context_map_size == 0usize {
+        let mut j: usize;
+        j = cmd.insert_len_ as (usize);
+        while j != 0usize {
+          {
+            StoreSymbol(&mut literal_enc,
+                        input[((pos & mask) as (usize))] as (usize),
+                        storage_ix,
+                        storage);
+            pos = pos.wrapping_add(1 as (usize));
+          }
+          j = j.wrapping_sub(1 as (usize));
+        }
+      } else {
+        let mut j: usize;
+        j = cmd.insert_len_ as (usize);
+        while j != 0usize {
+          {
+            let mut context: usize = Context(prev_byte, prev_byte2, literal_context_mode) as
+                                     (usize);
+            let mut literal: u8 = input[((pos & mask) as (usize))];
+            StoreSymbolWithContext(&mut literal_enc,
+                                   literal as (usize),
+                                   context,
+                                   (*mb).literal_context_map,
+                                   storage_ix,
+                                   storage,
+                                   6usize);
+            prev_byte2 = prev_byte;
+            prev_byte = literal;
+            pos = pos.wrapping_add(1 as (usize));
+          }
+          j = j.wrapping_sub(1 as (usize));
+        }
+      }
+      pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
+      if CommandCopyLen(&cmd) != 0 {
+        prev_byte2 = input[((pos.wrapping_sub(2usize) & mask) as (usize))];
+        prev_byte = input[((pos.wrapping_sub(1usize) & mask) as (usize))];
+        if cmd.cmd_prefix_ as (i32) >= 128i32 {
+          let mut dist_code: usize = cmd.dist_prefix_ as (usize);
+          let mut distnumextra: u32 = cmd.dist_extra_ >> 24i32;
+          let mut distextra: usize = (cmd.dist_extra_ & 0xffffffu32) as (usize);
+          if (*mb).distance_context_map_size == 0usize {
+            StoreSymbol(&mut distance_enc, dist_code, storage_ix, storage);
+          } else {
+            let mut context: usize = CommandDistanceContext(&cmd) as (usize);
+            StoreSymbolWithContext(&mut distance_enc,
+                                   dist_code,
+                                   context,
+                                   (*mb).distance_context_map,
+                                   storage_ix,
+                                   storage,
+                                   2usize);
+          }
+          BrotliWriteBits(distnumextra as (usize), distextra, storage_ix, storage);
+        }
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+  CleanupBlockEncoder(m, &mut distance_enc);
+  CleanupBlockEncoder(m, &mut command_enc);
+  CleanupBlockEncoder(m, &mut literal_enc);
+  if is_last != 0 {
+    JumpToByteBoundary(storage_ix, storage);
+  }
+}
+
+fn HistogramClearLiteral(mut xself: &mut HistogramLiteral) {
+  memset((*xself).data_.as_mut_ptr(),
+         0i32,
+         ::std::mem::size_of::<[u32; 256]>());
+  (*xself).total_count_ = 0usize;
+  (*xself).bit_cost_ = 3.402e+38f64;
+}
+
+fn HistogramClearCommand(mut xself: &mut HistogramCommand) {
+  memset((*xself).data_.as_mut_ptr(),
+         0i32,
+         ::std::mem::size_of::<[u32; 704]>());
+  (*xself).total_count_ = 0usize;
+  (*xself).bit_cost_ = 3.402e+38f64;
+}
+
+fn HistogramClearDistance(mut xself: &mut HistogramDistance) {
+  memset((*xself).data_.as_mut_ptr(),
+         0i32,
+         ::std::mem::size_of::<[u32; 520]>());
+  (*xself).total_count_ = 0usize;
+  (*xself).bit_cost_ = 3.402e+38f64;
+}
+
+fn HistogramAddCommand(mut xself: &mut HistogramCommand, mut val: usize) {
+  {
+    let _rhs = 1;
+    let _lhs = &mut (*xself).data_[val];
+    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+  }
+  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
+}
+
+fn HistogramAddLiteral(mut xself: &mut HistogramLiteral, mut val: usize) {
+  {
+    let _rhs = 1;
+    let _lhs = &mut (*xself).data_[val];
+    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+  }
+  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
+}
+
+fn HistogramAddDistance(mut xself: &mut HistogramDistance, mut val: usize) {
+  {
+    let _rhs = 1;
+    let _lhs = &mut (*xself).data_[val];
+    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+  }
+  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
+}
+
+fn BuildHistograms(mut input: &[u8],
+                   mut start_pos: usize,
+                   mut mask: usize,
+                   mut commands: &[Command],
+                   mut n_commands: usize,
+                   mut lit_histo: &mut [HistogramLiteral],
+                   mut cmd_histo: &mut [HistogramCommand],
+                   mut dist_histo: &mut [HistogramDistance]) {
+  let mut pos: usize = start_pos;
+  let mut i: usize;
+  i = 0usize;
+  while i < n_commands {
+    {
+      let cmd: Command = commands[(i as (usize))];
+      let mut j: usize;
+      HistogramAddCommand(cmd_histo, cmd.cmd_prefix_ as (usize));
+      j = cmd.insert_len_ as (usize);
+      while j != 0usize {
+        {
+          HistogramAddLiteral(lit_histo, input[((pos & mask) as (usize))] as (usize));
+          pos = pos.wrapping_add(1 as (usize));
+        }
+        j = j.wrapping_sub(1 as (usize));
+      }
+      pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
+      if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
+        HistogramAddDistance(dist_histo, cmd.dist_prefix_ as (usize));
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+}
+
+fn StoreDataWithHuffmanCodes(mut input: &[u8],
+                             mut start_pos: usize,
+                             mut mask: usize,
+                             mut commands: &[Command],
+                             mut n_commands: usize,
+                             mut lit_depth: &[u8],
+                             mut lit_bits: &[u16],
+                             mut cmd_depth: &[u8],
+                             mut cmd_bits: &[u16],
+                             mut dist_depth: &[u8],
+                             mut dist_bits: &[u16],
+                             mut storage_ix: &mut usize,
+                             mut storage: &mut [u8]) {
+  let mut pos: usize = start_pos;
+  let mut i: usize;
+  i = 0usize;
+  while i < n_commands {
+    {
+      let cmd: Command = commands[(i as (usize))];
+      let cmd_code: usize = cmd.cmd_prefix_ as (usize);
+      let mut j: usize;
+      BrotliWriteBits(cmd_depth[(cmd_code as (usize))] as (usize),
+                      cmd_bits[(cmd_code as (usize))] as (usize),
+                      storage_ix,
+                      storage);
+      StoreCommandExtra(&cmd, storage_ix, storage);
+      j = cmd.insert_len_ as (usize);
+      while j != 0usize {
+        {
+          let literal: u8 = input[((pos & mask) as (usize))];
+          BrotliWriteBits(lit_depth[(literal as (usize))] as (usize),
+                          lit_bits[(literal as (usize))] as (usize),
+                          storage_ix,
+                          storage);
+          pos = pos.wrapping_add(1 as (usize));
+        }
+        j = j.wrapping_sub(1 as (usize));
+      }
+      pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
+      if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
+        let dist_code: usize = cmd.dist_prefix_ as (usize);
+        let distnumextra: u32 = cmd.dist_extra_ >> 24i32;
+        let distextra: u32 = cmd.dist_extra_ & 0xffffffu32;
+        BrotliWriteBits(dist_depth[(dist_code as (usize))] as (usize),
+                        dist_bits[(dist_code as (usize))] as (usize),
+                        storage_ix,
+                        storage);
+        BrotliWriteBits(distnumextra as (usize),
+                        distextra as (usize),
+                        storage_ix,
+                        storage);
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+}
+
+
+pub fn BrotliStoreMetaBlockTrivial(mut m: &mut [MemoryManager],
+                                   mut input: &[u8],
+                                   mut start_pos: usize,
+                                   mut length: usize,
+                                   mut mask: usize,
+                                   mut is_last: i32,
+                                   mut commands: &[Command],
+                                   mut n_commands: usize,
+                                   mut storage_ix: &mut usize,
+                                   mut storage: &mut [u8]) {
+  let mut lit_histo: HistogramLiteral;
+  let mut cmd_histo: HistogramCommand;
+  let mut dist_histo: HistogramDistance;
+  let mut lit_depth: [u8; 256];
+  let mut lit_bits: [u16; 256];
+  let mut cmd_depth: [u8; 704];
+  let mut cmd_bits: [u16; 704];
+  let mut dist_depth: [u8; 64];
+  let mut dist_bits: [u16; 64];
+  let mut tree: *mut HuffmanTree;
+  StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
+  HistogramClearLiteral(&mut lit_histo);
+  HistogramClearCommand(&mut cmd_histo);
+  HistogramClearDistance(&mut dist_histo);
+  BuildHistograms(input,
+                  start_pos,
+                  mask,
+                  commands,
+                  n_commands,
+                  &mut lit_histo,
+                  &mut cmd_histo,
+                  &mut dist_histo);
+  BrotliWriteBits(13usize, 0usize, storage_ix, storage);
+  tree = if 2i32 * 704i32 + 1i32 != 0 {
+    BrotliAllocate(m,
+                   ((2i32 * 704i32 + 1i32) as (usize))
+                     .wrapping_mul(::std::mem::size_of::<HuffmanTree>()))
+  } else {
+    0i32
+  };
+  if !(0i32 == 0) {
+    return;
+  }
+  BuildAndStoreHuffmanTree(lit_histo.data_.as_mut_ptr(),
+                           256usize,
+                           tree,
+                           lit_depth.as_mut_ptr(),
+                           lit_bits.as_mut_ptr(),
+                           storage_ix,
+                           storage);
+  BuildAndStoreHuffmanTree(cmd_histo.data_.as_mut_ptr(),
+                           704usize,
+                           tree,
+                           cmd_depth.as_mut_ptr(),
+                           cmd_bits.as_mut_ptr(),
+                           storage_ix,
+                           storage);
+  BuildAndStoreHuffmanTree(dist_histo.data_.as_mut_ptr(),
+                           64usize,
+                           tree,
+                           dist_depth.as_mut_ptr(),
+                           dist_bits.as_mut_ptr(),
+                           storage_ix,
+                           storage);
+  {
+    BrotliFree(m, tree);
+    tree = 0i32;
+  }
+  StoreDataWithHuffmanCodes(input,
+                            start_pos,
+                            mask,
+                            commands,
+                            n_commands,
+                            lit_depth.as_mut_ptr(),
+                            lit_bits.as_mut_ptr(),
+                            cmd_depth.as_mut_ptr(),
+                            cmd_bits.as_mut_ptr(),
+                            dist_depth.as_mut_ptr(),
+                            dist_bits.as_mut_ptr(),
+                            storage_ix,
+                            storage);
+  if is_last != 0 {
+    JumpToByteBoundary(storage_ix, storage);
+  }
+}
+
+fn StoreStaticCommandHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+  BrotliWriteBits(56usize,
+                  0x926244u32 as (usize) << 32i32 | 0x16307003u32 as (usize),
+                  storage_ix,
+                  storage);
+  BrotliWriteBits(3usize, 0x0u32 as (usize), storage_ix, storage);
+}
+
+fn StoreStaticDistanceHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+  BrotliWriteBits(28usize, 0x369dc03u32 as (usize), storage_ix, storage);
+}
+
+
+pub fn BrotliStoreMetaBlockFast(mut m: &mut [MemoryManager],
+                                mut input: &[u8],
+                                mut start_pos: usize,
+                                mut length: usize,
+                                mut mask: usize,
+                                mut is_last: i32,
+                                mut commands: &[Command],
+                                mut n_commands: usize,
+                                mut storage_ix: &mut usize,
+                                mut storage: &mut [u8]) {
+  StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
+  BrotliWriteBits(13usize, 0usize, storage_ix, storage);
+  if n_commands <= 128usize {
+    let mut histogram: [u32; 256] =
+      [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+       0u32];
+    let mut pos: usize = start_pos;
+    let mut num_literals: usize = 0usize;
+    let mut i: usize;
+    let mut lit_depth: [u8; 256];
+    let mut lit_bits: [u16; 256];
+    i = 0usize;
+    while i < n_commands {
+      {
+        let cmd: Command = commands[(i as (usize))];
+        let mut j: usize;
+        j = cmd.insert_len_ as (usize);
+        while j != 0usize {
+          {
+            {
+              let _rhs = 1;
+              let _lhs = &mut histogram[input[((pos & mask) as (usize))] as (usize)];
+              *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+            }
+            pos = pos.wrapping_add(1 as (usize));
+          }
+          j = j.wrapping_sub(1 as (usize));
+        }
+        num_literals = num_literals.wrapping_add(cmd.insert_len_ as (usize));
+        pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+    BrotliBuildAndStoreHuffmanTreeFast(m,
+                                       histogram.as_mut_ptr(),
+                                       num_literals,
+                                       8usize,
+                                       lit_depth.as_mut_ptr(),
+                                       lit_bits.as_mut_ptr(),
+                                       storage_ix,
+                                       storage);
+    if !(0i32 == 0) {
+      return;
+    }
+    StoreStaticCommandHuffmanTree(storage_ix, storage);
+    StoreStaticDistanceHuffmanTree(storage_ix, storage);
+    StoreDataWithHuffmanCodes(input,
+                              start_pos,
+                              mask,
+                              commands,
+                              n_commands,
+                              lit_depth.as_mut_ptr(),
+                              lit_bits.as_mut_ptr(),
+                              kStaticCommandCodeDepth.as_ptr(),
+                              kStaticCommandCodeBits.as_ptr(),
+                              kStaticDistanceCodeDepth.as_ptr(),
+                              kStaticDistanceCodeBits.as_ptr(),
+                              storage_ix,
+                              storage);
+  } else {
+    let mut lit_histo: HistogramLiteral;
+    let mut cmd_histo: HistogramCommand;
+    let mut dist_histo: HistogramDistance;
+    let mut lit_depth: [u8; 256];
+    let mut lit_bits: [u16; 256];
+    let mut cmd_depth: [u8; 704];
+    let mut cmd_bits: [u16; 704];
+    let mut dist_depth: [u8; 64];
+    let mut dist_bits: [u16; 64];
+    HistogramClearLiteral(&mut lit_histo);
+    HistogramClearCommand(&mut cmd_histo);
+    HistogramClearDistance(&mut dist_histo);
+    BuildHistograms(input,
+                    start_pos,
+                    mask,
+                    commands,
+                    n_commands,
+                    &mut lit_histo,
+                    &mut cmd_histo,
+                    &mut dist_histo);
+    BrotliBuildAndStoreHuffmanTreeFast(m,
+                                       lit_histo.data_.as_mut_ptr(),
+                                       lit_histo.total_count_,
+                                       8usize,
+                                       lit_depth.as_mut_ptr(),
+                                       lit_bits.as_mut_ptr(),
+                                       storage_ix,
+                                       storage);
+    if !(0i32 == 0) {
+      return;
+    }
+    BrotliBuildAndStoreHuffmanTreeFast(m,
+                                       cmd_histo.data_.as_mut_ptr(),
+                                       cmd_histo.total_count_,
+                                       10usize,
+                                       cmd_depth.as_mut_ptr(),
+                                       cmd_bits.as_mut_ptr(),
+                                       storage_ix,
+                                       storage);
+    if !(0i32 == 0) {
+      return;
+    }
+    BrotliBuildAndStoreHuffmanTreeFast(m,
+                                       dist_histo.data_.as_mut_ptr(),
+                                       dist_histo.total_count_,
+                                       6usize,
+                                       dist_depth.as_mut_ptr(),
+                                       dist_bits.as_mut_ptr(),
+                                       storage_ix,
+                                       storage);
+    if !(0i32 == 0) {
+      return;
+    }
+    StoreDataWithHuffmanCodes(input,
+                              start_pos,
+                              mask,
+                              commands,
+                              n_commands,
+                              lit_depth.as_mut_ptr(),
+                              lit_bits.as_mut_ptr(),
+                              cmd_depth.as_mut_ptr(),
+                              cmd_bits.as_mut_ptr(),
+                              dist_depth.as_mut_ptr(),
+                              dist_bits.as_mut_ptr(),
+                              storage_ix,
+                              storage);
+  }
+  if is_last != 0 {
+    JumpToByteBoundary(storage_ix, storage);
+  }
+}
+
+fn BrotliStoreUncompressedMetaBlockHeader(mut length: usize,
+                                          mut storage_ix: &mut usize,
+                                          mut storage: &mut [u8]) {
+  let mut lenbits: usize;
+  let mut nlenbits: usize;
+  let mut nibblesbits: usize;
+  BrotliWriteBits(1usize, 0usize, storage_ix, storage);
+  BrotliEncodeMlen(length, &mut lenbits, &mut nlenbits, &mut nibblesbits);
+  BrotliWriteBits(2usize, nibblesbits, storage_ix, storage);
+  BrotliWriteBits(nlenbits, lenbits, storage_ix, storage);
+  BrotliWriteBits(1usize, 1usize, storage_ix, storage);
+}
+
+
+pub fn BrotliStoreUncompressedMetaBlock(mut is_final_block: i32,
+                                        mut input: &[u8],
+                                        mut position: usize,
+                                        mut mask: usize,
+                                        mut len: usize,
+                                        mut storage_ix: &mut usize,
+                                        mut storage: &mut [u8]) {
+  let mut masked_pos: usize = position & mask;
+  BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
+  JumpToByteBoundary(storage_ix, storage);
+  if masked_pos.wrapping_add(len) > mask.wrapping_add(1usize) {
+    let mut len1: usize = mask.wrapping_add(1usize).wrapping_sub(masked_pos);
+    let dst_start = ((*storage_ix >> 3i32) as (usize));
+    storage[dst_start..len1].clone_from_slice(input[masked_pos..masked_pos + len1])
+    *storage_ix = (*storage_ix).wrapping_add(len1 << 3i32);
+    len = len.wrapping_sub(len1);
+    masked_pos = 0usize;
+  }
+  let dst_start = (*storage_ix >> 3i32) as (usize);
+  storage[dst_start..dst_start + len].clone_from_slice(input[masked_pos..masked_pos + len])
+  *storage_ix = (*storage_ix).wrapping_add(len << 3i32);
+  BrotliWriteBitsPrepareStorage(*storage_ix, storage);
+  if is_final_block != 0 {
+    BrotliWriteBits(1u8, 1u64, storage_ix, storage);
+    BrotliWriteBits(1u8, 1u64, storage_ix, storage);
+    JumpToByteBoundary(storage_ix, storage);
+  }
+}
+
+
+pub fn BrotliStoreSyncMetaBlock(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+  BrotliWriteBits(6usize, 6usize, storage_ix, storage);
+  JumpToByteBoundary(storage_ix, storage);
+}
+*/

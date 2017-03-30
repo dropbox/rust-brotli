@@ -1641,10 +1641,9 @@ pub fn BrotliHistogramRemapLiteral(mut inp: &[HistogramLiteral],
       j = 0usize;
       while j < num_clusters {
         {
-          let cur_bits: f64 = BrotliHistogramBitCostDistanceLiteral(&inp[(i as (usize))],
-                                                                    &mut *out[(clusters[(j as
-                                                                            (usize))] as
-                                                                           (usize))..]);
+          let cur_bits: f64 =
+            BrotliHistogramBitCostDistanceLiteral(&inp[(i as (usize))],
+                                                  &mut out[(clusters[(j as (usize))] as (usize))]);
           if cur_bits < best_bits {
             best_bits = cur_bits;
             best_out = clusters[(j as (usize))];
@@ -1659,14 +1658,14 @@ pub fn BrotliHistogramRemapLiteral(mut inp: &[HistogramLiteral],
   i = 0usize;
   while i < num_clusters {
     {
-      HistogramClearLiteral(&mut *out[(clusters[(i as (usize))] as (usize))..]);
+      HistogramClearLiteral(&mut out[(clusters[(i as (usize))] as (usize))]);
     }
     i = i.wrapping_add(1 as (usize));
   }
   i = 0usize;
   while i < in_size {
     {
-      HistogramAddHistogramLiteral(&mut *out[(symbols[(i as (usize))] as (usize))..],
+      HistogramAddHistogramLiteral(&mut out[(symbols[(i as (usize))] as (usize))],
                                    &inp[(i as (usize))]);
     }
     i = i.wrapping_add(1 as (usize));
@@ -1710,8 +1709,8 @@ pub fn BrotliHistogramReindexLiteral(mut m: &mut [MemoryManager],
   i = 0usize;
   while i < length {
     {
-      if *new_index[(symbols[(i as (usize))] as (usize))..] == kInvalidIndex {
-        *new_index[(symbols[(i as (usize))] as (usize))..] = next_index;
+      if new_index[(symbols[(i as (usize))] as (usize))] == kInvalidIndex {
+        new_index[(symbols[(i as (usize))] as (usize))] = next_index;
         next_index = next_index.wrapping_add(1 as (u32));
       }
     }
@@ -1730,11 +1729,11 @@ pub fn BrotliHistogramReindexLiteral(mut m: &mut [MemoryManager],
   i = 0usize;
   while i < length {
     {
-      if *new_index[(symbols[(i as (usize))] as (usize))..] == next_index {
-        tmp[(next_index as (usize))] = *out[(symbols[(i as (usize))] as (usize))..];
+      if new_index[(symbols[(i as (usize))] as (usize))] == next_index {
+        tmp[(next_index as (usize))] = out[(symbols[(i as (usize))] as (usize))];
         next_index = next_index.wrapping_add(1 as (u32));
       }
-      symbols[(i as (usize))] = *new_index[(symbols[(i as (usize))] as (usize))..];
+      symbols[(i as (usize))] = new_index[(symbols[(i as (usize))] as (usize))];
     }
     i = i.wrapping_add(1 as (usize));
   }
@@ -2160,10 +2159,9 @@ pub fn BrotliHistogramRemapCommand(mut inp: &[HistogramCommand],
       j = 0usize;
       while j < num_clusters {
         {
-          let cur_bits: f64 = BrotliHistogramBitCostDistanceCommand(&inp[(i as (usize))],
-                                                                    &mut *out[(clusters[(j as
-                                                                            (usize))] as
-                                                                           (usize))..]);
+          let cur_bits: f64 =
+            BrotliHistogramBitCostDistanceCommand(&inp[(i as (usize))],
+                                                  &mut out[(clusters[(j as (usize))] as (usize))]);
           if cur_bits < best_bits {
             best_bits = cur_bits;
             best_out = clusters[(j as (usize))];
@@ -2178,14 +2176,14 @@ pub fn BrotliHistogramRemapCommand(mut inp: &[HistogramCommand],
   i = 0usize;
   while i < num_clusters {
     {
-      HistogramClearCommand(&mut *out[(clusters[(i as (usize))] as (usize))..]);
+      HistogramClearCommand(&mut out[(clusters[(i as (usize))] as (usize))]);
     }
     i = i.wrapping_add(1 as (usize));
   }
   i = 0usize;
   while i < in_size {
     {
-      HistogramAddHistogramCommand(&mut *out[(symbols[(i as (usize))] as (usize))..],
+      HistogramAddHistogramCommand(&mut out[(symbols[(i as (usize))] as (usize))],
                                    &inp[(i as (usize))]);
     }
     i = i.wrapping_add(1 as (usize));
@@ -2221,8 +2219,8 @@ pub fn BrotliHistogramReindexCommand(mut m: &mut [MemoryManager],
   i = 0usize;
   while i < length {
     {
-      if *new_index[(symbols[(i as (usize))] as (usize))..] == kInvalidIndex {
-        *new_index[(symbols[(i as (usize))] as (usize))..] = next_index;
+      if new_index[(symbols[(i as (usize))] as (usize))] == kInvalidIndex {
+        new_index[(symbols[(i as (usize))] as (usize))] = next_index;
         next_index = next_index.wrapping_add(1 as (u32));
       }
     }
@@ -2241,11 +2239,11 @@ pub fn BrotliHistogramReindexCommand(mut m: &mut [MemoryManager],
   i = 0usize;
   while i < length {
     {
-      if *new_index[(symbols[(i as (usize))] as (usize))..] == next_index {
-        tmp[(next_index as (usize))] = *out[(symbols[(i as (usize))] as (usize))..];
+      if new_index[(symbols[(i as (usize))] as (usize))] == next_index {
+        tmp[(next_index as (usize))] = out[(symbols[(i as (usize))] as (usize))];
         next_index = next_index.wrapping_add(1 as (u32));
       }
-      symbols[(i as (usize))] = *new_index[(symbols[(i as (usize))] as (usize))..];
+      symbols[(i as (usize))] = new_index[(symbols[(i as (usize))] as (usize))];
     }
     i = i.wrapping_add(1 as (usize));
   }
@@ -2667,10 +2665,9 @@ pub fn BrotliHistogramRemapDistance(mut inp: &[HistogramDistance],
       j = 0usize;
       while j < num_clusters {
         {
-          let cur_bits: f64 = BrotliHistogramBitCostDistanceDistance(&inp[(i as (usize))],
-                                                                     &mut *out[(clusters[(j as
-                                                                             (usize))] as
-                                                                            (usize))..]);
+          let cur_bits: f64 =
+            BrotliHistogramBitCostDistanceDistance(&inp[(i as (usize))],
+                                                   &mut out[(clusters[(j as (usize))] as (usize))]);
           if cur_bits < best_bits {
             best_bits = cur_bits;
             best_out = clusters[(j as (usize))];
@@ -2685,14 +2682,14 @@ pub fn BrotliHistogramRemapDistance(mut inp: &[HistogramDistance],
   i = 0usize;
   while i < num_clusters {
     {
-      HistogramClearDistance(&mut *out[(clusters[(i as (usize))] as (usize))..]);
+      HistogramClearDistance(&mut out[(clusters[(i as (usize))] as (usize))]);
     }
     i = i.wrapping_add(1 as (usize));
   }
   i = 0usize;
   while i < in_size {
     {
-      HistogramAddHistogramDistance(&mut *out[(symbols[(i as (usize))] as (usize))..],
+      HistogramAddHistogramDistance(&mut out[(symbols[(i as (usize))] as (usize))],
                                     &inp[(i as (usize))]);
     }
     i = i.wrapping_add(1 as (usize));
@@ -2728,8 +2725,8 @@ pub fn BrotliHistogramReindexDistance(mut m: &mut [MemoryManager],
   i = 0usize;
   while i < length {
     {
-      if *new_index[(symbols[(i as (usize))] as (usize))..] == kInvalidIndex {
-        *new_index[(symbols[(i as (usize))] as (usize))..] = next_index;
+      if new_index[(symbols[(i as (usize))] as (usize))] == kInvalidIndex {
+        new_index[(symbols[(i as (usize))] as (usize))] = next_index;
         next_index = next_index.wrapping_add(1 as (u32));
       }
     }
@@ -2748,11 +2745,11 @@ pub fn BrotliHistogramReindexDistance(mut m: &mut [MemoryManager],
   i = 0usize;
   while i < length {
     {
-      if *new_index[(symbols[(i as (usize))] as (usize))..] == next_index {
-        tmp[(next_index as (usize))] = *out[(symbols[(i as (usize))] as (usize))..];
+      if new_index[(symbols[(i as (usize))] as (usize))] == next_index {
+        tmp[(next_index as (usize))] = out[(symbols[(i as (usize))] as (usize))];
         next_index = next_index.wrapping_add(1 as (u32));
       }
-      symbols[(i as (usize))] = *new_index[(symbols[(i as (usize))] as (usize))..];
+      symbols[(i as (usize))] = new_index[(symbols[(i as (usize))] as (usize))];
     }
     i = i.wrapping_add(1 as (usize));
   }

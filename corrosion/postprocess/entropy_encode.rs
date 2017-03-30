@@ -38,7 +38,7 @@ pub fn BrotliSetDepth(mut p0: i32,
         }
       }
     } else {
-      *depth[((pool[(p as (usize))]).index_right_or_value_ as (usize))..] = level as (u8);
+      depth[((pool[(p as (usize))]).index_right_or_value_ as (usize))] = level as (u8);
     }
     while level >= 0i32 && (stack[level as (usize)] == -1i32) {
       level = level - 1;
@@ -165,7 +165,7 @@ pub fn BrotliCreateHuffmanTree(mut data: &[u32],
         }
       }
       if n == 1usize {
-        *depth[((tree[(0usize)]).index_right_or_value_ as (usize))..] = 1i32 as (u8);
+        depth[((tree[(0usize)]).index_right_or_value_ as (usize))] = 1i32 as (u8);
         {
           {
             break 'break1;

@@ -1836,8 +1836,8 @@ fn RemapBlockIdsLiteral(mut block_ids: &mut [u8],
   while i < length {
     {
       0i32;
-      if *new_id[(block_ids[(i as (usize))] as (usize))..] as (i32) == kInvalidId as (i32) {
-        *new_id[(block_ids[(i as (usize))] as (usize))..] = {
+      if new_id[(block_ids[(i as (usize))] as (usize))] as (i32) == kInvalidId as (i32) {
+        new_id[(block_ids[(i as (usize))] as (usize))] = {
           let _old = next_id;
           next_id = (next_id as (i32) + 1) as (u16);
           _old
@@ -1849,7 +1849,7 @@ fn RemapBlockIdsLiteral(mut block_ids: &mut [u8],
   i = 0usize;
   while i < length {
     {
-      block_ids[(i as (usize))] = *new_id[(block_ids[(i as (usize))] as (usize))..] as (u8);
+      block_ids[(i as (usize))] = new_id[(block_ids[(i as (usize))] as (usize))] as (u8);
       0i32;
     }
     i = i.wrapping_add(1 as (usize));
@@ -1877,7 +1877,7 @@ fn BuildBlockHistogramsLiteral(mut data: &[u8],
   i = 0usize;
   while i < length {
     {
-      HistogramAddLiteral(&mut *histograms[(block_ids[(i as (usize))] as (usize))..],
+      HistogramAddLiteral(&mut histograms[(block_ids[(i as (usize))] as (usize))],
                           data[(i as (usize))] as (usize));
     }
     i = i.wrapping_add(1 as (usize));
@@ -2249,8 +2249,8 @@ fn ClusterBlocksLiteral(mut m: &mut [MemoryManager],
           {
             let cur_bits: f64 =
               BrotliHistogramBitCostDistanceLiteral(&mut histo,
-                                                    &mut *all_histograms[(clusters[(j as (usize))] as
-                                                           (usize))..]);
+                                                    &mut all_histograms[(clusters[(j as (usize))] as
+                                                          (usize))]);
             if cur_bits < best_bits {
               best_bits = cur_bits;
               best_out = clusters[(j as (usize))];
@@ -2350,7 +2350,7 @@ fn ClusterBlocksLiteral(mut m: &mut [MemoryManager],
         if i.wrapping_add(1usize) == num_blocks ||
            histogram_symbols[(i as (usize))] !=
            histogram_symbols[(i.wrapping_add(1usize) as (usize))] {
-          let id: u8 = *new_index[(histogram_symbols[(i as (usize))] as (usize))..] as (u8);
+          let id: u8 = new_index[(histogram_symbols[(i as (usize))] as (usize))] as (u8);
           *(*split).types[(block_idx as (usize))..] = id;
           *(*split).lengths[(block_idx as (usize))..] = cur_length;
           max_type = brotli_max_uint8_t(max_type, id);
@@ -2848,8 +2848,8 @@ fn RemapBlockIdsCommand(mut block_ids: &mut [u8],
   while i < length {
     {
       0i32;
-      if *new_id[(block_ids[(i as (usize))] as (usize))..] as (i32) == kInvalidId as (i32) {
-        *new_id[(block_ids[(i as (usize))] as (usize))..] = {
+      if new_id[(block_ids[(i as (usize))] as (usize))] as (i32) == kInvalidId as (i32) {
+        new_id[(block_ids[(i as (usize))] as (usize))] = {
           let _old = next_id;
           next_id = (next_id as (i32) + 1) as (u16);
           _old
@@ -2861,7 +2861,7 @@ fn RemapBlockIdsCommand(mut block_ids: &mut [u8],
   i = 0usize;
   while i < length {
     {
-      block_ids[(i as (usize))] = *new_id[(block_ids[(i as (usize))] as (usize))..] as (u8);
+      block_ids[(i as (usize))] = new_id[(block_ids[(i as (usize))] as (usize))] as (u8);
       0i32;
     }
     i = i.wrapping_add(1 as (usize));
@@ -2889,7 +2889,7 @@ fn BuildBlockHistogramsCommand(mut data: &[u16],
   i = 0usize;
   while i < length {
     {
-      HistogramAddCommand(&mut *histograms[(block_ids[(i as (usize))] as (usize))..],
+      HistogramAddCommand(&mut histograms[(block_ids[(i as (usize))] as (usize))],
                           data[(i as (usize))] as (usize));
     }
     i = i.wrapping_add(1 as (usize));
@@ -3240,8 +3240,8 @@ fn ClusterBlocksCommand(mut m: &mut [MemoryManager],
           {
             let cur_bits: f64 =
               BrotliHistogramBitCostDistanceCommand(&mut histo,
-                                                    &mut *all_histograms[(clusters[(j as (usize))] as
-                                                           (usize))..]);
+                                                    &mut all_histograms[(clusters[(j as (usize))] as
+                                                          (usize))]);
             if cur_bits < best_bits {
               best_bits = cur_bits;
               best_out = clusters[(j as (usize))];
@@ -3341,7 +3341,7 @@ fn ClusterBlocksCommand(mut m: &mut [MemoryManager],
         if i.wrapping_add(1usize) == num_blocks ||
            histogram_symbols[(i as (usize))] !=
            histogram_symbols[(i.wrapping_add(1usize) as (usize))] {
-          let id: u8 = *new_index[(histogram_symbols[(i as (usize))] as (usize))..] as (u8);
+          let id: u8 = new_index[(histogram_symbols[(i as (usize))] as (usize))] as (u8);
           *(*split).types[(block_idx as (usize))..] = id;
           *(*split).lengths[(block_idx as (usize))..] = cur_length;
           max_type = brotli_max_uint8_t(max_type, id);
@@ -3840,8 +3840,8 @@ fn RemapBlockIdsDistance(mut block_ids: &mut [u8],
   while i < length {
     {
       0i32;
-      if *new_id[(block_ids[(i as (usize))] as (usize))..] as (i32) == kInvalidId as (i32) {
-        *new_id[(block_ids[(i as (usize))] as (usize))..] = {
+      if new_id[(block_ids[(i as (usize))] as (usize))] as (i32) == kInvalidId as (i32) {
+        new_id[(block_ids[(i as (usize))] as (usize))] = {
           let _old = next_id;
           next_id = (next_id as (i32) + 1) as (u16);
           _old
@@ -3853,7 +3853,7 @@ fn RemapBlockIdsDistance(mut block_ids: &mut [u8],
   i = 0usize;
   while i < length {
     {
-      block_ids[(i as (usize))] = *new_id[(block_ids[(i as (usize))] as (usize))..] as (u8);
+      block_ids[(i as (usize))] = new_id[(block_ids[(i as (usize))] as (usize))] as (u8);
       0i32;
     }
     i = i.wrapping_add(1 as (usize));
@@ -3881,7 +3881,7 @@ fn BuildBlockHistogramsDistance(mut data: &[u16],
   i = 0usize;
   while i < length {
     {
-      HistogramAddDistance(&mut *histograms[(block_ids[(i as (usize))] as (usize))..],
+      HistogramAddDistance(&mut histograms[(block_ids[(i as (usize))] as (usize))],
                            data[(i as (usize))] as (usize));
     }
     i = i.wrapping_add(1 as (usize));
@@ -4236,8 +4236,8 @@ fn ClusterBlocksDistance(mut m: &mut [MemoryManager],
           {
             let cur_bits: f64 =
               BrotliHistogramBitCostDistanceDistance(&mut histo,
-                                                     &mut *all_histograms[(clusters[(j as (usize))] as
-                                                            (usize))..]);
+                                                     &mut all_histograms[(clusters[(j as (usize))] as
+                                                           (usize))]);
             if cur_bits < best_bits {
               best_bits = cur_bits;
               best_out = clusters[(j as (usize))];
@@ -4337,7 +4337,7 @@ fn ClusterBlocksDistance(mut m: &mut [MemoryManager],
         if i.wrapping_add(1usize) == num_blocks ||
            histogram_symbols[(i as (usize))] !=
            histogram_symbols[(i.wrapping_add(1usize) as (usize))] {
-          let id: u8 = *new_index[(histogram_symbols[(i as (usize))] as (usize))..] as (u8);
+          let id: u8 = new_index[(histogram_symbols[(i as (usize))] as (usize))] as (u8);
           *(*split).types[(block_idx as (usize))..] = id;
           *(*split).lengths[(block_idx as (usize))..] = cur_length;
           max_type = brotli_max_uint8_t(max_type, id);

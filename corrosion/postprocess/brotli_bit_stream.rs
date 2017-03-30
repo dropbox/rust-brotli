@@ -4909,10 +4909,6 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast(mut m: &mut [MemoryManager],
     bits[(symbols[0usize] as (usize))] = 0i32 as (u16);
     return;
   }
-  for depth_elem in depth[..length].iter_mut() {
-    *depth_elem = 0; // memset
-  }
-
   memset(depth,
          0i32,
          length.wrapping_mul(::std::mem::size_of::<u8>()));
@@ -5349,8 +5345,8 @@ fn StoreSimpleHuffmanTree(mut depths: &[u8],
         j = i.wrapping_add(1usize);
         while j < num_symbols {
           {
-            if *depths[(symbols[(j as (usize))] as (usize))..] as (i32) <
-               *depths[(symbols[(i as (usize))] as (usize))..] as (i32) {
+            if depths[(symbols[(j as (usize))] as (usize))] as (i32) <
+               depths[(symbols[(i as (usize))] as (usize))] as (i32) {
               let mut __brotli_swap_tmp: usize = symbols[(j as (usize))];
               symbols[(j as (usize))] = symbols[(i as (usize))];
               symbols[(i as (usize))] = __brotli_swap_tmp;
@@ -5375,7 +5371,7 @@ fn StoreSimpleHuffmanTree(mut depths: &[u8],
     BrotliWriteBits(max_bits, symbols[(2usize)], storage_ix, storage);
     BrotliWriteBits(max_bits, symbols[(3usize)], storage_ix, storage);
     BrotliWriteBits(1usize,
-                    if *depths[(symbols[(0usize)] as (usize))..] as (i32) == 1i32 {
+                    if depths[(symbols[(0usize)] as (usize))] as (i32) == 1i32 {
                       1i32
                     } else {
                       0i32
