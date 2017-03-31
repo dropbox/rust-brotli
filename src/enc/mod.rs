@@ -1,5 +1,6 @@
 pub mod fast_log;
 pub mod brotli_bit_stream;
+pub mod cluster;
 pub mod constants;
 pub mod entropy_encode;
 pub mod utf8_util;
