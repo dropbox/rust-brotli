@@ -10,15 +10,30 @@ pub struct HistogramLiteral {
   pub total_count_: usize,
   pub bit_cost_: f64,
 }
+impl Default for HistogramLiteral {
+     fn default() -> HistogramLiteral {
+         return HistogramLiteral{data_:[0;256], total_count_:0, bit_cost_:3.402e+38f64};
+     }
+}
 pub struct HistogramCommand {
   pub data_: [u32; 704],
   pub total_count_: usize,
   pub bit_cost_: f64,
 }
+impl Default for HistogramCommand {
+     fn default() -> HistogramCommand {
+         return HistogramCommand{data_:[0;704], total_count_:0, bit_cost_:3.402e+38f64};
+     }
+}
 pub struct HistogramDistance {
   pub data_: [u32; 520],
   pub total_count_: usize,
   pub bit_cost_: f64,
+}
+impl Default for HistogramDistance {
+     fn default() -> HistogramDistance {
+         return HistogramDistance{data_:[0;520], total_count_:0, bit_cost_:3.402e+38f64};
+     }
 }
 
 pub trait CostAccessors {
@@ -174,7 +189,7 @@ fn BlockSplitIteratorNext(mut xself: &mut BlockSplitIterator) {
   }
   (*xself).length_ = (*xself).length_.wrapping_sub(1 as (usize));
 }
-fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAccessors>(mut xself: &mut HistogramType, mut val: usize) {
+pub fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAccessors>(mut xself: &mut HistogramType, mut val: usize) {
   {
     let _rhs = 1;
     let _lhs = &mut (*xself).slice_mut()[val];
@@ -184,6 +199,14 @@ fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAc
   let new_count = (*xself).total_count().wrapping_add(1 as (usize));
   (*xself).set_total_count(new_count);
 }
+pub fn HistogramClear<HistogramType:SliceWrapperMut<u32>+CostAccessors>(mut xself: &mut HistogramType) {
+  for data_elem in xself.slice_mut().iter_mut() {
+      *data_elem = 0;
+  }
+  (*xself).set_total_count(0);
+  (*xself).set_bit_cost(3.402e+38f64);
+}
+
 /*
 fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
     mut xself : &mut HistogramType, mut v : &HistogramType

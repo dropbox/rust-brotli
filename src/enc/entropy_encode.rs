@@ -9,7 +9,7 @@
 use super::util::brotli_max_uint32_t;
 
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct HuffmanTree {
   pub total_count_: u32,
   pub index_left_: i16,

@@ -3,6 +3,7 @@ use super::constants::{BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDep
 use super::entropy_encode::{HuffmanTree, BrotliWriteHuffmanTree, BrotliCreateHuffmanTree,
                             BrotliConvertBitDepthsToSymbols, NewHuffmanTree, InitHuffmanTree,
                             SortHuffmanTreeItems, SortHuffmanTree, BrotliSetDepth};
+use super::histogram::{HistogramClear, HistogramAddItem,HistogramLiteral,HistogramCommand,HistogramDistance};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 use super::super::core;
@@ -578,7 +579,7 @@ pub struct BlockSplit<AllocU8: alloc::Allocator<u8>,
   pub types: AllocU8::AllocatedMemory,
   pub lengths: AllocU32::AllocatedMemory,
 }
-
+/*
 
 pub struct HistogramLiteral {
   pub data_: [u32; 256],
@@ -626,7 +627,7 @@ impl SliceWrapperMut<u32> for HistogramDistance {
     return &mut self.data_[..];
   }
 }
-
+*/
 pub struct MetaBlockSplit<AllocU8: alloc::Allocator<u8>,
                         AllocU32: alloc::Allocator<u32>,
                         AllocHL: alloc::Allocator<HistogramLiteral>,
@@ -2376,14 +2377,6 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
   } else {
     AllocHT::AllocatedMemory::default()
   };
-  /*
-  let literal_types = core::mem::replace(&mut (*mb).literal_split.types, AllocU8::AllocatedMemory::default());
-  let literal_lengths = core::mem::replace(&mut (*mb).literal_split.lengths, AllocU32::AllocatedMemory::default());
-  let command_types = core::mem::replace(&mut (*mb).command_split.types, AllocU8::AllocatedMemory::default());
-  let command_lengths = core::mem::replace(&mut (*mb).command_split.lengths, AllocU32::AllocatedMemory::default());
-  let distance_types = core::mem::replace(&mut (*mb).distance_split.types, AllocU8::AllocatedMemory::default());
-  let distance_lengths = core::mem::replace(&mut (*mb).distance_split.lengths, AllocU32::AllocatedMemory::default());
-  */
   literal_enc = NewBlockEncoder::<AllocU8, AllocU16>(
                    256usize,
                    (*mb).literal_split.num_types,
@@ -2549,66 +2542,15 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
     JumpToByteBoundary(storage_ix, storage);
   }
 }
-/*
-fn HistogramClearLiteral(mut xself: &mut HistogramLiteral) {
-  memset((*xself).data_.as_mut_ptr(),
-         0i32,
-         ::std::mem::size_of::<[u32; 256]>());
-  (*xself).total_count_ = 0usize;
-  (*xself).bit_cost_ = 3.402e+38f64;
-}
-
-fn HistogramClearCommand(mut xself: &mut HistogramCommand) {
-  memset((*xself).data_.as_mut_ptr(),
-         0i32,
-         ::std::mem::size_of::<[u32; 704]>());
-  (*xself).total_count_ = 0usize;
-  (*xself).bit_cost_ = 3.402e+38f64;
-}
-
-fn HistogramClearDistance(mut xself: &mut HistogramDistance) {
-  memset((*xself).data_.as_mut_ptr(),
-         0i32,
-         ::std::mem::size_of::<[u32; 520]>());
-  (*xself).total_count_ = 0usize;
-  (*xself).bit_cost_ = 3.402e+38f64;
-}
-
-fn HistogramAddCommand(mut xself: &mut HistogramCommand, mut val: usize) {
-  {
-    let _rhs = 1;
-    let _lhs = &mut (*xself).data_[val];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-  }
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
-}
-
-fn HistogramAddLiteral(mut xself: &mut HistogramLiteral, mut val: usize) {
-  {
-    let _rhs = 1;
-    let _lhs = &mut (*xself).data_[val];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-  }
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
-}
-
-fn HistogramAddDistance(mut xself: &mut HistogramDistance, mut val: usize) {
-  {
-    let _rhs = 1;
-    let _lhs = &mut (*xself).data_[val];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-  }
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
-}
 
 fn BuildHistograms(mut input: &[u8],
                    mut start_pos: usize,
                    mut mask: usize,
                    mut commands: &[Command],
                    mut n_commands: usize,
-                   mut lit_histo: &mut [HistogramLiteral],
-                   mut cmd_histo: &mut [HistogramCommand],
-                   mut dist_histo: &mut [HistogramDistance]) {
+                   mut lit_histo: &mut HistogramLiteral,
+                   mut cmd_histo: &mut HistogramCommand,
+                   mut dist_histo: &mut HistogramDistance) {
   let mut pos: usize = start_pos;
   let mut i: usize;
   i = 0usize;
@@ -2616,24 +2558,23 @@ fn BuildHistograms(mut input: &[u8],
     {
       let cmd: Command = commands[(i as (usize))];
       let mut j: usize;
-      HistogramAddCommand(cmd_histo, cmd.cmd_prefix_ as (usize));
+      HistogramAddItem(cmd_histo, cmd.cmd_prefix_ as (usize));
       j = cmd.insert_len_ as (usize);
       while j != 0usize {
         {
-          HistogramAddLiteral(lit_histo, input[((pos & mask) as (usize))] as (usize));
+          HistogramAddItem(lit_histo, input[((pos & mask) as (usize))] as (usize));
           pos = pos.wrapping_add(1 as (usize));
         }
         j = j.wrapping_sub(1 as (usize));
       }
       pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
       if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
-        HistogramAddDistance(dist_histo, cmd.dist_prefix_ as (usize));
+        HistogramAddItem(dist_histo, cmd.dist_prefix_ as (usize));
       }
     }
     i = i.wrapping_add(1 as (usize));
   }
 }
-
 fn StoreDataWithHuffmanCodes(mut input: &[u8],
                              mut start_pos: usize,
                              mut mask: usize,
@@ -2655,8 +2596,8 @@ fn StoreDataWithHuffmanCodes(mut input: &[u8],
       let cmd: Command = commands[(i as (usize))];
       let cmd_code: usize = cmd.cmd_prefix_ as (usize);
       let mut j: usize;
-      BrotliWriteBits(cmd_depth[(cmd_code as (usize))] as (usize),
-                      cmd_bits[(cmd_code as (usize))] as (usize),
+      BrotliWriteBits(cmd_depth[(cmd_code as (usize))] as (u8),
+                      cmd_bits[(cmd_code as (usize))] as (u64),
                       storage_ix,
                       storage);
       StoreCommandExtra(&cmd, storage_ix, storage);
@@ -2664,8 +2605,8 @@ fn StoreDataWithHuffmanCodes(mut input: &[u8],
       while j != 0usize {
         {
           let literal: u8 = input[((pos & mask) as (usize))];
-          BrotliWriteBits(lit_depth[(literal as (usize))] as (usize),
-                          lit_bits[(literal as (usize))] as (usize),
+          BrotliWriteBits(lit_depth[(literal as (usize))] as (u8),
+                          lit_bits[(literal as (usize))] as (u64),
                           storage_ix,
                           storage);
           pos = pos.wrapping_add(1 as (usize));
@@ -2677,12 +2618,12 @@ fn StoreDataWithHuffmanCodes(mut input: &[u8],
         let dist_code: usize = cmd.dist_prefix_ as (usize);
         let distnumextra: u32 = cmd.dist_extra_ >> 24i32;
         let distextra: u32 = cmd.dist_extra_ & 0xffffffu32;
-        BrotliWriteBits(dist_depth[(dist_code as (usize))] as (usize),
-                        dist_bits[(dist_code as (usize))] as (usize),
+        BrotliWriteBits(dist_depth[(dist_code as (usize))] as (u8),
+                        dist_bits[(dist_code as (usize))] as (u64),
                         storage_ix,
                         storage);
-        BrotliWriteBits(distnumextra as (usize),
-                        distextra as (usize),
+        BrotliWriteBits(distnumextra as (u8),
+                        distextra as (u64),
                         storage_ix,
                         storage);
       }
@@ -2691,9 +2632,7 @@ fn StoreDataWithHuffmanCodes(mut input: &[u8],
   }
 }
 
-
-pub fn BrotliStoreMetaBlockTrivial(mut m: &mut [MemoryManager],
-                                   mut input: &[u8],
+pub fn BrotliStoreMetaBlockTrivial(mut input: &[u8],
                                    mut start_pos: usize,
                                    mut length: usize,
                                    mut mask: usize,
@@ -2702,20 +2641,18 @@ pub fn BrotliStoreMetaBlockTrivial(mut m: &mut [MemoryManager],
                                    mut n_commands: usize,
                                    mut storage_ix: &mut usize,
                                    mut storage: &mut [u8]) {
-  let mut lit_histo: HistogramLiteral;
-  let mut cmd_histo: HistogramCommand;
-  let mut dist_histo: HistogramDistance;
-  let mut lit_depth: [u8; 256];
-  let mut lit_bits: [u16; 256];
-  let mut cmd_depth: [u8; 704];
-  let mut cmd_bits: [u16; 704];
-  let mut dist_depth: [u8; 64];
-  let mut dist_bits: [u16; 64];
-  let mut tree: *mut HuffmanTree;
+  let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
+  let mut cmd_histo: HistogramCommand = HistogramCommand::default();
+  let mut dist_histo: HistogramDistance = HistogramDistance::default();
+  let mut lit_depth: [u8; 256] = [0;256]; // FIXME these zero-initializations are costly
+  let mut lit_bits: [u16; 256] = [0;256];
+  let mut cmd_depth: [u8; 704] = [0; 704];
+  let mut cmd_bits: [u16; 704] = [0;704];
+  let mut dist_depth: [u8; 64] = [0;64];
+  let mut dist_bits: [u16; 64] = [0;64];
+  const MAX_HUFFMAN_TREE_SIZE :usize = (2i32 * 704i32 + 1i32) as usize;
+  let mut tree :[HuffmanTree; MAX_HUFFMAN_TREE_SIZE] = [HuffmanTree{total_count_:0,index_left_:0,index_right_or_value_:0}; MAX_HUFFMAN_TREE_SIZE];
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
-  HistogramClearLiteral(&mut lit_histo);
-  HistogramClearCommand(&mut cmd_histo);
-  HistogramClearDistance(&mut dist_histo);
   BuildHistograms(input,
                   start_pos,
                   mask,
@@ -2724,56 +2661,46 @@ pub fn BrotliStoreMetaBlockTrivial(mut m: &mut [MemoryManager],
                   &mut lit_histo,
                   &mut cmd_histo,
                   &mut dist_histo);
-  BrotliWriteBits(13usize, 0usize, storage_ix, storage);
-  tree = if 2i32 * 704i32 + 1i32 != 0 {
-    BrotliAllocate(m,
-                   ((2i32 * 704i32 + 1i32) as (usize))
-                     .wrapping_mul(::std::mem::size_of::<HuffmanTree>()))
-  } else {
-    0i32
-  };
-  BuildAndStoreHuffmanTree(lit_histo.data_.as_mut_ptr(),
-                           256usize,
-                           tree,
-                           lit_depth.as_mut_ptr(),
-                           lit_bits.as_mut_ptr(),
+  BrotliWriteBits(13, 0, storage_ix, storage);
+  BuildAndStoreHuffmanTree(lit_histo.slice_mut(),
+                           256,
+                           &mut tree[..],
+                           &mut lit_depth[..],
+                           &mut lit_bits[..],
                            storage_ix,
                            storage);
-  BuildAndStoreHuffmanTree(cmd_histo.data_.as_mut_ptr(),
+  BuildAndStoreHuffmanTree(cmd_histo.slice_mut(),
                            704usize,
-                           tree,
-                           cmd_depth.as_mut_ptr(),
-                           cmd_bits.as_mut_ptr(),
+                           &mut tree[..],
+                           &mut cmd_depth[..],
+                           &mut cmd_bits[..],
                            storage_ix,
                            storage);
-  BuildAndStoreHuffmanTree(dist_histo.data_.as_mut_ptr(),
+  BuildAndStoreHuffmanTree(dist_histo.slice_mut(),
                            64usize,
-                           tree,
-                           dist_depth.as_mut_ptr(),
-                           dist_bits.as_mut_ptr(),
+                           &mut tree[..],
+                           &mut dist_depth[..],
+                           &mut dist_bits[..],
                            storage_ix,
                            storage);
-  {
-    mht.free_cell(core::mem::replace(&mut tree, AllocHT::AllocatedMemory::default()));
-  }
   StoreDataWithHuffmanCodes(input,
                             start_pos,
                             mask,
                             commands,
                             n_commands,
-                            lit_depth.as_mut_ptr(),
-                            lit_bits.as_mut_ptr(),
-                            cmd_depth.as_mut_ptr(),
-                            cmd_bits.as_mut_ptr(),
-                            dist_depth.as_mut_ptr(),
-                            dist_bits.as_mut_ptr(),
+                            &mut lit_depth[..],
+                            &mut lit_bits[..],
+                            &mut cmd_depth[..],
+                            &mut cmd_bits[..],
+                            &mut dist_depth[..],
+                            &mut dist_bits[..],
                             storage_ix,
                             storage);
   if is_last != 0 {
     JumpToByteBoundary(storage_ix, storage);
   }
 }
-
+/*
 fn StoreStaticCommandHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
   BrotliWriteBits(56usize,
                   0x926244u32 as (usize) << 32i32 | 0x16307003u32 as (usize),
@@ -2800,25 +2727,7 @@ pub fn BrotliStoreMetaBlockFast(mut m: &mut [MemoryManager],
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BrotliWriteBits(13usize, 0usize, storage_ix, storage);
   if n_commands <= 128usize {
-    let mut histogram: [u32; 256] =
-      [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-       0u32];
+    let mut histogram: [u32; 256] = [0;256];
     let mut pos: usize = start_pos;
     let mut num_literals: usize = 0usize;
     let mut i: usize;
