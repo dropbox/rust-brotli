@@ -3118,3 +3118,4 @@ pub static kStaticCommandCodeBits: [u16; 704] = [0i32 as (u16),
                                                  1535i32 as (u16),
                                                  1023i32 as (u16),
                                                  2047i32 as (u16)];
+
