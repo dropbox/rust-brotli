@@ -4377,18 +4377,17 @@ pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : 
     JumpToByteBoundary(storage_ix, storage);
   }
 }
-/*
 fn BrotliStoreUncompressedMetaBlockHeader(mut length: usize,
                                           mut storage_ix: &mut usize,
                                           mut storage: &mut [u8]) {
-  let mut lenbits: usize;
-  let mut nlenbits: usize;
-  let mut nibblesbits: usize;
-  BrotliWriteBits(1usize, 0usize, storage_ix, storage);
-  BrotliEncodeMlen(length, &mut lenbits, &mut nlenbits, &mut nibblesbits);
-  BrotliWriteBits(2usize, nibblesbits, storage_ix, storage);
-  BrotliWriteBits(nlenbits, lenbits, storage_ix, storage);
-  BrotliWriteBits(1usize, 1usize, storage_ix, storage);
+  let mut lenbits: u64 = 0;
+  let mut nlenbits: u32 = 0;
+  let mut nibblesbits: u32 = 0;
+  BrotliWriteBits(1, 0, storage_ix, storage);
+  BrotliEncodeMlen(length as u32, &mut lenbits, &mut nlenbits, &mut nibblesbits);
+  BrotliWriteBits(2, nibblesbits as u64, storage_ix, storage);
+  BrotliWriteBits(nlenbits as u8, lenbits as u64, storage_ix, storage);
+  BrotliWriteBits(1, 1, storage_ix, storage);
 }
 
 
@@ -4405,13 +4404,13 @@ pub fn BrotliStoreUncompressedMetaBlock(mut is_final_block: i32,
   if masked_pos.wrapping_add(len) > mask.wrapping_add(1usize) {
     let mut len1: usize = mask.wrapping_add(1usize).wrapping_sub(masked_pos);
     let dst_start = ((*storage_ix >> 3i32) as (usize));
-    storage[dst_start..len1].clone_from_slice(input[masked_pos..masked_pos + len1])
+    storage[dst_start..len1].clone_from_slice(&input[masked_pos..(masked_pos + len1)]);
     *storage_ix = (*storage_ix).wrapping_add(len1 << 3i32);
     len = len.wrapping_sub(len1);
     masked_pos = 0usize;
   }
   let dst_start = (*storage_ix >> 3i32) as (usize);
-  storage[dst_start..dst_start + len].clone_from_slice(input[masked_pos..masked_pos + len])
+  storage[dst_start..dst_start + len].clone_from_slice(&input[masked_pos..masked_pos + len]);
   *storage_ix = (*storage_ix).wrapping_add(len << 3i32);
   BrotliWriteBitsPrepareStorage(*storage_ix, storage);
   if is_final_block != 0 {
@@ -4423,7 +4422,6 @@ pub fn BrotliStoreUncompressedMetaBlock(mut is_final_block: i32,
 
 
 pub fn BrotliStoreSyncMetaBlock(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
-  BrotliWriteBits(6usize, 6usize, storage_ix, storage);
+  BrotliWriteBits(6, 6, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
 }
-*/
