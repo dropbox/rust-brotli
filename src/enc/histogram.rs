@@ -5,30 +5,48 @@ static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
 
+//#[derive(Clone)] clone is broken for arrays > 32
 pub struct HistogramLiteral {
   pub data_: [u32; 256],
   pub total_count_: usize,
   pub bit_cost_: f64,
+}
+impl Clone for HistogramLiteral {
+     fn clone(&self) -> HistogramLiteral {
+         return HistogramLiteral{data_:self.data_, total_count_:self.total_count_, bit_cost_:self.bit_cost_};
+     }
 }
 impl Default for HistogramLiteral {
      fn default() -> HistogramLiteral {
          return HistogramLiteral{data_:[0;256], total_count_:0, bit_cost_:3.402e+38f64};
      }
 }
+//#[derive(Clone)] clone is broken for arrays > 32
 pub struct HistogramCommand {
   pub data_: [u32; 704],
   pub total_count_: usize,
   pub bit_cost_: f64,
+}
+impl Clone for HistogramCommand {
+     fn clone(&self) -> HistogramCommand {
+         return HistogramCommand{data_:self.data_, total_count_:self.total_count_, bit_cost_:self.bit_cost_};
+     }
 }
 impl Default for HistogramCommand {
      fn default() -> HistogramCommand {
          return HistogramCommand{data_:[0;704], total_count_:0, bit_cost_:3.402e+38f64};
      }
 }
+//#[derive(Clone)] // #derive is broken for arrays > 32
 pub struct HistogramDistance {
   pub data_: [u32; 520],
   pub total_count_: usize,
   pub bit_cost_: f64,
+}
+impl Clone for HistogramDistance {
+     fn clone(&self) -> HistogramDistance {
+         return HistogramDistance{data_:self.data_, total_count_:self.total_count_, bit_cost_:self.bit_cost_};
+     }
 }
 impl Default for HistogramDistance {
      fn default() -> HistogramDistance {
@@ -207,11 +225,11 @@ pub fn HistogramClear<HistogramType:SliceWrapperMut<u32>+CostAccessors>(mut xsel
   (*xself).set_bit_cost(3.402e+38f64);
 }
 
-/*
-fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
+pub fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
     mut xself : &mut HistogramType, mut v : &HistogramType
 ) {
-    (*xself).total_count_ += (*v).total_count();
+    let old_total_count = (*xself).total_count();
+    (*xself).set_total_count(old_total_count + (*v).total_count());
     let mut h0 = xself.slice_mut();
     let h1 = v.slice();
     let n = min(h0.len(), h1.len());
@@ -221,7 +239,6 @@ fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> 
         *h0val = val;
     }
 }
-*/
 pub fn HistogramSelfAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
     mut xself : &mut [HistogramType], i0 : usize, i1 : usize
 ) {
