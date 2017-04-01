@@ -1,5 +1,21 @@
 
 pub const BROTLI_NUM_BLOCK_LEN_SYMBOLS: usize = 26;
+pub static kInsBase: [u32; 24] = [0u32, 1u32, 2u32, 3u32, 4u32, 5u32, 6u32, 8u32, 10u32, 14u32,
+                                  18u32, 26u32, 34u32, 50u32, 66u32, 98u32, 130u32, 194u32,
+                                  322u32, 578u32, 1090u32, 2114u32, 6210u32, 22594u32];
+
+pub static kInsExtra: [u32; 24] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 1u32, 1u32, 2u32, 2u32,
+                                   3u32, 3u32, 4u32, 4u32, 5u32, 5u32, 6u32, 7u32, 8u32, 9u32,
+                                   10u32, 12u32, 14u32, 24u32];
+
+pub static kCopyBase: [u32; 24] = [2u32, 3u32, 4u32, 5u32, 6u32, 7u32, 8u32, 9u32, 10u32, 12u32,
+                                   14u32, 18u32, 22u32, 30u32, 38u32, 54u32, 70u32, 102u32,
+                                   134u32, 198u32, 326u32, 582u32, 1094u32, 2118u32];
+
+pub static kCopyExtra: [u32; 24] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 1u32, 1u32,
+                                    2u32, 2u32, 3u32, 3u32, 4u32, 4u32, 5u32, 5u32, 6u32, 7u32,
+                                    8u32, 9u32, 10u32, 24u32];
+
 
 pub static kZeroRepsBits: [usize; 704] = [0x0usize,
                                           0x0usize,

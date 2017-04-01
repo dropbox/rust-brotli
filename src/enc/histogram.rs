@@ -1,6 +1,8 @@
 use core::cmp::min;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::super::alloc::{SliceWrapper,SliceWrapperMut};
+use super::super::alloc;
+use super::block_split::BlockSplit;
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -145,15 +147,6 @@ pub struct Command {
   pub dist_prefix_: u16,
 }
 
-pub struct BlockSplit<'a> {
-  pub num_types: usize,
-  pub num_blocks: usize,
-  pub types: &'a mut [u8],
-  pub lengths: &'a mut [u32],
-  pub types_alloc_size: usize,
-  pub lengths_alloc_size: usize,
-}
-
 #[derive(Copy,Clone)]
 pub enum ContextType {
   CONTEXT_LSB6 = 0,
@@ -164,8 +157,10 @@ pub enum ContextType {
 
 
 
-pub struct BlockSplitIterator<'a> {
-  pub split_: &'a BlockSplit<'a>,
+pub struct BlockSplitIterator<'a,
+                          AllocU8:alloc::Allocator<u8>+'a,
+                          AllocU32:alloc::Allocator<u32>+'a> {
+  pub split_: &'a BlockSplit<AllocU8, AllocU32>,
   pub idx_: usize,
   pub type_: usize,
   pub length_: usize,
@@ -173,13 +168,13 @@ pub struct BlockSplitIterator<'a> {
 
 
 
-fn NewBlockSplitIterator<'a>(mut split: &'a BlockSplit) -> BlockSplitIterator<'a> {
+fn NewBlockSplitIterator<'a, AllocU8:alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32>>(mut split: &'a BlockSplit<AllocU8, AllocU32>) -> BlockSplitIterator<'a, AllocU8, AllocU32> {
   return BlockSplitIterator::<'a> {
            split_: split,
            idx_: 0i32 as (usize),
            type_: 0i32 as (usize),
-           length_: if (*split).lengths.len() != 0 {
-             (*split).lengths[0] as usize
+           length_: if (*split).lengths.slice().len() != 0 {
+             (*split).lengths.slice()[0] as usize
            } else {
              0i32 as (usize)
            },
@@ -187,23 +182,28 @@ fn NewBlockSplitIterator<'a>(mut split: &'a BlockSplit) -> BlockSplitIterator<'a
 }
 
 
-fn InitBlockSplitIterator<'a>(mut xself: &'a mut BlockSplitIterator<'a>,
-                              mut split: &'a BlockSplit) {
+fn InitBlockSplitIterator<'a,
+                          AllocU8:alloc::Allocator<u8>,
+                          AllocU32:alloc::Allocator<u32>>(
+          mut xself: &'a mut BlockSplitIterator<'a, AllocU8, AllocU32>,
+          mut split: &'a BlockSplit<AllocU8, AllocU32>) {
   (*xself).split_ = split;
   (*xself).idx_ = 0i32 as (usize);
   (*xself).type_ = 0i32 as (usize);
-  (*xself).length_ = if (*split).lengths.len() != 0 {
-    (*split).lengths[0] as u32
+  (*xself).length_ = if (*split).lengths.slice().len() != 0 {
+    (*split).lengths.slice()[0] as u32
   } else {
     0i32 as (u32)
   } as (usize);
 }
 
-fn BlockSplitIteratorNext(mut xself: &mut BlockSplitIterator) {
+fn BlockSplitIteratorNext<'a,
+                          AllocU8: alloc::Allocator<u8>,
+                          AllocU32:alloc::Allocator<u32>>(mut xself: &mut BlockSplitIterator<AllocU8, AllocU32>) {
   if (*xself).length_ == 0i32 as (usize) {
     (*xself).idx_ = (*xself).idx_.wrapping_add(1 as (usize));
-    (*xself).type_ = (*(*xself).split_).types[(*xself).idx_ as (usize)] as (usize);
-    (*xself).length_ = (*(*xself).split_).lengths[(*xself).idx_ as (usize)] as (usize);
+    (*xself).type_ = (*(*xself).split_).types.slice()[(*xself).idx_ as (usize)] as (usize);
+    (*xself).length_ = (*(*xself).split_).lengths.slice()[(*xself).idx_ as (usize)] as (usize);
   }
   (*xself).length_ = (*xself).length_.wrapping_sub(1 as (usize));
 }
@@ -288,12 +288,14 @@ fn CommandDistanceContext(mut xself: &Command) -> u32 {
 }
 
 #[no_mangle]
-extern fn BrotliBuildHistogramsWithContext(
+extern fn BrotliBuildHistogramsWithContext<'a,
+                          AllocU8:alloc::Allocator<u8>,
+                          AllocU32:alloc::Allocator<u32>>(
     mut cmds : &[Command],
     num_commands : usize,
-    mut literal_split : &BlockSplit,
-    mut insert_and_copy_split : &BlockSplit,
-    mut dist_split : &BlockSplit,
+    mut literal_split : &BlockSplit<AllocU8, AllocU32>,
+    mut insert_and_copy_split : &BlockSplit<AllocU8, AllocU32>,
+    mut dist_split : &BlockSplit<AllocU8, AllocU32>,
     mut ringbuffer : &[u8],
     mut start_pos : usize,
     mut mask : usize,
@@ -305,9 +307,9 @@ extern fn BrotliBuildHistogramsWithContext(
     mut copy_dist_histograms : &mut [HistogramDistance]
 ){
   let mut pos: usize = start_pos;
-  let mut literal_it: BlockSplitIterator;
-  let mut insert_and_copy_it: BlockSplitIterator;
-  let mut dist_it: BlockSplitIterator;
+  let mut literal_it: BlockSplitIterator<AllocU8, AllocU32>;
+  let mut insert_and_copy_it: BlockSplitIterator<AllocU8, AllocU32>;
+  let mut dist_it: BlockSplitIterator<AllocU8, AllocU32>;
   let mut i: usize;
   literal_it = NewBlockSplitIterator(literal_split);
   insert_and_copy_it = NewBlockSplitIterator(insert_and_copy_split);
