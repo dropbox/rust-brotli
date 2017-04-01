@@ -1,9 +1,10 @@
 use super::util::FastLog2;
+use core;
 use alloc;
 use alloc::{SliceWrapper,SliceWrapperMut};
 use super::histogram::{CostAccessors, HistogramSelfAddHistogram, HistogramAddHistogram, HistogramClear};
 use super::bit_cost::BrotliPopulationCost;
-
+use super::util::brotli_min_size_t;
 #[derive(Clone,Copy)]
 pub struct HistogramPair {
   pub idx1: u32,
@@ -323,7 +324,7 @@ pub fn BrotliHistogramRemap<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u3
        the first occurrences of values in symbols'[i] come in consecutive
        increasing order.
    Returns N, the number of unique values in symbols[]. */
-pub fn BrotliHistogramReindexLiteral<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
+pub fn BrotliHistogramReindex<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
                             AllocU32:alloc::Allocator<u32>,
                             AllocH:alloc::Allocator<HistogramType> >
                             (mut m: &mut AllocU32,
@@ -393,56 +394,52 @@ pub fn BrotliHistogramReindexLiteral<HistogramType:SliceWrapperMut<u32> + SliceW
   }
   next_index as (usize)
 }
-/*
-fn brotli_min_size_t(mut a: usize, mut b: usize) -> usize {
-  if a < b { a } else { b }
-}
 
-
-pub fn BrotliClusterHistogramsLiteral(mut m: &mut [MemoryManager],
-                                      mut inp: &[HistogramLiteral],
+pub fn BrotliClusterHistogramsLiteral<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
+                                      AllocU32:alloc::Allocator<u32>,
+                                      AllocHP:alloc::Allocator<HistogramPair>,
+                                      AllocH:alloc::Allocator<HistogramType> >
+                                     (mut m32: &mut AllocU32,
+                                      mut mhp: &mut AllocHP,
+                                      mut mh: &mut AllocH,
+                                      mut inp: &[HistogramType],
                                       in_size: usize,
                                       mut max_histograms: usize,
-                                      mut out: &mut [HistogramLiteral],
-                                      mut out_size: &mut [usize],
+                                      mut out: &mut [HistogramType],
+                                      mut out_size: &mut usize,
                                       mut histogram_symbols: &mut [u32]) {
-  let mut cluster_size: *mut u32 = if in_size != 0 {
-    BrotliAllocate(m, in_size.wrapping_mul(::std::mem::size_of::<u32>()))
+  let mut cluster_size = if in_size != 0 {
+    m32.alloc_cell(in_size)
   } else {
-    0i32
+    AllocU32::AllocatedMemory::default()
   };
-  let mut clusters: *mut u32 = if in_size != 0 {
-    BrotliAllocate(m, in_size.wrapping_mul(::std::mem::size_of::<u32>()))
+  let mut clusters = if in_size != 0 {
+    m32.alloc_cell(in_size)
   } else {
-    0i32
+    AllocU32::AllocatedMemory::default()
   };
   let mut num_clusters: usize = 0usize;
   let max_input_histograms: usize = 64usize;
   let mut pairs_capacity: usize = max_input_histograms.wrapping_mul(max_input_histograms)
     .wrapping_div(2usize);
-  let mut pairs: *mut HistogramPair = if pairs_capacity.wrapping_add(1usize) != 0 {
-    BrotliAllocate(m,
-                   pairs_capacity.wrapping_add(1usize)
-                     .wrapping_mul(::std::mem::size_of::<HistogramPair>()))
+  let mut pairs = if pairs_capacity.wrapping_add(1usize) != 0 {
+    mhp.alloc_cell(pairs_capacity.wrapping_add(1usize))
   } else {
-    0i32
+    AllocHP::AllocatedMemory::default()
   };
   let mut i: usize;
-  if !(0i32 == 0) {
-    return;
-  }
   i = 0usize;
   while i < in_size {
     {
-      cluster_size[(i as (usize))] = 1u32;
+      cluster_size.slice_mut()[(i as (usize))] = 1u32;
     }
     i = i.wrapping_add(1 as (usize));
   }
   i = 0usize;
   while i < in_size {
     {
-      out[(i as (usize))] = inp[(i as (usize))];
-      (out[(i as (usize))]).bit_cost_ = BrotliPopulationCostLiteral(&inp[(i as (usize))]);
+      out[(i as (usize))] = inp[(i as (usize))].clone();
+      (out[(i as (usize))]).set_bit_cost(BrotliPopulationCost(&inp[(i as (usize))]));
       histogram_symbols[(i as (usize))] = i as (u32);
     }
     i = i.wrapping_add(1 as (usize));
@@ -457,15 +454,15 @@ pub fn BrotliClusterHistogramsLiteral(mut m: &mut [MemoryManager],
       j = 0usize;
       while j < num_to_combine {
         {
-          clusters[(num_clusters.wrapping_add(j) as (usize))] = i.wrapping_add(j) as (u32);
+          clusters.slice_mut()[(num_clusters.wrapping_add(j) as (usize))] = i.wrapping_add(j) as (u32);
         }
         j = j.wrapping_add(1 as (usize));
       }
-      num_new_clusters = BrotliHistogramCombineLiteral(out,
-                                                       cluster_size,
-                                                       &mut histogram_symbols[(i as (usize))],
-                                                       &mut clusters[(num_clusters as (usize))],
-                                                       pairs,
+      num_new_clusters = BrotliHistogramCombine(out,
+                                                       cluster_size.slice_mut(),
+                                                       &mut histogram_symbols[(i as (usize))..],
+                                                       &mut clusters.slice_mut()[(num_clusters as (usize))..],
+                                                       pairs.slice_mut(),
                                                        num_to_combine,
                                                        num_to_combine,
                                                        max_histograms,
@@ -485,60 +482,37 @@ pub fn BrotliClusterHistogramsLiteral(mut m: &mut [MemoryManager],
         } else {
           pairs_capacity
         };
-        let mut new_array: *mut HistogramPair;
+        let mut new_array: AllocHP::AllocatedMemory;
         while _new_size < max_num_pairs.wrapping_add(1usize) {
           _new_size = _new_size.wrapping_mul(2usize);
         }
         new_array = if _new_size != 0 {
-          BrotliAllocate(m,
-                         _new_size.wrapping_mul(::std::mem::size_of::<HistogramPair>()))
+          mhp.alloc_cell(_new_size)
         } else {
-          0i32
+          AllocHP::AllocatedMemory::default()
         };
-        if !!(0i32 == 0) && (pairs_capacity != 0usize) {
-          memcpy(new_array,
-                 pairs,
-                 pairs_capacity.wrapping_mul(::std::mem::size_of::<HistogramPair>()));
-        }
-        {
-          BrotliFree(m, pairs);
-          pairs = 0i32;
-        }
-        pairs = new_array;
+        new_array.slice_mut()[..pairs_capacity].clone_from_slice(&pairs.slice()[..pairs_capacity]);
+        mhp.free_cell(core::mem::replace(&mut pairs, new_array));
         pairs_capacity = _new_size;
       }
     }
-    if !(0i32 == 0) {
-      return;
-    }
-    num_clusters = BrotliHistogramCombineLiteral(out,
-                                                 cluster_size,
+    num_clusters = BrotliHistogramCombine(out,
+                                                 cluster_size.slice_mut(),
                                                  histogram_symbols,
-                                                 clusters,
-                                                 pairs,
+                                                 clusters.slice_mut(),
+                                                 pairs.slice_mut(),
                                                  num_clusters,
                                                  in_size,
                                                  max_histograms,
                                                  max_num_pairs);
   }
-  {
-    BrotliFree(m, pairs);
-    pairs = 0i32;
-  }
-  {
-    BrotliFree(m, cluster_size);
-    cluster_size = 0i32;
-  }
-  BrotliHistogramRemapLiteral(inp, in_size, clusters, num_clusters, out, histogram_symbols);
-  {
-    BrotliFree(m, clusters);
-    clusters = 0i32;
-  }
-  *out_size = BrotliHistogramReindexLiteral(m, out, histogram_symbols, in_size);
-  if !(0i32 == 0) {}
+  mhp.free_cell(pairs);
+  m32.free_cell(cluster_size);
+  BrotliHistogramRemap(inp, in_size, clusters.slice(), num_clusters, out, histogram_symbols);
+  m32.free_cell(clusters);
+  *out_size = BrotliHistogramReindex(m32, mh, out, histogram_symbols, in_size);
 }
 
-*/
 
 
 /////////// DONE //////////////////////////
