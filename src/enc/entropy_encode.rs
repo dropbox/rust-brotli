@@ -30,31 +30,35 @@ pub fn InitHuffmanTree(xself: &mut HuffmanTree, count: u32, left: i16, right: i1
 
 
 pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_depth: i32) -> bool {
-  let mut stack: [i16; 16] = [0; 16];
-  let mut level = 0i32;
-  let mut p = p0;
-  assert!(max_depth <= 15);
-  stack[0] = -1;
+  let mut stack: [i32; 16] = [0;16];
+  let mut level: i32 = 0i32;
+  let mut p: i32 = p0;
+  0i32;
+  stack[0usize] = -1i32;
   loop {
-    if (pool[p as usize].index_left_ >= 0) {
-      level += 1;
-      if (level > max_depth) {
+    if (pool[(p as (usize))]).index_left_ as (i32) >= 0i32 {
+      level = level + 1;
+      if level > max_depth {
         return false;
-      };
-      stack[level as usize] = pool[p as usize].index_right_or_value_;
-      p = pool[p as usize].index_left_ as i32;
-      continue;
+      }
+      stack[level as (usize)] = (pool[(p as (usize))]).index_right_or_value_ as (i32);
+      p = (pool[(p as (usize))]).index_left_ as (i32);
+      {
+        {
+          continue;
+        }
+      }
     } else {
-      depth[pool[p as usize].index_right_or_value_ as usize] = level as u8;
+      depth[((pool[(p as (usize))]).index_right_or_value_ as (usize))] = level as (u8);
     }
-    while (level >= 0 && stack[level as usize] == -1) {
-      level -= 1;
+    while level >= 0i32 && (stack[level as (usize)] == -1i32) {
+      level = level - 1;
     }
-    if (level < 0) {
+    if level < 0i32 {
       return true;
     }
-    p = stack[level as usize] as i32;
-    stack[level as usize] = -1;
+    p = stack[level as (usize)];
+    stack[level as (usize)] = -1i32;
   }
 }
 
@@ -82,76 +86,56 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(mut items: &mut [Huff
                                                            n: usize,
                                                            comparator: Comparator) {
 
-  static gaps: [usize; 6] = [132i32 as (usize),
-                             57i32 as (usize),
-                             23i32 as (usize),
-                             10i32 as (usize),
-                             4i32 as (usize),
-                             1i32 as (usize)];
-  if n < 13 {
+  static gaps: [usize; 6] = [132usize, 57usize, 23usize, 10usize, 4usize, 1usize];
+  if n < 13usize {
     let mut i: usize;
-    i = 1;
-    'loop14: loop {
-      if i < n {
-        let tmp: HuffmanTree = items[i as usize].clone();
+    i = 1usize;
+    while i < n {
+      {
+        let mut tmp: HuffmanTree = items[(i as (usize))];
         let mut k: usize = i;
-        let mut j: usize = i.wrapping_sub(1);
-        'loop17: loop {
-          if comparator.Cmp(&tmp, &items[j as usize]) {
-            items[k as usize] = items[j as usize].clone();
-            k = j;
-            if {
-                 let _old = j;
-                 j = j.wrapping_sub(1);
-                 _old
-               } == 0 {
-              break 'loop17;
-            } else {
-              continue 'loop17;
+        let mut j: usize = i.wrapping_sub(1usize);
+        while comparator.Cmp(&mut tmp, &mut items[(j as (usize))]) {
+          items[(k as (usize))] = items[(j as (usize))];
+          k = j;
+          if {
+               let _old = j;
+               j = j.wrapping_sub(1 as (usize));
+               _old
+             } == 0 {
+            {
+              break;
             }
-          } else {
-            break 'loop17;
           }
         }
-        items[k as usize] = tmp;
-        i = i.wrapping_add(1);
-        continue 'loop14;
-      } else {
-        break 'loop14;
+        items[(k as (usize))] = tmp;
       }
+      i = i.wrapping_add(1 as (usize));
     }
   } else {
-    let mut g: i32 = if n < 57 { 2i32 } else { 0i32 };
-    'loop2: loop {
-      if g < 6i32 {
-        let gap: usize = gaps[g as usize];
+    let mut g: i32 = if n < 57usize { 2i32 } else { 0i32 };
+    while g < 6i32 {
+      {
+        let mut gap: usize = gaps[g as (usize)];
         let mut i: usize;
         i = gap;
-        'loop5: loop {
-          if i < n {
+        while i < n {
+          {
             let mut j: usize = i;
-            let tmp: HuffmanTree = items[i as usize].clone();
-            'loop8: loop {
-              if j >= gap && (comparator.Cmp(&tmp, &items[(j - gap) as usize])) {
-                items[j as usize] = items[(j - gap) as usize].clone();
-                j = j.wrapping_sub(gap);
-                continue 'loop8;
-              } else {
-                break 'loop8;
+            let mut tmp: HuffmanTree = items[(i as (usize))];
+            while j >= gap &&
+                  (comparator.Cmp(&mut tmp, &mut items[(j.wrapping_sub(gap) as (usize))])) {
+              {
+                items[(j as (usize))] = items[(j.wrapping_sub(gap) as (usize))];
               }
+              j = j.wrapping_sub(gap);
             }
-            items[j as usize] = tmp;
-            i = i.wrapping_add(1);
-            continue 'loop5;
-          } else {
-            break 'loop5;
+            items[(j as (usize))] = tmp;
           }
+          i = i.wrapping_add(1 as (usize));
         }
-        g = g + 1;
-        continue 'loop2;
-      } else {
-        break 'loop2;
       }
+      g = g + 1;
     }
   }
 }
@@ -179,102 +163,89 @@ pub fn BrotliCreateHuffmanTree(data: &[u32],
                                mut tree: &mut [HuffmanTree],
                                mut depth: &mut [u8]) {
   let mut count_limit: u32;
-  let sentinel: HuffmanTree = NewHuffmanTree(!(0i32 as (u32)), -1i32 as (i16), -1i32 as (i16));
-
-  /* For block sizes below 64 kB, we never need to do a second iteration
-     of this loop. Probably all of our block sizes will be smaller than
-     that, so this loop is mostly of academic interest. If we actually
-     would need this, we would be better off with the Katajainen algorithm. */
-  count_limit = 1i32 as (u32);
-  'loop1: loop {
-    let mut n: usize = 0i32 as (usize);
-    let mut i: usize;
-    let mut j: usize;
-    let mut k: usize;
-    i = length;
-    'loop2: loop {
-      if i != 0i32 as (usize) {
+  let mut sentinel: HuffmanTree = HuffmanTree{
+  total_count_: 0,
+  index_left_: 0,
+  index_right_or_value_: 0,
+  };
+  InitHuffmanTree(&mut sentinel, !(0u32), -1i32 as (i16), -1i32 as (i16));
+  count_limit = 1u32;
+  'break1: loop {
+    {
+      let mut n: usize = 0usize;
+      let mut i: usize;
+      let mut j: usize;
+      let mut k: usize;
+      i = length;
+      while i != 0usize {
         i = i.wrapping_sub(1 as (usize));
-        if data[i as (usize)] != 0 {
-          let count: u32 = brotli_max_uint32_t(data[i as (usize)], count_limit);
-          InitHuffmanTree(&mut tree[{
-                                 let _old = n;
-                                 n = n.wrapping_add(1 as (usize));
-                                 _old
-                               } as (usize)],
+        if data[(i as (usize))] != 0 {
+          let count: u32 = brotli_max_uint32_t(data[(i as (usize))], count_limit);
+          InitHuffmanTree(&mut tree[({
+                                  let _old = n;
+                                  n = n.wrapping_add(1 as (usize));
+                                  _old
+                                } as (usize))],
                           count,
                           -1i32 as (i16),
                           i as (i16));
-          continue 'loop2;
-        } else {
-          continue 'loop2;
         }
-      } else {
-        break 'loop2;
       }
-    }
-    if n == 1i32 as (usize) {
-      depth[(tree[0]).index_right_or_value_ as (usize)] = 1;
-    } else {
-      SortHuffmanTreeItems(tree, n, SortHuffmanTree {});
-      /* The nodes are:
-            [0, n): the sorted leaf nodes that we start with.
-            [n]: we add a sentinel here.
-            [n + 1, 2n): new parent nodes are added here, starting from
-            (n+1). These are naturally in ascending order.
-            [2n]: we add a sentinel at the end as well.
-            There will be (2n+1) elements at the end. */
-      tree[n as (usize)] = sentinel.clone();
-      tree[n.wrapping_add(1i32 as (usize)) as (usize)] = sentinel.clone();
-      i = 0usize; // Points to the next leaf node
-      j = n.wrapping_add(1i32 as (usize)); // points to the next non-leaf node
-      k = n.wrapping_sub(1i32 as (usize));
-      'loop5: loop {
-        if k != 0i32 as (usize) {
-          let left: usize;
-          let right: usize;
-          if (tree[i as (usize)]).total_count_ <= (tree[j as usize]).total_count_ {
+      if n == 1usize {
+        depth[((tree[(0usize)]).index_right_or_value_ as (usize))] = 1i32 as (u8);
+        {
+          {
+            break 'break1;
+          }
+        }
+      }
+      SortHuffmanTreeItems(tree, n, SortHuffmanTree{});
+      tree[(n as (usize))] = sentinel;
+      tree[(n.wrapping_add(1usize) as (usize))] = sentinel;
+      i = 0usize;
+      j = n.wrapping_add(1usize);
+      k = n.wrapping_sub(1usize);
+      while k != 0usize {
+        {
+          let mut left: usize;
+          let mut right: usize;
+          if (tree[(i as (usize))]).total_count_ <= (tree[(j as (usize))]).total_count_ {
             left = i;
             i = i.wrapping_add(1 as (usize));
           } else {
             left = j;
             j = j.wrapping_add(1 as (usize));
           }
-          if (tree[i as (usize)]).total_count_ <= (tree[j as (usize)]).total_count_ {
+          if (tree[(i as (usize))]).total_count_ <= (tree[(j as (usize))]).total_count_ {
             right = i;
             i = i.wrapping_add(1 as (usize));
           } else {
             right = j;
             j = j.wrapping_add(1 as (usize));
           }
-          // the sentinel node becomes the parent node
-          let j_end: usize = (2i32 as (usize)).wrapping_mul(n).wrapping_sub(k);
-          (tree[j_end as usize]).total_count_ =
-            (tree[left as (usize)])
-              .total_count_
-              .wrapping_add((tree[right as (usize)]).total_count_);
-          (tree[j_end as (usize)]).index_left_ = left as (i16);
-          (tree[j_end as (usize)]).index_right_or_value_ = right as (i16);
-          // add back the last sentinel node
-          tree[j_end.wrapping_add(1i32 as (usize)) as (usize)] = sentinel.clone();
-          k = k.wrapping_sub(1 as (usize));
-          continue 'loop5;
-        } else {
-          break 'loop5;
+          {
+            let mut j_end: usize = (2usize).wrapping_mul(n).wrapping_sub(k);
+            (tree[(j_end as (usize))]).total_count_ =
+              (tree[(left as (usize))])
+                .total_count_
+                .wrapping_add((tree[(right as (usize))]).total_count_);
+            (tree[(j_end as (usize))]).index_left_ = left as (i16);
+            (tree[(j_end as (usize))]).index_right_or_value_ = right as (i16);
+            tree[(j_end.wrapping_add(1usize) as (usize))] = sentinel;
+          }
         }
+        k = k.wrapping_sub(1 as (usize));
       }
-      if BrotliSetDepth((2i32 as (usize)).wrapping_mul(n).wrapping_sub(1i32 as (usize)) as (i32),
+      if BrotliSetDepth((2usize).wrapping_mul(n).wrapping_sub(1usize) as (i32),
                         tree,
                         depth,
                         tree_limit) {
-        // We need to pack the Huffman tree in tree_limit bits. If this was
-        // not successful, add fake entities to the lowest values and retry.
-        break 'loop1;
-      } else {
-        count_limit = count_limit.wrapping_mul(2i32 as (u32));
-        continue 'loop1;
+        {
+          break 'break1;
+        }
       }
     }
+    count_limit = count_limit.wrapping_mul(2u32);
   }
 }
 pub fn BrotliOptimizeHuffmanCountsForRle(mut length: usize,
