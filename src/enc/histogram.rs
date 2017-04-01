@@ -312,69 +312,49 @@ extern fn BrotliBuildHistogramsWithContext(
   literal_it = NewBlockSplitIterator(literal_split);
   insert_and_copy_it = NewBlockSplitIterator(insert_and_copy_split);
   dist_it = NewBlockSplitIterator(dist_split);
-  /*
-    InitBlockSplitIterator(
-        &mut literal_it,
-        literal_split
-    );
-    InitBlockSplitIterator(
-        &mut insert_and_copy_it,
-        insert_and_copy_split
-    );
-    InitBlockSplitIterator(
-        &mut dist_it,
-        dist_split
-    );*/
-    /*FIXME
-  i = 0i32 as (usize);
-  'loop1: loop {
-    if i < num_commands {
-      let cmd = &cmds[i as (usize)];
+  i = 0usize;
+  while i < num_commands {
+    {
+      let mut cmd = &cmds[(i as (usize))];
       let mut j: usize;
       BlockSplitIteratorNext(&mut insert_and_copy_it);
-      HistogramAddItem(&mut insert_and_copy_histograms[insert_and_copy_it.type_ as (usize)],
+      HistogramAddItem(&mut insert_and_copy_histograms[(insert_and_copy_it.type_ as (usize))],
                           (*cmd).cmd_prefix_ as (usize));
       j = (*cmd).insert_len_ as (usize);
-      'loop4: loop {
-        if j != 0i32 as (usize) {
+      while j != 0usize {
+        {
           let mut context: usize;
           BlockSplitIteratorNext(&mut literal_it);
           context = if context_modes.len() != 0 {
             (literal_it.type_ << 6i32).wrapping_add(Context(prev_byte,
                                                             prev_byte2,
-                                                            context_modes[literal_it.type_ as
-                                                            (usize)]) as
+                                                            context_modes[(literal_it.type_ as
+                                                             (usize))]) as
                                                     (usize))
           } else {
             literal_it.type_
           };
-          HistogramAddItem(&mut literal_histograms[context as (usize)],
-                              ringbuffer[(pos & mask) as (usize)] as (usize));
+          HistogramAddItem(&mut literal_histograms[(context as (usize))],
+                              ringbuffer[((pos & mask) as (usize))] as (usize));
           prev_byte2 = prev_byte;
-          prev_byte = ringbuffer[(pos & mask) as (usize)];
+          prev_byte = ringbuffer[((pos & mask) as (usize))];
           pos = pos.wrapping_add(1 as (usize));
-          j = j.wrapping_sub(1 as (usize));
-          continue 'loop4;
-        } else {
-          break 'loop4;
         }
+        j = j.wrapping_sub(1 as (usize));
       }
       pos = pos.wrapping_add(CommandCopyLen(cmd) as (usize));
       if CommandCopyLen(cmd) != 0 {
-        prev_byte2 = ringbuffer[(pos.wrapping_sub(2i32 as (usize)) & mask) as (usize)];
-        prev_byte = ringbuffer[(pos.wrapping_sub(1i32 as (usize)) & mask) as (usize)];
+        prev_byte2 = ringbuffer[((pos.wrapping_sub(2usize) & mask) as (usize))];
+        prev_byte = ringbuffer[((pos.wrapping_sub(1usize) & mask) as (usize))];
         if (*cmd).cmd_prefix_ as (i32) >= 128i32 {
           let mut context: usize;
           BlockSplitIteratorNext(&mut dist_it);
           context = (dist_it.type_ << 2i32).wrapping_add(CommandDistanceContext(cmd) as (usize));
-          HistogramAddItem(&mut copy_dist_histograms[context as (usize)],
+          HistogramAddItem(&mut copy_dist_histograms[(context as (usize))],
                                (*cmd).dist_prefix_ as (usize));
         }
       }
-      i = i.wrapping_add(1 as (usize));
-      continue 'loop1;
-    } else {
-      break 'loop1;
     }
-  }*/
+    i = i.wrapping_add(1 as (usize));
+  }
 }
