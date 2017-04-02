@@ -99,18 +99,49 @@ pub struct Struct1 {
 
 trait AnyHasher {
     fn GetHasherCommon(&mut self) -> &mut Struct1;
+    fn HashBytes(&self, data: &[u8]) -> usize;
+    fn USE_DICTIONARY(&self) -> i32;
+    fn BUCKET_SWEEP(&self) -> i32;
+    fn BUCKET_BITS(&self) -> i32;
 }
-pub struct BasicHasher<Buckets: SliceWrapperMut<u32>+SliceWrapper<u32> > {
+pub trait BasicHashComputer {
+    fn HashBytes(&self, data: &[u8]) -> u32;
+    fn BUCKET_BITS(&self) -> i32;
+    fn USE_DICTIONARY(&self) -> i32;
+    fn BUCKET_SWEEP(&self) -> i32;
+}
+pub struct BasicHasher<Buckets: SliceWrapperMut<u32>+SliceWrapper<u32>+BasicHashComputer> {
   pub GetHasherCommon: Struct1,
   pub buckets_: Buckets,
 }
 pub struct H2Sub {
   pub buckets_: [u32; 65537],
 }
-impl<T:SliceWrapperMut<u32>+SliceWrapper<u32>> AnyHasher for BasicHasher<T> {
+impl<T:SliceWrapperMut<u32>+SliceWrapper<u32>+BasicHashComputer> AnyHasher for BasicHasher<T> {
      fn GetHasherCommon(&mut self) -> &mut Struct1 {
         return &mut self.GetHasherCommon;
      }
+     fn HashBytes(&self, data:&[u8]) -> usize {
+        self.buckets_.HashBytes(data) as usize
+     }
+     fn BUCKET_BITS(&self) -> i32 {
+         self.buckets_.BUCKET_BITS()
+     }
+     fn USE_DICTIONARY(&self) -> i32 {
+        self.buckets_.USE_DICTIONARY()
+     }
+     fn BUCKET_SWEEP(&self) -> i32 {
+        self.buckets_.BUCKET_SWEEP()
+     }
+}
+impl BasicHashComputer for H2Sub {
+     fn HashBytes(&self, data:&[u8]) -> u32 {
+          let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
+          (h >> 64i32 - 16i32) as (u32)
+     }
+     fn BUCKET_BITS(&self) -> i32 {16}
+     fn BUCKET_SWEEP(&self) -> i32 {1}
+     fn USE_DICTIONARY(&self) -> i32 {1}
 }
 impl SliceWrapperMut<u32> for H2Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
@@ -135,8 +166,27 @@ impl SliceWrapper<u32> for H3Sub {
         return &self.buckets_[..];
      }
 }
+impl BasicHashComputer for H3Sub {
+     fn BUCKET_BITS(&self) -> i32 {16}
+     fn BUCKET_SWEEP(&self) -> i32 {2}
+     fn USE_DICTIONARY(&self) -> i32 {0}
+     fn HashBytes(&self, data:&[u8]) -> u32 {
+       let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
+          (h >> 64i32 - 16i32) as (u32)
+     }
+}
 pub struct H4Sub {
   pub buckets_: [u32; 131076],
+}
+impl BasicHashComputer for H4Sub {
+     fn BUCKET_BITS(&self) -> i32 {17}
+     fn BUCKET_SWEEP(&self) -> i32 {4}
+     fn USE_DICTIONARY(&self) -> i32 {1}
+     fn HashBytes(&self, data:&[u8]) -> u32 {
+         let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
+         (h >> 64i32 - 17i32) as (u32)
+     }
+     
 }
 impl SliceWrapperMut<u32> for H4Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
@@ -150,6 +200,15 @@ impl SliceWrapper<u32> for H4Sub {
 }
 pub struct H54Sub {
   pub buckets_: [u32;1048580],
+}
+impl BasicHashComputer for H54Sub {
+     fn BUCKET_BITS(&self) -> i32 {20}
+     fn BUCKET_SWEEP(&self) -> i32 {4}
+     fn USE_DICTIONARY(&self) -> i32 {0}
+     fn HashBytes(&self, data:&[u8]) -> u32 {
+         let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 7i32).wrapping_mul(kHashMul64);
+         (h >> 64i32 - 20i32) as (u32)
+     }
 }
 
 impl SliceWrapperMut<u32> for H54Sub {
@@ -176,7 +235,23 @@ impl<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>> AnyHasher f
      fn GetHasherCommon(&mut self) -> &mut Struct1 {
         return &mut self.GetHasherCommon;
      }
+     fn HashBytes(&self, mut data: &[u8]) -> usize {
+         let mask = self.hash_mask_;
+         let shift = self.hash_shift_;
+         let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) & mask).wrapping_mul(kHashMul64Long);
+         (h >> shift) as (u32) as usize
+     }
+     fn BUCKET_BITS(&self) -> i32 {
+         let mut bucket_len = self.buckets.slice().len();
+         if (bucket_len & (bucket_len - 1)) != 0 {
+             bucket_len += 1;
+         }
+         Log2FloorNonZero(bucket_len + 1) as i32
+     }
+     fn BUCKET_SWEEP(&self) -> i32 {4}
+     fn USE_DICTIONARY(&self) -> i32 {1}
 }
+
 
 pub struct BankH40 {
   pub slots: [SlotH40; 65536],
@@ -258,14 +333,14 @@ fn unopt_ctzll(mut val: usize) -> u8 {
 fn BackwardReferenceScoreUsingLastDistance(mut copy_length: usize) -> usize {
   (135usize)
     .wrapping_mul(copy_length)
-    .wrapping_add(((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()))
+    .wrapping_add(((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()))
     .wrapping_add(15usize)
 }
 
 
 fn BackwardReferenceScore(mut copy_length: usize, mut backward_reference_offset: usize) -> usize {
   ((30i32 * 8i32) as (usize))
-    .wrapping_mul(::std::mem::size_of::<usize>())
+    .wrapping_mul(::core::mem::size_of::<usize>())
     .wrapping_add((135usize).wrapping_mul(copy_length))
     .wrapping_sub((30u32).wrapping_mul(Log2FloorNonZero(backward_reference_offset)) as (usize))
 }
@@ -353,7 +428,7 @@ fn SearchInStaticDictionary<HasherType:AnyHasher>(mut dictionary: &BrotliDiction
   is_match_found
 }
 
-fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(mut xself: &mut BasicHasher<Buckets>,
+fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32>+BasicHashComputer>(mut xself: &mut BasicHasher<Buckets>,
                       mut dictionary: &BrotliDictionary,
                       mut dictionary_hash: &[u16],
                       mut data: &[u8],
@@ -366,7 +441,7 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
                       -> i32 {
   let best_len_in: usize = (*out).len;
   let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
-  let key: u32 = HashBytesH2(&data[(cur_ix_masked as (usize))..]);
+  let key: u32 = xself.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
   let mut compare_char: i32 = data[(cur_ix_masked.wrapping_add(best_len_in) as (usize))] as (i32);
   let mut best_score: usize = (*out).score;
   let mut best_len: usize = best_len_in;
@@ -387,7 +462,7 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
         (*out).distance = cached_backward;
         (*out).score = best_score;
         compare_char = data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32);
-        if 1i32 == 1i32 {
+        if xself.BUCKET_SWEEP() == 1i32 {
           (*xself).buckets_.slice_mut()[key as (usize)] = cur_ix as (u32);
           return 1i32;
         } else {
@@ -396,7 +471,8 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
       }
     }
   }
-  if 1i32 == 1i32 {
+  let BUCKET_SWEEP = xself.BUCKET_SWEEP();
+  if BUCKET_SWEEP == 1i32 {
     let mut backward: usize;
     let mut len: usize;
     prev_ix = (*xself).buckets_.slice()[key as (usize)] as (usize);
@@ -424,7 +500,7 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
     prev_ix = old_[0] as (usize);
     i = 0i32;
     
-    while i < 1i32 {
+    while i < BUCKET_SWEEP {
       'continue3: loop {
         {
           let backward: usize = cur_ix.wrapping_sub(prev_ix);
@@ -466,7 +542,7 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
       }
     }
   }
-  if 1i32 != 0 && (is_match_found == 0) {
+  if xself.USE_DICTIONARY() != 0 && (is_match_found == 0) {
     is_match_found = SearchInStaticDictionary(dictionary,
                                               dictionary_hash,
                                               xself,
@@ -476,7 +552,7 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
                                               out,
                                               1i32);
   }
-  (*xself).buckets_.slice_mut()[(key as (usize)).wrapping_add((cur_ix >> 3i32).wrapping_rem(1usize))] =
+  (*xself).buckets_.slice_mut()[(key as (usize)).wrapping_add((cur_ix >> 3).wrapping_rem(xself.BUCKET_SWEEP() as usize))] =
     cur_ix as (u32);
   is_match_found
 }
@@ -485,7 +561,7 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
 
 fn StoreH2(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
   let key: u32 = HashBytesH2(&data[((ix & mask) as (usize))]);
-  let off: u32 = (ix >> 3i32).wrapping_rem(1usize) as (u32);
+  let off: u32 = (ix >> 3i32).wrapping_rem(xself.BUCKET_SWEEP()) as (u32);
   (*SelfH2(handle)).buckets_[key.wrapping_add(off) as (usize)] = ix as (u32);
 }
 
@@ -533,7 +609,7 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH2(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH2()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -670,7 +746,7 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -880,7 +956,7 @@ fn CreateBackwardReferencesH3(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH3(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH3()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -1017,7 +1093,7 @@ fn CreateBackwardReferencesH3(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -1227,7 +1303,7 @@ fn CreateBackwardReferencesH4(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH4(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH4()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -1364,7 +1440,7 @@ fn CreateBackwardReferencesH4(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -1627,7 +1703,7 @@ fn CreateBackwardReferencesH5(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH5(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH5()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -1764,7 +1840,7 @@ fn CreateBackwardReferencesH5(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -2007,7 +2083,7 @@ fn CreateBackwardReferencesH6(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH6(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH6()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -2144,7 +2220,7 @@ fn CreateBackwardReferencesH6(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -2379,7 +2455,7 @@ fn CreateBackwardReferencesH40(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH40(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH40()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -2516,7 +2592,7 @@ fn CreateBackwardReferencesH40(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -2755,7 +2831,7 @@ fn CreateBackwardReferencesH41(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH41(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH41()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -2892,7 +2968,7 @@ fn CreateBackwardReferencesH41(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -3131,7 +3207,7 @@ fn CreateBackwardReferencesH42(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH42(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH42()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -3268,7 +3344,7 @@ fn CreateBackwardReferencesH42(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
@@ -3478,7 +3554,7 @@ fn CreateBackwardReferencesH54(mut dictionary: &[BrotliDictionary],
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
-    ((30i32 * 8i32) as (usize)).wrapping_mul(::std::mem::size_of::<usize>()).wrapping_add(100usize);
+    ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
   PrepareDistanceCacheH54(hasher, dist_cache);
   while position.wrapping_add(HashTypeLengthH54()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -3615,7 +3691,7 @@ fn CreateBackwardReferencesH54(mut dictionary: &[BrotliDictionary],
   *last_insert_len = insert_length;
   *num_commands =
     (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::std::mem::size_of::<*const Command>() as (isize)) as
+                                  ::core::mem::size_of::<*const Command>() as (isize)) as
                                  (usize));
 }
 
