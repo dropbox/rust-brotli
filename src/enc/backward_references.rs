@@ -368,7 +368,7 @@ fn SearchInStaticDictionary<HasherType:AnyHasher>(mut dictionary: &BrotliDiction
 }
 
 /*
-fn FindLongestMatchH2(mut handle: &mut [u8],
+fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(mut xself: &mut BasicHasher<Buckets>,
                       mut dictionary: &[BrotliDictionary],
                       mut dictionary_hash: &[u16],
                       mut data: &[u8],
@@ -379,7 +379,6 @@ fn FindLongestMatchH2(mut handle: &mut [u8],
                       max_backward: usize,
                       mut out: &mut [HasherSearchResult])
                       -> i32 {
-  let mut xself: *mut H2 = SelfH2(handle);
   let best_len_in: usize = (*out).len;
   let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
   let key: u32 = HashBytesH2(&data[(cur_ix_masked as (usize))]);
@@ -404,7 +403,7 @@ fn FindLongestMatchH2(mut handle: &mut [u8],
         (*out).score = best_score;
         compare_char = data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32);
         if 1i32 == 1i32 {
-          (*xself).buckets_[key as (usize)] = cur_ix as (u32);
+          (*xself).slice().buckets_[key as (usize)] = cur_ix as (u32);
           return 1i32;
         } else {
           is_match_found = 1i32;
