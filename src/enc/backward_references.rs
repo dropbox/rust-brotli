@@ -6,6 +6,7 @@ use super::static_dict::{BROTLI_UNALIGNED_LOAD32,BROTLI_UNALIGNED_LOAD64,
                    FindMatchLengthWithLimit};
 use super::util::{Log2FloorNonZero};
 use super::super::alloc;
+use core;
 use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 static kBrotliMinWindowBits: i32 = 10i32;
 
@@ -106,7 +107,7 @@ pub struct BasicHasher<Buckets: SliceWrapperMut<u32>+SliceWrapper<u32> > {
 pub struct H2Sub {
   pub buckets_: [u32; 65537],
 }
-impl AnyHasher for BasicHasher<H2Sub> {
+impl<T:SliceWrapperMut<u32>+SliceWrapper<u32>> AnyHasher for BasicHasher<T> {
      fn GetHasherCommon(&mut self) -> &mut Struct1 {
         return &mut self.GetHasherCommon;
      }
@@ -124,11 +125,6 @@ impl SliceWrapper<u32> for H2Sub {
 pub struct H3Sub {
   pub buckets_: [u32; 65538],
 }
-impl AnyHasher for BasicHasher<H3Sub> {
-     fn GetHasherCommon(&mut self) -> &mut Struct1 {
-        return &mut self.GetHasherCommon;
-     }
-}
 impl SliceWrapperMut<u32> for H3Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
         return &mut self.buckets_[..];
@@ -142,11 +138,6 @@ impl SliceWrapper<u32> for H3Sub {
 pub struct H4Sub {
   pub buckets_: [u32; 131076],
 }
-impl AnyHasher for BasicHasher<H4Sub> {
-     fn GetHasherCommon(&mut self) -> &mut Struct1 {
-        return &mut self.GetHasherCommon;
-     }
-}
 impl SliceWrapperMut<u32> for H4Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
         return &mut self.buckets_[..];
@@ -159,11 +150,6 @@ impl SliceWrapper<u32> for H4Sub {
 }
 pub struct H54Sub {
   pub buckets_: [u32;1048580],
-}
-impl AnyHasher for BasicHasher<H54Sub> {
-     fn GetHasherCommon(&mut self) -> &mut Struct1 {
-        return &mut self.GetHasherCommon;
-     }
 }
 
 impl SliceWrapperMut<u32> for H54Sub {
@@ -367,9 +353,8 @@ fn SearchInStaticDictionary<HasherType:AnyHasher>(mut dictionary: &BrotliDiction
   is_match_found
 }
 
-/*
 fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(mut xself: &mut BasicHasher<Buckets>,
-                      mut dictionary: &[BrotliDictionary],
+                      mut dictionary: &BrotliDictionary,
                       mut dictionary_hash: &[u16],
                       mut data: &[u8],
                       ring_buffer_mask: usize,
@@ -377,11 +362,11 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
-                      mut out: &mut [HasherSearchResult])
+                      mut out: &mut HasherSearchResult)
                       -> i32 {
   let best_len_in: usize = (*out).len;
   let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
-  let key: u32 = HashBytesH2(&data[(cur_ix_masked as (usize))]);
+  let key: u32 = HashBytesH2(&data[(cur_ix_masked as (usize))..]);
   let mut compare_char: i32 = data[(cur_ix_masked.wrapping_add(best_len_in) as (usize))] as (i32);
   let mut best_score: usize = (*out).score;
   let mut best_len: usize = best_len_in;
@@ -392,8 +377,8 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
   if prev_ix < cur_ix {
     prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
     if compare_char == data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
-      let mut len: usize = FindMatchLengthWithLimit(&data[(prev_ix as (usize))],
-                                                    &data[(cur_ix_masked as (usize))],
+      let mut len: usize = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
+                                                    &data[(cur_ix_masked as (usize))..],
                                                     max_length);
       if len >= 4usize {
         best_score = BackwardReferenceScoreUsingLastDistance(len);
@@ -403,7 +388,7 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
         (*out).score = best_score;
         compare_char = data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32);
         if 1i32 == 1i32 {
-          (*xself).slice().buckets_[key as (usize)] = cur_ix as (u32);
+          (*xself).buckets_.slice_mut()[key as (usize)] = cur_ix as (u32);
           return 1i32;
         } else {
           is_match_found = 1i32;
@@ -414,8 +399,8 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
   if 1i32 == 1i32 {
     let mut backward: usize;
     let mut len: usize;
-    prev_ix = (*xself).buckets_[key as (usize)] as (usize);
-    (*xself).buckets_[key as (usize)] = cur_ix as (u32);
+    prev_ix = (*xself).buckets_.slice()[key as (usize)] as (usize);
+    (*xself).buckets_.slice_mut()[key as (usize)] = cur_ix as (u32);
     backward = cur_ix.wrapping_sub(prev_ix);
     prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
     if compare_char != data[(prev_ix.wrapping_add(best_len_in) as (usize))] as (i32) {
@@ -424,8 +409,8 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
     if backward == 0usize || backward > max_backward {
       return 0i32;
     }
-    len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))],
-                                   &data[(cur_ix_masked as (usize))],
+    len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
+                                   &data[(cur_ix_masked as (usize))..],
                                    max_length);
     if len >= 4usize {
       (*out).len = len;
@@ -434,14 +419,11 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
       return 1i32;
     }
   } else {
-    let mut bucket: *mut u32 = (*xself).buckets_.as_mut_ptr().offset(key as (isize));
+    let (old_, mut bucket) = (*xself).buckets_.slice_mut()[key as usize..].split_at_mut(1);
     let mut i: i32;
-    prev_ix = *{
-                 let _old = bucket;
-                 bucket = bucket[(1 as (usize))..];
-                 _old
-               } as (usize);
+    prev_ix = old_[0] as (usize);
     i = 0i32;
+    
     while i < 1i32 {
       'continue3: loop {
         {
@@ -458,8 +440,8 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
               break 'continue3;
             }
           }
-          len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))],
-                                         &data[(cur_ix_masked as (usize))],
+          len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
+                                         &data[(cur_ix_masked as (usize))..],
                                          max_length);
           if len >= 4usize {
             let score: usize = BackwardReferenceScore(len, backward);
@@ -477,29 +459,29 @@ fn FindLongestMatchBasicHasher<Buckets:SliceWrapperMut<u32>+SliceWrapper<u32> >(
         break;
       }
       i = i + 1;
-      prev_ix = *{
-                   let _old = bucket;
-                   bucket = bucket[(1 as (usize))..];
-                   _old
-                 } as (usize);
+      {
+        let (_old, new_bucket) = core::mem::replace(&mut bucket, &mut[]).split_at_mut(1);
+        prev_ix = _old[0] as usize;
+        bucket = new_bucket;
+      }
     }
   }
   if 1i32 != 0 && (is_match_found == 0) {
     is_match_found = SearchInStaticDictionary(dictionary,
                                               dictionary_hash,
-                                              handle,
-                                              &data[(cur_ix_masked as (usize))],
+                                              xself,
+                                              &data[(cur_ix_masked as (usize))..],
                                               max_length,
                                               max_backward,
                                               out,
                                               1i32);
   }
-  (*xself).buckets_[(key as (usize)).wrapping_add((cur_ix >> 3i32).wrapping_rem(1usize))] =
+  (*xself).buckets_.slice_mut()[(key as (usize)).wrapping_add((cur_ix >> 3i32).wrapping_rem(1usize))] =
     cur_ix as (u32);
   is_match_found
 }
 
-
+/*
 
 fn StoreH2(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
   let key: u32 = HashBytesH2(&data[((ix & mask) as (usize))]);
