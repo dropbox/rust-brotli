@@ -102,9 +102,13 @@ pub struct BasicHasher<Buckets: SliceWrapperMut<u32>+SliceWrapper<u32> > {
   pub GetHasherCommon: Struct1,
   pub buckets_: Buckets,
 }
-
 pub struct H2Sub {
   pub buckets_: [u32; 65537],
+}
+impl AnyHasher for BasicHasher<H2Sub> {
+     fn GetHasherCommon(&mut self) -> &mut Struct1 {
+        return &mut self.GetHasherCommon;
+     }
 }
 impl SliceWrapperMut<u32> for H2Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
@@ -119,6 +123,11 @@ impl SliceWrapper<u32> for H2Sub {
 pub struct H3Sub {
   pub buckets_: [u32; 65538],
 }
+impl AnyHasher for BasicHasher<H3Sub> {
+     fn GetHasherCommon(&mut self) -> &mut Struct1 {
+        return &mut self.GetHasherCommon;
+     }
+}
 impl SliceWrapperMut<u32> for H3Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
         return &mut self.buckets_[..];
@@ -131,6 +140,11 @@ impl SliceWrapper<u32> for H3Sub {
 }
 pub struct H4Sub {
   pub buckets_: [u32; 131076],
+}
+impl AnyHasher for BasicHasher<H4Sub> {
+     fn GetHasherCommon(&mut self) -> &mut Struct1 {
+        return &mut self.GetHasherCommon;
+     }
 }
 impl SliceWrapperMut<u32> for H4Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
@@ -145,6 +159,12 @@ impl SliceWrapper<u32> for H4Sub {
 pub struct H54Sub {
   pub buckets_: [u32;1048580],
 }
+impl AnyHasher for BasicHasher<H54Sub> {
+     fn GetHasherCommon(&mut self) -> &mut Struct1 {
+        return &mut self.GetHasherCommon;
+     }
+}
+
 impl SliceWrapperMut<u32> for H54Sub {
      fn slice_mut(&mut self) -> &mut[u32] {
         return &mut self.buckets_[..];
@@ -156,7 +176,7 @@ impl SliceWrapper<u32> for H54Sub {
      }
 }
 pub struct AdvHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32> > {
-  pub common: Struct1,
+  pub GetHasherCommon: Struct1,
   pub bucket_size_: u64,
   pub block_size_: u64,
   pub hash_mask_ : u64, // only nonzero for H6
@@ -164,6 +184,11 @@ pub struct AdvHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u
   pub block_mask_: u32,
   pub num:AllocU16::AllocatedMemory,
   pub buckets:AllocU32::AllocatedMemory,
+}
+impl<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>> AnyHasher for AdvHasher<AllocU16,AllocU32> {
+     fn GetHasherCommon(&mut self) -> &mut Struct1 {
+        return &mut self.GetHasherCommon;
+     }
 }
 
 pub struct BankH40 {
