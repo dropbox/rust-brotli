@@ -1,6 +1,11 @@
 use super::constants::{kInsBase, kInsExtra, kCopyBase, kCopyExtra};
 use super::static_dict::{BrotliDictionary};
 use super::block_split::BlockSplit;
+use super::histogram::Command;
+use super::static_dict::{BROTLI_UNALIGNED_LOAD32,BROTLI_UNALIGNED_LOAD64,
+                   FindMatchLengthWithLimit};
+use super::super::alloc;
+use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -9,20 +14,20 @@ static kInvalidMatch: u32 = 0xfffffffu32;
 
 static kCutoffTransformsCount: u32 = 10u32;
 
-static kCutoffTransforms: usize = 0x71b520ausize << 32i32 | 0xda2d3200u32 as (usize);
+static kCutoffTransforms: u64 = 0x71b520au64 << 32i32 | 0xda2d3200u32 as (u64);
 
 static kHashMul32: u32 = 0x1e35a7bdu32;
 
-static kHashMul64: usize = 0x1e35a7bdusize << 32i32 | 0x1e35a7bdusize;
+static kHashMul64: u64 = 0x1e35a7bdu64 << 32i32 | 0x1e35a7bdu64;
 
-static kHashMul64Long: usize = 0x1fe35a7bu32 as (usize) << 32i32 | 0xd3579bd3u32 as (usize);
+static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32 as (u64);
 
 
 
 pub enum BrotliEncoderMode {
-  BROTLI_MODE_GENERIC = 0i32,
-  BROTLI_MODE_TEXT = 1i32,
-  BROTLI_MODE_FONT = 2i32,
+  BROTLI_MODE_GENERIC = 0,
+  BROTLI_MODE_TEXT = 1,
+  BROTLI_MODE_FONT = 2,
 }
 
 
@@ -49,19 +54,11 @@ pub struct BrotliEncoderParams {
 
 
 
-pub struct Command {
-  pub insert_len_: u32,
-  pub copy_len_: u32,
-  pub dist_extra_: u32,
-  pub cmd_prefix_: u16,
-  pub dist_prefix_: u16,
-}
-
 fn StoreLookaheadH2() -> usize {
   8usize
 }
 
-fn LiteralSpreeLengthForSparseSearch(mut params: &[BrotliEncoderParams]) -> usize {
+fn LiteralSpreeLengthForSparseSearch(mut params: &BrotliEncoderParams) -> usize {
   (if (*params).quality < 9i32 {
      64i32
    } else {
@@ -91,14 +88,6 @@ pub struct HasherSearchResult {
   pub score: usize,
 }
 
-
-
-pub struct H2 {
-  pub buckets_: [u32; 65537],
-}
-
-
-
 pub struct Struct1 {
   pub params: BrotliHasherParams,
   pub is_prepared_: i32,
@@ -106,22 +95,141 @@ pub struct Struct1 {
   pub dict_num_matches: usize,
 }
 
-fn GetHasherCommon(mut handle: &mut [u8]) -> *mut Struct1 {
-  handle
+trait AnyHasher {
+    fn GetHasherCommon(&mut self) -> &mut Struct1;
+}
+pub struct BasicHasher<Buckets: SliceWrapperMut<u32>+SliceWrapper<u32> > {
+  pub GetHasherCommon: Struct1,
+  pub buckets_: Buckets,
 }
 
-fn SelfH2(mut handle: &mut [u8]) -> *mut H2 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
+pub struct H2Sub {
+  pub buckets_: [u32; 65537],
+}
+impl SliceWrapperMut<u32> for H2Sub {
+     fn slice_mut(&mut self) -> &mut[u32] {
+        return &mut self.buckets_[..];
+     }
+}
+impl SliceWrapper<u32> for H2Sub {
+     fn slice(&self) -> &[u32] {
+        return &self.buckets_[..];
+     }
+}
+pub struct H3Sub {
+  pub buckets_: [u32; 65538],
+}
+impl SliceWrapperMut<u32> for H3Sub {
+     fn slice_mut(&mut self) -> &mut[u32] {
+        return &mut self.buckets_[..];
+     }
+}
+impl SliceWrapper<u32> for H3Sub {
+     fn slice(&self) -> &[u32] {
+        return &self.buckets_[..];
+     }
+}
+pub struct H4Sub {
+  pub buckets_: [u32; 131076],
+}
+impl SliceWrapperMut<u32> for H4Sub {
+     fn slice_mut(&mut self) -> &mut[u32] {
+        return &mut self.buckets_[..];
+     }
+}
+impl SliceWrapper<u32> for H4Sub {
+     fn slice(&self) -> &[u32] {
+        return &self.buckets_[..];
+     }
+}
+pub struct H54Sub {
+  pub buckets_: [u32;1048580],
+}
+impl SliceWrapperMut<u32> for H54Sub {
+     fn slice_mut(&mut self) -> &mut[u32] {
+        return &mut self.buckets_[..];
+     }
+}
+impl SliceWrapper<u32> for H54Sub {
+     fn slice(&self) -> &[u32] {
+        return &self.buckets_[..];
+     }
+}
+pub struct AdvHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32> > {
+  pub common: Struct1,
+  pub bucket_size_: u64,
+  pub block_size_: u64,
+  pub hash_mask_ : u64, // only nonzero for H6
+  pub hash_shift_: i32,
+  pub block_mask_: u32,
+  pub num:AllocU16::AllocatedMemory,
+  pub buckets:AllocU32::AllocatedMemory,
 }
 
-fn BROTLI_UNALIGNED_LOAD64(mut p: &[::std::os::raw::c_void]) -> usize {
-  let mut t: usize;
-  memcpy(&mut t, p, ::std::mem::size_of::<usize>());
-  t
+pub struct BankH40 {
+  pub slots: [SlotH40; 65536],
 }
+
+pub struct BankH41 {
+  pub slots: [SlotH41; 65536],
+}
+
+pub struct BankH42 {
+  pub slots: [SlotH42; 512],
+}
+
+
+pub struct SlotH40 {
+  pub delta: u16,
+  pub next: u16,
+}
+pub struct SlotH41 {
+  pub delta: u16,
+  pub next: u16,
+}
+
+pub struct SlotH42 {
+  pub delta: u16,
+  pub next: u16,
+}
+
+// UNSUPPORTED, for now.
+pub struct H40 {
+  pub common: Struct1,
+  pub addr: [u32; 32768],
+  pub head: [u16; 32768],
+  pub tiny_hash: [u8; 65536],
+  pub banks: [BankH40; 1],
+  pub free_slot_idx: [u16; 1],
+  pub max_hops: usize,
+}
+
+
+pub struct H41 {
+  pub common: Struct1,
+  pub addr: [u32; 32768],
+  pub head: [u16; 32768],
+  pub tiny_hash: [u8; 65536],
+  pub banks: [BankH41; 1],
+  pub free_slot_idx: [u16; 1],
+  pub max_hops: usize,
+}
+
+pub struct H42 {
+  pub common: Struct1,
+  pub addr: [u32; 32768],
+  pub head: [u16; 32768],
+  pub tiny_hash: [u8; 65536],
+  pub banks: [BankH42; 512],
+ free_slot_idx: [u16; 512],
+  pub max_hops: usize,
+}
+
+
+
 
 fn HashBytesH2(mut data: &[u8]) -> u32 {
-  let h: usize = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
+  let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
   (h >> 64i32 - 16i32) as (u32)
 }
 
@@ -134,38 +242,6 @@ fn unopt_ctzll(mut val: usize) -> u8 {
   cnt
 }
 
-fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
-  let mut matched: usize = 0usize;
-  let mut limit2: usize = (limit >> 3i32).wrapping_add(1usize);
-  while {
-          limit2 = limit2.wrapping_sub(1 as (usize));
-          limit2
-        } != 0 {
-    if BROTLI_UNALIGNED_LOAD64(s2) == BROTLI_UNALIGNED_LOAD64(s1[(matched as (usize))..]) {
-      s2 = s2[(8usize)..];
-      matched = matched.wrapping_add(8usize);
-    } else {
-      let mut x: usize = BROTLI_UNALIGNED_LOAD64(s2) ^
-                         BROTLI_UNALIGNED_LOAD64(s1[(matched as (usize))..]);
-      let mut matching_bits: usize = unopt_ctzll(x) as (usize);
-      matched = matched.wrapping_add(matching_bits >> 3i32);
-      return matched;
-    }
-  }
-  limit = (limit & 7usize).wrapping_add(1usize);
-  while {
-          limit = limit.wrapping_sub(1 as (usize));
-          limit
-        } != 0 {
-    if s1[(matched as (usize))] as (i32) == *s2 as (i32) {
-      s2 = s2[(1 as (usize))..];
-      matched = matched.wrapping_add(1 as (usize));
-    } else {
-      return matched;
-    }
-  }
-  matched
-}
 
 fn BackwardReferenceScoreUsingLastDistance(mut copy_length: usize) -> usize {
   (135usize)
@@ -192,23 +268,17 @@ fn BackwardReferenceScore(mut copy_length: usize, mut backward_reference_offset:
     .wrapping_sub((30u32).wrapping_mul(Log2FloorNonZero(backward_reference_offset)) as (usize))
 }
 
-fn BROTLI_UNALIGNED_LOAD32(mut p: &[::std::os::raw::c_void]) -> u32 {
-  let mut t: u32;
-  memcpy(&mut t, p, ::std::mem::size_of::<u32>());
-  t
-}
-
 fn Hash14(mut data: &[u8]) -> u32 {
   let mut h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kHashMul32);
   h >> 32i32 - 14i32
 }
 
-fn TestStaticDictionaryItem(mut dictionary: &[BrotliDictionary],
+fn TestStaticDictionaryItem(mut dictionary: &BrotliDictionary,
                             mut item: usize,
                             mut data: &[u8],
                             mut max_length: usize,
                             mut max_backward: usize,
-                            mut out: &mut [HasherSearchResult])
+                            mut out: &mut HasherSearchResult)
                             -> i32 {
   let mut len: usize;
   let mut dist: usize;
@@ -222,14 +292,14 @@ fn TestStaticDictionaryItem(mut dictionary: &[BrotliDictionary],
   if len > max_length {
     return 0i32;
   }
-  matchlen = FindMatchLengthWithLimit(data, &mut (*dictionary).data[offset], len);
-  if matchlen.wrapping_add(kCutoffTransformsCount as (usize)) <= len || matchlen == 0usize {
+  matchlen = FindMatchLengthWithLimit(data, &(*dictionary).data[offset..], len);
+  if matchlen.wrapping_add(kCutoffTransformsCount as usize) <= len || matchlen == 0usize {
     return 0i32;
   }
   {
     let mut cut: usize = len.wrapping_sub(matchlen);
     let mut transform_id: usize =
-      (cut << 2i32).wrapping_add(kCutoffTransforms >> cut.wrapping_mul(6usize) & 0x3fusize);
+      (cut << 2i32).wrapping_add(kCutoffTransforms as usize >> cut.wrapping_mul(6) & 0x3f);
     backward = max_backward.wrapping_add(dist)
       .wrapping_add(1usize)
       .wrapping_add(transform_id << (*dictionary).size_bits_by_length[len] as (i32));
@@ -244,20 +314,19 @@ fn TestStaticDictionaryItem(mut dictionary: &[BrotliDictionary],
   (*out).score = score;
   1i32
 }
-
-fn SearchInStaticDictionary(mut dictionary: &[BrotliDictionary],
+fn SearchInStaticDictionary<HasherType:AnyHasher>(mut dictionary: &BrotliDictionary,
                             mut dictionary_hash: &[u16],
-                            mut handle: &mut [u8],
+                            mut handle: &mut HasherType,
                             mut data: &[u8],
                             mut max_length: usize,
                             mut max_backward: usize,
-                            mut out: &mut [HasherSearchResult],
+                            mut out: &mut HasherSearchResult,
                             mut shallow: i32)
                             -> i32 {
   let mut key: usize;
   let mut i: usize;
   let mut is_match_found: i32 = 0i32;
-  let mut xself: *mut Struct1 = GetHasherCommon(handle);
+  let mut xself: &mut Struct1 = handle.GetHasherCommon();
   if (*xself).dict_num_matches < (*xself).dict_num_lookups >> 7i32 {
     return 0i32;
   }
@@ -282,6 +351,7 @@ fn SearchInStaticDictionary(mut dictionary: &[BrotliDictionary],
   is_match_found
 }
 
+/*
 fn FindLongestMatchH2(mut handle: &mut [u8],
                       mut dictionary: &[BrotliDictionary],
                       mut dictionary_hash: &[u16],
@@ -525,28 +595,32 @@ fn GetLengthCode(mut insertlen: usize,
   *code = CombineLengthCodes(inscode, copycode, use_last_distance);
 }
 
-fn InitCommand(mut xself: &mut Command,
-               mut insertlen: usize,
+fn NewCommand(mut insertlen: usize,
                mut copylen: usize,
                mut copylen_code: usize,
-               mut distance_code: usize) {
-  (*xself).insert_len_ = insertlen as (u32);
-  (*xself).copy_len_ = (copylen | (copylen_code ^ copylen) << 24i32) as (u32);
+               mut distance_code: usize) -> Command {
+  let xself : Command = Command {
+           insert_len_: insertlen as (u32),
+           copy_len_: (copylen | (copylen_code ^ copylen) << 24i32) as (u32),
+           dist_extra_:0,
+           cmd_prefix_:0,
+           dist_prefix_:0,
+   };
   PrefixEncodeCopyDistance(distance_code,
                            0usize,
                            0usize,
-                           &mut (*xself).dist_prefix_,
-                           &mut (*xself).dist_extra_);
+                           &mut xself.dist_prefix_,
+                           &mut xself.dist_extra_);
   GetLengthCode(insertlen,
                 copylen_code,
-                if !!((*xself).dist_prefix_ as (i32) == 0i32) {
+                if !!(xself.dist_prefix_ as (i32) == 0i32) {
                   1i32
                 } else {
                   0i32
                 },
-                &mut (*xself).cmd_prefix_);
+                &mut xself.cmd_prefix_);
+   return xself;
 }
-
 fn StoreH2(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
   let key: u32 = HashBytesH2(&data[((ix & mask) as (usize))]);
   let off: u32 = (ix >> 3i32).wrapping_rem(1usize) as (u32);
@@ -2227,10 +2301,6 @@ fn HashTypeLengthH40() -> usize {
 
 
 
-pub struct SlotH40 {
-  pub delta: u16,
-  pub next: u16,
-}
 
 
 
@@ -3837,3 +3907,4 @@ pub fn BrotliCreateBackwardReferences(mut dictionary: &[BrotliDictionary],
                                 num_literals);
   }
 }
+*/

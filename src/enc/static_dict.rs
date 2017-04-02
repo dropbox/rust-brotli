@@ -20,7 +20,7 @@ pub struct BrotliDictionary {
   pub data: [u8; 122784],
 }
 
-fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
+pub fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
 }
 
@@ -29,7 +29,7 @@ fn Hash(mut data: &[u8]) -> u32 {
   h >> 32i32 - kDictNumBits
 }
 
-fn BROTLI_UNALIGNED_LOAD64(mut p: &[u8]) -> u64 {
+pub fn BROTLI_UNALIGNED_LOAD64(mut p: &[u8]) -> u64 {
   return (p[0] as u64) | ((p[1] as u64) << 8) | ((p[2] as u64) << 16) |
          ((p[3] as u64) << 24) | ((p[4] as u64) << 32) | ((p[5] as u64) << 40) |
          ((p[6] as u64) << 48) | ((p[7] as u64) << 56);
@@ -49,7 +49,7 @@ fn unopt_ctzll(mut val: u64) -> u8 {
   cnt
 }
 
-fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
+pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
   let mut limit2: usize = (limit >> 3i32).wrapping_add(1usize);
   while {
