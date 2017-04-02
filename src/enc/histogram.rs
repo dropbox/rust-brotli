@@ -1,4 +1,5 @@
 use core::cmp::min;
+use super::command::{Command,CommandCopyLen,CommandDistanceContext};
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 use super::super::alloc;
@@ -139,13 +140,6 @@ impl CostAccessors for HistogramDistance {
 }
 
 
-pub struct Command {
-  pub insert_len_: u32,
-  pub copy_len_: u32,
-  pub dist_extra_: u32,
-  pub cmd_prefix_: u16,
-  pub dist_prefix_: u16,
-}
 
 #[derive(Copy,Clone)]
 pub enum ContextType {
@@ -272,20 +266,6 @@ fn Context(mut p1: u8, mut p2: u8, mode: ContextType) -> u8 {
   }
 }
 
-fn CommandCopyLen(mut xself: &Command) -> u32 {
-  (*xself).copy_len_ & 0xffffffi32 as (u32)
-}
-
-fn CommandDistanceContext(mut xself: &Command) -> u32 {
-  let mut r: u32 = ((*xself).cmd_prefix_ as (i32) >> 6i32) as (u32);
-  let mut c: u32 = ((*xself).cmd_prefix_ as (i32) & 7i32) as (u32);
-  if (r == 0i32 as (u32) || r == 2i32 as (u32) || r == 4i32 as (u32) || r == 7i32 as (u32)) &&
-     (c <= 2i32 as (u32)) {
-    c
-  } else {
-    3i32 as (u32)
-  }
-}
 
 #[no_mangle]
 extern fn BrotliBuildHistogramsWithContext<'a,

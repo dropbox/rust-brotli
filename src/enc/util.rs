@@ -276,3 +276,14 @@ pub fn FastLog2(mut v: usize) -> f64 {
       }
   }
 }
+
+pub fn Log2FloorNonZero(mut n: usize) -> u32 {
+  let mut result: u32 = 0u32;
+  while {
+          n = n >> 1i32;
+          n
+        } != 0 {
+    result = result.wrapping_add(1 as (u32));
+  }
+  result
+}

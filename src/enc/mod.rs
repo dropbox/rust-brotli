@@ -1,4 +1,5 @@
 pub mod fast_log;
+pub mod command;
 pub mod block_split;
 pub mod brotli_bit_stream;
 pub mod cluster;
