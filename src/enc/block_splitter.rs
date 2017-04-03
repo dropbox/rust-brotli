@@ -5,10 +5,10 @@ use super::backward_references::{BrotliEncoderParams, BrotliEncoderMode,
 use super::util::{FastLog2, brotli_max_uint8_t, brotli_max_size_t, brotli_min_size_t};
 use super::histogram::{HistogramAddVector, CostAccessors, ClearHistograms, HistogramClear, HistogramAddHistogram, HistogramAddItem};
 use super::command::{Command};
-use super::cluster::{BrotliHistogramBitCostDistance, BrotliHistogramCombine};
+use super::cluster::{BrotliHistogramBitCostDistance, BrotliHistogramCombine, HistogramPair};
 use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 use super::super::alloc;
-
+use super::block_split::BlockSplit;
 static kMaxLiteralHistograms: usize = 100usize;
 
 static kMaxCommandHistograms: usize = 50usize;
@@ -364,15 +364,23 @@ fn BuildBlockHistograms<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+Cos
     i = i.wrapping_add(1 as (usize));
   }
 }
-/*
 
 
-fn ClusterBlocksLiteral(mut m: &mut [MemoryManager],
+fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default,
+                        AllocU8:alloc::Allocator<u8>,
+                        AllocU32:alloc::Allocator<u32>,
+                        AllocHT:alloc::Allocator<HistogramType>,
+                        AllocHP:alloc::Allocator<HistogramPair>>(mut m8: &mut AllocU8,
+                        mut m32:&mut AllocU32,
+                        mut mht:&mut AllocHT,
+                        mut mhp:&mut AllocHP,
                         mut data: &[u8],
                         length: usize,
                         num_blocks: usize,
                         mut block_ids: &mut [u8],
-                        mut split: &mut [BlockSplit]) {
+                        mut split: &mut [BlockSplit<AllocU8,AllocU32>]) {
+}
+/*
   let mut histogram_symbols: *mut u32 = if num_blocks != 0 {
     BrotliAllocate(m, num_blocks.wrapping_mul(::std::mem::size_of::<u32>()))
   } else {
