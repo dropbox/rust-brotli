@@ -104,7 +104,7 @@ fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper
   }
 }
 
-fn BrotliHistogramCombine<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>
+pub fn BrotliHistogramCombine<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>
     (mut out: &mut [HistogramType],
      mut cluster_size: &mut [u32],
      mut symbols: &mut [u32],

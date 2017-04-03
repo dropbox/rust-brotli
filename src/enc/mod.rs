@@ -14,3 +14,4 @@ pub mod util;
 pub mod literal_cost;
 pub mod histogram;
 pub mod backward_references;
+pub mod block_splitter;
