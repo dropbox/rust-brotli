@@ -1,5 +1,5 @@
 use super::block_split::BlockSplit;
-use super::command::{Command, NewCommand};
+use super::command::{Command, NewCommand,ComputeDistanceCode, InitCommand};
 use super::constants::{kInsBase, kInsExtra, kCopyBase, kCopyExtra};
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
 use super::static_dict::BrotliDictionary;
@@ -55,10 +55,6 @@ pub struct BrotliEncoderParams {
 
 
 
-fn StoreLookaheadH2() -> usize {
-  8usize
-}
-
 fn LiteralSpreeLengthForSparseSearch(mut params: &BrotliEncoderParams) -> usize {
   (if (*params).quality < 9i32 {
      64i32
@@ -99,6 +95,9 @@ pub struct Struct1 {
 trait AnyHasher {
   fn GetHasherCommon(&mut self) -> &mut Struct1;
   fn HashBytes(&self, data: &[u8]) -> usize;
+  fn HashTypeLength(&self) -> usize;
+  fn StoreLookahead(&self) -> usize;
+  fn PrepareDistanceCache(&self, mut distance_cache: &mut [i32]);
   fn FindLongestMatch(&mut self,
                       mut dictionary: &BrotliDictionary,
                       mut dictionary_hash: &[u16],
@@ -127,6 +126,14 @@ pub struct H2Sub {
   pub buckets_: [u32; 65537],
 }
 impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher for BasicHasher<T> {
+  fn PrepareDistanceCache(&self, mut distance_cache: &mut [i32]){}
+  fn HashTypeLength(&self) -> usize {
+     8
+  }
+  fn StoreLookahead(&self) -> usize {
+     8
+  }
+
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
     return &mut self.GetHasherCommon;
   }
@@ -448,8 +455,35 @@ fn BackwardReferencePenaltyUsingLastDistance(mut distance_short_code: usize) -> 
 
 impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
   for AdvHasher<Specialization, AllocU16, AllocU32> {
+  fn PrepareDistanceCache(&self, mut distance_cache: &mut [i32]){
+    let num_distances = self.GetHasherCommon.params.num_last_distances_to_check;
+    if num_distances > 4i32 {
+      let mut last_distance: i32 = distance_cache[(0usize)];
+      distance_cache[(4usize)] = last_distance - 1i32;
+      distance_cache[(5usize)] = last_distance + 1i32;
+      distance_cache[(6usize)] = last_distance - 2i32;
+      distance_cache[(7usize)] = last_distance + 2i32;
+      distance_cache[(8usize)] = last_distance - 3i32;
+      distance_cache[(9usize)] = last_distance + 3i32;
+      if num_distances > 10i32 {
+        let mut next_last_distance: i32 = distance_cache[(1usize)];
+        distance_cache[(10usize)] = next_last_distance - 1i32;
+        distance_cache[(11usize)] = next_last_distance + 1i32;
+        distance_cache[(12usize)] = next_last_distance - 2i32;
+        distance_cache[(13usize)] = next_last_distance + 2i32;
+        distance_cache[(14usize)] = next_last_distance - 3i32;
+        distance_cache[(15usize)] = next_last_distance + 3i32;
+      }
+    }
+  }
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
-    return &mut self.GetHasherCommon;
+    &mut self.GetHasherCommon
+  }
+  fn HashTypeLength(&self) -> usize {
+     self.specialization.HashTypeLength()
+  }
+  fn StoreLookahead(&self) -> usize {
+     self.specialization.StoreLookahead()
   }
   fn HashBytes(&self, mut data: &[u8]) -> usize {
     let mask = self.specialization.get_hash_mask();
@@ -792,27 +826,26 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(mut dictionary: &BrotliDictio
 }
 
 
-/*
 
-fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
+fn CreateBackwardReferences<AH:AnyHasher>(mut dictionary: &BrotliDictionary,
                               mut dictionary_hash: &[u16],
                               mut num_bytes: usize,
                               mut position: usize,
                               mut ringbuffer: &[u8],
                               mut ringbuffer_mask: usize,
-                              mut params: &[BrotliEncoderParams],
-                              mut hasher: &mut [u8],
+                              mut params: &BrotliEncoderParams,
+                              mut hasher: &mut AH,
                               mut dist_cache: &mut [i32],
-                              mut last_insert_len: &mut [usize],
+                              mut last_insert_len: &mut usize,
                               mut commands: &mut [Command],
-                              mut num_commands: &mut [usize],
-                              mut num_literals: &mut [usize]) {
+                              mut num_commands: &mut usize,
+                              mut num_literals: &mut usize) {
   let max_backward_limit: usize = (1usize << (*params).lgwin).wrapping_sub(16usize);
-  let orig_commands: *const Command = commands;
+  let mut new_commands_count: usize = 0;
   let mut insert_length: usize = *last_insert_len;
   let pos_end: usize = position.wrapping_add(num_bytes);
-  let store_end: usize = if num_bytes >= StoreLookaheadH2() {
-    position.wrapping_add(num_bytes).wrapping_sub(StoreLookaheadH2()).wrapping_add(1usize)
+  let store_end: usize = if num_bytes >= hasher.StoreLookahead() {
+    position.wrapping_add(num_bytes).wrapping_sub(hasher.StoreLookahead()).wrapping_add(1usize)
   } else {
     position
   };
@@ -820,17 +853,16 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: usize =
     ((30i32 * 8i32) as (usize)).wrapping_mul(::core::mem::size_of::<usize>()).wrapping_add(100usize);
-  PrepareDistanceCacheH2(hasher, dist_cache);
+  hasher.PrepareDistanceCache(dist_cache);
   while position.wrapping_add(HashTypeLengthH2()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
     let mut max_distance: usize = brotli_min_size_t(position, max_backward_limit);
-    let mut sr: HasherSearchResult;
+    let mut sr = HasherSearchResult{len:0, len_x_code:0, distance:0, score:0};
     sr.len = 0usize;
     sr.len_x_code = 0usize;
     sr.distance = 0usize;
     sr.score = kMinScore;
-    if FindLongestMatchH2(hasher,
-                          dictionary,
+    if hasher.FindLongestMatch(dictionary,
                           dictionary_hash,
                           ringbuffer,
                           ringbuffer_mask,
@@ -838,15 +870,15 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
                           position,
                           max_length,
                           max_distance,
-                          &mut sr) != 0 {
+                          &mut sr) {
       let mut delayed_backward_references_in_row: i32 = 0i32;
       max_length = max_length.wrapping_sub(1 as (usize));
       'break6: loop {
         'continue7: loop {
           {
             let cost_diff_lazy: usize = 175usize;
-            let mut is_match_found: i32;
-            let mut sr2: HasherSearchResult;
+            let mut is_match_found: bool;
+            let mut sr2 = HasherSearchResult{len:0, len_x_code:0, distance:0, score:0};
             sr2.len = if (*params).quality < 5i32 {
               brotli_min_size_t(sr.len.wrapping_sub(1usize), max_length)
             } else {
@@ -856,8 +888,7 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
             sr2.distance = 0usize;
             sr2.score = kMinScore;
             max_distance = brotli_min_size_t(position.wrapping_add(1usize), max_backward_limit);
-            is_match_found = FindLongestMatchH2(hasher,
-                                                dictionary,
+            is_match_found = hasher.FindLongestMatch(dictionary,
                                                 dictionary_hash,
                                                 ringbuffer,
                                                 ringbuffer_mask,
@@ -866,7 +897,7 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
                                                 max_length,
                                                 max_distance,
                                                 &mut sr2);
-            if is_match_found != 0 && (sr2.score >= sr.score.wrapping_add(cost_diff_lazy)) {
+            if is_match_found && (sr2.score >= sr.score.wrapping_add(cost_diff_lazy)) {
               position = position.wrapping_add(1 as (usize));
               insert_length = insert_length.wrapping_add(1 as (usize));
               sr = sr2;
@@ -900,12 +931,13 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
           dist_cache[(2usize)] = dist_cache[(1usize)];
           dist_cache[(1usize)] = dist_cache[(0usize)];
           dist_cache[(0usize)] = sr.distance as (i32);
-          PrepareDistanceCacheH2(hasher, dist_cache);
+          hasher.PrepareDistanceCache(dist_cache);
         }
+        new_commands_count += 1;
         InitCommand({
-                      let _old = commands;
-                      commands = commands[(1 as (usize))..];
-                      _old
+                      let (mut _old, new_commands) = core::mem::replace(&mut commands, &mut []).split_at_mut(1);
+                      commands = new_commands;
+                      &mut _old[0]
                     },
                     insert_length,
                     sr.len,
@@ -914,8 +946,7 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
       }
       *num_literals = (*num_literals).wrapping_add(insert_length);
       insert_length = 0usize;
-      StoreRangeH2(hasher,
-                   ringbuffer,
+      hasher.StoreRange(ringbuffer,
                    ringbuffer_mask,
                    position.wrapping_add(2usize),
                    brotli_min_size_t(position.wrapping_add(sr.len), store_end));
@@ -927,23 +958,23 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
         if position >
            apply_random_heuristics.wrapping_add((4usize)
                                                   .wrapping_mul(random_heuristics_window_size)) {
-          let kMargin: usize = brotli_max_size_t(StoreLookaheadH2().wrapping_sub(1usize), 4usize);
+          let kMargin: usize = brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1usize), 4usize);
           let mut pos_jump: usize = brotli_min_size_t(position.wrapping_add(16usize),
                                                       pos_end.wrapping_sub(kMargin));
           while position < pos_jump {
             {
-              StoreH2(hasher, ringbuffer, ringbuffer_mask, position);
+              hasher.Store(ringbuffer, ringbuffer_mask, position);
               insert_length = insert_length.wrapping_add(4usize);
             }
             position = position.wrapping_add(4usize);
           }
         } else {
-          let kMargin: usize = brotli_max_size_t(StoreLookaheadH2().wrapping_sub(1usize), 2usize);
+          let kMargin: usize = brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1usize), 2usize);
           let mut pos_jump: usize = brotli_min_size_t(position.wrapping_add(8usize),
                                                       pos_end.wrapping_sub(kMargin));
           while position < pos_jump {
             {
-              StoreH2(hasher, ringbuffer, ringbuffer_mask, position);
+              hasher.Store(ringbuffer, ringbuffer_mask, position);
               insert_length = insert_length.wrapping_add(2usize);
             }
             position = position.wrapping_add(2usize);
@@ -955,158 +986,5 @@ fn CreateBackwardReferencesH2(mut dictionary: &[BrotliDictionary],
   insert_length = insert_length.wrapping_add(pos_end.wrapping_sub(position));
   *last_insert_len = insert_length;
   *num_commands =
-    (*num_commands).wrapping_add(((commands as (isize)).wrapping_sub(orig_commands as (isize)) /
-                                  ::core::mem::size_of::<*const Command>() as (isize)) as
-                                 (usize));
+    (*num_commands).wrapping_add(new_commands_count);
 }
-
-pub fn BrotliCreateBackwardReferences(mut dictionary: &[BrotliDictionary],
-                                      mut num_bytes: usize,
-                                      mut position: usize,
-                                      mut ringbuffer: &[u8],
-                                      mut ringbuffer_mask: usize,
-                                      mut params: &[BrotliEncoderParams],
-                                      mut hasher: &mut [u8],
-                                      mut dist_cache: &mut [i32],
-                                      mut last_insert_len: &mut [usize],
-                                      mut commands: &mut [Command],
-                                      mut num_commands: &mut [usize],
-                                      mut num_literals: &mut [usize]) {
-  let mut hasher_type: i32 = (*params).hasher.type_;
-  if hasher_type == 2i32 {
-    CreateBackwardReferencesH2(dictionary,
-                               kStaticDictionaryHash.as_ptr(),
-                               num_bytes,
-                               position,
-                               ringbuffer,
-                               ringbuffer_mask,
-                               params,
-                               hasher,
-                               dist_cache,
-                               last_insert_len,
-                               commands,
-                               num_commands,
-                               num_literals);
-  }
-  if hasher_type == 3i32 {
-    CreateBackwardReferencesH3(dictionary,
-                               kStaticDictionaryHash.as_ptr(),
-                               num_bytes,
-                               position,
-                               ringbuffer,
-                               ringbuffer_mask,
-                               params,
-                               hasher,
-                               dist_cache,
-                               last_insert_len,
-                               commands,
-                               num_commands,
-                               num_literals);
-  }
-  if hasher_type == 4i32 {
-    CreateBackwardReferencesH4(dictionary,
-                               kStaticDictionaryHash.as_ptr(),
-                               num_bytes,
-                               position,
-                               ringbuffer,
-                               ringbuffer_mask,
-                               params,
-                               hasher,
-                               dist_cache,
-                               last_insert_len,
-                               commands,
-                               num_commands,
-                               num_literals);
-  }
-  if hasher_type == 5i32 {
-    CreateBackwardReferencesH5(dictionary,
-                               kStaticDictionaryHash.as_ptr(),
-                               num_bytes,
-                               position,
-                               ringbuffer,
-                               ringbuffer_mask,
-                               params,
-                               hasher,
-                               dist_cache,
-                               last_insert_len,
-                               commands,
-                               num_commands,
-                               num_literals);
-  }
-  if hasher_type == 6i32 {
-    CreateBackwardReferencesH6(dictionary,
-                               kStaticDictionaryHash.as_ptr(),
-                               num_bytes,
-                               position,
-                               ringbuffer,
-                               ringbuffer_mask,
-                               params,
-                               hasher,
-                               dist_cache,
-                               last_insert_len,
-                               commands,
-                               num_commands,
-                               num_literals);
-  }
-  if hasher_type == 40i32 {
-    CreateBackwardReferencesH40(dictionary,
-                                kStaticDictionaryHash.as_ptr(),
-                                num_bytes,
-                                position,
-                                ringbuffer,
-                                ringbuffer_mask,
-                                params,
-                                hasher,
-                                dist_cache,
-                                last_insert_len,
-                                commands,
-                                num_commands,
-                                num_literals);
-  }
-  if hasher_type == 41i32 {
-    CreateBackwardReferencesH41(dictionary,
-                                kStaticDictionaryHash.as_ptr(),
-                                num_bytes,
-                                position,
-                                ringbuffer,
-                                ringbuffer_mask,
-                                params,
-                                hasher,
-                                dist_cache,
-                                last_insert_len,
-                                commands,
-                                num_commands,
-                                num_literals);
-  }
-  if hasher_type == 42i32 {
-    CreateBackwardReferencesH42(dictionary,
-                                kStaticDictionaryHash.as_ptr(),
-                                num_bytes,
-                                position,
-                                ringbuffer,
-                                ringbuffer_mask,
-                                params,
-                                hasher,
-                                dist_cache,
-                                last_insert_len,
-                                commands,
-                                num_commands,
-                                num_literals);
-  }
-  if hasher_type == 54i32 {
-    CreateBackwardReferencesH54(dictionary,
-                                kStaticDictionaryHash.as_ptr(),
-                                num_bytes,
-                                position,
-                                ringbuffer,
-                                ringbuffer_mask,
-                                params,
-                                hasher,
-                                dist_cache,
-                                last_insert_len,
-                                commands,
-                                num_commands,
-                                num_literals);
-  }
-}
-*/

@@ -21,7 +21,7 @@ pub fn CommandDistanceContext(mut xself: &Command) -> u32 {
   }
 }
 
-fn ComputeDistanceCode(mut distance: usize,
+pub fn ComputeDistanceCode(mut distance: usize,
                        mut max_distance: usize,
                        mut dist_cache: &[i32])
                        -> usize {
