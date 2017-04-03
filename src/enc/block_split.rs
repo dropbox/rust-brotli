@@ -1,5 +1,6 @@
 use core;
 use super::super::alloc;
+use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 pub struct BlockSplit<AllocU8:alloc::Allocator<u8>,
                       AllocU32:alloc::Allocator<u32>>{
   pub num_types: usize,
@@ -20,5 +21,11 @@ impl<AllocU8:alloc::Allocator<u8>,
         m32.free_cell(core::mem::replace(&mut self.lengths, AllocU32::AllocatedMemory::default()));
         self.num_blocks = 0;
         self.num_types = 0;
+    }
+    pub fn types_alloc_size(&self) -> usize {
+        self.types.slice().len()
+    }
+    pub fn lengths_alloc_size(&self) -> usize {
+        self.lengths.slice().len()
     }
 }
