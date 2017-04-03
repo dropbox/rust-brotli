@@ -366,7 +366,7 @@ fn BuildBlockHistograms<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+Cos
 }
 
 
-fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default,
+fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default+Clone,
                         AllocU8:alloc::Allocator<u8>,
                         AllocU32:alloc::Allocator<u32>,
                         AllocHT:alloc::Allocator<HistogramType>,
@@ -379,53 +379,23 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
                         num_blocks: usize,
                         mut block_ids: &mut [u8],
                         mut split: &mut [BlockSplit<AllocU8,AllocU32>]) {
-}
-/*
-  let mut histogram_symbols: *mut u32 = if num_blocks != 0 {
-    BrotliAllocate(m, num_blocks.wrapping_mul(::std::mem::size_of::<u32>()))
-  } else {
-    0i32
-  };
-  let mut block_lengths: *mut u32 = if num_blocks != 0 {
-    BrotliAllocate(m, num_blocks.wrapping_mul(::std::mem::size_of::<u32>()))
-  } else {
-    0i32
-  };
+
+  let mut histogram_symbols = m32.alloc_cell(num_blocks);
+  let mut block_lengths = m32.alloc_cell(num_blocks);
   let expected_num_clusters: usize = (16usize)
     .wrapping_mul(num_blocks.wrapping_add(64usize).wrapping_sub(1usize))
     .wrapping_div(64usize);
   let mut all_histograms_size: usize = 0usize;
   let mut all_histograms_capacity: usize = expected_num_clusters;
-  let mut all_histograms: *mut HistogramLiteral = if all_histograms_capacity != 0 {
-    BrotliAllocate(m,
-                   all_histograms_capacity.wrapping_mul(::std::mem::size_of::<HistogramLiteral>()))
-  } else {
-    0i32
-  };
+  let mut all_histograms = mht.alloc_cell(all_histograms_capacity);
   let mut cluster_size_size: usize = 0usize;
   let mut cluster_size_capacity: usize = expected_num_clusters;
-  let mut cluster_size: *mut u32 = if cluster_size_capacity != 0 {
-    BrotliAllocate(m,
-                   cluster_size_capacity.wrapping_mul(::std::mem::size_of::<u32>()))
-  } else {
-    0i32
-  };
+  let mut cluster_size = m32.alloc_cell(cluster_size_capacity);
   let mut num_clusters: usize = 0usize;
-  let mut histograms: *mut HistogramLiteral = if brotli_min_size_t(num_blocks, 64usize) != 0 {
-    BrotliAllocate(m,
-                   brotli_min_size_t(num_blocks, 64usize)
-                     .wrapping_mul(::std::mem::size_of::<HistogramLiteral>()))
-  } else {
-    0i32
-  };
+  let mut histograms = mht.alloc_cell(brotli_min_size_t(num_blocks, 64usize));
   let mut max_num_pairs: usize = (64i32 * 64i32 / 2i32) as (usize);
   let mut pairs_capacity: usize = max_num_pairs.wrapping_add(1usize);
-  let mut pairs: *mut HistogramPair = if pairs_capacity != 0 {
-    BrotliAllocate(m,
-                   pairs_capacity.wrapping_mul(::std::mem::size_of::<HistogramPair>()))
-  } else {
-    0i32
-  };
+  let mut pairs = mhp.alloc_cell(pairs_capacity);
   let mut pos: usize = 0usize;
   let mut clusters: *mut u32;
   let mut num_final_clusters: usize;
@@ -436,10 +406,9 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
   let mut new_clusters: [u32; 64] = [0;64];
   let mut symbols: [u32; 64] = [0;64];
   let mut remap: [u32; 64] = [0;64];
-  
-  memset(block_lengths,
-         0i32,
-         num_blocks.wrapping_mul(::std::mem::size_of::<u32>()));
+  for item_mut in block_lengths.slice_mut()[..num_blocks].iter_mut() {
+      *item_mut = 0;
+  }
   {
     let mut block_idx: usize = 0usize;
     i = 0usize;
@@ -448,7 +417,7 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
         0i32;
         {
           let _rhs = 1;
-          let _lhs = &mut block_lengths[(block_idx as (usize))];
+          let _lhs = &mut block_lengths.slice_mut()[(block_idx as (usize))];
           *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
         }
         if i.wrapping_add(1usize) == length ||
@@ -471,11 +440,11 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
       while j < num_to_combine {
         {
           let mut k: usize;
-          HistogramClearLiteral(&mut histograms[(j as (usize))]);
+          HistogramClear(&mut histograms.slice_mut()[(j as (usize))]);
           k = 0usize;
-          while k < block_lengths[(i.wrapping_add(j) as (usize))] as (usize) {
+          while k < block_lengths.slice()[(i.wrapping_add(j) as (usize))] as (usize) {
             {
-              HistogramAddLiteral(&mut histograms[(j as (usize))],
+              HistogramAddItem(&mut histograms.slice_mut()[(j as (usize))],
                                   data[({
                                      let _old = pos;
                                      pos = pos.wrapping_add(1 as (usize));
@@ -484,19 +453,20 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
             }
             k = k.wrapping_add(1 as (usize));
           }
-          (histograms[(j as (usize))]).bit_cost_ =
-            BrotliPopulationCostLiteral(&mut histograms[(j as (usize))]);
+          let new_cost = BrotliPopulationCost(&histograms.slice()[(j as (usize))]);
+          (histograms.slice_mut()[(j as (usize))]).set_bit_cost(new_cost);
+
           new_clusters[j] = j as (u32);
           symbols[j] = j as (u32);
           sizes[j] = 1u32;
         }
         j = j.wrapping_add(1 as (usize));
       }
-      num_new_clusters = BrotliHistogramCombineLiteral(histograms,
-                                                       sizes.as_mut_ptr(),
-                                                       symbols.as_mut_ptr(),
-                                                       new_clusters.as_mut_ptr(),
-                                                       pairs,
+      num_new_clusters = BrotliHistogramCombine(histograms.slice_mut(),
+                                                       &mut sizes[..],
+                                                       &mut symbols[..],
+                                                       &mut new_clusters[..],
+                                                       pairs.slice_mut(),
                                                        num_to_combine,
                                                        num_to_combine,
                                                        64usize,
@@ -508,26 +478,12 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
           } else {
             all_histograms_capacity
           };
-          let mut new_array: *mut HistogramLiteral;
           while _new_size < all_histograms_size.wrapping_add(num_new_clusters) {
             _new_size = _new_size.wrapping_mul(2usize);
           }
-          new_array = if _new_size != 0 {
-            BrotliAllocate(m,
-                           _new_size.wrapping_mul(::std::mem::size_of::<HistogramLiteral>()))
-          } else {
-            0i32
-          };
-          if !!(0i32 == 0) && (all_histograms_capacity != 0usize) {
-            memcpy(new_array,
-                   all_histograms,
-                   all_histograms_capacity.wrapping_mul(::std::mem::size_of::<HistogramLiteral>()));
-          }
-          {
-            BrotliFree(m, all_histograms);
-            all_histograms = 0i32;
-          }
-          all_histograms = new_array;
+          let mut new_array = mht.alloc_cell(_new_size);
+          new_array.slice_mut()[..all_histograms_capacity].clone_from_slice(&all_histograms.slice()[..all_histograms_capacity]);
+          mht.free_cell(core::mem::replace(&mut all_histograms, new_array));
           all_histograms_capacity = _new_size;
         }
       }
@@ -538,40 +494,24 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
           } else {
             cluster_size_capacity
           };
-          let mut new_array: *mut u32;
           while _new_size < cluster_size_size.wrapping_add(num_new_clusters) {
             _new_size = _new_size.wrapping_mul(2usize);
           }
-          new_array = if _new_size != 0 {
-            BrotliAllocate(m, _new_size.wrapping_mul(::std::mem::size_of::<u32>()))
-          } else {
-            0i32
-          };
-          if !!(0i32 == 0) && (cluster_size_capacity != 0usize) {
-            memcpy(new_array,
-                   cluster_size,
-                   cluster_size_capacity.wrapping_mul(::std::mem::size_of::<u32>()));
-          }
-          {
-            BrotliFree(m, cluster_size);
-            cluster_size = 0i32;
-          }
-          cluster_size = new_array;
+          let mut new_array = m32.alloc_cell(_new_size);
+          new_array.slice_mut()[..cluster_size_capacity].clone_from_slice(&cluster_size.slice()[..cluster_size_capacity]);
+          m32.free_cell(core::mem::replace(&mut cluster_size, new_array));
           cluster_size_capacity = _new_size;
         }
-      }
-      if !(0i32 == 0) {
-        return;
       }
       j = 0usize;
       while j < num_new_clusters {
         {
-          all_histograms[({
+          all_histograms.slice_mut()[({
              let _old = all_histograms_size;
              all_histograms_size = all_histograms_size.wrapping_add(1 as (usize));
              _old
-           } as (usize))] = histograms[(new_clusters[j] as (usize))];
-          cluster_size[({
+           } as (usize))] = histograms.slice()[(new_clusters[j] as (usize))].clone();
+          cluster_size.slice_mut()[({
              let _old = cluster_size_size;
              cluster_size_size = cluster_size_size.wrapping_add(1 as (usize));
              _old
@@ -583,7 +523,7 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
       j = 0usize;
       while j < num_to_combine {
         {
-          histogram_symbols[(i.wrapping_add(j) as (usize))] =
+          histogram_symbols.slice_mut()[(i.wrapping_add(j) as (usize))] =
             (num_clusters as (u32)).wrapping_add(remap[symbols[j] as (usize)]);
         }
         j = j.wrapping_add(1 as (usize));
@@ -594,6 +534,7 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
     }
     i = i.wrapping_add(64usize);
   }
+  }/*XXXRESUME HERE, delete }
   {
     BrotliFree(m, histograms);
     histograms = 0i32;
