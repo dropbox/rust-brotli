@@ -7,6 +7,14 @@ pub fn brotli_min_size_t(a: usize, b: usize) -> usize {
 pub fn brotli_max_size_t(a: usize, b: usize) -> usize {
   if a > b { a } else { b }
 }
+pub fn brotli_max_uint8_t(mut a: u8, mut b: u8) -> u8 {
+  (if a as (i32) > b as (i32) {
+     a as (i32)
+   } else {
+     b as (i32)
+   }) as (u8)
+}
+
 
 
 static kLog2Table: [f32; 256] = [0.0000000000000000f32,

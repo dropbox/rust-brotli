@@ -1,3 +1,4 @@
+use core;
 use core::cmp::min;
 use super::command::{Command,CommandCopyLen,CommandDistanceContext};
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
@@ -211,12 +212,31 @@ pub fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +Co
   let new_count = (*xself).total_count().wrapping_add(1 as (usize));
   (*xself).set_total_count(new_count);
 }
+pub fn HistogramAddVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAccessors>(mut xself: &mut HistogramType,
+                                                                                               mut p: &[u8], mut n: usize) {
+  let new_tc = (*xself).total_count().wrapping_add(n);
+  (*xself).set_total_count(new_tc);
+  n = n.wrapping_add(1usize);
+  for p_item in p[..n].iter() {
+    let _rhs = 1;
+    let _lhs = &mut (*xself).slice_mut()[(*p_item) as usize];
+    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+  }
+}
+
 pub fn HistogramClear<HistogramType:SliceWrapperMut<u32>+CostAccessors>(mut xself: &mut HistogramType) {
   for data_elem in xself.slice_mut().iter_mut() {
       *data_elem = 0;
   }
   (*xself).set_total_count(0);
   (*xself).set_bit_cost(3.402e+38f64);
+}
+pub fn ClearHistograms<HistogramType:SliceWrapperMut<u32>+CostAccessors>(mut array: &mut [HistogramType], mut length: usize) {
+  let mut i: usize;
+  i = 0usize;
+  for item in array[..length].iter_mut() {
+      HistogramClear(item)
+  }
 }
 
 pub fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(

@@ -2,9 +2,12 @@ use core;
 use super::bit_cost::BrotliPopulationCost;
 use super::backward_references::{BrotliEncoderParams, BrotliEncoderMode,
 };
+use super::util::{FastLog2, brotli_max_uint8_t, brotli_max_size_t, brotli_min_size_t};
+use super::histogram::{HistogramAddVector, CostAccessors, ClearHistograms, HistogramClear, HistogramAddHistogram, HistogramAddItem};
 use super::command::{Command};
 use super::cluster::{BrotliHistogramBitCostDistance, BrotliHistogramCombine};
-
+use super::super::alloc::{SliceWrapper,SliceWrapperMut};
+use super::super::alloc;
 
 static kMaxLiteralHistograms: usize = 100usize;
 
@@ -83,26 +86,8 @@ fn CopyLiteralsToByteArray(mut cmds: &[Command],
     i = i.wrapping_add(1 as (usize));
   }
 }
-/*
 
-fn HistogramClearLiteral(mut xself: &mut HistogramLiteral) {
-  memset((*xself).data_.as_mut_ptr(),
-         0i32,
-         ::std::mem::size_of::<[u32; 256]>());
-  (*xself).total_count_ = 0usize;
-  (*xself).bit_cost_ = 3.402e+38f64;
-}
-
-fn ClearHistogramsLiteral(mut array: &mut [HistogramLiteral], mut length: usize) {
-  let mut i: usize;
-  i = 0usize;
-  while i < length {
-    HistogramClearLiteral(array[(i as (usize))..]);
-    i = i.wrapping_add(1 as (usize));
-  }
-}
-
-fn MyRand(mut seed: &mut [u32]) -> u32 {
+fn MyRand(mut seed: &mut u32) -> u32 {
   *seed = (*seed).wrapping_mul(16807u32);
   if *seed == 0u32 {
     *seed = 1u32;
@@ -110,32 +95,17 @@ fn MyRand(mut seed: &mut [u32]) -> u32 {
   *seed
 }
 
-fn HistogramAddVectorLiteral(mut xself: &mut HistogramLiteral, mut p: &[u8], mut n: usize) {
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(n);
-  n = n.wrapping_add(1usize);
-  while {
-          n = n.wrapping_sub(1 as (usize));
-          n
-        } != 0 {
-    let _rhs = 1;
-    let _lhs = &mut (*xself).data_[*{
-                       let _old = p;
-                       p = p[(1 as (usize))..];
-                       _old
-                     } as (usize)];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-  }
-}
 
-fn InitialEntropyCodesLiteral(mut data: &[u8],
+
+fn InitialEntropyCodes<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors>(mut data: &[u8],
                               mut length: usize,
                               mut stride: usize,
                               mut num_histograms: usize,
-                              mut histograms: &mut [HistogramLiteral]) {
+                              mut histograms: &mut [HistogramType]) {
   let mut seed: u32 = 7u32;
   let mut block_length: usize = length.wrapping_div(num_histograms);
   let mut i: usize;
-  ClearHistogramsLiteral(histograms, num_histograms);
+  ClearHistograms(histograms, num_histograms);
   i = 0usize;
   while i < num_histograms {
     {
@@ -146,19 +116,19 @@ fn InitialEntropyCodesLiteral(mut data: &[u8],
       if pos.wrapping_add(stride) >= length {
         pos = length.wrapping_sub(stride).wrapping_sub(1usize);
       }
-      HistogramAddVectorLiteral(&mut histograms[(i as (usize))],
-                                data[(pos as (usize))..],
+      HistogramAddVector(&mut histograms[(i as (usize))],
+                                &data[(pos as (usize))..],
                                 stride);
     }
     i = i.wrapping_add(1 as (usize));
   }
 }
 
-fn RandomSampleLiteral(mut seed: &mut [u32],
+fn RandomSample<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors>(mut seed: &mut u32,
                        mut data: &[u8],
                        mut length: usize,
                        mut stride: usize,
-                       mut sample: &mut [HistogramLiteral]) {
+                       mut sample: &mut HistogramType) {
   let mut pos: usize = 0usize;
   if stride >= length {
     pos = 0usize;
@@ -166,28 +136,14 @@ fn RandomSampleLiteral(mut seed: &mut [u32],
   } else {
     pos = (MyRand(seed) as (usize)).wrapping_rem(length.wrapping_sub(stride).wrapping_add(1usize));
   }
-  HistogramAddVectorLiteral(sample, data[(pos as (usize))..], stride);
+  HistogramAddVector(sample, &data[(pos as (usize))..], stride);
 }
 
-fn HistogramAddHistogramLiteral(mut xself: &mut HistogramLiteral, mut v: &[HistogramLiteral]) {
-  let mut i: usize;
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add((*v).total_count_);
-  i = 0usize;
-  while i < 256usize {
-    {
-      let _rhs = (*v).data_[i];
-      let _lhs = &mut (*xself).data_[i];
-      *_lhs = (*_lhs).wrapping_add(_rhs);
-    }
-    i = i.wrapping_add(1 as (usize));
-  }
-}
-
-fn RefineEntropyCodesLiteral(mut data: &[u8],
+fn RefineEntropyCodes<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default>(mut data: &[u8],
                              mut length: usize,
                              mut stride: usize,
                              mut num_histograms: usize,
-                             mut histograms: &mut [HistogramLiteral]) {
+                             mut histograms: &mut [HistogramType]) {
   let mut iters: usize = kIterMulForRefining.wrapping_mul(length)
     .wrapping_div(stride)
     .wrapping_add(kMinItersForRefining);
@@ -200,21 +156,14 @@ fn RefineEntropyCodesLiteral(mut data: &[u8],
   iter = 0usize;
   while iter < iters {
     {
-      let mut sample: HistogramLiteral;
-      HistogramClearLiteral(&mut sample);
-      RandomSampleLiteral(&mut seed, data, length, stride, &mut sample);
-      HistogramAddHistogramLiteral(&mut histograms[(iter.wrapping_rem(num_histograms) as (usize))],
+      let mut sample = HistogramType::default();
+      HistogramClear(&mut sample);
+      RandomSample(&mut seed, data, length, stride, &mut sample);
+      HistogramAddHistogram(&mut histograms[(iter.wrapping_rem(num_histograms) as (usize))],
                                    &mut sample);
     }
     iter = iter.wrapping_add(1 as (usize));
   }
-}
-
-fn FastLog2(mut v: usize) -> f64 {
-  if v < ::std::mem::size_of::<[f32; 256]>().wrapping_div(::std::mem::size_of::<f32>()) {
-    return kLog2Table[v] as (f64);
-  }
-  log2(v as (f64))
 }
 
 fn BitCost(mut count: usize) -> f64 {
@@ -224,18 +173,20 @@ fn BitCost(mut count: usize) -> f64 {
     FastLog2(count)
   }
 }
-
-fn FindBlocksLiteral(mut data: &[u8],
+fn FindBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors>(mut data: &[u8],
                      length: usize,
                      block_switch_bitcost: f64,
                      num_histograms: usize,
-                     mut histograms: &[HistogramLiteral],
+                     mut histograms: &[HistogramType],
                      mut insert_cost: &mut [f64],
                      mut cost: &mut [f64],
                      mut switch_signal: &mut [u8],
                      mut block_id: &mut [u8])
                      -> usize {
-  let data_size: usize = HistogramDataSizeLiteral();
+  if num_histograms == 0 {
+     return 0
+  }
+  let data_size: usize = histograms[0].slice().len();
   let bitmaplen: usize = num_histograms.wrapping_add(7usize) >> 3i32;
   let mut num_blocks: usize = 1usize;
   let mut i: usize;
@@ -251,13 +202,13 @@ fn FindBlocksLiteral(mut data: &[u8],
     }
     return 1usize;
   }
-  memset(insert_cost,
-         0i32,
-         ::std::mem::size_of::<f64>().wrapping_mul(data_size).wrapping_mul(num_histograms));
+  for item in insert_cost[..(data_size * num_histograms)].iter_mut() {
+     *item = 0.0f64;
+  }
   i = 0usize;
   while i < num_histograms {
     {
-      insert_cost[(i as (usize))] = FastLog2((histograms[(i as (usize))]).total_count_ as (u32) as
+      insert_cost[(i as (usize))] = FastLog2((histograms[(i as (usize))]).total_count() as (u32) as
                                              (usize));
     }
     i = i.wrapping_add(1 as (usize));
@@ -269,17 +220,17 @@ fn FindBlocksLiteral(mut data: &[u8],
     while j < num_histograms {
       {
         insert_cost[(i.wrapping_mul(num_histograms).wrapping_add(j) as (usize))] =
-          insert_cost[(j as (usize))] - BitCost((histograms[(j as (usize))]).data_[i] as (usize));
+          insert_cost[(j as (usize))] - BitCost((histograms[(j as (usize))]).slice()[i] as (usize));
       }
       j = j.wrapping_add(1 as (usize));
     }
   }
-  memset(cost,
-         0i32,
-         ::std::mem::size_of::<f64>().wrapping_mul(num_histograms));
-  memset(switch_signal,
-         0i32,
-         ::std::mem::size_of::<u8>().wrapping_mul(length).wrapping_mul(bitmaplen));
+  for item in cost[..num_histograms].iter_mut() {
+    *item = 0.0f64;
+  }
+  for item in switch_signal[..(length * bitmaplen)].iter_mut() {
+    *item = 0;
+  }
   i = 0usize;
   while i < length {
     {
@@ -355,7 +306,7 @@ fn FindBlocksLiteral(mut data: &[u8],
   num_blocks
 }
 
-fn RemapBlockIdsLiteral(mut block_ids: &mut [u8],
+fn RemapBlockIds(mut block_ids: &mut [u8],
                         length: usize,
                         mut new_id: &mut [u16],
                         num_histograms: usize)
@@ -396,52 +347,25 @@ fn RemapBlockIdsLiteral(mut block_ids: &mut [u8],
   next_id as (usize)
 }
 
-fn HistogramAddLiteral(mut xself: &mut HistogramLiteral, mut val: usize) {
-  {
-    let _rhs = 1;
-    let _lhs = &mut (*xself).data_[val];
-    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-  }
-  (*xself).total_count_ = (*xself).total_count_.wrapping_add(1 as (usize));
-}
 
-fn BuildBlockHistogramsLiteral(mut data: &[u8],
+fn BuildBlockHistograms<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors>(mut data: &[u8],
                                length: usize,
                                mut block_ids: &[u8],
                                num_histograms: usize,
-                               mut histograms: &mut [HistogramLiteral]) {
+                               mut histograms: &mut [HistogramType]) {
   let mut i: usize;
-  ClearHistogramsLiteral(histograms, num_histograms);
+  ClearHistograms(histograms, num_histograms);
   i = 0usize;
   while i < length {
     {
-      HistogramAddLiteral(&mut histograms[(block_ids[(i as (usize))] as (usize))],
+      HistogramAddItem(&mut histograms[(block_ids[(i as (usize))] as (usize))],
                           data[(i as (usize))] as (usize));
     }
     i = i.wrapping_add(1 as (usize));
   }
 }
+/*
 
-fn brotli_min_size_t(mut a: usize, mut b: usize) -> usize {
-  if a < b { a } else { b }
-}
-
-
-
-pub struct HistogramPair {
-  pub idx1: u32,
-  pub idx2: u32,
-  pub cost_combo: f64,
-  pub cost_diff: f64,
-}
-
-fn brotli_max_uint8_t(mut a: u8, mut b: u8) -> u8 {
-  (if a as (i32) > b as (i32) {
-     a as (i32)
-   } else {
-     b as (i32)
-   }) as (u8)
-}
 
 fn ClusterBlocksLiteral(mut m: &mut [MemoryManager],
                         mut data: &[u8],
