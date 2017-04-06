@@ -834,7 +834,7 @@ pub fn BrotliSplitBlock<AllocU8:alloc::Allocator<u8>,
                         mut insert_and_copy_split: &mut BlockSplit<AllocU8, AllocU32>,
                         mut dist_split: &mut BlockSplit<AllocU8, AllocU32>) {
   {
-    let mut literals_count: usize = CountLiterals(cmds, num_commands);
+    let literals_count: usize = CountLiterals(cmds, num_commands);
     let mut literals = m8.alloc_cell(literals_count);
     CopyLiteralsToByteArray(cmds, num_commands, data, pos, mask, literals.slice_mut());
     SplitByteVector(m8, m16, m32, mf64, mhl, mhp,
@@ -850,7 +850,6 @@ pub fn BrotliSplitBlock<AllocU8:alloc::Allocator<u8>,
   }
   {
     let mut insert_and_copy_codes = m16.alloc_cell(num_commands);
-    let mut i: usize;
     for i in 0..core::cmp::min(num_commands, cmds.len()) {
       insert_and_copy_codes.slice_mut()[(i as (usize))] = (cmds[(i as (usize))]).cmd_prefix_;
     }
@@ -872,7 +871,7 @@ pub fn BrotliSplitBlock<AllocU8:alloc::Allocator<u8>,
     i = 0usize;
     while i < num_commands {
       {
-        let mut cmd = &cmds[(i as (usize))];
+        let cmd = &cmds[(i as (usize))];
         if CommandCopyLen(cmd) != 0 && ((*cmd).cmd_prefix_ as (i32) >= 128i32) {
           distance_prefixes.slice_mut()[({
              let _old = j;
