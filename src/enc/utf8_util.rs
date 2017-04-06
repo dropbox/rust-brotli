@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 static kMinUTF8Ratio: f64 = 0.75f64;
 
-fn BrotliParseAsUTF8(mut symbol: &mut i32, mut input: &[u8], mut size: usize) -> usize {
+fn BrotliParseAsUTF8(mut symbol: &mut i32, input: &[u8], size: usize) -> usize {
   if input[0i32 as (usize)] as (i32) & 0x80i32 == 0i32 {
     *symbol = input[0i32 as (usize)] as (i32);
     if *symbol > 0i32 {
@@ -41,8 +42,7 @@ fn BrotliParseAsUTF8(mut symbol: &mut i32, mut input: &[u8], mut size: usize) ->
   1i32 as (usize)
 }
 
-#[no_mangle]
-pub fn BrotliIsMostlyUTF8(mut data: &[u8],
+pub fn BrotliIsMostlyUTF8(data: &[u8],
                           pos: usize,
                           mask: usize,
                           length: usize,
@@ -52,7 +52,7 @@ pub fn BrotliIsMostlyUTF8(mut data: &[u8],
   let mut i: usize = 0usize;
   while i < length {
     let mut symbol: i32 = 0;
-    let mut bytes_read: usize = BrotliParseAsUTF8(&mut symbol,
+    let bytes_read: usize = BrotliParseAsUTF8(&mut symbol,
                                                   &data[((pos.wrapping_add(i) & mask) as (usize))..],
                                                   length.wrapping_sub(i));
     i = i.wrapping_add(bytes_read);

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub static kStaticDictionaryHash: [u16; 32768] = [32072i32 as (u16),
                                                   0i32 as (u16),
                                                   0i32 as (u16),

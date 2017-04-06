@@ -1,4 +1,4 @@
-
+#![allow(dead_code)]
 pub const BROTLI_NUM_BLOCK_LEN_SYMBOLS: usize = 26;
 pub static kInsBase: [u32; 24] = [0u32, 1u32, 2u32, 3u32, 4u32, 5u32, 6u32, 8u32, 10u32, 14u32,
                                   18u32, 26u32, 34u32, 50u32, 66u32, 98u32, 130u32, 194u32,

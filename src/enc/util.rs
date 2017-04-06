@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
   if a > b { a } else { b }
 }
@@ -7,7 +8,7 @@ pub fn brotli_min_size_t(a: usize, b: usize) -> usize {
 pub fn brotli_max_size_t(a: usize, b: usize) -> usize {
   if a > b { a } else { b }
 }
-pub fn brotli_max_uint8_t(mut a: u8, mut b: u8) -> u8 {
+pub fn brotli_max_uint8_t(a: u8, b: u8) -> u8 {
   (if a as (i32) > b as (i32) {
      a as (i32)
    } else {

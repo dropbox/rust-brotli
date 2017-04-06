@@ -1,4 +1,5 @@
-use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kInvalidMatch, kStaticDictionaryBuckets,
+#![allow(dead_code)]
+use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets,
                              kStaticDictionaryWords, DictWord};
 
 static kUppercaseFirst: u8 = 10i32 as (u8);
@@ -24,12 +25,12 @@ pub fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
 }
 
-fn Hash(mut data: &[u8]) -> u32 {
-  let mut h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kDictHashMul32);
+fn Hash(data: &[u8]) -> u32 {
+  let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kDictHashMul32);
   h >> 32i32 - kDictNumBits
 }
 
-pub fn BROTLI_UNALIGNED_LOAD64(mut p: &[u8]) -> u64 {
+pub fn BROTLI_UNALIGNED_LOAD64(p: &[u8]) -> u64 {
   return (p[0] as u64) | ((p[1] as u64) << 8) | ((p[2] as u64) << 16) |
          ((p[3] as u64) << 24) | ((p[4] as u64) << 32) | ((p[5] as u64) << 40) |
          ((p[6] as u64) << 48) | ((p[7] as u64) << 56);
@@ -49,7 +50,7 @@ fn unopt_ctzll(mut val: u64) -> u8 {
   cnt
 }
 
-pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
+pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
   let mut limit2: usize = (limit >> 3i32).wrapping_add(1usize);
   while {
@@ -60,9 +61,9 @@ pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) 
       s2 = &s2[(8usize)..];
       matched = matched.wrapping_add(8usize);
     } else {
-      let mut x: u64 = BROTLI_UNALIGNED_LOAD64(s2) ^
+      let x: u64 = BROTLI_UNALIGNED_LOAD64(s2) ^
                          BROTLI_UNALIGNED_LOAD64(&s1[(matched as (usize))..]);
-      let mut matching_bits: usize = unopt_ctzll(x) as (usize);
+      let matching_bits: usize = unopt_ctzll(x) as (usize);
       matched = matched.wrapping_add(matching_bits >> 3i32);
       return matched;
     }
@@ -82,10 +83,10 @@ pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) 
   matched
 }
 
-fn IsMatch(mut dictionary: &BrotliDictionary,
-           mut w: DictWord,
-           mut data: &[u8],
-           mut max_length: usize)
+fn IsMatch(dictionary: &BrotliDictionary,
+           w: DictWord,
+           data: &[u8],
+           max_length: usize)
            -> i32 {
   if w.len as (usize) > max_length {
     0i32
@@ -132,24 +133,24 @@ fn IsMatch(mut dictionary: &BrotliDictionary,
   }
 }
 
-fn brotli_min_uint32_t(mut a: u32, mut b: u32) -> u32 {
+fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
   if a < b { a } else { b }
 }
 
-fn AddMatch(mut distance: usize, mut len: usize, mut len_code: usize, mut matches: &mut [u32]) {
-  let mut match_: u32 = (distance << 5i32).wrapping_add(len_code) as (u32);
+fn AddMatch(distance: usize, len: usize, len_code: usize, mut matches: &mut [u32]) {
+  let match_: u32 = (distance << 5i32).wrapping_add(len_code) as (u32);
   matches[len as (usize)] = brotli_min_uint32_t(matches[len as (usize)], match_);
 }
 
-fn brotli_min_size_t(mut a: usize, mut b: usize) -> usize {
+fn brotli_min_size_t(a: usize, b: usize) -> usize {
   if a < b { a } else { b }
 }
 
-fn DictMatchLength(mut dictionary: &BrotliDictionary,
+fn DictMatchLength(dictionary: &BrotliDictionary,
                    data: &[u8],
-                   mut id: usize,
-                   mut len: usize,
-                   mut maxlen: usize)
+                   id: usize,
+                   len: usize,
+                   maxlen: usize)
                    -> usize {
   let offset: usize = ((*dictionary).offsets_by_length[len] as (usize))
     .wrapping_add(len.wrapping_mul(id));
@@ -158,15 +159,14 @@ fn DictMatchLength(mut dictionary: &BrotliDictionary,
                            brotli_min_size_t(len, maxlen))
 }
 
-fn brotli_max_size_t(mut a: usize, mut b: usize) -> usize {
+fn brotli_max_size_t(a: usize, b: usize) -> usize {
   if a > b { a } else { b }
 }
 
-#[no_mangle]
-fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
-                                        mut data: &[u8],
-                                        mut min_length: usize,
-                                        mut max_length: usize,
+fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
+                                        data: &[u8],
+                                        min_length: usize,
+                                        max_length: usize,
                                         mut matches: &mut [u32])
                                         -> i32 {
   let mut has_found_match: i32 = 0i32;
@@ -186,9 +186,9 @@ fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
       w.len = l as (u8);
       if w.transform as (i32) == 0i32 {
         let matchlen: usize = DictMatchLength(dictionary, data, id, l, max_length);
-        let mut s: &[u8];
+        let s: &[u8];
         let mut minlen: usize;
-        let mut maxlen: usize;
+        let maxlen: usize;
         let mut len: usize;
         if matchlen == l {
           AddMatch(id, l, l, matches);
@@ -544,7 +544,7 @@ fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
         } else {
           0i32
         };
-        let mut s: &[u8];
+        let s: &[u8];
         if IsMatch(dictionary, w, data, max_length) == 0 {
           {
             continue;
@@ -639,7 +639,7 @@ fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
   }
   if max_length >= 5usize &&
      (data[(0usize)] as (i32) == b' ' as (i32) || data[(0usize)] as (i32) == b'.' as (i32)) {
-    let mut is_space: i32 = if !!(data[(0usize)] as (i32) == b' ' as (i32)) {
+    let is_space: i32 = if !!(data[(0usize)] as (i32) == b' ' as (i32)) {
       1i32
     } else {
       0i32
@@ -658,7 +658,7 @@ fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
       end = !(w.len as (i32) & 0x80i32 == 0) as (i32);
       w.len = l as (u8);
       if w.transform as (i32) == 0i32 {
-        let mut s: &[u8];
+        let s: &[u8];
         if IsMatch(dictionary,
                    w,
                    &data[(1usize)..],
@@ -734,7 +734,7 @@ fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
         } else {
           0i32
         };
-        let mut s: &[u8];
+        let s: &[u8];
         if IsMatch(dictionary,
                    w,
                    &data[(1usize)..],
@@ -837,7 +837,7 @@ fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
             has_found_match = 1i32;
           } else if l.wrapping_add(2usize) < max_length &&
                     (data[(l.wrapping_add(2usize) as (usize))] as (i32) == b' ' as (i32)) {
-            let mut t: usize = (if data[(0usize)] as (i32) == b'e' as (i32) {
+            let t: usize = (if data[(0usize)] as (i32) == b'e' as (i32) {
                                   18i32
                                 } else if data[(0usize)] as (i32) == b's' as (i32) {
               7i32
@@ -892,7 +892,7 @@ fn BrotliFindAllStaticDictionaryMatches(mut dictionary: &mut BrotliDictionary,
                    matches);
           has_found_match = 1i32;
           if l.wrapping_add(5usize) < max_length {
-            let mut s: &[u8] = &data[(l.wrapping_add(5usize) as (usize))..];
+            let s: &[u8] = &data[(l.wrapping_add(5usize) as (usize))..];
             if data[(0usize)] as (i32) == b' ' as (i32) {
               if l.wrapping_add(8usize) < max_length && (s[(0usize)] as (i32) == b' ' as (i32)) &&
                  (s[(1usize)] as (i32) == b'o' as (i32)) &&

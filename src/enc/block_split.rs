@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 use core;
 use super::super::alloc;
-use super::super::alloc::{SliceWrapper,SliceWrapperMut};
+use super::super::alloc::{SliceWrapper};
 pub struct BlockSplit<AllocU8:alloc::Allocator<u8>,
                       AllocU32:alloc::Allocator<u32>>{
   pub num_types: usize,

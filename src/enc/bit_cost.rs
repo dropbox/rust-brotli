@@ -1,7 +1,8 @@
+#![allow(dead_code)]
 use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2};
-use super::histogram::{CostAccessors, HistogramLiteral, HistogramCommand, HistogramDistance};
+use super::histogram::{CostAccessors};
 
 
 static mut kCopyBase: [u32; 24] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70,
@@ -16,7 +17,7 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 
 
 
-fn ShannonEntropy(mut population: &[u32], mut size: usize, mut total: &mut usize) -> f64 {
+fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> f64 {
   let mut sum: usize = 0usize;
   let mut retval: f64 = 0i32 as (f64);
   population = &population[..(size as usize)];
@@ -45,7 +46,7 @@ fn ShannonEntropy(mut population: &[u32], mut size: usize, mut total: &mut usize
   retval
 }
 
-fn BitsEntropy(mut population: &[u32], mut size: usize) -> f64 {
+fn BitsEntropy(population: &[u32], size: usize) -> f64 {
   let mut sum: usize = 0;
   let mut retval: f64 = ShannonEntropy(population, size, &mut sum);
   if retval < sum as (f64) {
@@ -55,7 +56,7 @@ fn BitsEntropy(mut population: &[u32], mut size: usize) -> f64 {
 }
 
 pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
-    mut histogram : &HistogramType
+    histogram : &HistogramType
 ) -> f64{
   static kOneSymbolHistogramCost: f64 = 12i32 as (f64);
   static kTwoSymbolHistogramCost: f64 = 20i32 as (f64);
@@ -101,8 +102,8 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
   }
   if count == 4i32 {
     let mut histo: [u32; 4] = [0;4];
-    let mut h23: u32;
-    let mut histomax: u32;
+    let h23: u32;
+    let histomax: u32;
     i = 0usize;
     while i < 4usize {
       {
@@ -142,7 +143,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     i = 0usize;
     while i < data_size {
       if (*histogram).slice()[i] > 0u32 {
-        let mut log2p: f64 = log2total - FastLog2((*histogram).slice()[i] as (usize));
+        let log2p: f64 = log2total - FastLog2((*histogram).slice()[i] as (usize));
         let mut depth: usize = (log2p + 0.5f64) as (usize);
         bits = bits + (*histogram).slice()[i] as (f64) * log2p;
         if depth > 15usize {

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::util::{Log2FloorNonZero};
 pub struct Command {
   pub insert_len_: u32,
@@ -6,13 +7,13 @@ pub struct Command {
   pub cmd_prefix_: u16,
   pub dist_prefix_: u16,
 }
-pub fn CommandCopyLen(mut xself: &Command) -> u32 {
+pub fn CommandCopyLen(xself: &Command) -> u32 {
   (*xself).copy_len_ & 0xffffffi32 as (u32)
 }
 
-pub fn CommandDistanceContext(mut xself: &Command) -> u32 {
-  let mut r: u32 = ((*xself).cmd_prefix_ as (i32) >> 6i32) as (u32);
-  let mut c: u32 = ((*xself).cmd_prefix_ as (i32) & 7i32) as (u32);
+pub fn CommandDistanceContext(xself: &Command) -> u32 {
+  let r: u32 = ((*xself).cmd_prefix_ as (i32) >> 6i32) as (u32);
+  let c: u32 = ((*xself).cmd_prefix_ as (i32) & 7i32) as (u32);
   if (r == 0i32 as (u32) || r == 2i32 as (u32) || r == 4i32 as (u32) || r == 7i32 as (u32)) &&
      (c <= 2i32 as (u32)) {
     c
@@ -21,14 +22,14 @@ pub fn CommandDistanceContext(mut xself: &Command) -> u32 {
   }
 }
 
-pub fn ComputeDistanceCode(mut distance: usize,
-                       mut max_distance: usize,
-                       mut dist_cache: &[i32])
+pub fn ComputeDistanceCode(distance: usize,
+                       max_distance: usize,
+                       dist_cache: &[i32])
                        -> usize {
   if distance <= max_distance {
-    let mut distance_plus_3: usize = distance.wrapping_add(3usize);
-    let mut offset0: usize = distance_plus_3.wrapping_sub(dist_cache[(0usize)] as (usize));
-    let mut offset1: usize = distance_plus_3.wrapping_sub(dist_cache[(1usize)] as (usize));
+    let distance_plus_3: usize = distance.wrapping_add(3usize);
+    let offset0: usize = distance_plus_3.wrapping_sub(dist_cache[(0usize)] as (usize));
+    let offset1: usize = distance_plus_3.wrapping_sub(dist_cache[(1usize)] as (usize));
     if distance == dist_cache[(0usize)] as (usize) {
       return 0usize;
     } else if distance == dist_cache[(1usize)] as (usize) {
@@ -47,11 +48,11 @@ pub fn ComputeDistanceCode(mut distance: usize,
 }
 
 
-fn GetInsertLengthCode(mut insertlen: usize) -> u16 {
+fn GetInsertLengthCode(insertlen: usize) -> u16 {
   if insertlen < 6usize {
     insertlen as (u16)
   } else if insertlen < 130usize {
-    let mut nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2usize)).wrapping_sub(1u32);
+    let nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2usize)).wrapping_sub(1u32);
     ((nbits << 1i32) as (usize))
       .wrapping_add(insertlen.wrapping_sub(2usize) >> nbits)
       .wrapping_add(2usize) as (u16)
@@ -66,11 +67,11 @@ fn GetInsertLengthCode(mut insertlen: usize) -> u16 {
   }
 }
 
-fn GetCopyLengthCode(mut copylen: usize) -> u16 {
+fn GetCopyLengthCode(copylen: usize) -> u16 {
   if copylen < 10usize {
     copylen.wrapping_sub(2usize) as (u16)
   } else if copylen < 134usize {
-    let mut nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize)).wrapping_sub(1u32);
+    let nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize)).wrapping_sub(1u32);
     ((nbits << 1i32) as (usize))
       .wrapping_add(copylen.wrapping_sub(6usize) >> nbits)
       .wrapping_add(4usize) as (u16)
@@ -81,13 +82,13 @@ fn GetCopyLengthCode(mut copylen: usize) -> u16 {
   }
 }
 
-fn CombineLengthCodes(mut inscode: u16, mut copycode: u16, mut use_last_distance: i32) -> u16 {
-  let mut bits64: u16 = (copycode as (u32) & 0x7u32 | (inscode as (u32) & 0x7u32) << 3i32) as (u16);
+fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u16 {
+  let bits64: u16 = (copycode as (u32) & 0x7u32 | (inscode as (u32) & 0x7u32) << 3i32) as (u16);
   if use_last_distance != 0 && (inscode as (i32) < 8i32) && (copycode as (i32) < 16i32) {
     if copycode as (i32) < 8i32 {
       bits64
     } else {
-      let mut s64: u16 = 64i32 as (u16);
+      let s64: u16 = 64i32 as (u16);
       (bits64 as (i32) | s64 as (i32)) as (u16)
     }
   } else {
@@ -97,32 +98,32 @@ fn CombineLengthCodes(mut inscode: u16, mut copycode: u16, mut use_last_distance
   }
 }
 
-fn GetLengthCode(mut insertlen: usize,
-                 mut copylen: usize,
-                 mut use_last_distance: i32,
+fn GetLengthCode(insertlen: usize,
+                 copylen: usize,
+                 use_last_distance: i32,
                  mut code: &mut u16) {
-  let mut inscode: u16 = GetInsertLengthCode(insertlen);
-  let mut copycode: u16 = GetCopyLengthCode(copylen);
+  let inscode: u16 = GetInsertLengthCode(insertlen);
+  let copycode: u16 = GetCopyLengthCode(copylen);
   *code = CombineLengthCodes(inscode, copycode, use_last_distance);
 }
-fn PrefixEncodeCopyDistance(mut distance_code: usize,
-                            mut num_direct_codes: usize,
-                            mut postfix_bits: usize,
+fn PrefixEncodeCopyDistance(distance_code: usize,
+                            num_direct_codes: usize,
+                            postfix_bits: usize,
                             mut code: &mut u16,
                             mut extra_bits: &mut u32) {
   if distance_code < (16usize).wrapping_add(num_direct_codes) {
     *code = distance_code as (u16);
     *extra_bits = 0u32;
   } else {
-    let mut dist: usize =
+    let dist: usize =
       (1usize << postfix_bits.wrapping_add(2u32 as (usize)))
         .wrapping_add(distance_code.wrapping_sub(16usize).wrapping_sub(num_direct_codes));
-    let mut bucket: usize = Log2FloorNonZero(dist).wrapping_sub(1u32) as (usize);
-    let mut postfix_mask: usize = (1u32 << postfix_bits).wrapping_sub(1u32) as (usize);
-    let mut postfix: usize = dist & postfix_mask;
-    let mut prefix: usize = dist >> bucket & 1usize;
-    let mut offset: usize = (2usize).wrapping_add(prefix) << bucket;
-    let mut nbits: usize = bucket.wrapping_sub(postfix_bits);
+    let bucket: usize = Log2FloorNonZero(dist).wrapping_sub(1u32) as (usize);
+    let postfix_mask: usize = (1u32 << postfix_bits).wrapping_sub(1u32) as (usize);
+    let postfix: usize = dist & postfix_mask;
+    let prefix: usize = dist >> bucket & 1usize;
+    let offset: usize = (2usize).wrapping_add(prefix) << bucket;
+    let nbits: usize = bucket.wrapping_sub(postfix_bits);
     *code = (16usize)
       .wrapping_add(num_direct_codes)
       .wrapping_add((2usize).wrapping_mul(nbits.wrapping_sub(1usize)).wrapping_add(prefix) <<
@@ -133,10 +134,10 @@ fn PrefixEncodeCopyDistance(mut distance_code: usize,
 }
 
 pub fn InitCommand(xself: &mut Command,
-                  mut insertlen: usize,
-                  mut copylen: usize,
-                  mut copylen_code: usize,
-                  mut distance_code: usize) {
+                  insertlen: usize,
+                  copylen: usize,
+                  copylen_code: usize,
+                  distance_code: usize) {
     xself.insert_len_ = insertlen as (u32);
     xself.copy_len_ = (copylen | (copylen_code ^ copylen) << 24i32) as (u32);
   PrefixEncodeCopyDistance(distance_code,
@@ -153,10 +154,10 @@ pub fn InitCommand(xself: &mut Command,
                 },
                 &mut xself.cmd_prefix_);
 }
-pub fn NewCommand(mut insertlen: usize,
-               mut copylen: usize,
-               mut copylen_code: usize,
-               mut distance_code: usize) -> Command {
+pub fn NewCommand(insertlen: usize,
+               copylen: usize,
+               copylen_code: usize,
+               distance_code: usize) -> Command {
   let mut xself : Command = Command {
            insert_len_: insertlen as (u32),
            copy_len_: (copylen | (copylen_code ^ copylen) << 24i32) as (u32),
