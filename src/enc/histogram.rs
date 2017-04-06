@@ -212,14 +212,16 @@ pub fn HistogramAddItem<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +Co
   let new_count = (*xself).total_count().wrapping_add(1 as (usize));
   (*xself).set_total_count(new_count);
 }
-pub fn HistogramAddVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAccessors>(mut xself: &mut HistogramType,
-                                                                                               mut p: &[u8], mut n: usize) {
+pub fn HistogramAddVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostAccessors,
+                          IntegerType:Sized+Clone>(mut xself: &mut HistogramType,
+                                                                                               mut p: &[IntegerType], mut n: usize) where u64: core::convert::From<IntegerType>{
   let new_tc = (*xself).total_count().wrapping_add(n);
   (*xself).set_total_count(new_tc);
   n = n.wrapping_add(1usize);
   for p_item in p[..n].iter() {
     let _rhs = 1;
-    let _lhs = &mut (*xself).slice_mut()[(*p_item) as usize];
+    let index: usize = u64::from(p_item.clone()) as usize;
+    let _lhs = &mut (*xself).slice_mut()[index];
     *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
   }
 }
