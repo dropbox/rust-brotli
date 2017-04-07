@@ -87,17 +87,17 @@ trait AnyHasher {
   fn HashBytes(&self, data: &[u8]) -> usize;
   fn HashTypeLength(&self) -> usize;
   fn StoreLookahead(&self) -> usize;
-  fn PrepareDistanceCache(&self, mut distance_cache: &mut [i32]);
+  fn PrepareDistanceCache(&self, distance_cache: &mut [i32]);
   fn FindLongestMatch(&mut self,
-                      mut dictionary: &BrotliDictionary,
-                      mut dictionary_hash: &[u16],
-                      mut data: &[u8],
+                      dictionary: &BrotliDictionary,
+                      dictionary_hash: &[u16],
+                      data: &[u8],
                       ring_buffer_mask: usize,
-                      mut distance_cache: &[i32],
+                      distance_cache: &[i32],
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
-                      mut out: &mut HasherSearchResult)
+                      out: &mut HasherSearchResult)
                       -> bool;
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
@@ -862,7 +862,6 @@ fn CreateBackwardReferences<AH:AnyHasher>(dictionary: &BrotliDictionary,
       max_length = max_length.wrapping_sub(1 as (usize));
       'break6: loop {
         'continue7: loop {
-          {
             let cost_diff_lazy: usize = 175usize;
             let is_match_found: bool;
             let mut sr2 = HasherSearchResult{len:0, len_x_code:0, distance:0, score:0};
@@ -898,14 +897,7 @@ fn CreateBackwardReferences<AH:AnyHasher>(dictionary: &BrotliDictionary,
                 }
               }
             }
-            {
-              {
-                break 'break6;
-              }
-            }
-          }
-          panic!("UNREACHABLE; break");
-          break;
+            break 'break6;
         }
         max_length = max_length.wrapping_sub(1 as (usize));
       }

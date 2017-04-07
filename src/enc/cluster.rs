@@ -421,13 +421,9 @@ pub fn BrotliClusterHistogramsLiteral<HistogramType:SliceWrapperMut<u32> + Slice
   };
   let mut num_clusters: usize = 0usize;
   let max_input_histograms: usize = 64usize;
-  let mut pairs_capacity: usize = max_input_histograms.wrapping_mul(max_input_histograms)
+  let pairs_capacity: usize = max_input_histograms.wrapping_mul(max_input_histograms)
     .wrapping_div(2usize);
-  let mut pairs = if pairs_capacity.wrapping_add(1usize) != 0 {
-    mhp.alloc_cell(pairs_capacity.wrapping_add(1usize))
-  } else {
-    AllocHP::AllocatedMemory::default()
-  };
+  let mut pairs = mhp.alloc_cell(pairs_capacity.wrapping_add(1usize));
   let mut i: usize;
   i = 0usize;
   while i < in_size {
@@ -494,7 +490,6 @@ pub fn BrotliClusterHistogramsLiteral<HistogramType:SliceWrapperMut<u32> + Slice
         };
         new_array.slice_mut()[..pairs_capacity].clone_from_slice(&pairs.slice()[..pairs_capacity]);
         mhp.free_cell(core::mem::replace(&mut pairs, new_array));
-        pairs_capacity = _new_size;
       }
     }
     num_clusters = BrotliHistogramCombine(out,
