@@ -5,11 +5,12 @@ use super::constants::{BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDep
                        kSigned3BitContextLookup, kUTF8ContextLookup,
                        kInsBase, kInsExtra, kCopyBase, kCopyExtra,
                        };
+use super::command::Command;
 use super::entropy_encode::{HuffmanTree, BrotliWriteHuffmanTree, BrotliCreateHuffmanTree,
                             BrotliConvertBitDepthsToSymbols, NewHuffmanTree, InitHuffmanTree,
                             SortHuffmanTreeItems, SortHuffmanTree, BrotliSetDepth};
 use super::block_split::BlockSplit;
-use super::histogram::{HistogramAddItem,HistogramLiteral,HistogramCommand,HistogramDistance};
+use super::histogram::{HistogramAddItem,HistogramLiteral,HistogramCommand,HistogramDistance, ContextType};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper,SliceWrapperMut};
 use super::super::core;
@@ -561,72 +562,6 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
   }
 }
 
-#[derive(Clone, Copy)]
-pub enum ContextType {
-  CONTEXT_LSB6 = 0,
-  CONTEXT_MSB6 = 1,
-  CONTEXT_UTF8 = 2,
-  CONTEXT_SIGNED = 3,
-}
-
-#[derive(Clone, Copy)]
-pub struct Command {
-  pub insert_len_: u32,
-  pub copy_len_: u32,
-  pub dist_extra_: u32,
-  pub cmd_prefix_: u16,
-  pub dist_prefix_: u16,
-}
-
-/*
-
-pub struct HistogramLiteral {
-  pub data_: [u32; 256],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-impl SliceWrapper<u32> for HistogramLiteral {
-  fn slice(&self) -> &[u32] {
-    return &self.data_[..];
-  }
-}
-impl SliceWrapperMut<u32> for HistogramLiteral {
-  fn slice_mut(&mut self) -> &mut [u32] {
-    return &mut self.data_[..];
-  }
-}
-pub struct HistogramCommand {
-  pub data_: [u32; 704],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-
-impl SliceWrapper<u32> for HistogramCommand {
-  fn slice(&self) -> &[u32] {
-    return &self.data_[..];
-  }
-}
-impl SliceWrapperMut<u32> for HistogramCommand {
-  fn slice_mut(&mut self) -> &mut [u32] {
-    return &mut self.data_[..];
-  }
-}
-pub struct HistogramDistance {
-  pub data_: [u32; 520],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-impl SliceWrapper<u32> for HistogramDistance {
-  fn slice(&self) -> &[u32] {
-    return &self.data_[..];
-  }
-}
-impl SliceWrapperMut<u32> for HistogramDistance {
-  fn slice_mut(&mut self) -> &mut [u32] {
-    return &mut self.data_[..];
-  }
-}
-*/
 pub struct MetaBlockSplit<AllocU8: alloc::Allocator<u8>,
                         AllocU32: alloc::Allocator<u32>,
                         AllocHL: alloc::Allocator<HistogramLiteral>,
@@ -1684,7 +1619,7 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
   i = 0usize;
   while i < n_commands {
     {
-      let cmd: Command = commands[(i as (usize))];
+      let cmd: Command = commands[(i as (usize))].clone();
       let cmd_code: usize = cmd.cmd_prefix_ as (usize);
       StoreSymbol(&mut command_enc, cmd_code, storage_ix, storage);
       StoreCommandExtra(&cmd, storage_ix, storage);
@@ -1770,7 +1705,7 @@ fn BuildHistograms(input: &[u8],
   i = 0usize;
   while i < n_commands {
     {
-      let cmd: Command = commands[(i as (usize))];
+      let cmd: Command = commands[(i as (usize))].clone();
       let mut j: usize;
       HistogramAddItem(cmd_histo, cmd.cmd_prefix_ as (usize));
       j = cmd.insert_len_ as (usize);
@@ -1807,7 +1742,7 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
   i = 0usize;
   while i < n_commands {
     {
-      let cmd: Command = commands[(i as (usize))];
+      let cmd: Command = commands[(i as (usize))].clone();
       let cmd_code: usize = cmd.cmd_prefix_ as (usize);
       let mut j: usize;
       BrotliWriteBits(cmd_depth[(cmd_code as (usize))] as (u8),
@@ -1951,7 +1886,7 @@ pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : 
     i = 0usize;
     while i < n_commands {
       {
-        let cmd: Command = commands[(i as (usize))];
+        let cmd: Command = commands[(i as (usize))].clone();
         let mut j: usize;
         j = cmd.insert_len_ as (usize);
         while j != 0usize {

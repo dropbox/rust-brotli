@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 use super::util::{Log2FloorNonZero};
+
+#[derive(Clone)]
 pub struct Command {
   pub insert_len_: u32,
   pub copy_len_: u32,

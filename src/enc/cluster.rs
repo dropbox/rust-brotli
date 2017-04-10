@@ -396,7 +396,7 @@ pub fn BrotliHistogramReindex<HistogramType:SliceWrapperMut<u32> + SliceWrapper<
   next_index as (usize)
 }
 
-pub fn BrotliClusterHistogramsLiteral<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
+pub fn BrotliClusterHistograms<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
                                       AllocU32:alloc::Allocator<u32>,
                                       AllocHP:alloc::Allocator<HistogramPair>,
                                       AllocH:alloc::Allocator<HistogramType> >

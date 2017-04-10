@@ -2,6 +2,7 @@ mod integration_tests;
 mod tests;
 extern crate brotli;
 extern crate core;
+#[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib;
 use core::ops;

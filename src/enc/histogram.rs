@@ -287,8 +287,7 @@ fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
   }
 }
 
-
-extern fn BrotliBuildHistogramsWithContext<'a,
+pub fn BrotliBuildHistogramsWithContext<'a,
                           AllocU8:alloc::Allocator<u8>,
                           AllocU32:alloc::Allocator<u32>>(
     cmds : &[Command],

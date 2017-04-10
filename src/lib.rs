@@ -12,6 +12,7 @@ extern crate std;
 #[cfg(not(feature="no-stdlib"))]
 use std::io::{self, Error, ErrorKind, Read, Write};
 
+#[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
