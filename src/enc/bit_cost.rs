@@ -17,7 +17,7 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 
 
 
-fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> f64 {
+pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> f64 {
   let mut sum: usize = 0usize;
   let mut retval: f64 = 0i32 as (f64);
   population = &population[..(size as usize)];
@@ -46,7 +46,7 @@ fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) ->
   retval
 }
 
-fn BitsEntropy(population: &[u32], size: usize) -> f64 {
+pub fn BitsEntropy(population: &[u32], size: usize) -> f64 {
   let mut sum: usize = 0;
   let mut retval: f64 = ShannonEntropy(population, size, &mut sum);
   if retval < sum as (f64) {
