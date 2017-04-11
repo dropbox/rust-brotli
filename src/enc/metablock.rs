@@ -295,28 +295,30 @@ fn InitBlockSplitter<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32> +CostA
   (*xself).last_histogram_ix_[0] = 0;
   (*xself).last_histogram_ix_[1] = 0;
 }
-/*
-fn InitContextBlockSplitter(mut m: &mut [MemoryManager],
+fn InitContextBlockSplitter<AllocU8:alloc::Allocator<u8>,
+                         AllocU32:alloc::Allocator<u32>,
+                         AllocHL:alloc::Allocator<HistogramLiteral>>(
+                            mut m8:&mut AllocU8,
+                            mut m32:&mut AllocU32,
+                            mut mhl:&mut AllocHL,
                             mut xself: &mut ContextBlockSplitter,
-                            mut alphabet_size: usize,
-                            mut num_contexts: usize,
-                            mut min_block_size: usize,
-                            mut split_threshold: f64,
-                            mut num_symbols: usize,
-                            mut split: &mut [BlockSplit],
-                            mut histograms: &mut [*mut HistogramLiteral],
-                            mut histograms_size: &mut [usize]) {
-  let mut max_num_blocks: usize = num_symbols.wrapping_div(min_block_size).wrapping_add(1usize);
-  let mut max_num_types: usize;
-  0i32;
+                            alphabet_size: usize,
+                            num_contexts: usize,
+                            min_block_size: usize,
+                            split_threshold: f64,
+                            num_symbols: usize,
+                            mut split: &mut BlockSplit<AllocU8, AllocU32>,
+                            mut histograms: &mut AllocHL::AllocatedMemory,
+                            mut histograms_size: &mut usize) {
+  let max_num_blocks: usize = num_symbols.wrapping_div(min_block_size).wrapping_add(1usize);
+  let max_num_types: usize;
   (*xself).alphabet_size_ = alphabet_size;
   (*xself).num_contexts_ = num_contexts;
   (*xself).max_block_types_ = (256usize).wrapping_div(num_contexts);
   (*xself).min_block_size_ = min_block_size;
   (*xself).split_threshold_ = split_threshold;
   (*xself).num_blocks_ = 0usize;
-  (*xself).split_ = split;
-  (*xself).histograms_size_ = histograms_size;
+  //(*xself).histograms_size_ = histograms_size;
   (*xself).target_block_size_ = min_block_size;
   (*xself).block_size_ = 0usize;
   (*xself).curr_histogram_ix_ = 0usize;
@@ -330,85 +332,42 @@ fn InitContextBlockSplitter(mut m: &mut [MemoryManager],
       } else {
         (*split).types.slice().len()
       };
-      let mut new_array: *mut u8;
       while _new_size < max_num_blocks {
         _new_size = _new_size.wrapping_mul(2usize);
       }
-      new_array = if _new_size != 0 {
-        BrotliAllocate(m, _new_size.wrapping_mul(::std::mem::size_of::<u8>()))
-      } else {
-        0i32
-      };
-      if !!(0i32 == 0) && ((*split).types.slice().len() != 0usize) {
-        memcpy(new_array,
-               (*split).types,
-               (*split).types.slice().len().wrapping_mul(::std::mem::size_of::<u8>()));
+      let mut new_array = m8.alloc_cell(_new_size);
+      if ((*split).types.slice().len() != 0usize) {
+        new_array.slice_mut()[..(*split).types.slice().len()].clone_from_slice((*split).types.slice());
       }
-      {
-        BrotliFree(m, (*split).types);
-        (*split).types = 0i32;
-      }
-      (*split).types = new_array;
-      (*split).types.slice().len() = _new_size;
+      m8.free_cell(core::mem::replace(&mut (*split).types, new_array));
     }
   }
   {
-    if (*split).lengths_alloc_size < max_num_blocks {
-      let mut _new_size: usize = if (*split).lengths_alloc_size == 0usize {
+    if (*split).lengths.slice().len() < max_num_blocks {
+      let mut _new_size: usize = if (*split).lengths.slice().len() == 0usize {
         max_num_blocks
       } else {
-        (*split).lengths_alloc_size
+        (*split).lengths.slice().len()
       };
-      let mut new_array: *mut u32;
       while _new_size < max_num_blocks {
         _new_size = _new_size.wrapping_mul(2usize);
       }
-      new_array = if _new_size != 0 {
-        BrotliAllocate(m, _new_size.wrapping_mul(::std::mem::size_of::<u32>()))
-      } else {
-        0i32
-      };
-      if !!(0i32 == 0) && ((*split).lengths_alloc_size != 0usize) {
-        memcpy(new_array,
-               (*split).lengths,
-               (*split).lengths_alloc_size.wrapping_mul(::std::mem::size_of::<u32>()));
+      let mut new_array = m32.alloc_cell(_new_size);
+      if ((*split).lengths.slice().len() != 0usize) {
+        new_array.slice_mut()[..(*split).lengths.slice().len()].clone_from_slice((*split).lengths.slice());
       }
-      {
-        BrotliFree(m, (*split).lengths);
-        (*split).lengths = 0i32;
-      }
-      (*split).lengths = new_array;
-      (*split).lengths_alloc_size = _new_size;
+      m32.free_cell(core::mem::replace(&mut (*split).lengths, new_array));
     }
   }
-  if !(0i32 == 0) {
-    return;
-  }
   (*split).num_blocks = max_num_blocks;
-  if !(0i32 == 0) {
-    return;
-  }
-  0i32;
   *histograms_size = max_num_types.wrapping_mul(num_contexts);
-  *histograms = if *histograms_size != 0 {
-    BrotliAllocate(m,
-                   (*histograms_size).wrapping_mul(::std::mem::size_of::<HistogramLiteral>()))
-  } else {
-    0i32
-  };
-  (*xself).histograms_ = *histograms;
-  if !(0i32 == 0) {
-    return;
-  }
-  ClearHistograms(&mut *(*xself).histograms_[(0usize)..], num_contexts);
-  (*xself).last_histogram_ix_[0usize] = {
-    let _rhs = 0i32;
-    let _lhs = &mut (*xself).last_histogram_ix_[1usize];
-    *_lhs = _rhs as (usize);
-    *_lhs
-  };
+  *histograms = mhl.alloc_cell(*histograms_size);
+  //(*xself).histograms_ = *histograms;
+  ClearHistograms(&mut histograms.slice_mut()[(0usize)..], num_contexts);
+  (*xself).last_histogram_ix_[0] = 0;
+  (*xself).last_histogram_ix_[1] = 0;
 }
-
+/*
 fn InitBlockSplitterCommand(mut m: &mut [MemoryManager],
                             mut xself: &mut BlockSplitterCommand,
                             mut alphabet_size: usize,
