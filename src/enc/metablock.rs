@@ -239,26 +239,29 @@ fn InitBlockSplitter<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + C
   (mut m8: &mut AllocU8,
    mut m32: &mut AllocU32,
    mut mht: &mut AllocHT,
-   mut xself: &mut BlockSplitter, //<HistogramType, AllocU8, AllocU32, AllocHT>,
    alphabet_size: usize,
    min_block_size: usize,
    split_threshold: f64,
    num_symbols: usize,
    mut split: &mut BlockSplit<AllocU8, AllocU32>,
    mut histograms: &mut AllocHT::AllocatedMemory,
-   mut histograms_size: &mut usize) {
+   mut histograms_size: &mut usize) -> BlockSplitter {
   let max_num_blocks: usize = num_symbols.wrapping_div(min_block_size).wrapping_add(1usize);
   let max_num_types: usize = brotli_min_size_t(max_num_blocks, (256i32 + 1i32) as (usize));
-  (*xself).alphabet_size_ = alphabet_size;
-  (*xself).min_block_size_ = min_block_size;
-  (*xself).split_threshold_ = split_threshold;
-  (*xself).num_blocks_ = 0usize;
-  //(*xself).split_ = split;
-  //(*xself).histograms_size_ = histograms_size;
-  (*xself).target_block_size_ = min_block_size;
-  (*xself).block_size_ = 0usize;
-  (*xself).curr_histogram_ix_ = 0usize;
-  (*xself).merge_last_count_ = 0usize;
+  let mut xself = BlockSplitter {
+      last_entropy_: [0.0f64;2],
+      alphabet_size_: alphabet_size,
+      min_block_size_: min_block_size,
+      split_threshold_ : split_threshold,
+      num_blocks_ : 0usize,
+  //(*xself).split_ : split,
+  //(*xself).histograms_size_ : histograms_size,
+      target_block_size_ : min_block_size,
+      block_size_ : 0usize,
+      curr_histogram_ix_ : 0usize,
+      merge_last_count_ : 0usize,
+      last_histogram_ix_: [0usize; 2],
+  };
   {
     if (*split).types.slice().len() < max_num_blocks {
       let mut _new_size: usize = if (*split).types.slice().len() == 0usize {
@@ -301,8 +304,9 @@ fn InitBlockSplitter<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + C
   let hlocal = mht.alloc_cell(*histograms_size);
   mht.free_cell(core::mem::replace(&mut *histograms, hlocal));
   HistogramClear(&mut histograms.slice_mut()[0]);
-  (*xself).last_histogram_ix_[0] = 0;
-  (*xself).last_histogram_ix_[1] = 0;
+  xself.last_histogram_ix_[0] = 0;
+  xself.last_histogram_ix_[1] = 0;
+  return xself;
 }
 fn InitContextBlockSplitter<AllocU8: alloc::Allocator<u8>,
                             AllocU32: alloc::Allocator<u32>,
@@ -310,7 +314,6 @@ fn InitContextBlockSplitter<AllocU8: alloc::Allocator<u8>,
   (mut m8: &mut AllocU8,
    mut m32: &mut AllocU32,
    mut mhl: &mut AllocHL,
-   mut xself: &mut ContextBlockSplitter,
    alphabet_size: usize,
    num_contexts: usize,
    min_block_size: usize,
@@ -318,22 +321,26 @@ fn InitContextBlockSplitter<AllocU8: alloc::Allocator<u8>,
    num_symbols: usize,
    mut split: &mut BlockSplit<AllocU8, AllocU32>,
    mut histograms: &mut AllocHL::AllocatedMemory,
-   mut histograms_size: &mut usize) {
+   mut histograms_size: &mut usize) -> ContextBlockSplitter {
   let max_num_blocks: usize = num_symbols.wrapping_div(min_block_size).wrapping_add(1usize);
   let max_num_types: usize;
-  (*xself).alphabet_size_ = alphabet_size;
-  (*xself).num_contexts_ = num_contexts;
-  (*xself).max_block_types_ = (256usize).wrapping_div(num_contexts);
-  (*xself).min_block_size_ = min_block_size;
-  (*xself).split_threshold_ = split_threshold;
-  (*xself).num_blocks_ = 0usize;
-  //(*xself).histograms_size_ = histograms_size;
-  (*xself).target_block_size_ = min_block_size;
-  (*xself).block_size_ = 0usize;
-  (*xself).curr_histogram_ix_ = 0usize;
-  (*xself).merge_last_count_ = 0usize;
+  let mut xself = ContextBlockSplitter {
+          alphabet_size_: alphabet_size,
+          num_contexts_: num_contexts,
+          max_block_types_: (256usize).wrapping_div(num_contexts),
+          min_block_size_: min_block_size,
+          split_threshold_: split_threshold,
+          num_blocks_: 0usize,
+  //        histograms_size_: histograms_size,
+          target_block_size_: min_block_size,
+          block_size_: 0usize,
+          curr_histogram_ix_: 0usize,
+          merge_last_count_: 0usize,
+          last_histogram_ix_: [0;2],
+          last_entropy_: [0.0f64;6],
+  };
   max_num_types = brotli_min_size_t(max_num_blocks,
-                                    (*xself).max_block_types_.wrapping_add(1usize));
+                                    xself.max_block_types_.wrapping_add(1usize));
   {
     if (*split).types.slice().len() < max_num_blocks {
       let mut _new_size: usize = if (*split).types.slice().len() == 0usize {
@@ -377,8 +384,9 @@ fn InitContextBlockSplitter<AllocU8: alloc::Allocator<u8>,
   *histograms = mhl.alloc_cell(*histograms_size);
   //(*xself).histograms_ = *histograms;
   ClearHistograms(&mut histograms.slice_mut()[(0usize)..], num_contexts);
-  (*xself).last_histogram_ix_[0] = 0;
-  (*xself).last_histogram_ix_[1] = 0;
+  xself.last_histogram_ix_[0] = 0;
+  xself.last_histogram_ix_[1] = 0;
+  return xself;
 }
 
 fn BlockSplitterFinishBlock<HistogramType:SliceWrapper<u32>
@@ -491,22 +499,6 @@ is_final: i32){
     (*split).num_blocks = (*xself).num_blocks_;
   }
 }
-/*
-fn BlockSplitterAddSymbolCommand<AllocU8:alloc::Allocator<u8>,
-                            AllocU32:alloc::Allocator<u32> >(mut xself: &mut BlockSplitter,
-                                                                        mut split: &mut BlockSplit<AllocU8, AllocU32>,
-                                                                        mut histograms: &mut [HistogramCommand],
-                                                                        mut histograms_size: &mut usize,
-                                                                        mut symbol: usize) {
-  HistogramAddItem(&mut histograms[((*xself).curr_histogram_ix_ as (usize))],
-                      symbol);
-  (*xself).block_size_ = (*xself).block_size_.wrapping_add(1 as (usize));
-  if (*xself).block_size_ == (*xself).target_block_size_ {
-    BlockSplitterFinishBlock(xself, split, histograms, histograms_size, 0i32);
-  }
-}
-
-*/
 
 fn ContextBlockSplitterFinishBlock<AllocU8: alloc::Allocator<u8>, AllocU32: alloc::Allocator<u32>>
   (mut xself: &mut ContextBlockSplitter,
