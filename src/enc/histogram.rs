@@ -270,7 +270,7 @@ pub fn HistogramSelfAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapp
     }
 }
 
-fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
+pub fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
   match mode {
     ContextType::CONTEXT_SIGNED => {
       ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32) +
