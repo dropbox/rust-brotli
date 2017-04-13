@@ -62,7 +62,7 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
       matched = matched.wrapping_add(8usize);
     } else {
       let x: u64 = BROTLI_UNALIGNED_LOAD64(s2) ^
-                         BROTLI_UNALIGNED_LOAD64(&s1[(matched as (usize))..]);
+                   BROTLI_UNALIGNED_LOAD64(&s1[(matched as (usize))..]);
       let matching_bits: usize = unopt_ctzll(x) as (usize);
       matched = matched.wrapping_add(matching_bits >> 3i32);
       return matched;
@@ -83,11 +83,7 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
   matched
 }
 
-fn IsMatch(dictionary: &BrotliDictionary,
-           w: DictWord,
-           data: &[u8],
-           max_length: usize)
-           -> i32 {
+fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_length: usize) -> i32 {
   if w.len as (usize) > max_length {
     0i32
   } else {
@@ -811,7 +807,8 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
        (data[(0usize)] as (i32) == b'e' as (i32) || data[(0usize)] as (i32) == b's' as (i32) ||
         data[(0usize)] as (i32) == b',' as (i32)) ||
        data[(0usize)] as (i32) == 0xc2i32 && (data[(1usize)] as (i32) == 0xa0i32) {
-      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[(2usize)..]) as (usize)] as (usize);
+      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[(2usize)..]) as (usize)] as
+                              (usize);
       let mut end: i32 = (offset == 0) as (i32);
       while end == 0 {
         let mut w: DictWord = kStaticDictionaryWords[{
@@ -838,8 +835,8 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
           } else if l.wrapping_add(2usize) < max_length &&
                     (data[(l.wrapping_add(2usize) as (usize))] as (i32) == b' ' as (i32)) {
             let t: usize = (if data[(0usize)] as (i32) == b'e' as (i32) {
-                                  18i32
-                                } else if data[(0usize)] as (i32) == b's' as (i32) {
+                              18i32
+                            } else if data[(0usize)] as (i32) == b's' as (i32) {
               7i32
             } else {
               13i32
@@ -863,7 +860,8 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
        (data[(2usize)] as (i32) == b'o' as (i32)) &&
        (data[(3usize)] as (i32) == b'm' as (i32)) &&
        (data[(4usize)] as (i32) == b'/' as (i32)) {
-      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[(5usize)..]) as (usize)] as (usize);
+      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[(5usize)..]) as (usize)] as
+                              (usize);
       let mut end: i32 = (offset == 0) as (i32);
       while end == 0 {
         let mut w: DictWord = kStaticDictionaryWords[{

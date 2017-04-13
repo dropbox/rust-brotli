@@ -30,7 +30,7 @@ pub fn InitHuffmanTree(xself: &mut HuffmanTree, count: u32, left: i16, right: i1
 
 
 pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_depth: i32) -> bool {
-  let mut stack: [i32; 16] = [0;16];
+  let mut stack: [i32; 16] = [0; 16];
   let mut level: i32 = 0i32;
   let mut p: i32 = p0;
   0i32;
@@ -163,10 +163,10 @@ pub fn BrotliCreateHuffmanTree(data: &[u32],
                                mut tree: &mut [HuffmanTree],
                                mut depth: &mut [u8]) {
   let mut count_limit: u32;
-  let mut sentinel: HuffmanTree = HuffmanTree{
-  total_count_: 0,
-  index_left_: 0,
-  index_right_or_value_: 0,
+  let mut sentinel: HuffmanTree = HuffmanTree {
+    total_count_: 0,
+    index_left_: 0,
+    index_right_or_value_: 0,
   };
   InitHuffmanTree(&mut sentinel, !(0u32), -1i32 as (i16), -1i32 as (i16));
   count_limit = 1u32;
@@ -199,7 +199,7 @@ pub fn BrotliCreateHuffmanTree(data: &[u32],
           }
         }
       }
-      SortHuffmanTreeItems(tree, n, SortHuffmanTree{});
+      SortHuffmanTreeItems(tree, n, SortHuffmanTree {});
       tree[(n as (usize))] = sentinel;
       tree[(n.wrapping_add(1usize) as (usize))] = sentinel;
       i = 0usize;
@@ -314,7 +314,7 @@ pub fn BrotliOptimizeHuffmanCountsForRle(mut length: usize,
     }
   }
   for rle_item in good_for_rle.iter_mut() {
-     *rle_item  = 0;
+    *rle_item = 0;
   }
   {
     let mut symbol: u32 = counts[(0usize)];
@@ -621,8 +621,8 @@ pub fn BrotliWriteHuffmanTree(depth: &[u8],
 
 fn BrotliReverseBits(num_bits: usize, mut bits: u16) -> u16 {
   static kLut: [usize; 16] = [0x0usize, 0x8usize, 0x4usize, 0xcusize, 0x2usize, 0xausize,
-                                  0x6usize, 0xeusize, 0x1usize, 0x9usize, 0x5usize, 0xdusize,
-                                  0x3usize, 0xbusize, 0x7usize, 0xfusize];
+                              0x6usize, 0xeusize, 0x1usize, 0x9usize, 0x5usize, 0xdusize,
+                              0x3usize, 0xbusize, 0x7usize, 0xfusize];
   let mut retval: usize = kLut[(bits as (i32) & 0xfi32) as (usize)];
   let mut i: usize;
   i = 4usize;

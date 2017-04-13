@@ -1,8 +1,8 @@
 #![allow(dead_code)]
+use super::histogram::CostAccessors;
 use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2};
-use super::histogram::{CostAccessors};
 
 
 static mut kCopyBase: [u32; 24] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70,
@@ -67,7 +67,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
   let mut s: [usize; 5] = [0; 5];
   let mut bits: f64 = 0.0f64;
   let mut i: usize;
-    if (*histogram).total_count() == 0usize {
+  if (*histogram).total_count() == 0usize {
     return kOneSymbolHistogramCost;
   }
   i = 0usize;
@@ -101,7 +101,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
            histomax as (f64);
   }
   if count == 4i32 {
-    let mut histo: [u32; 4] = [0;4];
+    let mut histo: [u32; 4] = [0; 4];
     let h23: u32;
     let histomax: u32;
     i = 0usize;

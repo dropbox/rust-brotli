@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use super::util::{Log2FloorNonZero};
+use super::util::Log2FloorNonZero;
 
 #[derive(Clone)]
 pub struct Command {
@@ -24,10 +24,7 @@ pub fn CommandDistanceContext(xself: &Command) -> u32 {
   }
 }
 
-pub fn ComputeDistanceCode(distance: usize,
-                       max_distance: usize,
-                       dist_cache: &[i32])
-                       -> usize {
+pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i32]) -> usize {
   if distance <= max_distance {
     let distance_plus_3: usize = distance.wrapping_add(3usize);
     let offset0: usize = distance_plus_3.wrapping_sub(dist_cache[(0usize)] as (usize));
@@ -100,10 +97,7 @@ fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u1
   }
 }
 
-fn GetLengthCode(insertlen: usize,
-                 copylen: usize,
-                 use_last_distance: i32,
-                 mut code: &mut u16) {
+fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, mut code: &mut u16) {
   let inscode: u16 = GetInsertLengthCode(insertlen);
   let copycode: u16 = GetCopyLengthCode(copylen);
   *code = CombineLengthCodes(inscode, copycode, use_last_distance);
@@ -136,12 +130,12 @@ fn PrefixEncodeCopyDistance(distance_code: usize,
 }
 
 pub fn InitCommand(xself: &mut Command,
-                  insertlen: usize,
-                  copylen: usize,
-                  copylen_code: usize,
-                  distance_code: usize) {
-    xself.insert_len_ = insertlen as (u32);
-    xself.copy_len_ = (copylen | (copylen_code ^ copylen) << 24i32) as (u32);
+                   insertlen: usize,
+                   copylen: usize,
+                   copylen_code: usize,
+                   distance_code: usize) {
+  xself.insert_len_ = insertlen as (u32);
+  xself.copy_len_ = (copylen | (copylen_code ^ copylen) << 24i32) as (u32);
   PrefixEncodeCopyDistance(distance_code,
                            0usize,
                            0usize,
@@ -157,16 +151,17 @@ pub fn InitCommand(xself: &mut Command,
                 &mut xself.cmd_prefix_);
 }
 pub fn NewCommand(insertlen: usize,
-               copylen: usize,
-               copylen_code: usize,
-               distance_code: usize) -> Command {
-  let mut xself : Command = Command {
-           insert_len_: insertlen as (u32),
-           copy_len_: (copylen | (copylen_code ^ copylen) << 24i32) as (u32),
-           dist_extra_:0,
-           cmd_prefix_:0,
-           dist_prefix_:0,
-   };
-   InitCommand(&mut xself, insertlen, copylen, copylen_code, distance_code);
-   xself
+                  copylen: usize,
+                  copylen_code: usize,
+                  distance_code: usize)
+                  -> Command {
+  let mut xself: Command = Command {
+    insert_len_: insertlen as (u32),
+    copy_len_: (copylen | (copylen_code ^ copylen) << 24i32) as (u32),
+    dist_extra_: 0,
+    cmd_prefix_: 0,
+    dist_prefix_: 0,
+  };
+  InitCommand(&mut xself, insertlen, copylen, copylen_code, distance_code);
+  xself
 }

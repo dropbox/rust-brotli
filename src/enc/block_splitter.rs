@@ -1,17 +1,17 @@
 #![allow(dead_code)]
-use core;
+use super::backward_references::BrotliEncoderParams;
 
 use super::bit_cost::BrotliPopulationCost;
-use super::backward_references::{BrotliEncoderParams,
-};
-use super::util::{FastLog2, brotli_max_uint8_t, brotli_min_size_t};
-use super::histogram::{HistogramAddVector, CostAccessors, ClearHistograms, HistogramClear, HistogramAddHistogram, HistogramAddItem,
-                       HistogramLiteral, HistogramCommand, HistogramDistance};
-use super::command::{Command};
-use super::cluster::{BrotliHistogramBitCostDistance, BrotliHistogramCombine, HistogramPair};
-use super::super::alloc::{SliceWrapper,SliceWrapperMut};
-use super::super::alloc;
 use super::block_split::BlockSplit;
+use super::cluster::{BrotliHistogramBitCostDistance, BrotliHistogramCombine, HistogramPair};
+use super::command::Command;
+use super::histogram::{HistogramAddVector, CostAccessors, ClearHistograms, HistogramClear,
+                       HistogramAddHistogram, HistogramAddItem, HistogramLiteral, HistogramCommand,
+                       HistogramDistance};
+use super::super::alloc;
+use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::util::{FastLog2, brotli_max_uint8_t, brotli_min_size_t};
+use core;
 static kMaxLiteralHistograms: usize = 100usize;
 
 static kMaxCommandHistograms: usize = 50usize;
@@ -71,15 +71,22 @@ fn CopyLiteralsToByteArray(cmds: &[Command],
       let mut insert_len: usize = (cmds[(i as (usize))]).insert_len_ as (usize);
       if from_pos.wrapping_add(insert_len) > mask {
         let head_size: usize = mask.wrapping_add(1usize).wrapping_sub(from_pos);
-        literals[(pos as (usize))..((pos + head_size) as usize)].clone_from_slice(
-                &data[(from_pos as (usize))..((from_pos + head_size) as usize)]);
+        literals[(pos as (usize))..((pos + head_size) as usize)].clone_from_slice(&data[(from_pos as
+                                                                                    (usize))..
+                                                                                   ((from_pos +
+                                                                                     head_size) as
+                                                                                    usize)]);
         from_pos = 0usize;
         pos = pos.wrapping_add(head_size);
         insert_len = insert_len.wrapping_sub(head_size);
       }
       if insert_len > 0usize {
-        literals[(pos as (usize))..(pos as usize + insert_len)].clone_from_slice(
-                &data[(from_pos as (usize))..(from_pos as usize + insert_len)]);
+        literals[(pos as (usize))..(pos as usize + insert_len)].clone_from_slice(&data
+                                                                                    [(from_pos as
+                                                                                   (usize))..
+                                                                                  (from_pos as
+                                                                                   usize +
+                                                                                   insert_len)]);
         pos = pos.wrapping_add(insert_len);
       }
       from_pos = from_pos.wrapping_add(insert_len).wrapping_add(CommandCopyLen(&cmds[(i as
@@ -100,11 +107,15 @@ fn MyRand(mut seed: &mut u32) -> u32 {
 
 
 
-fn InitialEntropyCodes<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors, IntegerType:Sized+Clone>(data: &[IntegerType],
-                              length: usize,
-                              stride: usize,
-                              num_histograms: usize,
-                              mut histograms: &mut [HistogramType]) where u64: core::convert::From<IntegerType> {
+fn InitialEntropyCodes<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
+                       IntegerType: Sized + Clone>
+  (data: &[IntegerType],
+   length: usize,
+   stride: usize,
+   num_histograms: usize,
+   mut histograms: &mut [HistogramType])
+  where u64: core::convert::From<IntegerType>
+{
   let mut seed: u32 = 7u32;
   let block_length: usize = length.wrapping_div(num_histograms);
   let mut i: usize;
@@ -120,18 +131,22 @@ fn InitialEntropyCodes<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+Cost
         pos = length.wrapping_sub(stride).wrapping_sub(1usize);
       }
       HistogramAddVector(&mut histograms[(i as (usize))],
-                                &data[(pos as (usize))..],
-                                stride);
+                         &data[(pos as (usize))..],
+                         stride);
     }
     i = i.wrapping_add(1 as (usize));
   }
 }
 
-fn RandomSample<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors, IntegerType:Sized+Clone>(mut seed: &mut u32,
-                       data: &[IntegerType],
-                       length: usize,
-                       mut stride: usize,
-                       mut sample: &mut HistogramType)  where u64: core::convert::From<IntegerType> {
+fn RandomSample<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
+                IntegerType: Sized + Clone>
+  (mut seed: &mut u32,
+   data: &[IntegerType],
+   length: usize,
+   mut stride: usize,
+   mut sample: &mut HistogramType)
+  where u64: core::convert::From<IntegerType>
+{
   let pos: usize;
   if stride >= length {
     pos = 0usize;
@@ -146,7 +161,7 @@ fn RefineEntropyCodes<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostA
                              length: usize,
                              stride: usize,
                              num_histograms: usize,
-                             mut histograms: &mut [HistogramType]) where u64: core::convert::From<IntegerType> {
+mut histograms: &mut [HistogramType]) where u64: core::convert::From<IntegerType>{
   let mut iters: usize = kIterMulForRefining.wrapping_mul(length)
     .wrapping_div(stride)
     .wrapping_add(kMinItersForRefining);
@@ -163,7 +178,7 @@ fn RefineEntropyCodes<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostA
       HistogramClear(&mut sample);
       RandomSample(&mut seed, data, length, stride, &mut sample);
       HistogramAddHistogram(&mut histograms[(iter.wrapping_rem(num_histograms) as (usize))],
-                                   &mut sample);
+                            &mut sample);
     }
     iter = iter.wrapping_add(1 as (usize));
   }
@@ -176,19 +191,22 @@ fn BitCost(count: usize) -> f64 {
     FastLog2(count)
   }
 }
-fn FindBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors,
-IntegerType:Sized+Clone>(data: &[IntegerType],
-                     length: usize,
-                     block_switch_bitcost: f64,
-                     num_histograms: usize,
-                     histograms: &[HistogramType],
-                     mut insert_cost: &mut [f64],
-                     mut cost: &mut [f64],
-                     mut switch_signal: &mut [u8],
-                     mut block_id: &mut [u8])
-                     -> usize  where u64: core::convert::From<IntegerType> {
+fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
+              IntegerType: Sized + Clone>
+  (data: &[IntegerType],
+   length: usize,
+   block_switch_bitcost: f64,
+   num_histograms: usize,
+   histograms: &[HistogramType],
+   mut insert_cost: &mut [f64],
+   mut cost: &mut [f64],
+   mut switch_signal: &mut [u8],
+   mut block_id: &mut [u8])
+   -> usize
+  where u64: core::convert::From<IntegerType>
+{
   if num_histograms == 0 {
-     return 0
+    return 0;
   }
   let data_size: usize = histograms[0].slice().len();
   let bitmaplen: usize = num_histograms.wrapping_add(7usize) >> 3i32;
@@ -207,7 +225,7 @@ IntegerType:Sized+Clone>(data: &[IntegerType],
     return 1usize;
   }
   for item in insert_cost[..(data_size * num_histograms)].iter_mut() {
-     *item = 0.0f64;
+    *item = 0.0f64;
   }
   i = 0usize;
   while i < num_histograms {
@@ -311,10 +329,10 @@ IntegerType:Sized+Clone>(data: &[IntegerType],
 }
 
 fn RemapBlockIds(mut block_ids: &mut [u8],
-                        length: usize,
-                        mut new_id: &mut [u16],
-                        num_histograms: usize)
-                        -> usize {
+                 length: usize,
+                 mut new_id: &mut [u16],
+                 num_histograms: usize)
+                 -> usize {
   static kInvalidId: u16 = 256i32 as (u16);
   let mut next_id: u16 = 0i32 as (u16);
   let mut i: usize;
@@ -352,19 +370,22 @@ fn RemapBlockIds(mut block_ids: &mut [u8],
 }
 
 
-fn BuildBlockHistograms<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors,
-                       IntegerType:Sized+Clone>(data: &[IntegerType],
-                               length: usize,
-                               block_ids: &[u8],
-                               num_histograms: usize,
-                               mut histograms: &mut [HistogramType]) where u64: core::convert::From<IntegerType> {
+fn BuildBlockHistograms<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
+                        IntegerType: Sized + Clone>
+  (data: &[IntegerType],
+   length: usize,
+   block_ids: &[u8],
+   num_histograms: usize,
+   mut histograms: &mut [HistogramType])
+  where u64: core::convert::From<IntegerType>
+{
   let mut i: usize;
   ClearHistograms(histograms, num_histograms);
   i = 0usize;
   while i < length {
     {
       HistogramAddItem(&mut histograms[(block_ids[(i as (usize))] as (usize))],
-                          u64::from(data[(i as (usize))].clone()) as usize);
+                       u64::from(data[(i as (usize))].clone()) as usize);
     }
     i = i.wrapping_add(1 as (usize));
   }
@@ -384,7 +405,7 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
                         length: usize,
                         num_blocks: usize,
                         block_ids: &mut [u8],
-                        mut split: &mut BlockSplit<AllocU8,AllocU32>) where u64: core::convert::From<IntegerType> {
+mut split: &mut BlockSplit<AllocU8,AllocU32>) where u64: core::convert::From<IntegerType>{
 
   let mut histogram_symbols = m32.alloc_cell(num_blocks);
   let mut block_lengths = m32.alloc_cell(num_blocks);
@@ -407,12 +428,12 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
   let num_final_clusters: usize;
   static kInvalidIndex: u32 = !(0u32);
   let mut i: usize;
-  let mut sizes: [u32; 64] = [0;64];
-  let mut new_clusters: [u32; 64] = [0;64];
-  let mut symbols: [u32; 64] = [0;64];
-  let mut remap: [u32; 64] = [0;64];
+  let mut sizes: [u32; 64] = [0; 64];
+  let mut new_clusters: [u32; 64] = [0; 64];
+  let mut symbols: [u32; 64] = [0; 64];
+  let mut remap: [u32; 64] = [0; 64];
   for item_mut in block_lengths.slice_mut()[..num_blocks].iter_mut() {
-      *item_mut = 0;
+    *item_mut = 0;
   }
   {
     let mut block_idx: usize = 0usize;
@@ -450,11 +471,12 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
           while k < block_lengths.slice()[(i.wrapping_add(j) as (usize))] as (usize) {
             {
               HistogramAddItem(&mut histograms.slice_mut()[(j as (usize))],
-                                  u64::from(data[{
-                                     let _old = pos;
-                                     pos = pos.wrapping_add(1 as (usize));
-                                     _old
-                                   }].clone()) as usize);
+                               u64::from(data[{
+                                             let _old = pos;
+                                             pos = pos.wrapping_add(1 as (usize));
+                                             _old
+                                           }]
+                                           .clone()) as usize);
             }
             k = k.wrapping_add(1 as (usize));
           }
@@ -468,14 +490,14 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
         j = j.wrapping_add(1 as (usize));
       }
       num_new_clusters = BrotliHistogramCombine(histograms.slice_mut(),
-                                                       &mut sizes[..],
-                                                       &mut symbols[..],
-                                                       &mut new_clusters[..],
-                                                       pairs.slice_mut(),
-                                                       num_to_combine,
-                                                       num_to_combine,
-                                                       64usize,
-                                                       max_num_pairs);
+                                                &mut sizes[..],
+                                                &mut symbols[..],
+                                                &mut new_clusters[..],
+                                                pairs.slice_mut(),
+                                                num_to_combine,
+                                                num_to_combine,
+                                                64usize,
+                                                max_num_pairs);
       {
         if all_histograms_capacity < all_histograms_size.wrapping_add(num_new_clusters) {
           let mut _new_size: usize = if all_histograms_capacity == 0usize {
@@ -487,7 +509,8 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
             _new_size = _new_size.wrapping_mul(2usize);
           }
           let mut new_array = mht.alloc_cell(_new_size);
-          new_array.slice_mut()[..all_histograms_capacity].clone_from_slice(&all_histograms.slice()[..all_histograms_capacity]);
+          new_array.slice_mut()[..all_histograms_capacity]
+            .clone_from_slice(&all_histograms.slice()[..all_histograms_capacity]);
           mht.free_cell(core::mem::replace(&mut all_histograms, new_array));
           all_histograms_capacity = _new_size;
         }
@@ -503,7 +526,8 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
             _new_size = _new_size.wrapping_mul(2usize);
           }
           let mut new_array = m32.alloc_cell(_new_size);
-          new_array.slice_mut()[..cluster_size_capacity].clone_from_slice(&cluster_size.slice()[..cluster_size_capacity]);
+          new_array.slice_mut()[..cluster_size_capacity]
+            .clone_from_slice(&cluster_size.slice()[..cluster_size_capacity]);
           m32.free_cell(core::mem::replace(&mut cluster_size, new_array));
           cluster_size_capacity = _new_size;
         }
@@ -544,30 +568,29 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
                                     num_clusters.wrapping_div(2usize).wrapping_mul(num_clusters));
   if pairs_capacity < max_num_pairs.wrapping_add(1usize) {
     let new_cell = mhp.alloc_cell(max_num_pairs.wrapping_add(1usize));
-    mhp.free_cell(core::mem::replace(&mut pairs,
-                                     new_cell));
+    mhp.free_cell(core::mem::replace(&mut pairs, new_cell));
   }
   clusters = m32.alloc_cell(num_clusters);
   i = 0usize;
   for item in clusters.slice_mut()[..num_clusters].iter_mut() {
-      *item = i as u32;
-      i = i.wrapping_add(1 as (usize));
+    *item = i as u32;
+    i = i.wrapping_add(1 as (usize));
   }
   num_final_clusters = BrotliHistogramCombine(all_histograms.slice_mut(),
-                                                     cluster_size.slice_mut(),
-                                                     histogram_symbols.slice_mut(),
-                                                     clusters.slice_mut(),
-                                                     pairs.slice_mut(),
-                                                     num_clusters,
-                                                     num_blocks,
-                                                     256usize,
-                                                     max_num_pairs);
+                                              cluster_size.slice_mut(),
+                                              histogram_symbols.slice_mut(),
+                                              clusters.slice_mut(),
+                                              pairs.slice_mut(),
+                                              num_clusters,
+                                              num_blocks,
+                                              256usize,
+                                              max_num_pairs);
   mhp.free_cell(core::mem::replace(&mut pairs, AllocHP::AllocatedMemory::default()));
   m32.free_cell(core::mem::replace(&mut cluster_size, AllocU32::AllocatedMemory::default()));
-  
+
   let mut new_index = m32.alloc_cell(num_clusters);
   for item in new_index.slice_mut().iter_mut() {
-     *item = kInvalidIndex;
+    *item = kInvalidIndex;
   }
   pos = 0usize;
   {
@@ -584,11 +607,13 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
         while j < block_lengths.slice()[(i as (usize))] as (usize) {
           {
             HistogramAddItem(&mut histo,
-                                u64::from(data[({
-                                   let _old = pos;
-                                   pos = pos.wrapping_add(1 as (usize));
-                                   _old
-                                 } as (usize))].clone()) as (usize));
+                             u64::from(data[({
+                                          let _old = pos;
+                                          pos = pos.wrapping_add(1 as (usize));
+                                          _old
+                                        } as
+                                        (usize))]
+                                           .clone()) as (usize));
           }
           j = j.wrapping_add(1 as (usize));
         }
@@ -598,15 +623,15 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
           histogram_symbols.slice()[(i.wrapping_sub(1usize) as (usize))]
         };
         best_bits = BrotliHistogramBitCostDistance(&mut histo,
-                                                          &mut all_histograms.slice_mut()[(best_out as
-                                                                (usize))]);
+                                                   &mut all_histograms.slice_mut()[(best_out as
+                                                         (usize))]);
         j = 0usize;
         while j < num_final_clusters {
           {
             let cur_bits: f64 =
               BrotliHistogramBitCostDistance(&mut histo,
-                                                    &mut all_histograms.slice_mut()[(clusters.slice()[(j as (usize))] as
-                                                          (usize))]);
+                                             &mut all_histograms.slice_mut()[(clusters.slice()[(j as (usize))] as
+                                                   (usize))]);
             if cur_bits < best_bits {
               best_bits = cur_bits;
               best_out = clusters.slice()[(j as (usize))];
@@ -639,8 +664,8 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
         _new_size = _new_size.wrapping_mul(2usize);
       }
       let mut new_array = m8.alloc_cell(_new_size);
-      new_array.slice_mut()[..(*split).types_alloc_size()].clone_from_slice(
-          &(*split).types.slice()[..(*split).types_alloc_size()]);
+      new_array.slice_mut()[..(*split).types_alloc_size()]
+        .clone_from_slice(&(*split).types.slice()[..(*split).types_alloc_size()]);
       m8.free_cell(core::mem::replace(&mut (*split).types, new_array));
     }
   }
@@ -655,8 +680,9 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
         _new_size = _new_size.wrapping_mul(2usize);
       }
       let mut new_array = m32.alloc_cell(_new_size);
-      new_array.slice_mut()[..(*split).lengths_alloc_size()].clone_from_slice(
-         (*split).lengths.slice());
+      new_array.slice_mut()[..(*split).lengths_alloc_size()].clone_from_slice((*split)
+                                                                                .lengths
+                                                                                .slice());
       m32.free_cell(core::mem::replace(&mut (*split).lengths, new_array));
     }
   }
@@ -671,7 +697,8 @@ fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccess
         if i.wrapping_add(1usize) == num_blocks ||
            histogram_symbols.slice()[(i as (usize))] !=
            histogram_symbols.slice()[(i.wrapping_add(1usize) as (usize))] {
-          let id: u8 = new_index.slice()[(histogram_symbols.slice()[(i as (usize))] as (usize))] as (u8);
+          let id: u8 = new_index.slice()[(histogram_symbols.slice()[(i as (usize))] as
+           (usize))] as (u8);
           (*split).types.slice_mut()[(block_idx as (usize))] = id;
           (*split).lengths.slice_mut()[(block_idx as (usize))] = cur_length;
           max_type = brotli_max_uint8_t(max_type, id);
@@ -709,7 +736,7 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
                           sampling_stride_length: usize,
                           block_switch_cost: f64,
                           params: &BrotliEncoderParams,
-                          mut split: &mut BlockSplit<AllocU8, AllocU32>) where u64: core::convert::From<IntegerType> {
+mut split: &mut BlockSplit<AllocU8, AllocU32>) where u64: core::convert::From<IntegerType>{
   let data_size: usize = HistogramType::default().slice().len();
   let mut num_histograms: usize = length.wrapping_div(literals_per_histogram).wrapping_add(1usize);
   if num_histograms > max_histograms {
@@ -731,7 +758,8 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
           _new_size = _new_size.wrapping_mul(2usize);
         }
         let mut new_array = m8.alloc_cell(_new_size);
-        new_array.slice_mut()[..(*split).types_alloc_size()].clone_from_slice(&(*split).types.slice()[..(*split).types_alloc_size()]);
+        new_array.slice_mut()[..(*split).types_alloc_size()]
+          .clone_from_slice(&(*split).types.slice()[..(*split).types_alloc_size()]);
         m8.free_cell(core::mem::replace(&mut (*split).types, new_array));
       }
     }
@@ -746,7 +774,8 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
           _new_size = _new_size.wrapping_mul(2usize);
         }
         let mut new_array = m32.alloc_cell(_new_size);
-        new_array.slice_mut()[..(*split).lengths_alloc_size()].clone_from_slice(&(*split).lengths.slice()[..(*split).lengths_alloc_size()]);
+        new_array.slice_mut()[..(*split).lengths_alloc_size()]
+          .clone_from_slice(&(*split).lengths.slice()[..(*split).lengths_alloc_size()]);
         m32.free_cell(core::mem::replace(&mut (*split).lengths, new_array));
       }
     }
@@ -759,15 +788,15 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
   let mut histograms = mht.alloc_cell(num_histograms);
 
   InitialEntropyCodes(data,
-                             length,
-                             sampling_stride_length,
-                             num_histograms,
-                             histograms.slice_mut());
+                      length,
+                      sampling_stride_length,
+                      num_histograms,
+                      histograms.slice_mut());
   RefineEntropyCodes(data,
-                            length,
-                            sampling_stride_length,
-                            num_histograms,
-                            histograms.slice_mut());
+                     length,
+                     sampling_stride_length,
+                     num_histograms,
+                     histograms.slice_mut());
   {
     let mut block_ids = m8.alloc_cell(length);
     let mut num_blocks: usize = 0usize;
@@ -786,16 +815,23 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
     while i < iters {
       {
         num_blocks = FindBlocks(data,
+                                length,
+                                block_switch_cost,
+                                num_histograms,
+                                histograms.slice_mut(),
+                                insert_cost.slice_mut(),
+                                cost.slice_mut(),
+                                switch_signal.slice_mut(),
+                                block_ids.slice_mut());
+        num_histograms = RemapBlockIds(block_ids.slice_mut(),
                                        length,
-                                       block_switch_cost,
-                                       num_histograms,
-                                       histograms.slice_mut(),
-                                       insert_cost.slice_mut(),
-                                       cost.slice_mut(),
-                                       switch_signal.slice_mut(),
-                                       block_ids.slice_mut());
-        num_histograms = RemapBlockIds(block_ids.slice_mut(), length, new_id.slice_mut(), num_histograms);
-        BuildBlockHistograms(data, length, block_ids.slice(), num_histograms, histograms.slice_mut());
+                                       new_id.slice_mut(),
+                                       num_histograms);
+        BuildBlockHistograms(data,
+                             length,
+                             block_ids.slice(),
+                             num_histograms,
+                             histograms.slice_mut());
       }
       i = i.wrapping_add(1 as (usize));
     }
@@ -804,48 +840,62 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
     m8.free_cell(switch_signal);
     m16.free_cell(new_id);
     mht.free_cell(histograms);
-    ClusterBlocks(m8, m32, mht, mhp, data, length, num_blocks, block_ids.slice_mut(), split);
+    ClusterBlocks(m8,
+                  m32,
+                  mht,
+                  mhp,
+                  data,
+                  length,
+                  num_blocks,
+                  block_ids.slice_mut(),
+                  split);
     m8.free_cell(block_ids);
   }
 }
 
-pub fn BrotliSplitBlock<AllocU8:alloc::Allocator<u8>,
-                        AllocU16:alloc::Allocator<u16>,
-                        AllocU32:alloc::Allocator<u32>,
-                        AllocF64:alloc::Allocator<f64>,
-                        AllocHL:alloc::Allocator<HistogramLiteral>,
-                        AllocHC:alloc::Allocator<HistogramCommand>,
-                        AllocHD:alloc::Allocator<HistogramDistance>,
-                        AllocHP:alloc::Allocator<HistogramPair>>(mut m8: &mut AllocU8,
-                        mut m16:&mut AllocU16,
-                        mut m32:&mut AllocU32,
-                        mut mf64:&mut AllocF64,
-                        mut mhl:&mut AllocHL,
-                        mut mhc:&mut AllocHC,
-                        mhd:&mut AllocHD,
-                        mut mhp:&mut AllocHP,
-                        cmds: &[Command],
-                        num_commands: usize,
-                        data: &[u8],
-                        pos: usize,
-                        mask: usize,
-                        params: &BrotliEncoderParams,
-                        mut literal_split: &mut BlockSplit<AllocU8, AllocU32>,
-                        mut insert_and_copy_split: &mut BlockSplit<AllocU8, AllocU32>,
-                        mut dist_split: &mut BlockSplit<AllocU8, AllocU32>) {
+pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
+                        AllocU16: alloc::Allocator<u16>,
+                        AllocU32: alloc::Allocator<u32>,
+                        AllocF64: alloc::Allocator<f64>,
+                        AllocHL: alloc::Allocator<HistogramLiteral>,
+                        AllocHC: alloc::Allocator<HistogramCommand>,
+                        AllocHD: alloc::Allocator<HistogramDistance>,
+                        AllocHP: alloc::Allocator<HistogramPair>>
+  (mut m8: &mut AllocU8,
+   mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   mut mf64: &mut AllocF64,
+   mut mhl: &mut AllocHL,
+   mut mhc: &mut AllocHC,
+   mhd: &mut AllocHD,
+   mut mhp: &mut AllocHP,
+   cmds: &[Command],
+   num_commands: usize,
+   data: &[u8],
+   pos: usize,
+   mask: usize,
+   params: &BrotliEncoderParams,
+   mut literal_split: &mut BlockSplit<AllocU8, AllocU32>,
+   mut insert_and_copy_split: &mut BlockSplit<AllocU8, AllocU32>,
+   mut dist_split: &mut BlockSplit<AllocU8, AllocU32>) {
   {
     let literals_count: usize = CountLiterals(cmds, num_commands);
     let mut literals = m8.alloc_cell(literals_count);
     CopyLiteralsToByteArray(cmds, num_commands, data, pos, mask, literals.slice_mut());
-    SplitByteVector(m8, m16, m32, mf64, mhl, mhp,
-                           literals.slice(),
-                           literals_count,
-                           kSymbolsPerLiteralHistogram,
-                           kMaxLiteralHistograms,
-                           kLiteralStrideLength,
-                           kLiteralBlockSwitchCost,
-                           params,
-                           literal_split);
+    SplitByteVector(m8,
+                    m16,
+                    m32,
+                    mf64,
+                    mhl,
+                    mhp,
+                    literals.slice(),
+                    literals_count,
+                    kSymbolsPerLiteralHistogram,
+                    kMaxLiteralHistograms,
+                    kLiteralStrideLength,
+                    kLiteralBlockSwitchCost,
+                    params,
+                    literal_split);
     m8.free_cell(literals);
   }
   {
@@ -853,15 +903,20 @@ pub fn BrotliSplitBlock<AllocU8:alloc::Allocator<u8>,
     for i in 0..core::cmp::min(num_commands, cmds.len()) {
       insert_and_copy_codes.slice_mut()[(i as (usize))] = (cmds[(i as (usize))]).cmd_prefix_;
     }
-    SplitByteVector(m8, m16, m32, mf64, mhc, mhp,
-                           insert_and_copy_codes.slice(),
-                           num_commands,
-                           kSymbolsPerCommandHistogram,
-                           kMaxCommandHistograms,
-                           kCommandStrideLength,
-                           kCommandBlockSwitchCost,
-                           params,
-                           insert_and_copy_split);
+    SplitByteVector(m8,
+                    m16,
+                    m32,
+                    mf64,
+                    mhc,
+                    mhp,
+                    insert_and_copy_codes.slice(),
+                    num_commands,
+                    kSymbolsPerCommandHistogram,
+                    kMaxCommandHistograms,
+                    kCommandStrideLength,
+                    kCommandBlockSwitchCost,
+                    params,
+                    insert_and_copy_split);
     m16.free_cell(insert_and_copy_codes);
   }
   {
@@ -882,15 +937,20 @@ pub fn BrotliSplitBlock<AllocU8:alloc::Allocator<u8>,
       }
       i = i.wrapping_add(1 as (usize));
     }
-    SplitByteVector(m8, m16, m32, mf64, mhd, mhp,
-                            distance_prefixes.slice(),
-                            j,
-                            kSymbolsPerDistanceHistogram,
-                            kMaxCommandHistograms,
-                            kCommandStrideLength,
-                            kDistanceBlockSwitchCost,
-                            params,
-                            dist_split);
+    SplitByteVector(m8,
+                    m16,
+                    m32,
+                    mf64,
+                    mhd,
+                    mhp,
+                    distance_prefixes.slice(),
+                    j,
+                    kSymbolsPerDistanceHistogram,
+                    kMaxCommandHistograms,
+                    kCommandStrideLength,
+                    kDistanceBlockSwitchCost,
+                    params,
+                    dist_split);
     m16.free_cell(distance_prefixes);
   }
 }

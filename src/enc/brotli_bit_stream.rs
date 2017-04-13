@@ -1,18 +1,18 @@
 #![allow(dead_code)]
+use super::block_split::BlockSplit;
+use super::command::Command;
 use super::constants::{BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDepth,
                        kNonZeroRepsBits, kNonZeroRepsDepth, kCodeLengthBits, kCodeLengthDepth,
-                       kStaticCommandCodeDepth,kStaticCommandCodeBits,kStaticDistanceCodeDepth,kStaticDistanceCodeBits,
-                       kSigned3BitContextLookup, kUTF8ContextLookup,
-                       kInsBase, kInsExtra, kCopyBase, kCopyExtra,
-                       };
-use super::command::Command;
+                       kStaticCommandCodeDepth, kStaticCommandCodeBits, kStaticDistanceCodeDepth,
+                       kStaticDistanceCodeBits, kSigned3BitContextLookup, kUTF8ContextLookup,
+                       kInsBase, kInsExtra, kCopyBase, kCopyExtra};
 use super::entropy_encode::{HuffmanTree, BrotliWriteHuffmanTree, BrotliCreateHuffmanTree,
                             BrotliConvertBitDepthsToSymbols, NewHuffmanTree, InitHuffmanTree,
                             SortHuffmanTreeItems, SortHuffmanTree, BrotliSetDepth};
-use super::block_split::BlockSplit;
-use super::histogram::{HistogramAddItem,HistogramLiteral,HistogramCommand,HistogramDistance, ContextType};
+use super::histogram::{HistogramAddItem, HistogramLiteral, HistogramCommand, HistogramDistance,
+                       ContextType};
 use super::super::alloc;
-use super::super::alloc::{SliceWrapper,SliceWrapperMut};
+use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::super::core;
 pub struct PrefixCodeRange {
   pub offset: u32,
@@ -179,8 +179,8 @@ fn BrotliStoreHuffmanTreeOfHuffmanTreeToBitMask(num_codes: i32,
   if num_codes > 1i32 {
     'break5: while codes_to_store > 0 {
       {
-        if code_length_bitdepth[(kStorageOrder[codes_to_store.wrapping_sub(1) as usize] as
-            (usize))] as (i32) != 0i32 {
+        if code_length_bitdepth[(kStorageOrder[codes_to_store.wrapping_sub(1) as
+            usize] as (usize))] as (i32) != 0i32 {
           {
             break 'break5;
           }
@@ -272,7 +272,7 @@ pub fn BrotliStoreHuffmanTree(depths: &[u8],
                                             0i32 as (u8),
                                             0i32 as (u8),
                                             0i32 as (u8)];
-  let mut code_length_bitdepth_symbols: [u16; 18] = [0;18];
+  let mut code_length_bitdepth_symbols: [u16; 18] = [0; 18];
   let mut huffman_tree_histogram: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                                0u32, 0u32];
@@ -417,7 +417,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
           let mut i: i32 = 0i32;
           let mut j: i32 = n + 1i32;
           let mut k: i32;
-          SortHuffmanTreeItems(tree.slice_mut(), n as (usize), SortHuffmanTree{});
+          SortHuffmanTreeItems(tree.slice_mut(), n as (usize), SortHuffmanTree {});
           sentinel = NewHuffmanTree(!(0u32), -1i16, -1i16);
           tree.slice_mut()[(node_index.wrapping_add(1u32) as (usize))] = sentinel.clone();
           tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
@@ -427,26 +427,29 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
             {
               let left: i32;
               let right: i32;
-              if (tree.slice()[(i as (usize))]).total_count_ <= (tree.slice()[(j as (usize))]).total_count_ {
+              if (tree.slice()[(i as (usize))]).total_count_ <=
+                 (tree.slice()[(j as (usize))]).total_count_ {
                 left = i;
                 i = i + 1;
               } else {
                 left = j;
                 j = j + 1;
               }
-              if (tree.slice()[(i as (usize))]).total_count_ <= (tree.slice()[(j as (usize))]).total_count_ {
+              if (tree.slice()[(i as (usize))]).total_count_ <=
+                 (tree.slice()[(j as (usize))]).total_count_ {
                 right = i;
                 i = i + 1;
               } else {
                 right = j;
                 j = j + 1;
               }
-              let sum_total =
-                (tree.slice()[(left as (usize))])
-                  .total_count_
-                  .wrapping_add((tree.slice()[(right as (usize))]).total_count_);
-              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).total_count_ = sum_total;
-              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).index_left_ = left as (i16);
+              let sum_total = (tree.slice()[(left as (usize))])
+                .total_count_
+                .wrapping_add((tree.slice()[(right as (usize))]).total_count_);
+              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).total_count_ =
+                sum_total;
+              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).index_left_ = left as
+                                                                                           (i16);
               (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).index_right_or_value_ = right as
                                                                                          (i16);
               tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
@@ -479,7 +482,8 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
         j = i.wrapping_add(1);
         while j < count {
           {
-            if depth[(symbols[j as usize] as (usize))] as (i32) < depth[(symbols[i as usize] as (usize)) as usize] as (i32) {
+            if depth[(symbols[j as usize] as (usize))] as (i32) <
+               depth[(symbols[i as usize] as (usize)) as usize] as (i32) {
               let brotli_swap_tmp: u64 = symbols[j as usize];
               symbols[j as usize] = symbols[i as usize];
               symbols[i as usize] = brotli_swap_tmp;
@@ -563,10 +567,11 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
 }
 
 pub struct MetaBlockSplit<AllocU8: alloc::Allocator<u8>,
-                        AllocU32: alloc::Allocator<u32>,
-                        AllocHL: alloc::Allocator<HistogramLiteral>,
-                        AllocHC: alloc::Allocator<HistogramCommand>,
-                        AllocHD: alloc::Allocator<HistogramDistance>>{
+                          AllocU32: alloc::Allocator<u32>,
+                          AllocHL: alloc::Allocator<HistogramLiteral>,
+                          AllocHC: alloc::Allocator<HistogramCommand>,
+                          AllocHD: alloc::Allocator<HistogramDistance>>
+{
   pub literal_split: BlockSplit<AllocU8, AllocU32>,
   pub command_split: BlockSplit<AllocU8, AllocU32>,
   pub distance_split: BlockSplit<AllocU8, AllocU32>,
@@ -596,10 +601,7 @@ pub struct BlockSplitCode {
   pub length_bits: [u16; 26],
 }
 
-pub struct BlockEncoder<'a,
-                        AllocU8: alloc::Allocator<u8>,
-                        AllocU16: alloc::Allocator<u16>>
-{
+pub struct BlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allocator<u16>> {
   /*    pub alloc_u8 : AllocU8,
     pub alloc_u16 : AllocU16,
     pub alloc_u32 : AllocU32,
@@ -638,11 +640,10 @@ fn BrotliEncodeMlen(length: u32,
                     mut numbits: &mut u32,
                     mut nibblesbits: &mut u32) {
   let lg: u32 = (if length == 1u32 {
-                       1u32
-                     } else {
-                       Log2FloorNonZero(length.wrapping_sub(1u32) as (u32) as (u64))
-                         .wrapping_add(1u32)
-                     }) as (u32);
+                   1u32
+                 } else {
+                   Log2FloorNonZero(length.wrapping_sub(1u32) as (u32) as (u64)).wrapping_add(1u32)
+                 }) as (u32);
   let mnibbles: u32 = (if lg < 16u32 {
        16u32
      } else {
@@ -684,8 +685,7 @@ fn NewBlockTypeCodeCalculator() -> BlockTypeCodeCalculator {
          };
 }
 
-fn NewBlockEncoder<'a, AllocU8: alloc::Allocator<u8>,
-                   AllocU16: alloc::Allocator<u16>>
+fn NewBlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allocator<u16>>
   (alphabet_size: usize,
    num_block_types: usize,
    block_types: &'a [u8],
@@ -723,13 +723,11 @@ fn NewBlockEncoder<'a, AllocU8: alloc::Allocator<u8>,
 
 
 
-extern "C" fn NextBlockTypeCode(mut calculator: &mut BlockTypeCodeCalculator,
-                                type_: u8)
-                                -> usize {
+extern "C" fn NextBlockTypeCode(mut calculator: &mut BlockTypeCodeCalculator, type_: u8) -> usize {
   let type_code: usize = (if type_ as (usize) ==
-                                 (*calculator).last_type.wrapping_add(1usize) {
-                                1u32
-                              } else if type_ as (usize) == (*calculator).second_last_type {
+                             (*calculator).last_type.wrapping_add(1usize) {
+                            1u32
+                          } else if type_ as (usize) == (*calculator).second_last_type {
     0u32
   } else {
     (type_ as (u32)).wrapping_add(2u32)
@@ -773,10 +771,7 @@ fn StoreSimpleHuffmanTree(depths: &[u8],
                           mut storage_ix: &mut usize,
                           mut storage: &mut [u8]) {
   BrotliWriteBits(2, 1, storage_ix, storage);
-  BrotliWriteBits(2,
-                  num_symbols.wrapping_sub(1) as u64,
-                  storage_ix,
-                  storage);
+  BrotliWriteBits(2, num_symbols.wrapping_sub(1) as u64, storage_ix, storage);
   {
     let mut i: usize;
     i = 0usize;
@@ -800,17 +795,44 @@ fn StoreSimpleHuffmanTree(depths: &[u8],
     }
   }
   if num_symbols == 2usize {
-    BrotliWriteBits(max_bits as u8, symbols[(0usize)] as u64, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, symbols[(1usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(0usize)] as u64,
+                    storage_ix,
+                    storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(1usize)] as u64,
+                    storage_ix,
+                    storage);
   } else if num_symbols == 3usize {
-    BrotliWriteBits(max_bits as u8, symbols[(0usize)] as u64, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, symbols[(1usize)] as u64, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, symbols[(2usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(0usize)] as u64,
+                    storage_ix,
+                    storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(1usize)] as u64,
+                    storage_ix,
+                    storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(2usize)] as u64,
+                    storage_ix,
+                    storage);
   } else {
-    BrotliWriteBits(max_bits as u8, symbols[(0usize)] as u64, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, symbols[(1usize)] as u64, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, symbols[(2usize)] as u64, storage_ix, storage);
-    BrotliWriteBits(max_bits as u8, symbols[(3usize)] as u64, storage_ix, storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(0usize)] as u64,
+                    storage_ix,
+                    storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(1usize)] as u64,
+                    storage_ix,
+                    storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(2usize)] as u64,
+                    storage_ix,
+                    storage);
+    BrotliWriteBits(max_bits as u8,
+                    symbols[(3usize)] as u64,
+                    storage_ix,
+                    storage);
     BrotliWriteBits(1,
                     if depths[(symbols[(0usize)] as (usize))] as (i32) == 1i32 {
                       1i32
@@ -863,7 +885,7 @@ fn BuildAndStoreHuffmanTree(histogram: &[u32],
     bits[(s4[0usize] as (usize))] = 0i32 as (u16);
     return;
   }
-  
+
   for depth_elem in depth[..length].iter_mut() {
     *depth_elem = 0; // memset
   }
@@ -906,10 +928,7 @@ fn StoreBlockSwitch(mut code: &mut BlockSplitCode,
                   (*code).length_bits[lencode] as (u64),
                   storage_ix,
                   storage);
-  BrotliWriteBits(len_nextra as (u8),
-                  len_extra as (u64),
-                  storage_ix,
-                  storage);
+  BrotliWriteBits(len_nextra as (u8), len_extra as (u64), storage_ix, storage);
 }
 
 fn BuildAndStoreBlockSplitCode(types: &[u8],
@@ -920,15 +939,14 @@ fn BuildAndStoreBlockSplitCode(types: &[u8],
                                mut code: &mut BlockSplitCode,
                                mut storage_ix: &mut usize,
                                mut storage: &mut [u8]) {
-  let mut type_histo: [u32; 258] = [0;258];
-  let mut length_histo: [u32; 26] = [0;26];
+  let mut type_histo: [u32; 258] = [0; 258];
+  let mut length_histo: [u32; 26] = [0; 26];
   let mut i: usize;
   let mut type_code_calculator = NewBlockTypeCodeCalculator();
   i = 0usize;
   while i < num_blocks {
     {
-      let type_code: usize = NextBlockTypeCode(&mut type_code_calculator,
-                                                   types[(i as (usize))]);
+      let type_code: usize = NextBlockTypeCode(&mut type_code_calculator, types[(i as (usize))]);
       if i != 0usize {
         let _rhs = 1;
         let _lhs = &mut type_histo[type_code];
@@ -967,11 +985,13 @@ fn BuildAndStoreBlockSplitCode(types: &[u8],
   }
 }
 
-fn BuildAndStoreBlockSwitchEntropyCodes<'a, AllocU8: alloc::Allocator<u8>,
-                        AllocU16: alloc::Allocator<u16>>(mut xself: &mut BlockEncoder<'a, AllocU8, AllocU16>,
-                                        mut tree: &mut [HuffmanTree],
-                                        mut storage_ix: &mut usize,
-                                        mut storage: &mut [u8]) {
+fn BuildAndStoreBlockSwitchEntropyCodes<'a,
+                                        AllocU8: alloc::Allocator<u8>,
+                                        AllocU16: alloc::Allocator<u16>>
+  (mut xself: &mut BlockEncoder<'a, AllocU8, AllocU16>,
+   mut tree: &mut [HuffmanTree],
+   mut storage_ix: &mut usize,
+   mut storage: &mut [u8]) {
   BuildAndStoreBlockSplitCode((*xself).block_types_,
                               (*xself).block_lengths_,
                               (*xself).num_blocks_,
@@ -992,9 +1012,9 @@ fn StoreTrivialContextMap(num_types: usize,
     let repeat_code: usize = context_bits.wrapping_sub(1u32 as (usize));
     let repeat_bits: usize = (1u32 << repeat_code).wrapping_sub(1u32) as (usize);
     let alphabet_size: usize = num_types.wrapping_add(repeat_code);
-    let mut histogram: [u32; 272] = [0;272];
-    let mut depths: [u8; 272] = [0;272];
-    let mut bits: [u16; 272] = [0;272];
+    let mut histogram: [u32; 272] = [0; 272];
+    let mut depths: [u8; 272] = [0; 272];
+    let mut bits: [u16; 272] = [0; 272];
     let mut i: usize;
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     BrotliWriteBits(4u8,
@@ -1069,7 +1089,7 @@ fn MoveToFront(v: &mut [u8], index: usize) {
 
 fn MoveToFrontTransform(v_in: &[u32], v_size: usize, mut v_out: &mut [u32]) {
   let mut i: usize;
-  let mut mtf: [u8; 256] = [0;256];
+  let mut mtf: [u8; 256] = [0; 256];
   let mut max_value: u32;
   if v_size == 0usize {
     return;
@@ -1185,20 +1205,22 @@ fn RunLengthCodeZeros(in_size: usize,
 }
 
 fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(mut m: &mut AllocU32,
-                    context_map: &[u32],
-                    context_map_size: usize,
-                    num_clusters: usize,
-                    mut tree: &mut [HuffmanTree],
-                    mut storage_ix: &mut usize,
-                    mut storage: &mut [u8]) {
+                                                     context_map: &[u32],
+                                                     context_map_size: usize,
+                                                     num_clusters: usize,
+                                                     mut tree: &mut [HuffmanTree],
+                                                     mut storage_ix: &mut usize,
+                                                     mut storage: &mut [u8]) {
   let mut i: usize;
   let mut rle_symbols: AllocU32::AllocatedMemory;
   let mut max_run_length_prefix: u32 = 6u32;
   let mut num_rle_symbols: usize = 0usize;
   static kSymbolMask: u32 = (1u32 << 9i32) - 1;
-  let mut depths: [u8; 272] = [0;272];
-  let mut bits: [u16; 272] = [0;272];
-  StoreVarLenUint8(num_clusters.wrapping_sub(1usize) as u64, storage_ix, storage);
+  let mut depths: [u8; 272] = [0; 272];
+  let mut bits: [u16; 272] = [0; 272];
+  StoreVarLenUint8(num_clusters.wrapping_sub(1usize) as u64,
+                   storage_ix,
+                   storage);
   if num_clusters == 1usize {
     return;
   }
@@ -1212,7 +1234,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(mut m: &mut AllocU32,
                      rle_symbols.slice_mut(),
                      &mut num_rle_symbols,
                      &mut max_run_length_prefix);
-  let mut histogram: [u32; 272] = [0;272];
+  let mut histogram: [u32; 272] = [0; 272];
   i = 0usize;
   while i < num_rle_symbols {
     {
@@ -1267,14 +1289,15 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(mut m: &mut AllocU32,
 
 fn BuildAndStoreEntropyCodes<AllocU8: alloc::Allocator<u8>,
                              AllocU16: alloc::Allocator<u16>,
-                              HistogramType:SliceWrapper<u32> >(mut m8: &mut AllocU8,
-                                   mut m16: &mut AllocU16,
-                                   mut xself: &mut BlockEncoder<AllocU8, AllocU16>,
-                                    histograms: &[HistogramType],
-                                    histograms_size: usize,
-                                    mut tree: &mut [HuffmanTree],
-                                    mut storage_ix: &mut usize,
-                                    mut storage: &mut [u8]) {
+                             HistogramType: SliceWrapper<u32>>
+  (mut m8: &mut AllocU8,
+   mut m16: &mut AllocU16,
+   mut xself: &mut BlockEncoder<AllocU8, AllocU16>,
+   histograms: &[HistogramType],
+   histograms_size: usize,
+   mut tree: &mut [HuffmanTree],
+   mut storage_ix: &mut usize,
+   mut storage: &mut [u8]) {
   let alphabet_size: usize = (*xself).alphabet_size_;
   let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
   (*xself).depths_ = if table_size != 0 {
@@ -1311,7 +1334,7 @@ fn StoreSymbol<AllocU8: alloc::Allocator<u8>,
                              (mut xself: &mut BlockEncoder<AllocU8, AllocU16>,
                symbol: usize,
                mut storage_ix: &mut usize,
-               mut storage: &mut [u8]) {
+mut storage: &mut [u8]){
   if (*xself).block_len_ == 0usize {
     let block_ix: usize = {
       (*xself).block_ix_ = (*xself).block_ix_.wrapping_add(1 as (usize));
@@ -1406,22 +1429,22 @@ fn StoreCommandExtra(cmd: &Command, mut storage_ix: &mut usize, mut storage: &mu
 
 fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
   match mode {
-  ContextType::CONTEXT_LSB6 => {
-    return (p1 as (i32) & 0x3fi32) as (u8);
+    ContextType::CONTEXT_LSB6 => {
+      return (p1 as (i32) & 0x3fi32) as (u8);
+    }
+    ContextType::CONTEXT_MSB6 => {
+      return (p1 as (i32) >> 2i32) as (u8);
+    }
+    ContextType::CONTEXT_UTF8 => {
+      return (kUTF8ContextLookup[p1 as (usize)] as (i32) |
+              kUTF8ContextLookup[(p2 as (i32) + 256i32) as (usize)] as (i32)) as (u8);
+    }
+    ContextType::CONTEXT_SIGNED => {
+      return ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32) +
+              kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8);
+    }
   }
-  ContextType::CONTEXT_MSB6 => {
-    return (p1 as (i32) >> 2i32) as (u8);
-  }
-  ContextType::CONTEXT_UTF8 => {
-    return (kUTF8ContextLookup[p1 as (usize)] as (i32) |
-            kUTF8ContextLookup[(p2 as (i32) + 256i32) as (usize)] as (i32)) as (u8);
-  }
-  ContextType::CONTEXT_SIGNED => {
-    return ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32) +
-            kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8);
-  }
-  }
-//  0i32 as (u8)
+  //  0i32 as (u8)
 }
 
 fn StoreSymbolWithContext<AllocU8: alloc::Allocator<u8>,
@@ -1431,7 +1454,7 @@ fn StoreSymbolWithContext<AllocU8: alloc::Allocator<u8>,
                           context_map: &[u32],
                           mut storage_ix: &mut usize,
                           mut storage: &mut [u8],
-                          context_bits: usize) {
+context_bits: usize){
   if (*xself).block_len_ == 0usize {
     let block_ix: usize = {
       (*xself).block_ix_ = (*xself).block_ix_.wrapping_add(1 as (usize));
@@ -1450,8 +1473,8 @@ fn StoreSymbolWithContext<AllocU8: alloc::Allocator<u8>,
   }
   (*xself).block_len_ = (*xself).block_len_.wrapping_sub(1 as (usize));
   {
-    let histo_ix: usize = context_map[((*xself).entropy_ix_.wrapping_add(context) as
-     (usize))] as (usize);
+    let histo_ix: usize = context_map[((*xself).entropy_ix_.wrapping_add(context) as (usize))] as
+                          (usize);
     let ix: usize = histo_ix.wrapping_mul((*xself).alphabet_size_).wrapping_add(symbol);
     BrotliWriteBits((*xself).depths_.slice()[(ix as (usize))] as (u8),
                     (*xself).bits_.slice()[(ix as (usize))] as (u64),
@@ -1475,9 +1498,9 @@ fn CommandDistanceContext(xself: &Command) -> u32 {
 
 fn CleanupBlockEncoder<AllocU8: alloc::Allocator<u8>,
                         AllocU16: alloc::Allocator<u16>>(m8: &mut AllocU8,
-                                  m16 : &mut AllocU16, mut xself: &mut BlockEncoder<AllocU8, AllocU16>) {
-    m8.free_cell(core::mem::replace(&mut (*xself).depths_, AllocU8::AllocatedMemory::default()));
-    m16.free_cell(core::mem::replace(&mut (*xself).bits_, AllocU16::AllocatedMemory::default()));
+m16 : &mut AllocU16, mut xself: &mut BlockEncoder<AllocU8, AllocU16>){
+  m8.free_cell(core::mem::replace(&mut (*xself).depths_, AllocU8::AllocatedMemory::default()));
+  m16.free_cell(core::mem::replace(&mut (*xself).bits_, AllocU16::AllocatedMemory::default()));
 }
 
 fn JumpToByteBoundary(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
@@ -1487,30 +1510,31 @@ fn JumpToByteBoundary(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
 
 
 pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
-                        AllocU16: alloc::Allocator<u16>,
-                        AllocU32: alloc::Allocator<u32>,
-                        AllocHT: alloc::Allocator<HuffmanTree>,
-                        AllocHL: alloc::Allocator<HistogramLiteral>,
-                        AllocHC: alloc::Allocator<HistogramCommand>,
-                        AllocHD: alloc::Allocator<HistogramDistance> >(mut m8 : &mut AllocU8,
-                        mut m16 : &mut AllocU16,
-                        mut m32 : &mut AllocU32,
-                            mut mht: &mut AllocHT,
-                            input: &[u8],
-                            start_pos: usize,
-                            length: usize,
-                            mask: usize,
-                            mut prev_byte: u8,
-                            mut prev_byte2: u8,
-                            is_last: i32,
-                            num_direct_distance_codes: u32,
-                            distance_postfix_bits: u32,
-                            literal_context_mode: ContextType,
-                            commands: &[Command],
-                            n_commands: usize,
-                            mb: &mut MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>,
-                            mut storage_ix: &mut usize,
-                            mut storage: &mut [u8]) {
+                            AllocU16: alloc::Allocator<u16>,
+                            AllocU32: alloc::Allocator<u32>,
+                            AllocHT: alloc::Allocator<HuffmanTree>,
+                            AllocHL: alloc::Allocator<HistogramLiteral>,
+                            AllocHC: alloc::Allocator<HistogramCommand>,
+                            AllocHD: alloc::Allocator<HistogramDistance>>
+  (mut m8: &mut AllocU8,
+   mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   mut mht: &mut AllocHT,
+   input: &[u8],
+   start_pos: usize,
+   length: usize,
+   mask: usize,
+   mut prev_byte: u8,
+   mut prev_byte2: u8,
+   is_last: i32,
+   num_direct_distance_codes: u32,
+   distance_postfix_bits: u32,
+   literal_context_mode: ContextType,
+   commands: &[Command],
+   n_commands: usize,
+   mb: &mut MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>,
+   mut storage_ix: &mut usize,
+   mut storage: &mut [u8]) {
   let mut pos: usize = start_pos;
   let mut i: usize;
   let num_distance_codes: usize = (16u32)
@@ -1526,31 +1550,25 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
   } else {
     AllocHT::AllocatedMemory::default()
   };
-  literal_enc = NewBlockEncoder::<AllocU8, AllocU16>(
-                   256usize,
-                   (*mb).literal_split.num_types,
-                   (*mb).literal_split.types.slice(),
-                   (*mb).literal_split.lengths.slice(),
-                   (*mb).literal_split.num_blocks);
-  command_enc = NewBlockEncoder::<AllocU8, AllocU16>(
-                   704usize,
-                   (*mb).command_split.num_types,
-                                      (*mb).command_split.types.slice(),
-                                                         (*mb).command_split.lengths.slice(),
-                   (*mb).command_split.num_blocks);
-  distance_enc = NewBlockEncoder::<AllocU8, AllocU16>(
-                   num_distance_codes,
-                   (*mb).distance_split.num_types,
-                   (*mb).distance_split.types.slice(),
-                   (*mb).distance_split.lengths.slice(),
-                   (*mb).distance_split.num_blocks);
+  literal_enc = NewBlockEncoder::<AllocU8, AllocU16>(256usize,
+                                                     (*mb).literal_split.num_types,
+                                                     (*mb).literal_split.types.slice(),
+                                                     (*mb).literal_split.lengths.slice(),
+                                                     (*mb).literal_split.num_blocks);
+  command_enc = NewBlockEncoder::<AllocU8, AllocU16>(704usize,
+                                                     (*mb).command_split.num_types,
+                                                     (*mb).command_split.types.slice(),
+                                                     (*mb).command_split.lengths.slice(),
+                                                     (*mb).command_split.num_blocks);
+  distance_enc = NewBlockEncoder::<AllocU8, AllocU16>(num_distance_codes,
+                                                      (*mb).distance_split.num_types,
+                                                      (*mb).distance_split.types.slice(),
+                                                      (*mb).distance_split.lengths.slice(),
+                                                      (*mb).distance_split.num_blocks);
   BuildAndStoreBlockSwitchEntropyCodes(&mut literal_enc, tree.slice_mut(), storage_ix, storage);
   BuildAndStoreBlockSwitchEntropyCodes(&mut command_enc, tree.slice_mut(), storage_ix, storage);
   BuildAndStoreBlockSwitchEntropyCodes(&mut distance_enc, tree.slice_mut(), storage_ix, storage);
-  BrotliWriteBits(2,
-                  distance_postfix_bits as (u64),
-                  storage_ix,
-                  storage);
+  BrotliWriteBits(2, distance_postfix_bits as (u64), storage_ix, storage);
   BrotliWriteBits(4,
                   (num_direct_distance_codes >> distance_postfix_bits) as (u64),
                   storage_ix,
@@ -1592,27 +1610,30 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
                      storage_ix,
                      storage);
   }
-  BuildAndStoreEntropyCodes(m8, m16,
-                                   &mut literal_enc,
-                                   (*mb).literal_histograms.slice(),
-                                   (*mb).literal_histograms_size,
-                                   tree.slice_mut(),
-                                   storage_ix,
-                                   storage);
-  BuildAndStoreEntropyCodes(m8, m16,
-                                   &mut command_enc,
-                                   (*mb).command_histograms.slice(),
-                                   (*mb).command_histograms_size,
-                                   tree.slice_mut(),
-                                   storage_ix,
-                                   storage);
-  BuildAndStoreEntropyCodes(m8, m16,
-                                    &mut distance_enc,
-                                    (*mb).distance_histograms.slice(),
-                                    (*mb).distance_histograms_size,
-                                    tree.slice_mut(),
-                                    storage_ix,
-                                    storage);
+  BuildAndStoreEntropyCodes(m8,
+                            m16,
+                            &mut literal_enc,
+                            (*mb).literal_histograms.slice(),
+                            (*mb).literal_histograms_size,
+                            tree.slice_mut(),
+                            storage_ix,
+                            storage);
+  BuildAndStoreEntropyCodes(m8,
+                            m16,
+                            &mut command_enc,
+                            (*mb).command_histograms.slice(),
+                            (*mb).command_histograms_size,
+                            tree.slice_mut(),
+                            storage_ix,
+                            storage);
+  BuildAndStoreEntropyCodes(m8,
+                            m16,
+                            &mut distance_enc,
+                            (*mb).distance_histograms.slice(),
+                            (*mb).distance_histograms_size,
+                            tree.slice_mut(),
+                            storage_ix,
+                            storage);
   {
     mht.free_cell(core::mem::replace(&mut tree, AllocHT::AllocatedMemory::default()));
   }
@@ -1641,8 +1662,7 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
         j = cmd.insert_len_ as (usize);
         while j != 0usize {
           {
-            let context: usize = Context(prev_byte, prev_byte2, literal_context_mode) as
-                                     (usize);
+            let context: usize = Context(prev_byte, prev_byte2, literal_context_mode) as (usize);
             let literal: u8 = input[((pos & mask) as (usize))];
             StoreSymbolWithContext(&mut literal_enc,
                                    literal as (usize),
@@ -1793,14 +1813,18 @@ pub fn BrotliStoreMetaBlockTrivial(input: &[u8],
   let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
   let mut cmd_histo: HistogramCommand = HistogramCommand::default();
   let mut dist_histo: HistogramDistance = HistogramDistance::default();
-  let mut lit_depth: [u8; 256] = [0;256]; // FIXME these zero-initializations are costly
-  let mut lit_bits: [u16; 256] = [0;256];
+  let mut lit_depth: [u8; 256] = [0; 256]; // FIXME these zero-initializations are costly
+  let mut lit_bits: [u16; 256] = [0; 256];
   let mut cmd_depth: [u8; 704] = [0; 704];
-  let mut cmd_bits: [u16; 704] = [0;704];
-  let mut dist_depth: [u8; 64] = [0;64];
-  let mut dist_bits: [u16; 64] = [0;64];
-  const MAX_HUFFMAN_TREE_SIZE :usize = (2i32 * 704i32 + 1i32) as usize;
-  let mut tree :[HuffmanTree; MAX_HUFFMAN_TREE_SIZE] = [HuffmanTree{total_count_:0,index_left_:0,index_right_or_value_:0}; MAX_HUFFMAN_TREE_SIZE];
+  let mut cmd_bits: [u16; 704] = [0; 704];
+  let mut dist_depth: [u8; 64] = [0; 64];
+  let mut dist_bits: [u16; 64] = [0; 64];
+  const MAX_HUFFMAN_TREE_SIZE: usize = (2i32 * 704i32 + 1i32) as usize;
+  let mut tree: [HuffmanTree; MAX_HUFFMAN_TREE_SIZE] = [HuffmanTree {
+    total_count_: 0,
+    index_left_: 0,
+    index_right_or_value_: 0,
+  }; MAX_HUFFMAN_TREE_SIZE];
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BuildHistograms(input,
                   start_pos,
@@ -1873,16 +1897,16 @@ pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : 
                                 commands: &[Command],
                                 n_commands: usize,
                                 mut storage_ix: &mut usize,
-                                mut storage: &mut [u8]) {
+mut storage: &mut [u8]){
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BrotliWriteBits(13, 0, storage_ix, storage);
   if n_commands <= 128usize {
-    let mut histogram: [u32; 256] = [0;256];
+    let mut histogram: [u32; 256] = [0; 256];
     let mut pos: usize = start_pos;
     let mut num_literals: usize = 0usize;
     let mut i: usize;
-    let mut lit_depth: [u8; 256]=[0;256];
-    let mut lit_bits: [u16; 256]=[0;256];
+    let mut lit_depth: [u8; 256] = [0; 256];
+    let mut lit_bits: [u16; 256] = [0; 256];
     i = 0usize;
     while i < n_commands {
       {
@@ -1932,12 +1956,12 @@ pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : 
     let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
     let mut cmd_histo: HistogramCommand = HistogramCommand::default();
     let mut dist_histo: HistogramDistance = HistogramDistance::default();
-    let mut lit_depth: [u8; 256] = [0;256];
-    let mut lit_bits: [u16; 256] = [0;256];
-    let mut cmd_depth: [u8; 704] = [0;704];
-    let mut cmd_bits: [u16; 704] = [0;704];
-    let mut dist_depth: [u8; 64] = [0;64];
-    let mut dist_bits: [u16; 64] = [0;64];
+    let mut lit_depth: [u8; 256] = [0; 256];
+    let mut lit_bits: [u16; 256] = [0; 256];
+    let mut cmd_depth: [u8; 704] = [0; 704];
+    let mut cmd_bits: [u16; 704] = [0; 704];
+    let mut dist_depth: [u8; 64] = [0; 64];
+    let mut dist_bits: [u16; 64] = [0; 64];
     BuildHistograms(input,
                     start_pos,
                     mask,
