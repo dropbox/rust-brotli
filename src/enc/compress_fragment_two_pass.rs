@@ -2,8 +2,8 @@ use core;
 use super::bit_cost::BitsEntropy;
 use super::backward_references::kHashMul32;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
-use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree};
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32,BROTLI_UNALIGNED_LOAD64,
+use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree, NewHuffmanTree};
+use super::static_dict::{BROTLI_UNALIGNED_LOAD32,BROTLI_UNALIGNED_LOAD64,BROTLI_UNALIGNED_STORE64,
                          FindMatchLengthWithLimit};
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
@@ -366,10 +366,9 @@ fn CreateCommands(input_index: usize,
     *num_literals += insert as usize;
   }
 }
-/*
 
-fn ShouldCompress(mut input: &[u8], mut input_size: usize, mut num_literals: usize) -> i32 {
-  let mut corpus_size: f64 = input_size as (f64);
+fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
+  let corpus_size: f64 = input_size as (f64);
   if num_literals as (f64) < 0.98f64 * corpus_size {
     1i32
   } else {
@@ -385,7 +384,7 @@ fn ShouldCompress(mut input: &[u8], mut input_size: usize, mut num_literals: usi
       }
       i = i.wrapping_add(43usize);
     }
-    if !!(BitsEntropy(literal_histo.as_mut_ptr(), 256usize) < max_total_bit_cost) {
+    if !!(BitsEntropy(&mut literal_histo[..], 256usize) < max_total_bit_cost) {
       1i32
     } else {
       0i32
@@ -393,113 +392,108 @@ fn ShouldCompress(mut input: &[u8], mut input_size: usize, mut num_literals: usi
   }
 }
 
-fn BROTLI_UNALIGNED_STORE64(mut p: &mut [::std::os::raw::c_void], mut v: usize) {
-  memcpy(p, &mut v, ::std::mem::size_of::<usize>());
-}
-
-fn BrotliWriteBits(mut n_bits: usize,
-                   mut bits: usize,
-                   mut pos: &mut [usize],
+fn BrotliWriteBits(n_bits: usize,
+                   bits: u64,
+                   mut pos: &mut usize,
                    mut array: &mut [u8]) {
-  let mut p: *mut u8 = &mut array[((*pos >> 3i32) as (usize))];
-  let mut v: usize = *p as (usize);
-  0i32;
-  0i32;
-  v = v | bits << (*pos & 7usize);
+  let mut p = &mut array[((*pos >> 3i32) as (usize))..];
+  let mut v: u64 = p[0] as (u64);
+  v = v | bits << (*pos & 7);
   BROTLI_UNALIGNED_STORE64(p, v);
   *pos = (*pos).wrapping_add(n_bits);
 }
-
-fn BrotliStoreMetaBlockHeader(mut len: usize,
-                              mut is_uncompressed: i32,
-                              mut storage_ix: &mut [usize],
+fn BrotliStoreMetaBlockHeader(len: usize,
+                              is_uncompressed: i32,
+                              mut storage_ix: &mut usize,
                               mut storage: &mut [u8]) {
-  let mut nibbles: usize = 6usize;
-  BrotliWriteBits(1usize, 0usize, storage_ix, storage);
+  let mut nibbles: u64 = 6;
+  BrotliWriteBits(1, 0, storage_ix, storage);
   if len <= (1u32 << 16i32) as (usize) {
-    nibbles = 4usize;
+    nibbles = 4;
   } else if len <= (1u32 << 20i32) as (usize) {
-    nibbles = 5usize;
+    nibbles = 5;
   }
-  BrotliWriteBits(2usize, nibbles.wrapping_sub(4usize), storage_ix, storage);
-  BrotliWriteBits(nibbles.wrapping_mul(4usize),
-                  len.wrapping_sub(1usize),
+  BrotliWriteBits(2, nibbles.wrapping_sub(4), storage_ix, storage);
+  BrotliWriteBits(nibbles.wrapping_mul(4) as usize,
+                  len.wrapping_sub(1) as u64,
                   storage_ix,
                   storage);
-  BrotliWriteBits(1usize, is_uncompressed as (usize), storage_ix, storage);
+  BrotliWriteBits(1usize, is_uncompressed as (u64), storage_ix, storage);
 }
 
 
-
-pub struct HuffmanTree {
-  pub total_count_: u32,
-  pub index_left_: i16,
-  pub index_right_or_value_: i16,
+fn memcpy<T:Sized+Clone>(mut dst:&mut[T], dst_offset:usize,
+                   src:&[T], src_offset:usize,
+                   size_to_copy: usize) {
+    dst[dst_offset..(dst_offset + size_to_copy)].clone_from_slice(
+                              &src[src_offset..(src_offset + size_to_copy)]);
 }
-
-fn BuildAndStoreCommandPrefixCode(mut histogram: &[u32],
+fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                                   mut depth: &mut [u8],
                                   mut bits: &mut [u16],
-                                  mut storage_ix: &mut [usize],
+                                  mut storage_ix: &mut usize,
                                   mut storage: &mut [u8]) {
-  let mut tree: [HuffmanTree; 129];
+  let mut tree: [HuffmanTree; 129] = [NewHuffmanTree(0,0,0); 129];
   let mut cmd_depth: [u8; 704] = [0; 704];
-  let mut cmd_bits: [u16; 64];
-  BrotliCreateHuffmanTree(histogram, 64usize, 15i32, tree.as_mut_ptr(), depth);
-  BrotliCreateHuffmanTree(&histogram[(64usize)],
+  let mut cmd_bits: [u16; 64] = [0;64];
+  BrotliCreateHuffmanTree(histogram, 64usize, 15i32, &mut tree[..], depth);
+  BrotliCreateHuffmanTree(&histogram[(64usize)..],
                           64usize,
                           14i32,
-                          tree.as_mut_ptr(),
-                          &mut depth[(64usize)]);
-  memcpy(cmd_depth.as_mut_ptr(), depth[(24usize)..], 24usize);
-  memcpy(cmd_depth.as_mut_ptr().offset(24i32 as (isize)),
-         depth,
+                          &mut tree[..],
+                          &mut depth[(64usize)..]);
+  memcpy(&mut cmd_depth[..], 0, depth, 24, 24);
+  memcpy(&mut cmd_depth[..], 24,
+         depth, 0,
+         8);
+  memcpy(&mut cmd_depth[..], 32i32 as (usize),
+         depth, (48usize),
          8usize);
-  memcpy(cmd_depth.as_mut_ptr().offset(32i32 as (isize)),
-         depth[(48usize)..],
+  memcpy(&mut cmd_depth[..], 40i32 as (usize),
+         depth, (8usize),
          8usize);
-  memcpy(cmd_depth.as_mut_ptr().offset(40i32 as (isize)),
-         depth[(8usize)..],
+  memcpy(&mut cmd_depth[..], 48i32 as (usize),
+         depth, (56usize),
          8usize);
-  memcpy(cmd_depth.as_mut_ptr().offset(48i32 as (isize)),
-         depth[(56usize)..],
+  memcpy(&mut cmd_depth[..], 56i32 as (usize),
+         depth, (16usize),
          8usize);
-  memcpy(cmd_depth.as_mut_ptr().offset(56i32 as (isize)),
-         depth[(16usize)..],
-         8usize);
-  BrotliConvertBitDepthsToSymbols(cmd_depth.as_mut_ptr(), 64usize, cmd_bits.as_mut_ptr());
-  memcpy(bits,
-         cmd_bits.as_mut_ptr().offset(24i32 as (isize)),
+  BrotliConvertBitDepthsToSymbols(&mut cmd_depth[..], 64usize, &mut cmd_bits[..]);
+  memcpy(&mut bits, 0,
+         &cmd_bits[..], 24i32 as (usize),
          16usize);
-  memcpy(bits[(8usize)..],
-         cmd_bits.as_mut_ptr().offset(40i32 as (isize)),
+  memcpy(&mut bits, (8usize),
+         &cmd_bits[..], 40i32 as (usize),
          16usize);
-  memcpy(bits[(16usize)..],
-         cmd_bits.as_mut_ptr().offset(56i32 as (isize)),
+  memcpy(&mut bits, (16usize),
+         &cmd_bits[..], 56i32 as (usize),
          16usize);
-  memcpy(bits[(24usize)..], cmd_bits.as_mut_ptr(), 48usize);
-  memcpy(bits[(48usize)..],
-         cmd_bits.as_mut_ptr().offset(32i32 as (isize)),
+  memcpy(&mut bits,(24usize), &cmd_bits[..], 0, 48usize);
+  memcpy(&mut bits,(48usize),
+         &cmd_bits[..], 32i32 as (usize),
          16usize);
-  memcpy(bits[(56usize)..],
-         cmd_bits.as_mut_ptr().offset(48i32 as (isize)),
+  memcpy(&mut bits,(56usize),
+         &cmd_bits[..], 48i32 as (usize),
          16usize);
-  BrotliConvertBitDepthsToSymbols(&mut depth[(64usize)], 64usize, &mut bits[(64usize)]);
+  BrotliConvertBitDepthsToSymbols(&mut depth[(64usize)..], 64usize, &mut bits[(64usize)..]);
   {
     let mut i: usize;
-    memset(cmd_depth.as_mut_ptr(), 0i32, 64usize);
-    memcpy(cmd_depth.as_mut_ptr(), depth[(24usize)..], 8usize);
-    memcpy(cmd_depth.as_mut_ptr().offset(64i32 as (isize)),
-           depth[(32usize)..],
+    for item in cmd_depth[..64].iter_mut() {
+        *item = 0;
+    }
+    //memset(&mut cmd_depth[..], 0i32, 64usize);
+    memcpy(&mut cmd_depth[..], 0, depth, (24usize), 8usize);
+    memcpy(&mut cmd_depth[..], 64i32 as (usize),
+           depth, (32usize),
            8usize);
-    memcpy(cmd_depth.as_mut_ptr().offset(128i32 as (isize)),
-           depth[(40usize)..],
+    memcpy(&mut cmd_depth[..], 128i32 as (usize),
+           depth, (40usize),
            8usize);
-    memcpy(cmd_depth.as_mut_ptr().offset(192i32 as (isize)),
-           depth[(48usize)..],
+    memcpy(&mut cmd_depth[..], 192i32 as (usize),
+           depth, (48usize),
            8usize);
-    memcpy(cmd_depth.as_mut_ptr().offset(384i32 as (isize)),
-           depth[(56usize)..],
+    memcpy(&mut cmd_depth[..], 384i32 as (usize),
+           depth, (56usize),
            8usize);
     i = 0usize;
     while i < 8usize {
@@ -512,19 +506,19 @@ fn BuildAndStoreCommandPrefixCode(mut histogram: &[u32],
       }
       i = i.wrapping_add(1 as (usize));
     }
-    BrotliStoreHuffmanTree(cmd_depth.as_mut_ptr(),
+    BrotliStoreHuffmanTree(&mut cmd_depth[..],
                            704usize,
-                           tree.as_mut_ptr(),
+                           &mut tree[..],
                            storage_ix,
                            storage);
   }
-  BrotliStoreHuffmanTree(&mut depth[(64usize)],
+  BrotliStoreHuffmanTree(&mut depth[(64usize)..],
                          64usize,
-                         tree.as_mut_ptr(),
+                         &mut tree[..],
                          storage_ix,
                          storage);
 }
-
+/*
 fn StoreCommands(mut m: &mut [MemoryManager],
                  mut literals: &[u8],
                  num_literals: usize,
@@ -569,9 +563,6 @@ fn StoreCommands(mut m: &mut [MemoryManager],
                                      lit_bits.as_mut_ptr(),
                                      storage_ix,
                                      storage);
-  if !(0i32 == 0) {
-    return;
-  }
   i = 0usize;
   while i < num_commands {
     {
@@ -652,8 +643,8 @@ fn EmitUncompressedMetaBlock(mut input: &[u8],
                              mut storage: &mut [u8]) {
   BrotliStoreMetaBlockHeader(input_size, 1i32, storage_ix, storage);
   *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
-  memcpy(&mut storage[((*storage_ix >> 3i32) as (usize))],
-         input,
+  memcpy(storage, ((*storage_ix >> 3i32) as (usize)),
+         input, 0,
          input_size);
   *storage_ix = (*storage_ix).wrapping_add(input_size << 3i32);
   storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);

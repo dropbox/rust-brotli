@@ -35,6 +35,16 @@ pub fn BROTLI_UNALIGNED_LOAD64(p: &[u8]) -> u64 {
          ((p[3] as u64) << 24) | ((p[4] as u64) << 32) | ((p[5] as u64) << 40) |
          ((p[6] as u64) << 48) | ((p[7] as u64) << 56);
 }
+pub fn BROTLI_UNALIGNED_STORE64(p: &mut[u8], v: u64) {
+  p[0] = (v & 0xff) as u8;
+  p[1] = ((v >> 8) & 0xff) as u8;
+  p[2] = ((v >> 16) & 0xff) as u8;
+  p[3] = ((v >> 24) & 0xff) as u8;
+  p[4] = ((v >> 32) & 0xff) as u8;
+  p[5] = ((v >> 40) & 0xff) as u8;
+  p[6] = ((v >> 48) & 0xff) as u8;
+  p[7] = ((v >> 56) & 0xff) as u8;
+}
 
 fn unopt_ctzll(mut val: u64) -> u8 {
   let mut cnt: u8 = 0i32 as (u8);
