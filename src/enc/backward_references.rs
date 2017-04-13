@@ -16,11 +16,11 @@ static kCutoffTransformsCount: u32 = 10u32;
 
 static kCutoffTransforms: u64 = 0x71b520au64 << 32i32 | 0xda2d3200u32 as (u64);
 
-static kHashMul32: u32 = 0x1e35a7bdu32;
+pub static kHashMul32: u32 = 0x1e35a7bdu32;
 
-static kHashMul64: u64 = 0x1e35a7bdu64 << 32i32 | 0x1e35a7bdu64;
+pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32i32 | 0x1e35a7bdu64;
 
-static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32 as (u64);
+pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32 as (u64);
 
 
 

@@ -25,7 +25,7 @@ pub fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
 }
 
-fn Hash(data: &[u8]) -> u32 {
+pub fn Hash(data: &[u8]) -> u32 {
   let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kDictHashMul32);
   h >> 32i32 - kDictNumBits
 }
@@ -83,7 +83,7 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
   matched
 }
 
-fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_length: usize) -> i32 {
+pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_length: usize) -> i32 {
   if w.len as (usize) > max_length {
     0i32
   } else {

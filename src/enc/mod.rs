@@ -16,3 +16,4 @@ pub mod histogram;
 pub mod backward_references;
 pub mod block_splitter;
 pub mod metablock;
+pub mod compress_fragment_two_pass;
