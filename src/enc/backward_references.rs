@@ -815,6 +815,15 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
   is_match_found
 }
 
+pub enum UnionHasher<AllocU16: alloc::Allocator<u16>,
+                 AllocU32: alloc::Allocator<u32>> {
+    H2(BasicHasher<H2Sub>),
+    H3(BasicHasher<H3Sub>),
+    H4(BasicHasher<H4Sub>),
+    H54(BasicHasher<H54Sub>),
+    H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
+    H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
+}
 
 
 fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
@@ -982,4 +991,100 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
   insert_length = insert_length.wrapping_add(pos_end.wrapping_sub(position));
   *last_insert_len = insert_length;
   *num_commands = (*num_commands).wrapping_add(new_commands_count);
+}
+macro_rules! call_brotli_create_backward_references {
+    () => {
+        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+                                 ringbuffer, ringbuffer_mask,
+                                 params,
+                                 hasher,
+                                 dist_cache,
+                                 last_insert_len,
+                                 commands,
+                                 num_commands,
+                                 num_literals);
+    };
+}
+pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
+                                      AllocU32: alloc::Allocator<u32>>(dictionary: &BrotliDictionary,
+                                           dictionary_hash: &[u16],
+                                           num_bytes: usize,
+                                           position: usize,
+                                           ringbuffer: &[u8],
+                                           ringbuffer_mask: usize,
+                                           params: &BrotliEncoderParams,
+                                           mut hasher_union: &mut UnionHasher<AllocU16, AllocU32>,
+                                           mut dist_cache: &mut [i32],
+                                           mut last_insert_len: &mut usize,
+                                           mut commands: &mut [Command],
+                                           mut num_commands: &mut usize,
+                                                                       mut num_literals: &mut usize) {
+    match(hasher_union) {
+        &mut UnionHasher::H2(ref mut hasher) =>
+        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+                                 ringbuffer, ringbuffer_mask,
+                                 params,
+                                 hasher,
+                                 dist_cache,
+                                 last_insert_len,
+                                 commands,
+                                 num_commands,
+                                 num_literals),
+//     call_brotli_create_backward_references!(),
+        &mut UnionHasher::H3(ref mut hasher) =>
+        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+                                 ringbuffer, ringbuffer_mask,
+                                 params,
+                                 hasher,
+                                 dist_cache,
+                                 last_insert_len,
+                                 commands,
+                                 num_commands,
+                                 num_literals),
+//            call_brotli_create_backward_references!(),
+        &mut UnionHasher::H4(ref mut hasher) =>
+        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+                                 ringbuffer, ringbuffer_mask,
+                                 params,
+                                 hasher,
+                                 dist_cache,
+                                 last_insert_len,
+                                 commands,
+                                 num_commands,
+                                 num_literals),
+//            call_brotli_create_backward_references!(),
+        &mut UnionHasher::H5(ref mut hasher) =>
+        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+                                 ringbuffer, ringbuffer_mask,
+                                 params,
+                                 hasher,
+                                 dist_cache,
+                                 last_insert_len,
+                                 commands,
+                                 num_commands,
+                                 num_literals),
+//            call_brotli_create_backward_references!(),
+        &mut UnionHasher::H6(ref mut hasher) =>
+        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+                                 ringbuffer, ringbuffer_mask,
+                                 params,
+                                 hasher,
+                                 dist_cache,
+                                 last_insert_len,
+                                 commands,
+                                 num_commands,
+                                 num_literals),
+//            call_brotli_create_backward_references!(),
+        &mut UnionHasher::H54(ref mut hasher) =>
+        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+                                 ringbuffer, ringbuffer_mask,
+                                 params,
+                                 hasher,
+                                 dist_cache,
+                                 last_insert_len,
+                                 commands,
+                                 num_commands,
+                                 num_literals),
+//            call_brotli_create_backward_references!(),
+    }
 }

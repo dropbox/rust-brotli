@@ -729,7 +729,7 @@ fn MapStaticContexts<AllocU8: alloc::Allocator<u8>,
     i = i.wrapping_add(1 as (usize));
   }
 }
-fn BrotliBuildMetaBlockGreedyInternal<AllocU8: alloc::Allocator<u8>,
+pub fn BrotliBuildMetaBlockGreedyInternal<AllocU8: alloc::Allocator<u8>,
                                       AllocU32: alloc::Allocator<u32>,
                                       AllocHL: alloc::Allocator<HistogramLiteral>,
                                       AllocHC: alloc::Allocator<HistogramCommand>,
