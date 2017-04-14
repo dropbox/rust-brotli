@@ -728,7 +728,7 @@ fn BackwardReferenceScore(copy_length: usize, backward_reference_offset: usize) 
   ((30i32 * 8i32) as (usize))
     .wrapping_mul(::core::mem::size_of::<usize>())
     .wrapping_add((135usize).wrapping_mul(copy_length))
-    .wrapping_sub((30u32).wrapping_mul(Log2FloorNonZero(backward_reference_offset)) as (usize))
+    .wrapping_sub((30u32).wrapping_mul(Log2FloorNonZero(backward_reference_offset as u64)) as (usize))
 }
 
 fn Hash14(data: &[u8]) -> u32 {

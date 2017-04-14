@@ -31,16 +31,16 @@ pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize
       p = population[0] as usize;
       population = &population[1..];
       sum = sum.wrapping_add(p);
-      retval = retval - p as (f64) * FastLog2(p);
+      retval = retval - p as (f64) * FastLog2(p as u64);
     }
     odd_number_of_elements_left = 0i32;
     p = population[0] as usize;
     population = &population[1..];
     sum = sum.wrapping_add(p);
-    retval = retval - p as (f64) * FastLog2(p);
+    retval = retval - p as (f64) * FastLog2(p as u64);
   }
   if sum != 0 {
-    retval = retval + sum as (f64) * FastLog2(sum);
+    retval = retval + sum as (f64) * FastLog2(sum as u64);
   }
   *total = sum;
   retval
@@ -139,11 +139,11 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     let mut max_depth: usize = 1usize;
     let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
-    let log2total: f64 = FastLog2((*histogram).total_count());
+    let log2total: f64 = FastLog2((*histogram).total_count() as u64);
     i = 0usize;
     while i < data_size {
       if (*histogram).slice()[i] > 0u32 {
-        let log2p: f64 = log2total - FastLog2((*histogram).slice()[i] as (usize));
+        let log2p: f64 = log2total - FastLog2((*histogram).slice()[i] as (u64));
         let mut depth: usize = (log2p + 0.5f64) as (usize);
         bits = bits + (*histogram).slice()[i] as (f64) * log2p;
         if depth > 15usize {

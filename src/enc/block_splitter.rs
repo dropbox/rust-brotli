@@ -188,7 +188,7 @@ fn BitCost(count: usize) -> f64 {
   if count == 0usize {
     -2.0f64
   } else {
-    FastLog2(count)
+    FastLog2(count as u64)
   }
 }
 fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
@@ -231,7 +231,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   while i < num_histograms {
     {
       insert_cost[(i as (usize))] = FastLog2((histograms[(i as (usize))]).total_count() as (u32) as
-                                             (usize));
+                                             (u64));
     }
     i = i.wrapping_add(1 as (usize));
   }

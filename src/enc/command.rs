@@ -51,12 +51,12 @@ fn GetInsertLengthCode(insertlen: usize) -> u16 {
   if insertlen < 6usize {
     insertlen as (u16)
   } else if insertlen < 130usize {
-    let nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2usize)).wrapping_sub(1u32);
+    let nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2) as u64).wrapping_sub(1u32);
     ((nbits << 1i32) as (usize))
       .wrapping_add(insertlen.wrapping_sub(2usize) >> nbits)
       .wrapping_add(2usize) as (u16)
   } else if insertlen < 2114usize {
-    Log2FloorNonZero(insertlen.wrapping_sub(66usize)).wrapping_add(10u32) as (u16)
+    Log2FloorNonZero(insertlen.wrapping_sub(66usize) as u64).wrapping_add(10u32) as (u16)
   } else if insertlen < 6210usize {
     21u32 as (u16)
   } else if insertlen < 22594usize {
@@ -70,12 +70,12 @@ fn GetCopyLengthCode(copylen: usize) -> u16 {
   if copylen < 10usize {
     copylen.wrapping_sub(2usize) as (u16)
   } else if copylen < 134usize {
-    let nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize)).wrapping_sub(1u32);
+    let nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize) as u64).wrapping_sub(1u32);
     ((nbits << 1i32) as (usize))
       .wrapping_add(copylen.wrapping_sub(6usize) >> nbits)
       .wrapping_add(4usize) as (u16)
   } else if copylen < 2118usize {
-    Log2FloorNonZero(copylen.wrapping_sub(70usize)).wrapping_add(12u32) as (u16)
+    Log2FloorNonZero(copylen.wrapping_sub(70usize) as u64).wrapping_add(12u32) as (u16)
   } else {
     23u32 as (u16)
   }
@@ -104,25 +104,25 @@ fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, mut c
 }
 fn PrefixEncodeCopyDistance(distance_code: usize,
                             num_direct_codes: usize,
-                            postfix_bits: usize,
+                            postfix_bits: u64,
                             mut code: &mut u16,
                             mut extra_bits: &mut u32) {
   if distance_code < (16usize).wrapping_add(num_direct_codes) {
     *code = distance_code as (u16);
     *extra_bits = 0u32;
   } else {
-    let dist: usize =
-      (1usize << postfix_bits.wrapping_add(2u32 as (usize)))
-        .wrapping_add(distance_code.wrapping_sub(16usize).wrapping_sub(num_direct_codes));
-    let bucket: usize = Log2FloorNonZero(dist).wrapping_sub(1u32) as (usize);
-    let postfix_mask: usize = (1u32 << postfix_bits).wrapping_sub(1u32) as (usize);
-    let postfix: usize = dist & postfix_mask;
-    let prefix: usize = dist >> bucket & 1usize;
-    let offset: usize = (2usize).wrapping_add(prefix) << bucket;
-    let nbits: usize = bucket.wrapping_sub(postfix_bits);
-    *code = (16usize)
-      .wrapping_add(num_direct_codes)
-      .wrapping_add((2usize).wrapping_mul(nbits.wrapping_sub(1usize)).wrapping_add(prefix) <<
+    let dist: u64 =
+      (1u64 << (postfix_bits as u64).wrapping_add(2u32 as (u64)))
+        .wrapping_add((distance_code as u64).wrapping_sub(16).wrapping_sub(num_direct_codes as u64) as u64);
+    let bucket: u64 = Log2FloorNonZero(dist).wrapping_sub(1u32) as (u64);
+    let postfix_mask: u64 = (1u32 << postfix_bits).wrapping_sub(1u32) as (u64);
+    let postfix: u64 = dist & postfix_mask;
+    let prefix: u64 = dist >> bucket & 1;
+    let offset: u64 = (2u64).wrapping_add(prefix) << bucket;
+    let nbits: u64 = bucket.wrapping_sub(postfix_bits);
+    *code = (16u64)
+      .wrapping_add(num_direct_codes as u64)
+      .wrapping_add((2u64).wrapping_mul(nbits.wrapping_sub(1)).wrapping_add(prefix) <<
                     postfix_bits)
       .wrapping_add(postfix) as (u16);
     *extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
@@ -138,7 +138,7 @@ pub fn InitCommand(xself: &mut Command,
   xself.copy_len_ = (copylen | (copylen_code ^ copylen) << 24i32) as (u32);
   PrefixEncodeCopyDistance(distance_code,
                            0usize,
-                           0usize,
+                           0,
                            &mut xself.dist_prefix_,
                            &mut xself.dist_extra_);
   GetLengthCode(insertlen,

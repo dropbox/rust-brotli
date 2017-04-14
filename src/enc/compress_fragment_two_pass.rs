@@ -1,4 +1,6 @@
 use core;
+use super::super::alloc;
+//use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::bit_cost::BitsEntropy;
 use super::backward_references::kHashMul32;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
@@ -15,14 +17,14 @@ fn EmitInsertLen(insertlen: u32, mut commands: &mut &mut [u32]) -> usize{
     (*commands)[0] = insertlen;
   } else if insertlen < 130u32 {
     let tail: u32 = insertlen.wrapping_sub(2u32);
-    let nbits: u32 = Log2FloorNonZero(tail as (usize)).wrapping_sub(1u32);
+    let nbits: u32 = Log2FloorNonZero(tail as (u64)).wrapping_sub(1u32);
     let prefix: u32 = tail >> nbits;
     let inscode: u32 = (nbits << 1i32).wrapping_add(prefix).wrapping_add(2u32);
     let extra: u32 = tail.wrapping_sub(prefix << nbits);
     (*commands)[0] = inscode | extra << 8i32;
   } else if insertlen < 2114u32 {
     let tail: u32 = insertlen.wrapping_sub(66u32);
-    let nbits: u32 = Log2FloorNonZero(tail as (usize));
+    let nbits: u32 = Log2FloorNonZero(tail as (u64));
     let code: u32 = nbits.wrapping_add(10u32);
     let extra: u32 = tail.wrapping_sub(1u32 << nbits);
     (*commands)[0] = code | extra << 8i32;
@@ -43,7 +45,7 @@ fn EmitInsertLen(insertlen: u32, mut commands: &mut &mut [u32]) -> usize{
 #[must_use]
 fn EmitDistance(distance: u32, mut commands: &mut &mut [u32]) -> usize {
   let d: u32 = distance.wrapping_add(3u32);
-  let nbits: u32 = Log2FloorNonZero(d as (usize)).wrapping_sub(1u32);
+  let nbits: u32 = Log2FloorNonZero(d as (u64)).wrapping_sub(1u32);
   let prefix: u32 = d >> nbits & 1u32;
   let offset: u32 = (2u32).wrapping_add(prefix) << nbits;
   let distcode: u32 =
@@ -64,7 +66,7 @@ fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usi
     1
   } else if copylen < 72usize {
     let tail: usize = copylen.wrapping_sub(8usize);
-    let nbits: usize = Log2FloorNonZero(tail).wrapping_sub(1u32) as (usize);
+    let nbits: usize = Log2FloorNonZero(tail as u64).wrapping_sub(1u32) as (usize);
     let prefix: usize = tail >> nbits;
     let code: usize = (nbits << 1i32).wrapping_add(prefix).wrapping_add(28usize);
     let extra: usize = tail.wrapping_sub(prefix << nbits);
@@ -85,7 +87,7 @@ fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usi
     2
   } else if copylen < 2120usize {
     let tail: usize = copylen.wrapping_sub(72usize);
-    let nbits: usize = Log2FloorNonZero(tail) as (usize);
+    let nbits: usize = Log2FloorNonZero(tail as u64) as (usize);
     let code: usize = nbits.wrapping_add(52usize);
     let extra: usize = tail.wrapping_sub(1usize << nbits);
     (*commands)[0] = (code | extra << 8i32) as (u32);
@@ -106,7 +108,7 @@ fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usi
     2
   }
 }
-fn HashBytesAtOffset(mut v: u64, offset: i32, shift: usize) -> u32 {
+fn HashBytesAtOffset(v: u64, offset: i32, shift: usize) -> u32 {
   0i32;
   0i32;
   {
@@ -121,14 +123,14 @@ fn EmitCopyLen(copylen: usize, mut commands: &mut &mut[u32]) -> usize {
     (*commands)[0] = copylen.wrapping_add(38usize) as (u32);
   } else if copylen < 134usize {
     let tail: usize = copylen.wrapping_sub(6usize);
-    let nbits: usize = Log2FloorNonZero(tail).wrapping_sub(1u32) as (usize);
+    let nbits: usize = Log2FloorNonZero(tail as u64).wrapping_sub(1u32) as (usize);
     let prefix: usize = tail >> nbits;
     let code: usize = (nbits << 1i32).wrapping_add(prefix).wrapping_add(44usize);
     let extra: usize = tail.wrapping_sub(prefix << nbits);
     (*commands)[0] = (code | extra << 8i32) as (u32);
   } else if copylen < 2118usize {
     let tail: usize = copylen.wrapping_sub(70usize);
-    let nbits: usize = Log2FloorNonZero(tail) as (usize);
+    let nbits: usize = Log2FloorNonZero(tail as u64) as (usize);
     let code: usize = nbits.wrapping_add(52usize);
     let extra: usize = tail.wrapping_sub(1usize << nbits);
     (*commands)[0] = (code | extra << 8i32) as (u32);
@@ -392,7 +394,7 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
   }
 }
 
-fn BrotliWriteBits(n_bits: usize,
+pub fn BrotliWriteBits(n_bits: usize,
                    bits: u64,
                    mut pos: &mut usize,
                    mut array: &mut [u8]) {
@@ -402,7 +404,7 @@ fn BrotliWriteBits(n_bits: usize,
   BROTLI_UNALIGNED_STORE64(p, v);
   *pos = (*pos).wrapping_add(n_bits);
 }
-fn BrotliStoreMetaBlockHeader(len: usize,
+pub fn BrotliStoreMetaBlockHeader(len: usize,
                               is_uncompressed: i32,
                               mut storage_ix: &mut usize,
                               mut storage: &mut [u8]) {
@@ -422,7 +424,7 @@ fn BrotliStoreMetaBlockHeader(len: usize,
 }
 
 
-fn memcpy<T:Sized+Clone>(mut dst:&mut[T], dst_offset:usize,
+pub fn memcpy<T:Sized+Clone>(mut dst:&mut[T], dst_offset:usize,
                    src:&[T], src_offset:usize,
                    size_to_copy: usize) {
     dst[dst_offset..(dst_offset + size_to_copy)].clone_from_slice(
@@ -442,6 +444,11 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                           14i32,
                           &mut tree[..],
                           &mut depth[(64usize)..]);
+/* We have to jump through a few hoops here in order to compute                                   
+     the command bits because the symbols are in a different order than in                          
+     the full alphabet. This looks complicated, but having the symbols                              
+     in this order in the command bits saves a few branches in the Emit*                            
+     functions. */
   memcpy(&mut cmd_depth[..], 0, depth, 24, 24);
   memcpy(&mut cmd_depth[..], 24,
          depth, 0,
@@ -518,15 +525,15 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                          storage_ix,
                          storage);
 }
-/*
-fn StoreCommands(mut m: &mut [MemoryManager],
+
+fn StoreCommands<AllocHT:alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
                  mut literals: &[u8],
                  num_literals: usize,
-                 mut commands: &[u32],
+                 commands: &[u32],
                  num_commands: usize,
-                 mut storage_ix: &mut [usize],
+                 mut storage_ix: &mut usize,
                  mut storage: &mut [u8]) {
-  static mut kNumExtraBits: [u32; 128] =
+  static kNumExtraBits: [u32; 128] =
     [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 1u32, 1u32, 2u32, 2u32, 3u32, 3u32, 4u32, 4u32, 5u32,
      5u32, 6u32, 7u32, 8u32, 9u32, 10u32, 12u32, 14u32, 24u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
      0u32, 0u32, 1u32, 1u32, 2u32, 2u32, 3u32, 3u32, 4u32, 4u32, 0u32, 0u32, 0u32, 0u32, 0u32,
@@ -536,12 +543,12 @@ fn StoreCommands(mut m: &mut [MemoryManager],
      6u32, 6u32, 7u32, 7u32, 8u32, 8u32, 9u32, 9u32, 10u32, 10u32, 11u32, 11u32, 12u32, 12u32,
      13u32, 13u32, 14u32, 14u32, 15u32, 15u32, 16u32, 16u32, 17u32, 17u32, 18u32, 18u32, 19u32,
      19u32, 20u32, 20u32, 21u32, 21u32, 22u32, 22u32, 23u32, 23u32, 24u32, 24u32];
-  static mut kInsertOffset: [u32; 24] =
+  static kInsertOffset: [u32; 24] =
     [0u32, 1u32, 2u32, 3u32, 4u32, 5u32, 6u32, 8u32, 10u32, 14u32, 18u32, 26u32, 34u32, 50u32,
      66u32, 98u32, 130u32, 194u32, 322u32, 578u32, 1090u32, 2114u32, 6210u32, 22594u32];
-  let mut lit_depths: [u8; 256];
-  let mut lit_bits: [u16; 256];
-  let mut lit_histo: [u32; 256] = [0;256];
+  let mut lit_depths: [u8; 256] = [0;256];
+  let mut lit_bits: [u16; 256] = [0;256]; // maybe return this instead
+  let mut lit_histo: [u32; 256] = [0;256]; // maybe return this instead of init
   let mut cmd_depths: [u8; 128] = [0; 128];
   let mut cmd_bits: [u16; 128] = [0; 128];
   let mut cmd_histo: [u32; 128] = [0; 128];
@@ -555,12 +562,12 @@ fn StoreCommands(mut m: &mut [MemoryManager],
     }
     i = i.wrapping_add(1 as (usize));
   }
-  BrotliBuildAndStoreHuffmanTreeFast(m,
-                                     lit_histo.as_mut_ptr(),
+  BrotliBuildAndStoreHuffmanTreeFast(mht,
+                                     &lit_histo[..],
                                      num_literals,
                                      8usize,
-                                     lit_depths.as_mut_ptr(),
-                                     lit_bits.as_mut_ptr(),
+                                     &mut lit_depths[..],
+                                     &mut lit_bits[..],
                                      storage_ix,
                                      storage);
   i = 0usize;
@@ -596,9 +603,9 @@ fn StoreCommands(mut m: &mut [MemoryManager],
     let _lhs = &mut cmd_histo[84usize];
     *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
   }
-  BuildAndStoreCommandPrefixCode(cmd_histo.as_mut_ptr(),
-                                 cmd_depths.as_mut_ptr(),
-                                 cmd_bits.as_mut_ptr(),
+  BuildAndStoreCommandPrefixCode(&mut cmd_histo[..],
+                                 &mut cmd_depths[..],
+                                 &mut cmd_bits[..],
                                  storage_ix,
                                  storage);
   i = 0usize;
@@ -609,37 +616,31 @@ fn StoreCommands(mut m: &mut [MemoryManager],
       let extra: u32 = cmd >> 8i32;
       0i32;
       BrotliWriteBits(cmd_depths[code as (usize)] as (usize),
-                      cmd_bits[code as (usize)] as (usize),
+                      cmd_bits[code as (usize)] as (u64),
                       storage_ix,
                       storage);
       BrotliWriteBits(kNumExtraBits[code as (usize)] as (usize),
-                      extra as (usize),
+                      extra as (u64),
                       storage_ix,
                       storage);
       if code < 24u32 {
         let insert: u32 = kInsertOffset[code as (usize)].wrapping_add(extra);
-        let mut j: u32;
-        j = 0u32;
-        while j < insert {
-          {
-            let lit: u8 = *literals;
+        for literal in literals[..(insert as usize)].iter() {
+            let lit: u8 = *literal;
             BrotliWriteBits(lit_depths[lit as (usize)] as (usize),
-                            lit_bits[lit as (usize)] as (usize),
+                            lit_bits[lit as (usize)] as (u64),
                             storage_ix,
                             storage);
-            literals = literals[(1 as (usize))..];
-          }
-          j = j.wrapping_add(1 as (u32));
         }
+        literals = &literals[insert as usize..];
       }
     }
     i = i.wrapping_add(1 as (usize));
   }
 }
-
-fn EmitUncompressedMetaBlock(mut input: &[u8],
-                             mut input_size: usize,
-                             mut storage_ix: &mut [usize],
+fn EmitUncompressedMetaBlock(input: &[u8],
+                             input_size: usize,
+                             mut storage_ix: &mut usize,
                              mut storage: &mut [u8]) {
   BrotliStoreMetaBlockHeader(input_size, 1i32, storage_ix, storage);
   *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
@@ -649,24 +650,25 @@ fn EmitUncompressedMetaBlock(mut input: &[u8],
   *storage_ix = (*storage_ix).wrapping_add(input_size << 3i32);
   storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
 }
-
-fn BrotliCompressFragmentTwoPassImpl(mut m: &mut [MemoryManager],
-                                     mut base_ip: &[u8],
+                                     #[allow(unused_variables)]
+fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
+                                     base_ip: &[u8],
                                      mut input_size: usize,
-                                     mut is_last: i32,
+                                     is_last: i32,
                                      mut command_buf: &mut [u32],
                                      mut literal_buf: &mut [u8],
                                      mut table: &mut [i32],
-                                     mut table_bits: usize,
-                                     mut storage_ix: &mut [usize],
+                                     table_bits: usize,
+                                     mut storage_ix: &mut usize,
                                      mut storage: &mut [u8]) {
   let mut input_index: usize = 0usize;
-  is_last;
   while input_size > 0usize {
-    let mut block_size: usize = brotli_min_size_t(input_size, kCompressFragmentTwoPassBlockSize);
-    let mut commands: *mut u32 = command_buf;
-    let mut literals: *mut u8 = literal_buf;
-    let mut num_literals: usize;
+    let block_size: usize = brotli_min_size_t(input_size, kCompressFragmentTwoPassBlockSize);
+    let mut num_literals: usize = 0;
+    let mut num_commands: usize = 0;
+    {
+    let mut literals = &mut literal_buf;
+    let mut commands = &mut command_buf;
     CreateCommands(input_index,
                    block_size,
                    input_size,
@@ -674,17 +676,15 @@ fn BrotliCompressFragmentTwoPassImpl(mut m: &mut [MemoryManager],
                    table,
                    table_bits,
                    &mut literals,
-                   &mut commands);
-    num_literals = ((literals as (isize)).wrapping_sub(literal_buf as (isize)) /
-                    ::std::mem::size_of::<*mut u8>() as (isize)) as (usize);
-    if ShouldCompress(base_ip[(input_index as (usize))..],
+                   &mut num_literals,
+                   &mut commands,
+                   &mut num_commands);
+                   }
+    if ShouldCompress(&base_ip[(input_index as (usize))..],
                       block_size,
                       num_literals) != 0 {
-      let num_commands: usize = ((commands as (isize)).wrapping_sub(command_buf as (isize)) /
-                                 ::std::mem::size_of::<*mut u32>() as (isize)) as
-                                (usize);
       BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
-      BrotliWriteBits(13usize, 0usize, storage_ix, storage);
+      BrotliWriteBits(13usize, 0, storage_ix, storage);
       StoreCommands(m,
                     literal_buf,
                     num_literals,
@@ -692,11 +692,8 @@ fn BrotliCompressFragmentTwoPassImpl(mut m: &mut [MemoryManager],
                     num_commands,
                     storage_ix,
                     storage);
-      if !(0i32 == 0) {
-        return;
-      }
     } else {
-      EmitUncompressedMetaBlock(base_ip[(input_index as (usize))..],
+      EmitUncompressedMetaBlock(&base_ip[(input_index as (usize))..],
                                 block_size,
                                 storage_ix,
                                 storage);
@@ -705,218 +702,43 @@ fn BrotliCompressFragmentTwoPassImpl(mut m: &mut [MemoryManager],
     input_size = input_size.wrapping_sub(block_size);
   }
 }
-
-fn BrotliCompressFragmentTwoPassImpl8(mut m: &mut [MemoryManager],
-                                      mut input: &[u8],
-                                      mut input_size: usize,
-                                      mut is_last: i32,
+macro_rules! compress_specialization {
+    ($table_bits : expr, $fname: ident) => {
+fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
+                                      input: &[u8],
+                                      input_size: usize,
+                                      is_last: i32,
                                       mut command_buf: &mut [u32],
                                       mut literal_buf: &mut [u8],
                                       mut table: &mut [i32],
-                                      mut storage_ix: &mut [usize],
+                                      mut storage_ix: &mut usize,
                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
+  BrotliCompressFragmentTwoPassImpl(mht,
                                     input,
                                     input_size,
                                     is_last,
                                     command_buf,
                                     literal_buf,
                                     table,
-                                    8usize,
+                                    $table_bits,
                                     storage_ix,
                                     storage);
 }
-
-fn BrotliCompressFragmentTwoPassImpl9(mut m: &mut [MemoryManager],
-                                      mut input: &[u8],
-                                      mut input_size: usize,
-                                      mut is_last: i32,
-                                      mut command_buf: &mut [u32],
-                                      mut literal_buf: &mut [u8],
-                                      mut table: &mut [i32],
-                                      mut storage_ix: &mut [usize],
-                                      mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    9usize,
-                                    storage_ix,
-                                    storage);
+            
+    };
 }
+compress_specialization!(8, BrotliCompressFragmentTwoPassImpl8);
+compress_specialization!(9, BrotliCompressFragmentTwoPassImpl9);
+compress_specialization!(10, BrotliCompressFragmentTwoPassImpl10);
+compress_specialization!(11, BrotliCompressFragmentTwoPassImpl11);
+compress_specialization!(12, BrotliCompressFragmentTwoPassImpl12);
+compress_specialization!(13, BrotliCompressFragmentTwoPassImpl13);
+compress_specialization!(14, BrotliCompressFragmentTwoPassImpl14);
+compress_specialization!(15, BrotliCompressFragmentTwoPassImpl15);
+compress_specialization!(16, BrotliCompressFragmentTwoPassImpl16);
+compress_specialization!(17, BrotliCompressFragmentTwoPassImpl17);
 
-fn BrotliCompressFragmentTwoPassImpl10(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    10usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn BrotliCompressFragmentTwoPassImpl11(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    11usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn BrotliCompressFragmentTwoPassImpl12(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    12usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn BrotliCompressFragmentTwoPassImpl13(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    13usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn BrotliCompressFragmentTwoPassImpl14(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    14usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn BrotliCompressFragmentTwoPassImpl15(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    15usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn BrotliCompressFragmentTwoPassImpl16(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    16usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn BrotliCompressFragmentTwoPassImpl17(mut m: &mut [MemoryManager],
-                                       mut input: &[u8],
-                                       mut input_size: usize,
-                                       mut is_last: i32,
-                                       mut command_buf: &mut [u32],
-                                       mut literal_buf: &mut [u8],
-                                       mut table: &mut [i32],
-                                       mut storage_ix: &mut [usize],
-                                       mut storage: &mut [u8]) {
-  BrotliCompressFragmentTwoPassImpl(m,
-                                    input,
-                                    input_size,
-                                    is_last,
-                                    command_buf,
-                                    literal_buf,
-                                    table,
-                                    17usize,
-                                    storage_ix,
-                                    storage);
-}
-
-fn RewindBitPosition(new_storage_ix: usize, mut storage_ix: &mut [usize], mut storage: &mut [u8]) {
+fn RewindBitPosition(new_storage_ix: usize, mut storage_ix: &mut usize, mut storage: &mut [u8]) {
   let bitpos: usize = new_storage_ix & 7usize;
   let mask: usize = (1u32 << bitpos).wrapping_sub(1u32) as (usize);
   {
@@ -927,19 +749,18 @@ fn RewindBitPosition(new_storage_ix: usize, mut storage_ix: &mut [usize], mut st
   *storage_ix = new_storage_ix;
 }
 
-
-pub fn BrotliCompressFragmentTwoPass(mut m: &mut [MemoryManager],
-                                     mut input: &[u8],
-                                     mut input_size: usize,
-                                     mut is_last: i32,
+pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
+                                     input: &[u8],
+                                     input_size: usize,
+                                     is_last: i32,
                                      mut command_buf: &mut [u32],
                                      mut literal_buf: &mut [u8],
                                      mut table: &mut [i32],
-                                     mut table_size: usize,
-                                     mut storage_ix: &mut [usize],
+                                     table_size: usize,
+                                     mut storage_ix: &mut usize,
                                      mut storage: &mut [u8]) {
   let initial_storage_ix: usize = *storage_ix;
-  let table_bits: usize = Log2FloorNonZero(table_size) as (usize);
+  let table_bits: usize = Log2FloorNonZero(table_size as u64) as (usize);
   if table_bits == 8usize {
     BrotliCompressFragmentTwoPassImpl8(m,
                                        input,
@@ -1055,9 +876,8 @@ pub fn BrotliCompressFragmentTwoPass(mut m: &mut [MemoryManager],
     EmitUncompressedMetaBlock(input, input_size, storage_ix, storage);
   }
   if is_last != 0 {
-    BrotliWriteBits(1usize, 1usize, storage_ix, storage);
-    BrotliWriteBits(1usize, 1usize, storage_ix, storage);
+    BrotliWriteBits(1, 1, storage_ix, storage);
+    BrotliWriteBits(1, 1, storage_ix, storage);
     *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
   }
 }
-*/

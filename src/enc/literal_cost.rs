@@ -151,7 +151,7 @@ fn EstimateBitCostsForLiteralsUTF8(pos: usize,
         if histo == 0usize {
           histo = 1usize;
         }
-        lit_cost = FastLog2(in_window_utf8[utf8_pos]) - FastLog2(histo);
+        lit_cost = FastLog2(in_window_utf8[utf8_pos] as u64) - FastLog2(histo as u64);
         lit_cost = lit_cost + 0.02905f64;
         if lit_cost < 1.0f64 {
           lit_cost = lit_cost * 0.5f64;
@@ -217,7 +217,7 @@ pub fn BrotliEstimateBitCostsForLiterals(pos: usize,
           histo = 1usize;
         }
         {
-          let mut lit_cost: f64 = FastLog2(in_window) - FastLog2(histo);
+          let mut lit_cost: f64 = FastLog2(in_window as u64) - FastLog2(histo as u64);
           lit_cost = lit_cost + 0.029f64;
           if lit_cost < 1.0f64 {
             lit_cost = lit_cost * 0.5f64;

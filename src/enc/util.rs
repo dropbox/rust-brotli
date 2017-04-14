@@ -2,6 +2,10 @@
 pub fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
   if a > b { a } else { b }
 }
+pub fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
+  if a > b { b } else { a }
+}
+
 pub fn brotli_min_size_t(a: usize, b: usize) -> usize {
   if a > b { b } else { a }
 }
@@ -274,23 +278,23 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9829935746943104f32,
                                  7.9886846867721664f32,
                                  7.9943534368588578f32];
-pub fn FastLog2(mut v: usize) -> f64 {
-  if v < kLog2Table.len() {
-    kLog2Table[v] as (f64)
+pub fn FastLog2(mut v: u64) -> f64 {
+  if v < kLog2Table.len() as u64 {
+    kLog2Table[v as usize] as (f64)
   } else {
     // approximate here
     let mut count: f64 = 0.0f64;
     loop {
       v /= 2;
       count += 1.0f64;
-      if v < kLog2Table.len() {
-        return kLog2Table[v] as (f64) + count;
+      if v < kLog2Table.len() as u64 {
+        return kLog2Table[v as usize] as (f64) + count;
       }
     }
   }
 }
 
-pub fn Log2FloorNonZero(mut n: usize) -> u32 {
+pub fn Log2FloorNonZero(mut n: u64) -> u32 {
   let mut result: u32 = 0u32;
   while {
           n = n >> 1i32;

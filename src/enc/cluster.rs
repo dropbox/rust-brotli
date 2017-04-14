@@ -18,8 +18,8 @@ pub struct HistogramPair {
 /* Returns entropy reduction of the context map when we combine two clusters. */
 fn ClusterCostDiff(size_a: usize, size_b: usize) -> f64 {
   let size_c: usize = size_a.wrapping_add(size_b);
-  size_a as (f64) * FastLog2(size_a) + size_b as (f64) * FastLog2(size_b) -
-  size_c as (f64) * FastLog2(size_c)
+  size_a as (f64) * FastLog2(size_a as u64) + size_b as (f64) * FastLog2(size_b as u64) -
+  size_c as (f64) * FastLog2(size_c as u64)
 }
 
 fn brotli_max_double(a: f64, b: f64) -> f64 {

@@ -1605,15 +1605,6 @@ fn IsMatch(mut p1: &[u8], mut p2: &[u8]) -> i32 {
   }
 }
 
-fn unopt_ctzll(mut val: usize) -> u8 {
-  let mut cnt: u8 = 0i32 as (u8);
-  while val & 1usize == 0usize {
-    val = val >> 1i32;
-    cnt = (cnt as (i32) + 1) as (u8);
-  }
-  cnt
-}
-
 fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
   let mut limit2: usize = (limit >> 3i32).wrapping_add(1usize);
