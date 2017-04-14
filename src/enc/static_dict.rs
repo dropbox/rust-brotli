@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets,
                              kStaticDictionaryWords, DictWord};
-
+use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength, kBrotliDictionaryOffsetsByLength};
 static kUppercaseFirst: u8 = 10i32 as (u8);
 
 static kOmitLastNTransforms: [u8; 10] = [0i32 as (u8),
@@ -16,11 +16,20 @@ static kOmitLastNTransforms: [u8; 10] = [0i32 as (u8),
                                          64i32 as (u8)];
 
 pub struct BrotliDictionary {
-  pub size_bits_by_length: [u8; 32],
-  pub offsets_by_length: [u32; 32],
-  pub data: [u8; 122784],
+  pub size_bits_by_length: &'static [u8; 25],
+  pub offsets_by_length: &'static [u32; 25],
+  pub data: &'static [u8; 122784],
 }
 
+pub const kBrotliEncDictionary : BrotliDictionary = BrotliDictionary {
+    size_bits_by_length:&kBrotliDictionarySizeBitsByLength,
+    offsets_by_length:&kBrotliDictionaryOffsetsByLength,
+    data: &kBrotliDictionary,
+};
+
+pub fn BrotliGetDictionary() -> BrotliDictionary{
+    return kBrotliEncDictionary;
+}
 pub fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
 }

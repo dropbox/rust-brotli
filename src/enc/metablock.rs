@@ -890,7 +890,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<AllocU8: alloc::Allocator<u8>,
     MapStaticContexts(m32, num_contexts, static_context_map, mb);
   }
 }
-fn BrotliBuildMetaBlockGreedy<AllocU8: alloc::Allocator<u8>,
+pub fn BrotliBuildMetaBlockGreedy<AllocU8: alloc::Allocator<u8>,
                               AllocU32: alloc::Allocator<u32>,
                               AllocHL: alloc::Allocator<HistogramLiteral>,
                               AllocHC: alloc::Allocator<HistogramCommand>,
