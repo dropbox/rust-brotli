@@ -1,19 +1,21 @@
-use core;
-use super::super::alloc;
+use super::backward_references::kHashMul32;
 //use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::bit_cost::BitsEntropy;
-use super::backward_references::kHashMul32;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
-use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree, NewHuffmanTree};
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32,BROTLI_UNALIGNED_LOAD64,BROTLI_UNALIGNED_STORE64,
-                         FindMatchLengthWithLimit};
-use super::util::{brotli_min_size_t, brotli_min_uint32_t, Log2FloorNonZero, FastLog2};
-//caution: lots of the functions look structurally the same as two_pass, but have subtle index differences
+//caution: lots of the functions look structurally the same as two_pass,
+// but have subtle index differences
 // examples: IsMatch checks p1[4] and p1[5]
 // the hoops that BuildAndStoreCommandPrefixCode goes through are subtly different in order
 // (eg memcpy x+24, y instead of +24, y+40
 // pretty much assume compress_fragment_two_pass is a trap! except for BrotliStoreMetaBlockHeader
 use super::compress_fragment_two_pass::{BrotliStoreMetaBlockHeader, BrotliWriteBits, memcpy};
+use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
+                            NewHuffmanTree};
+use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BROTLI_UNALIGNED_STORE64,
+                         FindMatchLengthWithLimit};
+use super::super::alloc;
+use super::util::{brotli_min_size_t, brotli_min_uint32_t, Log2FloorNonZero, FastLog2};
+use core;
 //static kHashMul32: u32 = 0x1e35a7bdu32;
 
 static kCmdHistoSeed: [u32; 128] =
@@ -46,7 +48,7 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT:alloc::Allocator<HuffmanTree>>(mut mht
                                   bits: &mut [u16],
                                   mut storage_ix: &mut usize,
                                   mut storage: &mut [u8])
-                                  -> usize {
+-> usize{
   let mut histogram: [u32; 256] = [0; 256];
   let mut histogram_total: usize;
   let mut i: usize;
@@ -205,12 +207,8 @@ fn EmitInsertLen(insertlen: usize,
   }
 }
 
-fn ShouldUseUncompressedMode(delta: isize,
-                             insertlen: usize,
-                             literal_ratio: usize)
-                             -> i32 {
-  let compressed: usize = delta as
-                          (usize);
+fn ShouldUseUncompressedMode(delta: isize, insertlen: usize, literal_ratio: usize) -> i32 {
+  let compressed: usize = delta as (usize);
   if compressed.wrapping_mul(50usize) > insertlen {
     0i32
   } else if !!(literal_ratio > 980usize) {
@@ -513,7 +511,7 @@ fn EmitCopyLen(copylen: usize,
 }
 
 fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> i32 {
-  let mut histo: [usize; 256] = [0;256];
+  let mut histo: [usize; 256] = [0; 256];
   static kSampleRate: usize = 43usize;
   let mut i: usize;
   i = 0usize;
@@ -543,11 +541,10 @@ fn UpdateBits(mut n_bits: usize, mut bits: u32, mut pos: usize, mut array: &mut 
   while n_bits > 0usize {
     let byte_pos: usize = pos >> 3i32;
     let n_unchanged_bits: usize = pos & 7usize;
-    let n_changed_bits: usize = brotli_min_size_t(n_bits,
-                                                      (8usize).wrapping_sub(n_unchanged_bits));
+    let n_changed_bits: usize = brotli_min_size_t(n_bits, (8usize).wrapping_sub(n_unchanged_bits));
     let total_bits: usize = n_unchanged_bits.wrapping_add(n_changed_bits);
     let mask: u32 = !(1u32 << total_bits).wrapping_sub(1u32) |
-                        (1u32 << n_unchanged_bits).wrapping_sub(1u32);
+                    (1u32 << n_unchanged_bits).wrapping_sub(1u32);
     let unchanged_bits: u32 = array[(byte_pos as (usize))] as (u32) & mask;
     let changed_bits: u32 = bits & (1u32 << n_changed_bits).wrapping_sub(1u32);
     array[(byte_pos as (usize))] = (changed_bits << n_unchanged_bits | unchanged_bits) as (u8);
@@ -563,82 +560,87 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                                   mut bits: &mut [u16],
                                   mut storage_ix: &mut usize,
                                   mut storage: &mut [u8]) {
-  let mut tree: [HuffmanTree; 129] = [NewHuffmanTree(0,0,0); 129];
+  let mut tree: [HuffmanTree; 129] = [NewHuffmanTree(0, 0, 0); 129];
   let mut cmd_depth: [u8; 704] = [0i32 as (u8); 704];
 
-  let mut cmd_bits: [u16; 64] = [0;64];
+  let mut cmd_bits: [u16; 64] = [0; 64];
   BrotliCreateHuffmanTree(&histogram[..], 64usize, 15i32, &mut tree[..], depth);
   BrotliCreateHuffmanTree(&histogram[(64usize)..],
                           64usize,
                           14i32,
                           &mut tree[..],
                           &mut depth[(64usize)..]);
-/* We have to jump through a few hoops here in order to compute                                   
-     the command bits because the symbols are in a different order than in                          
-     the full alphabet. This looks complicated, but having the symbols                              
-     in this order in the command bits saves a few branches in the Emit*                            
+  /* We have to jump through a few hoops here in order to compute
+     the command bits because the symbols are in a different order than in
+     the full alphabet. This looks complicated, but having the symbols
+     in this order in the command bits saves a few branches in the Emit*
      functions. */
-  memcpy(&mut cmd_depth[..], 0, depth,0,  24usize);
-  memcpy(&mut cmd_depth[..],24i32 as (usize),
-         depth,(40usize),
+  memcpy(&mut cmd_depth[..], 0, depth, 0, 24usize);
+  memcpy(&mut cmd_depth[..],
+         24i32 as (usize),
+         depth,
+         (40usize),
          8usize);
-  memcpy(&mut cmd_depth[..],32i32 as (usize),
-         depth,(24usize),
+  memcpy(&mut cmd_depth[..],
+         32i32 as (usize),
+         depth,
+         (24usize),
          8usize);
-  memcpy(&mut cmd_depth[..],40i32 as (usize),
-         depth,(48usize),
+  memcpy(&mut cmd_depth[..],
+         40i32 as (usize),
+         depth,
+         (48usize),
          8usize);
-  memcpy(&mut cmd_depth[..],48i32 as (usize),
-         depth,(32usize),
+  memcpy(&mut cmd_depth[..],
+         48i32 as (usize),
+         depth,
+         (32usize),
          8usize);
-  memcpy(&mut cmd_depth[..],56i32 as (usize),
-         depth,(56usize),
+  memcpy(&mut cmd_depth[..],
+         56i32 as (usize),
+         depth,
+         (56usize),
          8usize);
   BrotliConvertBitDepthsToSymbols(&mut cmd_depth[..], 64usize, &mut cmd_bits[..]);
   memcpy(bits, 0, &cmd_bits[..], 0, 48usize);
-  memcpy(bits,(24usize),
-         &cmd_bits[..],32i32 as (usize),
-         16usize);
-  memcpy(bits,(32usize),
-         &cmd_bits[..],48i32 as (usize),
-         16usize);
-  memcpy(bits,(40usize),
-         &cmd_bits[..],24i32 as (usize),
-         16usize);
-  memcpy(bits,(48usize),
-         &cmd_bits[..],40i32 as (usize),
-         16usize);
-  memcpy(bits,(56usize),
-         &cmd_bits[..],56i32 as (usize),
-         16usize);
+  memcpy(bits, (24usize), &cmd_bits[..], 32i32 as (usize), 16usize);
+  memcpy(bits, (32usize), &cmd_bits[..], 48i32 as (usize), 16usize);
+  memcpy(bits, (40usize), &cmd_bits[..], 24i32 as (usize), 16usize);
+  memcpy(bits, (48usize), &cmd_bits[..], 40i32 as (usize), 16usize);
+  memcpy(bits, (56usize), &cmd_bits[..], 56i32 as (usize), 16usize);
   BrotliConvertBitDepthsToSymbols(&mut depth[(64usize)..], 64usize, &mut bits[(64usize)..]);
   {
     let mut i: usize;
     for item in cmd_depth[..64].iter_mut() {
-        *item = 0;
+      *item = 0;
     }
     memcpy(&mut cmd_depth[..], 0, depth, 0, 8usize);
-    memcpy(&mut cmd_depth[..],64i32 as (usize),
-           depth,(8usize),
+    memcpy(&mut cmd_depth[..],
+           64i32 as (usize),
+           depth,
+           (8usize),
            8usize);
-    memcpy(&mut cmd_depth[..],128i32 as (usize),
-           depth,(16usize),
+    memcpy(&mut cmd_depth[..],
+           128i32 as (usize),
+           depth,
+           (16usize),
            8usize);
-    memcpy(&mut cmd_depth[..],192i32 as (usize),
-           depth,(24usize),
+    memcpy(&mut cmd_depth[..],
+           192i32 as (usize),
+           depth,
+           (24usize),
            8usize);
-    memcpy(&mut cmd_depth[..],384i32 as (usize),
-           depth,(32usize),
+    memcpy(&mut cmd_depth[..],
+           384i32 as (usize),
+           depth,
+           (32usize),
            8usize);
     i = 0usize;
     while i < 8usize {
       {
-        cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] = depth[((40usize).wrapping_add(i) as
-         (usize))];
-        cmd_depth[(256usize).wrapping_add((8usize).wrapping_mul(i))] = depth[((48usize).wrapping_add(i) as
-         (usize))];
-        cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] = depth[((56usize).wrapping_add(i) as
-         (usize))];
+        cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] = depth[i.wrapping_add(40)];
+        cmd_depth[(256usize).wrapping_add((8usize).wrapping_mul(i))] = depth[i.wrapping_add(48)];
+        cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] = depth[i.wrapping_add(56)];
       }
       i = i.wrapping_add(1 as (usize));
     }
@@ -665,8 +667,8 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
                                   mut cmd_code_numbits: &mut usize,
                                   mut cmd_code: &mut [u8],
                                   mut storage_ix: &mut usize,
-                                  mut storage: &mut [u8]) {
-  let mut cmd_histo: [u32; 128] = [0;128];
+mut storage: &mut [u8]){
+  let mut cmd_histo: [u32; 128] = [0; 128];
   let mut ip_end: usize = 0;
   let mut next_emit: usize = 0usize;
   let base_ip: usize = 0usize;
@@ -678,8 +680,8 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
   let mut block_size: usize = brotli_min_size_t(input_size, kFirstBlockSize);
   let mut total_block_size: usize = block_size;
   let mut mlen_storage_ix: usize = (*storage_ix).wrapping_add(3usize);
-  let mut lit_depth: [u8; 256] = [0;256];
-  let mut lit_bits: [u16; 256] = [0;256];
+  let mut lit_depth: [u8; 256] = [0; 256];
+  let mut lit_bits: [u16; 256] = [0; 256];
   let mut literal_ratio: usize;
   #[allow(unused_assignments)]
   let mut ip_index: usize = 0usize;
@@ -725,9 +727,9 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
         let ip_limit: usize = input_index.wrapping_add(len_limit);
         let mut next_hash: u32;
         next_hash = Hash(&input_ptr[({
-                            ip_index = ip_index.wrapping_add(1 as (usize));
-                            ip_index
-                          } as (usize))..],
+                             ip_index = ip_index.wrapping_add(1 as (usize));
+                             ip_index
+                           } as (usize))..],
                          shift);
         loop {
           let mut skip: u32 = 32u32;
@@ -740,11 +742,11 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
                 {
                   let hash: u32 = next_hash;
                   let bytes_between_hash_lookups: u32 = ({
-                                                               let _old = skip;
-                                                               skip = skip.wrapping_add(1 as (u32));
-                                                               _old
-                                                             }) >>
-                                                            5i32;
+                                                           let _old = skip;
+                                                           skip = skip.wrapping_add(1 as (u32));
+                                                           _old
+                                                         }) >>
+                                                        5i32;
                   0i32;
                   ip_index = next_ip;
                   next_ip = ip_index.wrapping_add(bytes_between_hash_lookups as (usize));
@@ -793,11 +795,11 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
           }
           {
             let base: usize = ip_index;
-            let matched: usize =
-              (5usize).wrapping_add(FindMatchLengthWithLimit(&input_ptr[((candidate + 5) as (usize))..],
-                                                             &input_ptr[((ip_index + 5) as (usize))..],
-                                                             ip_end.wrapping_sub(ip_index)
-                                                               .wrapping_sub(5usize)));
+            let matched: usize = (5usize)
+              .wrapping_add(FindMatchLengthWithLimit(&input_ptr[((candidate + 5) as (usize))..],
+                                                     &input_ptr[((ip_index + 5) as (usize))..],
+                                                     ip_end.wrapping_sub(ip_index)
+                                                       .wrapping_sub(5usize)));
             let distance: i32 = base.wrapping_sub(candidate) as (i32);
             let insert: usize = base.wrapping_sub(next_emit);
             ip_index = ip_index.wrapping_add(matched);
@@ -809,7 +811,8 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
                             &mut cmd_histo[..],
                             storage_ix,
                             storage);
-            } else if ShouldUseUncompressedMode((next_emit as (isize)) - (metablock_start as (isize)),
+            } else if ShouldUseUncompressedMode((next_emit as (isize)) -
+                                                (metablock_start as (isize)),
                                                 insert,
                                                 literal_ratio) != 0 {
               EmitUncompressedMetaBlock(&input_ptr[(metablock_start as (usize))..],
@@ -876,8 +879,8 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
             }
             {
               assert!(ip_index >= 3);
-              let input_bytes: u64 =
-                BROTLI_UNALIGNED_LOAD64(&input_ptr[((ip_index - 3) as (usize))..]);
+              let input_bytes: u64 = BROTLI_UNALIGNED_LOAD64(&input_ptr[((ip_index - 3) as
+                                                               (usize))..]);
               let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0i32, shift);
               let cur_hash: u32 = HashBytesAtOffset(input_bytes, 3i32, shift);
               table[(prev_hash as (usize))] = ip_index.wrapping_sub(base_ip)
@@ -895,11 +898,11 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
           while IsMatch(&input_ptr[(ip_index as (usize))..],
                         &input_ptr[(candidate as (usize))..]) != 0 {
             let base: usize = ip_index;
-            let matched: usize =
-              (5usize).wrapping_add(FindMatchLengthWithLimit(&input_ptr[(candidate as (usize) + 5)..],
-                                                             &input_ptr[(ip_index as (usize) + 5)..],
-                                                             ip_end.wrapping_sub(ip_index)
-                                                               .wrapping_sub(5usize)));
+            let matched: usize = (5usize)
+              .wrapping_add(FindMatchLengthWithLimit(&input_ptr[(candidate as (usize) + 5)..],
+                                                     &input_ptr[(ip_index as (usize) + 5)..],
+                                                     ip_end.wrapping_sub(ip_index)
+                                                       .wrapping_sub(5usize)));
             if ip_index.wrapping_sub(candidate) >
                (1usize << 18i32).wrapping_sub(16usize) as (isize) as (usize) {
               {
@@ -932,8 +935,8 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
             }
             {
               assert!(ip_index >= 3);
-              let input_bytes: u64 =
-                BROTLI_UNALIGNED_LOAD64(&input_ptr[(ip_index as (usize) - 3)..]);
+              let input_bytes: u64 = BROTLI_UNALIGNED_LOAD64(&input_ptr[(ip_index as (usize) -
+                                                               3)..]);
               let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0i32, shift);
               let cur_hash: u32 = HashBytesAtOffset(input_bytes, 3i32, shift);
               table[(prev_hash as (usize))] = ip_index.wrapping_sub(base_ip)
@@ -953,9 +956,9 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
           }
           if code_block_selection as (i32) == CodeBlockState::EMIT_COMMANDS as (i32) {
             next_hash = Hash(&input_ptr[({
-                                ip_index = ip_index.wrapping_add(1 as (usize));
-                                ip_index
-                              } as (usize))..],
+                                 ip_index = ip_index.wrapping_add(1 as (usize));
+                                 ip_index
+                               } as (usize))..],
                              shift);
           }
         }
@@ -1078,24 +1081,25 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: 
                                    cmd_code);
   }
 }
-/*
-fn BrotliCompressFragmentFastImpl9(mut m: &mut [MemoryManager],
-                                   mut input: &[u8],
-                                   mut input_size: usize,
-                                   mut is_last: i32,
+macro_rules! compress_specialization {
+    ($table_bits : expr, $fname: ident) => {
+fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
+                                   input: &[u8],
+                                   input_size: usize,
+                                   is_last: i32,
                                    mut table: &mut [i32],
                                    mut cmd_depth: &mut [u8],
                                    mut cmd_bits: &mut [u16],
-                                   mut cmd_code_numbits: &mut [usize],
+                                   mut cmd_code_numbits: &mut usize,
                                    mut cmd_code: &mut [u8],
-                                   mut storage_ix: &mut [usize],
+                                   mut storage_ix: &mut usize,
                                    mut storage: &mut [u8]) {
-  BrotliCompressFragmentFastImpl(m,
+  BrotliCompressFragmentFastImpl(mht,
                                  input,
                                  input_size,
                                  is_last,
                                  table,
-                                 9usize,
+                                 $table_bits,
                                  cmd_depth,
                                  cmd_bits,
                                  cmd_code_numbits,
@@ -1103,95 +1107,27 @@ fn BrotliCompressFragmentFastImpl9(mut m: &mut [MemoryManager],
                                  storage_ix,
                                  storage);
 }
-
-fn BrotliCompressFragmentFastImpl11(mut m: &mut [MemoryManager],
-                                    mut input: &[u8],
-                                    mut input_size: usize,
-                                    mut is_last: i32,
-                                    mut table: &mut [i32],
-                                    mut cmd_depth: &mut [u8],
-                                    mut cmd_bits: &mut [u16],
-                                    mut cmd_code_numbits: &mut [usize],
-                                    mut cmd_code: &mut [u8],
-                                    mut storage_ix: &mut [usize],
-                                    mut storage: &mut [u8]) {
-  BrotliCompressFragmentFastImpl(m,
-                                 input,
-                                 input_size,
-                                 is_last,
-                                 table,
-                                 11usize,
-                                 cmd_depth,
-                                 cmd_bits,
-                                 cmd_code_numbits,
-                                 cmd_code,
-                                 storage_ix,
-                                 storage);
+    };
 }
 
-fn BrotliCompressFragmentFastImpl13(mut m: &mut [MemoryManager],
-                                    mut input: &[u8],
-                                    mut input_size: usize,
-                                    mut is_last: i32,
-                                    mut table: &mut [i32],
-                                    mut cmd_depth: &mut [u8],
-                                    mut cmd_bits: &mut [u16],
-                                    mut cmd_code_numbits: &mut [usize],
-                                    mut cmd_code: &mut [u8],
-                                    mut storage_ix: &mut [usize],
-                                    mut storage: &mut [u8]) {
-  BrotliCompressFragmentFastImpl(m,
-                                 input,
-                                 input_size,
-                                 is_last,
-                                 table,
-                                 13usize,
-                                 cmd_depth,
-                                 cmd_bits,
-                                 cmd_code_numbits,
-                                 cmd_code,
-                                 storage_ix,
-                                 storage);
-}
-
-fn BrotliCompressFragmentFastImpl15(mut m: &mut [MemoryManager],
-                                    mut input: &[u8],
-                                    mut input_size: usize,
-                                    mut is_last: i32,
-                                    mut table: &mut [i32],
-                                    mut cmd_depth: &mut [u8],
-                                    mut cmd_bits: &mut [u16],
-                                    mut cmd_code_numbits: &mut [usize],
-                                    mut cmd_code: &mut [u8],
-                                    mut storage_ix: &mut [usize],
-                                    mut storage: &mut [u8]) {
-  BrotliCompressFragmentFastImpl(m,
-                                 input,
-                                 input_size,
-                                 is_last,
-                                 table,
-                                 15usize,
-                                 cmd_depth,
-                                 cmd_bits,
-                                 cmd_code_numbits,
-                                 cmd_code,
-                                 storage_ix,
-                                 storage);
-}
+compress_specialization!(9, BrotliCompressFragmentFastImpl9);
+compress_specialization!(11, BrotliCompressFragmentFastImpl11);
+compress_specialization!(13, BrotliCompressFragmentFastImpl13);
+compress_specialization!(15, BrotliCompressFragmentFastImpl15);
 
 
-pub fn BrotliCompressFragmentFast(mut m: &mut [MemoryManager],
-                                  mut input: &[u8],
-                                  mut input_size: usize,
-                                  mut is_last: i32,
+pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
+                                  input: &[u8],
+                                  input_size: usize,
+                                  is_last: i32,
                                   mut table: &mut [i32],
-                                  mut table_size: usize,
+                                  table_size: usize,
                                   mut cmd_depth: &mut [u8],
                                   mut cmd_bits: &mut [u16],
-                                  mut cmd_code_numbits: &mut [usize],
+                                  mut cmd_code_numbits: &mut usize,
                                   mut cmd_code: &mut [u8],
-                                  mut storage_ix: &mut [usize],
-                                  mut storage: &mut [u8]) {
+                                  mut storage_ix: &mut usize,
+mut storage: &mut [u8]){
   let initial_storage_ix: usize = *storage_ix;
   let table_bits: usize = Log2FloorNonZero(table_size as u64) as (usize);
   if input_size == 0usize {
@@ -1262,6 +1198,3 @@ pub fn BrotliCompressFragmentFast(mut m: &mut [MemoryManager],
     *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
   }
 }
-
-
-*/
