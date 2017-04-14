@@ -683,7 +683,6 @@ mut storage: &mut [u8]){
   let mut lit_depth: [u8; 256] = [0; 256];
   let mut lit_bits: [u16; 256] = [0; 256];
   let mut literal_ratio: usize;
-  #[allow(unused_assignments)]
   let mut ip_index: usize = 0usize;
   let mut input_index: usize = 0usize;
   let mut last_distance: i32;
