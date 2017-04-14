@@ -2,7 +2,7 @@ use super::compress_fragment_two_pass::BrotliCompressFragmentTwoPass;
 use super::compress_fragment::BrotliCompressFragmentFast;
 
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
-use super::backward_references::{BrotliCreateBackwardReferences, Struct1};
+use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher, BrotliEncoderParams};
 use super::block_split::{BlockSplit};
 use super::utf8_util::{BrotliIsMostlyUTF8};
 use super::command::{Command};
@@ -101,14 +101,14 @@ pub enum BrotliEncoderMode {
 
 
 
-pub struct RingBuffer {
+pub struct RingBuffer<AllocU8:alloc::Allocator<u8>> {
   pub size_: u32,
   pub mask_: u32,
   pub tail_size_: u32,
   pub total_size_: u32,
   pub cur_size_: u32,
   pub pos_: u32,
-  pub data_: *mut u8,
+  pub data_: AllocU8::AllocatedMemory,
   pub buffer_index: usize,
 }
 
@@ -122,16 +122,21 @@ pub enum BrotliEncoderStreamState {
   BROTLI_STREAM_METADATA_BODY = 4i32,
 }
 
-/*
 
-pub struct BrotliEncoderStateStruct {
+pub struct BrotliEncoderStateStruct<AllocU8:alloc::Allocator<u8>,
+                                    AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>,
+                                    AllocCommand:alloc::Allocator<Command>> {
   pub params: BrotliEncoderParams,
-  pub memory_manager_: MemoryManager,
-  pub hasher_: *mut u8,
+  pub m8: AllocU8,
+  pub m16: AllocU16,
+  pub m32: AllocU32,
+  pub mc: AllocCommand,
+  pub hasher_: UnionHasher<AllocU16, AllocU32>,
   pub input_pos_: usize,
-  pub ringbuffer_: RingBuffer,
+  pub ringbuffer_: RingBuffer<AllocU8>,
   pub cmd_alloc_size_: usize,
-  pub commands_: *mut Command,
+  pub commands_: AllocCommand::AllocatedMemory, // not sure about this one
   pub num_commands_: usize,
   pub num_literals_: usize,
   pub last_insert_len_: usize,
@@ -144,17 +149,17 @@ pub struct BrotliEncoderStateStruct {
   pub prev_byte_: u8,
   pub prev_byte2_: u8,
   pub storage_size_: usize,
-  pub storage_: *mut u8,
+  pub storage_: AllocU8::AllocatedMemory,
   pub small_table_: [i32; 1024],
-  pub large_table_: *mut i32,
+  pub large_table_: AllocU32::AllocatedMemory,
   pub large_table_size_: usize,
   pub cmd_depths_: [u8; 128],
   pub cmd_bits_: [u16; 128],
   pub cmd_code_: [u8; 512],
   pub cmd_code_numbits_: usize,
-  pub command_buf_: *mut u32,
-  pub literal_buf_: *mut u8,
-  pub next_out_: *mut u8,
+  pub command_buf_: AllocU32::AllocatedMemory,
+  pub literal_buf_: AllocU8::AllocatedMemory,
+  pub next_out_: AllocU8::AllocatedMemory, // not sure about this one: may be a pointer to l
   pub available_out_: usize,
   pub total_out_: usize,
   pub tiny_buf_: Struct1,
@@ -164,6 +169,7 @@ pub struct BrotliEncoderStateStruct {
   pub is_initialized_: i32,
 }
 
+/*
 
 pub fn BrotliEncoderSetParameter(mut state: &mut [BrotliEncoderStateStruct],
                                  mut p: BrotliEncoderParameter,
