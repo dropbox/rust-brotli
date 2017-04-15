@@ -325,75 +325,69 @@ pub fn BrotliEncoderCreateInstance(mut alloc_func: fn(&mut [::std::os::raw::c_vo
   BrotliEncoderInitState(state);
   state
 }*/
-/*
 
-fn RingBufferFree(mut m: &mut [MemoryManager], mut rb: &mut [RingBuffer]) {
-  BrotliFree(m, (*rb).data_);
-  (*rb).data_ = 0i32;
+fn RingBufferFree<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8, mut rb: &mut RingBuffer<AllocU8>) {
+  m.free_cell(core::mem::replace(&mut rb.data_, AllocU8::AllocatedMemory::default()));
 }
 
-fn DestroyHasher(mut m: &mut [MemoryManager], mut handle: &mut [*mut u8]) {
-  if *handle == 0i32 {
-    return;
+fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>(
+    mut m16: &mut AllocU16, mut m32:&mut AllocU32, mut handle: &mut UnionHasher<AllocU16, AllocU32>) {
+  match handle {
+      &mut UnionHasher::H5(ref mut hasher) => {
+          m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
+          m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+      },
+      &mut UnionHasher::H6(ref mut hasher) => {
+          m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
+          m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+      },
+      _ => {},
   }
-  {
-    BrotliFree(m, *handle);
-    *handle = 0i32;
-  }
-}
-
-fn BrotliEncoderCleanupState(mut s: &mut [BrotliEncoderStateStruct]) {
-  let mut m: *mut MemoryManager = &mut (*s).memory_manager_;
-  if !(0i32 == 0) {
-    BrotliWipeOutMemoryManager(m);
-    return;
-  }
-  {
-    BrotliFree(m, (*s).storage_);
-    (*s).storage_ = 0i32;
-  }
-  {
-    BrotliFree(m, (*s).commands_);
-    (*s).commands_ = 0i32;
-  }
-  RingBufferFree(m, &mut (*s).ringbuffer_);
-  DestroyHasher(m, &mut (*s).hasher_);
-  {
-    BrotliFree(m, (*s).large_table_);
-    (*s).large_table_ = 0i32;
-  }
-  {
-    BrotliFree(m, (*s).command_buf_);
-    (*s).command_buf_ = 0i32;
-  }
-  {
-    BrotliFree(m, (*s).literal_buf_);
-    (*s).literal_buf_ = 0i32;
-  }
+  *handle = UnionHasher::<AllocU16, AllocU32>::default();
 }
 
 
-pub fn BrotliEncoderDestroyInstance(mut state: &mut [BrotliEncoderStateStruct]) {
-  if state.is_null() {
-  } else {
-    let mut m: *mut MemoryManager = &mut (*state).memory_manager_;
-    let mut free_func: fn(*mut ::std::os::raw::c_void, *mut ::std::os::raw::c_void) =
-      (*m).free_func;
-    let mut opaque: *mut ::std::os::raw::c_void = (*m).opaque;
-    BrotliEncoderCleanupState(state);
-    free_func(opaque, state);
+fn BrotliEncoderCleanupState<AllocU8:alloc::Allocator<u8>,
+                                    AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>,
+                             AllocCommand:alloc::Allocator<Command>>(
+    mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>) {
+  {
+    s.m8.free_cell(core::mem::replace(&mut (*s).storage_, AllocU8::AllocatedMemory::default()));
+  }
+  {
+    s.mc.free_cell(core::mem::replace(&mut (*s).commands_, AllocCommand::AllocatedMemory::default()));
+  }
+  RingBufferFree(&mut s.m8, &mut (*s).ringbuffer_);
+  DestroyHasher(&mut s.m16, &mut s.m32, &mut (*s).hasher_);
+  {
+    s.m32.free_cell(core::mem::replace(&mut (*s).large_table_, AllocU32::AllocatedMemory::default()));
+  }
+  {
+    s.m32.free_cell(core::mem::replace(&mut (*s).command_buf_, AllocU32::AllocatedMemory::default()));
+  }
+  {
+    s.m8.free_cell(core::mem::replace(&mut (*s).literal_buf_, AllocU8::AllocatedMemory::default()));
   }
 }
 
-fn brotli_min_int(mut a: i32, mut b: i32) -> i32 {
+pub fn BrotliEncoderDestroyInstance<AllocU8:alloc::Allocator<u8>,
+                                    AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>,
+                             AllocCommand:alloc::Allocator<Command>>(
+    mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>) {
+  BrotliEncoderCleanupState(s);
+}
+
+fn brotli_min_int(a: i32, b: i32) -> i32 {
   if a < b { a } else { b }
 }
 
-fn brotli_max_int(mut a: i32, mut b: i32) -> i32 {
+fn brotli_max_int(a: i32, b: i32) -> i32 {
   if a > b { a } else { b }
 }
 
-fn SanitizeParams(mut params: &mut [BrotliEncoderParams]) {
+fn SanitizeParams(mut params: &mut BrotliEncoderParams) {
   (*params).quality = brotli_min_int(11i32, brotli_max_int(0i32, (*params).quality));
   if (*params).lgwin < 10i32 {
     (*params).lgwin = 10i32;
@@ -402,7 +396,7 @@ fn SanitizeParams(mut params: &mut [BrotliEncoderParams]) {
   }
 }
 
-fn ComputeLgBlock(mut params: &[BrotliEncoderParams]) -> i32 {
+fn ComputeLgBlock(mut params: &BrotliEncoderParams) -> i32 {
   let mut lgblock: i32 = (*params).lgblock;
   if (*params).quality == 0i32 || (*params).quality == 1i32 {
     lgblock = (*params).lgwin;
@@ -419,11 +413,11 @@ fn ComputeLgBlock(mut params: &[BrotliEncoderParams]) -> i32 {
   lgblock
 }
 
-fn ComputeRbBits(mut params: &[BrotliEncoderParams]) -> i32 {
+fn ComputeRbBits(mut params: &BrotliEncoderParams) -> i32 {
   1i32 + brotli_max_int((*params).lgwin, (*params).lgblock)
 }
 
-fn RingBufferSetup(mut params: &[BrotliEncoderParams], mut rb: &mut [RingBuffer]) {
+fn RingBufferSetup<AllocU8:alloc::Allocator<u8>>(mut params: &BrotliEncoderParams, mut rb: &mut RingBuffer<AllocU8>) {
   let mut window_bits: i32 = ComputeRbBits(params);
   let mut tail_bits: i32 = (*params).lgblock;
   *(&mut (*rb).size_) = 1u32 << window_bits;
@@ -432,7 +426,7 @@ fn RingBufferSetup(mut params: &[BrotliEncoderParams], mut rb: &mut [RingBuffer]
   *(&mut (*rb).total_size_) = (*rb).size_.wrapping_add((*rb).tail_size_);
 }
 
-fn EncodeWindowBits(mut lgwin: i32, mut last_byte: &mut [u8], mut last_byte_bits: &mut [u8]) {
+fn EncodeWindowBits(mut lgwin: i32, mut last_byte: &mut u8, mut last_byte_bits: &mut u8) {
   if lgwin == 16i32 {
     *last_byte = 0i32 as (u8);
     *last_byte_bits = 1i32 as (u8);
@@ -447,6 +441,7 @@ fn EncodeWindowBits(mut lgwin: i32, mut last_byte: &mut [u8], mut last_byte_bits
     *last_byte_bits = 7i32 as (u8);
   }
 }
+/*
 
 fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
                           mut cmd_bits: &mut [u16],
