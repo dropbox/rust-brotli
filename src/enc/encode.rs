@@ -2,7 +2,8 @@ use super::compress_fragment_two_pass::BrotliCompressFragmentTwoPass;
 use super::compress_fragment::BrotliCompressFragmentFast;
 
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
-use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher, BrotliEncoderParams};
+use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher, BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams,
+H2Sub, BasicHasher};
 use super::block_split::{BlockSplit};
 use super::utf8_util::{BrotliIsMostlyUTF8};
 use super::command::{Command};
@@ -79,24 +80,24 @@ static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 
 static kMinUTF8Ratio: f64 = 0.75f64;
 
-#[repr(i32)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum BrotliEncoderParameter {
-  BROTLI_PARAM_MODE = 0i32,
-  BROTLI_PARAM_QUALITY = 1i32,
-  BROTLI_PARAM_LGWIN = 2i32,
-  BROTLI_PARAM_LGBLOCK = 3i32,
-  BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING = 4i32,
-  BROTLI_PARAM_SIZE_HINT = 5i32,
+  BROTLI_PARAM_MODE = 0,
+  BROTLI_PARAM_QUALITY = 1,
+  BROTLI_PARAM_LGWIN = 2,
+  BROTLI_PARAM_LGBLOCK = 3,
+  BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING = 4,
+  BROTLI_PARAM_SIZE_HINT = 5,
 }
 
-
-#[repr(i32)]
+/*
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum BrotliEncoderMode {
-  BROTLI_MODE_GENERIC = 0i32,
-  BROTLI_MODE_TEXT = 1i32,
-  BROTLI_MODE_FONT = 2i32,
+  BROTLI_MODE_GENERIC = 0,
+  BROTLI_MODE_TEXT = 1,
+  BROTLI_MODE_FONT = 2,
 }
-
+*/
 
 
 
@@ -113,13 +114,13 @@ pub struct RingBuffer<AllocU8:alloc::Allocator<u8>> {
 }
 
 
-#[repr(i32)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum BrotliEncoderStreamState {
-  BROTLI_STREAM_PROCESSING = 0i32,
-  BROTLI_STREAM_FLUSH_REQUESTED = 1i32,
-  BROTLI_STREAM_FINISHED = 2i32,
-  BROTLI_STREAM_METADATA_HEAD = 3i32,
-  BROTLI_STREAM_METADATA_BODY = 4i32,
+  BROTLI_STREAM_PROCESSING = 0,
+  BROTLI_STREAM_FLUSH_REQUESTED = 1,
+  BROTLI_STREAM_FINISHED = 2,
+  BROTLI_STREAM_METADATA_HEAD = 3,
+  BROTLI_STREAM_METADATA_BODY = 4,
 }
 
 
@@ -162,16 +163,22 @@ pub struct BrotliEncoderStateStruct<AllocU8:alloc::Allocator<u8>,
   pub next_out_: AllocU8::AllocatedMemory, // not sure about this one: may be a pointer to l
   pub available_out_: usize,
   pub total_out_: usize,
-  pub tiny_buf_: Struct1,
+  pub tiny_buf_: [u8;16],
   pub remaining_metadata_bytes_: u32,
   pub stream_state_: BrotliEncoderStreamState,
   pub is_last_block_emitted_: i32,
   pub is_initialized_: i32,
 }
 
-/*
 
-pub fn BrotliEncoderSetParameter(mut state: &mut [BrotliEncoderStateStruct],
+
+pub fn BrotliEncoderSetParameter<AllocU8:alloc::Allocator<u8>,
+                                    AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>,
+                                    AllocCommand:alloc::Allocator<Command>>(mut state: &mut BrotliEncoderStateStruct<AllocU8,
+                                    AllocU16,
+                                    AllocU32,
+                                    AllocCommand>,
                                  mut p: BrotliEncoderParameter,
                                  mut value: u32)
                                  -> i32 {
@@ -179,7 +186,12 @@ pub fn BrotliEncoderSetParameter(mut state: &mut [BrotliEncoderStateStruct],
     return 0i32;
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_MODE as (i32) {
-    (*state).params.mode = value as (BrotliEncoderMode);
+    (*state).params.mode = match value {
+     0 => BrotliEncoderMode::BROTLI_MODE_GENERIC,
+     1 => BrotliEncoderMode::BROTLI_MODE_TEXT,
+     2 => BrotliEncoderMode::BROTLI_MODE_FONT,
+     _ => BrotliEncoderMode::BROTLI_MODE_GENERIC,
+    };
     return 1i32;
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_QUALITY as (i32) {
@@ -207,60 +219,93 @@ pub fn BrotliEncoderSetParameter(mut state: &mut [BrotliEncoderStateStruct],
   }
   0i32
 }
-
-fn BrotliEncoderInitParams(mut params: &mut [BrotliEncoderParams]) {
-  (*params).mode = BrotliEncoderMode::BROTLI_MODE_GENERIC;
-  (*params).quality = 11i32;
-  (*params).lgwin = 22i32;
-  (*params).lgblock = 0i32;
-  (*params).size_hint = 0usize;
-  (*params).disable_literal_context_modeling = 0i32;
-}
-
-fn RingBufferInit(mut rb: &mut [RingBuffer]) {
-  (*rb).cur_size_ = 0u32;
-  (*rb).pos_ = 0u32;
-  (*rb).data_ = 0i32;
-  (*rb).buffer_index = 0usize;
-}
-
-fn BrotliEncoderInitState(mut s: &mut [BrotliEncoderStateStruct]) {
-  BrotliEncoderInitParams(&mut (*s).params);
-  (*s).input_pos_ = 0usize;
-  (*s).num_commands_ = 0usize;
-  (*s).num_literals_ = 0usize;
-  (*s).last_insert_len_ = 0usize;
-  (*s).last_flush_pos_ = 0usize;
-  (*s).last_processed_pos_ = 0usize;
-  (*s).prev_byte_ = 0i32 as (u8);
-  (*s).prev_byte2_ = 0i32 as (u8);
-  (*s).storage_size_ = 0usize;
-  (*s).storage_ = 0i32;
-  (*s).hasher_ = 0i32;
-  (*s).large_table_ = 0i32;
-  (*s).large_table_size_ = 0usize;
-  (*s).cmd_code_numbits_ = 0usize;
-  (*s).command_buf_ = 0i32;
-  (*s).literal_buf_ = 0i32;
-  (*s).next_out_ = 0i32;
-  (*s).available_out_ = 0usize;
-  (*s).total_out_ = 0usize;
-  (*s).stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING;
-  (*s).is_last_block_emitted_ = 0i32;
-  (*s).is_initialized_ = 0i32;
-  RingBufferInit(&mut (*s).ringbuffer_);
-  (*s).commands_ = 0i32;
-  (*s).cmd_alloc_size_ = 0usize;
-  (*s).dist_cache_[0usize] = 4i32;
-  (*s).dist_cache_[1usize] = 11i32;
-  (*s).dist_cache_[2usize] = 15i32;
-  (*s).dist_cache_[3usize] = 16i32;
-  memcpy((*s).saved_dist_cache_.as_mut_ptr(),
-         (*s).dist_cache_.as_mut_ptr(),
-         ::std::mem::size_of::<[i32; 4]>());
+fn BrotliEncoderInitParams() -> BrotliEncoderParams {
+  return BrotliEncoderParams{
+     mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
+     quality: 9,
+     lgwin: 22i32,
+     lgblock: 0i32,
+     size_hint: 0usize,
+     disable_literal_context_modeling: 0i32,
+     hasher: BrotliHasherParams {
+          type_: 6,
+          block_bits: 9 - 1,
+          bucket_bits: 15,
+          hash_len: 5,
+          num_last_distances_to_check: 16,
+     },
+   }
 }
 
 
+fn RingBufferInit<AllocU8:alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
+return RingBuffer {
+  size_: 0,
+  mask_: 0, // 0xff??
+  tail_size_: 0,
+  total_size_: 0,
+
+       cur_size_ : 0,
+       pos_: 0,
+       data_: AllocU8::AllocatedMemory::default(),
+       buffer_index: 0usize,
+    }
+}
+
+pub fn BrotliEncoderCreateInstance<AllocU8:alloc::Allocator<u8>,
+                                    AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>,
+                                    AllocCommand:alloc::Allocator<Command>> (
+                                    m8:AllocU8,
+                                    m16:AllocU16,
+                                    m32:AllocU32,
+                                    mc:AllocCommand) -> BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand> {
+  let cache :[i32;16] = [4,11,15,16,0,0,0,0,0,0,0,0,0,0,0,0];
+  BrotliEncoderStateStruct::<AllocU8, AllocU16, AllocU32, AllocCommand> {
+      params: BrotliEncoderInitParams(),
+  input_pos_ : 0usize,
+  num_commands_ : 0usize,
+  num_literals_ : 0usize,
+  last_insert_len_ : 0usize,
+  last_flush_pos_ : 0usize,
+  last_processed_pos_ : 0usize,
+  prev_byte_ : 0i32 as (u8),
+  prev_byte2_ : 0i32 as (u8),
+  storage_size_ : 0usize,
+  storage_ : AllocU8::AllocatedMemory::default(),
+  hasher_ : UnionHasher::<AllocU16, AllocU32>::default(),
+  large_table_ : AllocU32::AllocatedMemory::default(),
+  large_table_size_ : 0usize,
+  cmd_code_numbits_ : 0usize,
+  command_buf_ : AllocU32::AllocatedMemory::default(),
+  literal_buf_ : AllocU8::AllocatedMemory::default(),
+  next_out_ : AllocU8::AllocatedMemory::default(), //FIXME this should be a pointer
+  available_out_ : 0usize,
+  total_out_ : 0usize,
+  stream_state_ : BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING,
+  is_last_block_emitted_ : 0i32,
+  is_initialized_ : 0i32,
+  ringbuffer_:RingBufferInit(),
+  commands_ : AllocCommand::AllocatedMemory::default(),
+  cmd_alloc_size_ : 0usize,
+  dist_cache_:cache,
+  saved_dist_cache_:[cache[0], cache[1], cache[2], cache[3]],
+  cmd_bits_:[0;128],
+  cmd_depths_:[0;128],
+  last_byte_:0,
+  last_byte_bits_:0,
+  cmd_code_:[0;512],
+  m8:m8,
+  m16:m16,
+  m32:m32,
+  mc:mc,
+  remaining_metadata_bytes_:0,
+  small_table_:[0;1024],
+  tiny_buf_:[0;16],
+  }
+}
+
+/* no new news in here: it's all in the former init function
 pub fn BrotliEncoderCreateInstance(mut alloc_func: fn(&mut [::std::os::raw::c_void], usize)
                                                       -> *mut ::std::os::raw::c_void,
                                    mut free_func: fn(*mut ::std::os::raw::c_void,
@@ -279,7 +324,8 @@ pub fn BrotliEncoderCreateInstance(mut alloc_func: fn(&mut [::std::os::raw::c_vo
   BrotliInitMemoryManager(&mut (*state).memory_manager_, alloc_func, free_func, opaque);
   BrotliEncoderInitState(state);
   state
-}
+}*/
+/*
 
 fn RingBufferFree(mut m: &mut [MemoryManager], mut rb: &mut [RingBuffer]) {
   BrotliFree(m, (*rb).data_);

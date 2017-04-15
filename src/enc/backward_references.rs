@@ -824,8 +824,26 @@ pub enum UnionHasher<AllocU16: alloc::Allocator<u16>,
     H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
     H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
 }
-
-
+impl<AllocU16: alloc::Allocator<u16>,
+                 AllocU32: alloc::Allocator<u32>> Default for UnionHasher<AllocU16, AllocU32> {
+                 fn default() -> Self {
+UnionHasher::H2(BasicHasher {
+          GetHasherCommon:Struct1{params:BrotliHasherParams{
+           type_:2,
+           block_bits: 8,
+           bucket_bits:16,
+           hash_len: 4,
+           num_last_distances_to_check:0},
+          is_prepared_:0,
+          dict_num_lookups:0,
+          dict_num_matches:0,
+          },
+          buckets_:H2Sub{
+          buckets_:[0;65537],
+          },
+          })
+}
+}
 fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                            dictionary_hash: &[u16],
                                            num_bytes: usize,
