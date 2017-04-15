@@ -441,13 +441,12 @@ fn EncodeWindowBits(mut lgwin: i32, mut last_byte: &mut u8, mut last_byte_bits: 
     *last_byte_bits = 7i32 as (u8);
   }
 }
-/*
 
 fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
                           mut cmd_bits: &mut [u16],
                           mut cmd_code: &mut [u8],
-                          mut cmd_code_numbits: &mut [usize]) {
-  static mut kDefaultCommandDepths: [u8; 128] = [0i32 as (u8),
+                          mut cmd_code_numbits: &mut usize) {
+  static kDefaultCommandDepths: [u8; 128] = [0i32 as (u8),
                                                  4i32 as (u8),
                                                  4i32 as (u8),
                                                  5i32 as (u8),
@@ -575,7 +574,7 @@ fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
                                                  0i32 as (u8),
                                                  0i32 as (u8),
                                                  0i32 as (u8)];
-  static mut kDefaultCommandBits: [u16; 128] = [0i32 as (u16),
+  static kDefaultCommandBits: [u16; 128] = [0i32 as (u16),
                                                 0i32 as (u16),
                                                 8i32 as (u16),
                                                 9i32 as (u16),
@@ -703,7 +702,7 @@ fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
                                                 0i32 as (u16),
                                                 0i32 as (u16),
                                                 0i32 as (u16)];
-  static mut kDefaultCommandCode: [u8; 57] = [0xffi32 as (u8),
+  static kDefaultCommandCode: [u8; 57] = [0xffi32 as (u8),
                                               0x77i32 as (u8),
                                               0xd5i32 as (u8),
                                               0xbfi32 as (u8),
@@ -761,22 +760,19 @@ fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
                                               0x4i32 as (u8),
                                               0x0i32 as (u8)];
   static kDefaultCommandCodeNumBits: usize = 448usize;
-  memcpy(cmd_depths,
-         kDefaultCommandDepths.as_ptr(),
-         ::std::mem::size_of::<[u8; 128]>());
-  memcpy(cmd_bits,
-         kDefaultCommandBits.as_ptr(),
-         ::std::mem::size_of::<[u16; 128]>());
-  memcpy(cmd_code,
-         kDefaultCommandCode.as_ptr(),
-         ::std::mem::size_of::<[u8; 57]>());
+  cmd_depths[..].clone_from_slice(&kDefaultCommandDepths[..]);
+  cmd_bits[..].clone_from_slice(&kDefaultCommandBits[..]);
+  cmd_code[..].clone_from_slice(&kDefaultCommandCode[..]);
   *cmd_code_numbits = kDefaultCommandCodeNumBits;
 }
 
-fn EnsureInitialized(mut s: &mut [BrotliEncoderStateStruct]) -> i32 {
-  if !(0i32 == 0) {
-    return 0i32;
-  }
+fn EnsureInitialized<AllocU8:alloc::Allocator<u8>,
+                     AllocU16:alloc::Allocator<u16>,
+                     AllocU32:alloc::Allocator<u32>,
+                     AllocCommand:alloc::Allocator<Command>>(mut s: &mut BrotliEncoderStateStruct<AllocU8,
+                                                                                                  AllocU16,
+                                                                                                  AllocU32,
+                                                                                                  AllocCommand>) -> i32 {
   if (*s).is_initialized_ != 0 {
     return 1i32;
   }
@@ -792,88 +788,66 @@ fn EnsureInitialized(mut s: &mut [BrotliEncoderStateStruct]) -> i32 {
     EncodeWindowBits(lgwin, &mut (*s).last_byte_, &mut (*s).last_byte_bits_);
   }
   if (*s).params.quality == 0i32 {
-    InitCommandPrefixCodes((*s).cmd_depths_.as_mut_ptr(),
-                           (*s).cmd_bits_.as_mut_ptr(),
-                           (*s).cmd_code_.as_mut_ptr(),
+    InitCommandPrefixCodes(&mut (*s).cmd_depths_[..],
+                           &mut (*s).cmd_bits_[..],
+                           &mut (*s).cmd_code_[..],
                            &mut (*s).cmd_code_numbits_);
   }
   (*s).is_initialized_ = 1i32;
   1i32
 }
 
-fn RingBufferInitBuffer(mut m: &mut [MemoryManager], buflen: u32, mut rb: &mut [RingBuffer]) {
+fn RingBufferInitBuffer<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
+                                                       buflen: u32,
+                                                       mut rb: &mut RingBuffer<AllocU8>) {
   static kSlackForEightByteHashingEverywhere: usize = 7usize;
-  let mut new_data: *mut u8 = if ((2u32).wrapping_add(buflen) as (usize))
-       .wrapping_add(kSlackForEightByteHashingEverywhere) != 0 {
-    BrotliAllocate(m,
-                   ((2u32).wrapping_add(buflen) as (usize))
-                     .wrapping_add(kSlackForEightByteHashingEverywhere)
-                     .wrapping_mul(::std::mem::size_of::<u8>()))
-  } else {
-    0i32
-  };
+  let mut new_data = m.alloc_cell(((2u32).wrapping_add(buflen) as (usize))
+                     .wrapping_add(kSlackForEightByteHashingEverywhere));
   let mut i: usize;
-  if !(0i32 == 0) {
-    return;
+    if !(*rb).data_.slice().len() != 0 {
+        let lim : usize = ((2u32).wrapping_add((*rb).cur_size_) as (usize))
+             .wrapping_add(kSlackForEightByteHashingEverywhere);
+    new_data.slice_mut()[..lim].clone_from_slice(&(*rb).data_.slice()[..lim]);
+    m.free_cell(core::mem::replace(&mut (*rb).data_, AllocU8::AllocatedMemory::default()));
   }
-  if !(*rb).data_.is_null() {
-    memcpy(new_data,
-           (*rb).data_,
-           ((2u32).wrapping_add((*rb).cur_size_) as (usize))
-             .wrapping_add(kSlackForEightByteHashingEverywhere));
-    {
-      BrotliFree(m, (*rb).data_);
-      (*rb).data_ = 0i32;
-    }
-  }
-  (*rb).data_ = new_data;
+  core::mem::replace(&mut (*rb).data_, new_data);
   (*rb).cur_size_ = buflen;
   (*rb).buffer_index = 2usize;
-  *(*rb).data_[((*rb).buffer_index.wrapping_sub(2usize) as (usize))..] = {
-    let _rhs = 0i32;
-    let _lhs = &mut *(*rb).data_[((*rb).buffer_index.wrapping_sub(1usize) as (usize))..];
-    *_lhs = _rhs as (u8);
-    *_lhs
-  };
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize))] = 0;
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize))] = 0;
   i = 0usize;
   while i < kSlackForEightByteHashingEverywhere {
     {
-      *(*rb).data_[((*rb)
+      (*rb).data_.slice_mut()[((*rb)
           .buffer_index
           .wrapping_add((*rb).cur_size_ as (usize))
-          .wrapping_add(i) as (usize))..] = 0i32 as (u8);
+          .wrapping_add(i) as (usize))] = 0;
     }
     i = i.wrapping_add(1 as (usize));
   }
 }
 
-fn brotli_min_size_t(mut a: usize, mut b: usize) -> usize {
-  if a < b { a } else { b }
-}
 
-fn RingBufferWriteTail(mut bytes: &[u8], mut n: usize, mut rb: &mut [RingBuffer]) {
+fn RingBufferWriteTail<AllocU8:alloc::Allocator<u8>>(bytes: &[u8], mut n: usize, mut rb: &mut RingBuffer<AllocU8>) {
   let masked_pos: usize = ((*rb).pos_ & (*rb).mask_) as (usize);
   if masked_pos < (*rb).tail_size_ as (usize) {
     let p: usize = ((*rb).size_ as (usize)).wrapping_add(masked_pos);
-    memcpy(&mut *(*rb).data_[((*rb).buffer_index.wrapping_add(p) as (usize))..],
-           bytes,
-           brotli_min_size_t(n, ((*rb).tail_size_ as (usize)).wrapping_sub(masked_pos)));
+    let begin = ((*rb).buffer_index.wrapping_add(p) as (usize));
+    let lim = brotli_min_size_t(n, ((*rb).tail_size_ as (usize)).wrapping_sub(masked_pos));
+    (*rb).data_.slice_mut()[begin..(begin + lim)].clone_from_slice(
+           &bytes[..lim]);
   }
 }
 
-fn RingBufferWrite(mut m: &mut [MemoryManager],
+fn RingBufferWrite<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
                    mut bytes: &[u8],
                    mut n: usize,
-                   mut rb: &mut [RingBuffer]) {
+                   mut rb: &mut RingBuffer<AllocU8>) {
   if (*rb).pos_ == 0u32 && (n < (*rb).tail_size_ as (usize)) {
     (*rb).pos_ = n as (u32);
     RingBufferInitBuffer(m, (*rb).pos_, rb);
-    if !(0i32 == 0) {
-      return;
-    }
-    memcpy(&mut *(*rb).data_[((*rb).buffer_index as (usize))..],
-           bytes,
-           n);
+    (*rb).data_.slice_mut()[((*rb).buffer_index as (usize))..(((*rb).buffer_index as (usize)) + n)]
+        .clone_from_slice(&bytes[..n]);
     return;
   }
   if (*rb).cur_size_ < (*rb).total_size_ {
@@ -881,78 +855,78 @@ fn RingBufferWrite(mut m: &mut [MemoryManager],
     if !(0i32 == 0) {
       return;
     }
-    *(*rb).data_[((*rb)
+    (*rb).data_.slice_mut()[((*rb)
         .buffer_index
         .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(2usize) as (usize))..] = 0i32 as (u8);
-    *(*rb).data_[((*rb)
+        .wrapping_sub(2usize) as (usize))] = 0i32 as (u8);
+    (*rb).data_.slice_mut()[((*rb)
         .buffer_index
         .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(1usize) as (usize))..] = 0i32 as (u8);
+        .wrapping_sub(1usize) as (usize))] = 0i32 as (u8);
   }
   {
     let masked_pos: usize = ((*rb).pos_ & (*rb).mask_) as (usize);
     RingBufferWriteTail(bytes, n, rb);
     if masked_pos.wrapping_add(n) <= (*rb).size_ as (usize) {
-      memcpy(&mut *(*rb).data_[((*rb).buffer_index.wrapping_add(masked_pos) as (usize))..],
-             bytes,
-             n);
+      // a single write fits
+      let start = ((*rb).buffer_index.wrapping_add(masked_pos) as (usize));
+      (*rb).data_.slice_mut()[start..(start + n)].clone_from_slice(&bytes[..n]);
     } else {
-      memcpy(&mut *(*rb).data_[((*rb).buffer_index.wrapping_add(masked_pos) as (usize))..],
-             bytes,
-             brotli_min_size_t(n, ((*rb).total_size_ as (usize)).wrapping_sub(masked_pos)));
-      memcpy(&mut *(*rb).data_[((*rb).buffer_index.wrapping_add(0usize) as (usize))..],
-             bytes[(((*rb).size_ as (usize)).wrapping_sub(masked_pos) as (usize))..],
-             n.wrapping_sub(((*rb).size_ as (usize)).wrapping_sub(masked_pos)));
+      {
+        let start = ((*rb).buffer_index.wrapping_add(masked_pos) as (usize));
+        let mid = brotli_min_size_t(n, ((*rb).total_size_ as (usize)).wrapping_sub(masked_pos));
+        (*rb).data_.slice_mut()[start..(start + mid)].clone_from_slice(
+            & bytes[..mid]);
+      }
+      let xstart = ((*rb).buffer_index.wrapping_add(0usize) as (usize));
+      let size = n.wrapping_sub(((*rb).size_ as (usize)).wrapping_sub(masked_pos));
+      let bytes_start = (((*rb).size_ as (usize)).wrapping_sub(masked_pos) as (usize));
+      (*rb).data_.slice_mut()[xstart..(xstart + size)].clone_from_slice(
+             &bytes[bytes_start..(bytes_start + size)],
+             );
     }
   }
-  *(*rb).data_[((*rb).buffer_index.wrapping_sub(2usize) as (usize))..] =
-    *(*rb).data_[((*rb)
+  let data_2 = (*rb).data_.slice()[((*rb)
         .buffer_index
         .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(2usize) as (usize))..];
-  *(*rb).data_[((*rb).buffer_index.wrapping_sub(1usize) as (usize))..] =
-    *(*rb).data_[((*rb)
+        .wrapping_sub(2usize) as (usize))];
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize) as (usize))] = data_2;
+  let data_1 = (*rb).data_.slice()[((*rb)
         .buffer_index
         .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(1usize) as (usize))..];
+        .wrapping_sub(1usize) as (usize))];
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize) as (usize))] = data_1;
   (*rb).pos_ = (*rb).pos_.wrapping_add(n as (u32));
   if (*rb).pos_ > 1u32 << 30i32 {
     (*rb).pos_ = (*rb).pos_ & (1u32 << 30i32).wrapping_sub(1u32) | 1u32 << 30i32;
   }
 }
 
-fn CopyInputToRingBuffer(mut s: &mut [BrotliEncoderStateStruct],
+fn CopyInputToRingBuffer<AllocU8:alloc::Allocator<u8>,
+                                    AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>,
+                                    AllocCommand:alloc::Allocator<Command>>(mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>,
                          input_size: usize,
                          mut input_buffer: &[u8]) {
-  let mut ringbuffer_: *mut RingBuffer = &mut (*s).ringbuffer_;
-  let mut m: *mut MemoryManager = &mut (*s).memory_manager_;
   if EnsureInitialized(s) == 0 {
     return;
   }
-  RingBufferWrite(m, input_buffer, input_size, ringbuffer_);
+  RingBufferWrite(&mut s.m8, input_buffer, input_size, &mut s.ringbuffer_);
   if !(0i32 == 0) {
     return;
   }
   (*s).input_pos_ = (*s).input_pos_.wrapping_add(input_size);
-  if (*ringbuffer_).pos_ <= (*ringbuffer_).mask_ {
-    memset(&mut *(*ringbuffer_).data_[((*ringbuffer_).buffer_index.wrapping_add((*ringbuffer_).pos_ as (usize)) as
-                  (usize))..],
-           0i32,
-           7usize);
-  }
+    if (s.ringbuffer_).pos_ <= (s.ringbuffer_).mask_ {
+    let start = ((s.ringbuffer_).buffer_index.wrapping_add((s.ringbuffer_).pos_ as (usize)) as
+                                                  (usize));
+    for item in (s.ringbuffer_).data_.slice_mut()[start..(start + 7)].iter_mut() {
+        *item = 0;
+    }
+    }
 }
 
 
-
-pub struct Struct4 {
-  pub params: BrotliHasherParams,
-  pub is_prepared_: i32,
-  pub dict_num_lookups: usize,
-  pub dict_num_matches: usize,
-}
-
-fn ChooseHasher(mut params: &[BrotliEncoderParams], mut hparams: &mut [BrotliHasherParams]) {
+fn ChooseHasher(mut params: &BrotliEncoderParams, mut hparams: &mut BrotliHasherParams) {
   if (*params).quality > 9i32 {
     (*hparams).type_ = 10i32;
   } else if (*params).quality == 4i32 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
@@ -996,6 +970,7 @@ fn ChooseHasher(mut params: &[BrotliEncoderParams], mut hparams: &mut [BrotliHas
     };
   }
 }
+/*
 
 
 
@@ -4793,4 +4768,4 @@ pub fn BrotliEncoderWriteData(mut s: &mut [BrotliEncoderStateStruct],
                               -> i32 {
   EncodeData(s, is_last, force_flush, out_size, output)
 }
- */
+*/
