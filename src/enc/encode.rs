@@ -3,7 +3,7 @@ use super::compress_fragment::BrotliCompressFragmentFast;
 
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher, BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams,
-H2Sub, BasicHasher,AnyHasher};
+H2Sub, H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher,AnyHasher, HowPrepared};
 use super::block_split::{BlockSplit};
 use super::utf8_util::{BrotliIsMostlyUTF8};
 use super::command::{Command};
@@ -971,60 +971,135 @@ fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
     };
   }
 }
-fn InitializeH2(params : &BrotliEncoderParams) -> BasicHasher<H2Sub> {
-    BasicHasher {
-          GetHasherCommon:Struct1{
+
+macro_rules! InitializeHX{
+    ($name:ident,$subexpr:expr, $subtype:ty) => {
+        fn $name(params : &BrotliEncoderParams) -> BasicHasher<$subtype> {
+            BasicHasher {
+                GetHasherCommon:Struct1{
+                    params:params.hasher,
+                    is_prepared_:0,
+                    dict_num_lookups:0,
+                    dict_num_matches:0,
+                },
+                buckets_:$subexpr,
+            }
+        }
+    };
+}
+#[cfg(feature="unsafe")]
+fn if_unsafe_bzero<T : core::convert::From<u8>>(t : &mut [T]) {
+    for item in t.iter_mut() {
+        *item = T::from(0u8);
+    }
+}
+
+#[cfg(not(feature="unsafe"))]
+fn if_unsafe_bzero<T>(t : &mut [T]){}
+        
+InitializeHX!(InitializeH2, H2Sub {buckets_:[0;65537]}, H2Sub);
+InitializeHX!(InitializeH3, H3Sub {buckets_:[0;65538]}, H3Sub);
+InitializeHX!(InitializeH4, H4Sub {buckets_:[0;131076]}, H4Sub);
+InitializeHX!(InitializeH54, H54Sub{buckets_:[0;1048580]}, H54Sub);
+fn InitializeH5<AllocU16:alloc::Allocator<u16>,
+                AllocU32:alloc::Allocator<u32>>(mut m16:&mut AllocU16,
+                                                mut m32:&mut AllocU32,
+                                                mut params: &BrotliEncoderParams) -> AdvHasher<H5Sub, AllocU16, AllocU32> {
+    let block_size = 1u64 << params.hasher.block_bits;
+    let bucket_size = 1u64 << params.hasher.bucket_bits;
+    let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
+    let mut num = m16.alloc_cell(bucket_size as usize);
+    if_unsafe_bzero(buckets.slice_mut());
+    if_unsafe_bzero(num.slice_mut());
+    AdvHasher {
+        buckets:buckets,
+        num:num,
+        GetHasherCommon:Struct1{
             params:params.hasher,
             is_prepared_:0,
             dict_num_lookups:0,
             dict_num_matches:0,
-          },
-          buckets_:H2Sub{
-          buckets_:[0;65537],
-    },
-  }
+        },
+        specialization:H5Sub{},
+        hash_shift_: 32i32 - params.hasher.bucket_bits,
+        bucket_size_: bucket_size,
+        block_size_: block_size,
+        block_mask_: block_size.wrapping_sub(1u64) as (u32),
+    }
 }
+fn InitializeH6<AllocU16:alloc::Allocator<u16>,
+                AllocU32:alloc::Allocator<u32>>(mut m16:&mut AllocU16,
+                                                mut m32:&mut AllocU32,
+                                                mut params: &BrotliEncoderParams) -> AdvHasher<H6Sub, AllocU16, AllocU32> {
+    let block_size = 1u64 << params.hasher.block_bits;
+    let bucket_size = 1u64 << params.hasher.bucket_bits;
+    let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
+    let mut num = m16.alloc_cell(bucket_size as usize);
+    if_unsafe_bzero(buckets.slice_mut());
+    if_unsafe_bzero(num.slice_mut());
+    AdvHasher {
+        buckets: buckets,
+        num:num,
+        GetHasherCommon:Struct1{
+            params:params.hasher,
+            is_prepared_:0,
+            dict_num_lookups:0,
+            dict_num_matches:0,
+        },
+        hash_shift_: 64i32 - params.hasher.bucket_bits,
+        specialization:H6Sub{
+            hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
+        },
+        bucket_size_: 1u64 << params.hasher.bucket_bits,
+        block_size_: block_size,
+        block_mask_: block_size.wrapping_sub(1u64) as (u32),
+    }
+}
+
 fn BrotliMakeHasher<AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>>(params : &BrotliEncoderParams) -> UnionHasher<AllocU16, AllocU32> {
+                    AllocU32:alloc::Allocator<u32>>(mut m16: &mut AllocU16,
+                                                    mut m32: &mut AllocU32,
+                                                    params : &BrotliEncoderParams) -> UnionHasher<AllocU16, AllocU32> {
     let hasher_type: i32 = params.hasher.type_;
     if hasher_type == 2i32 {
       return UnionHasher::H2(InitializeH2(params));
     }
-    /*
     if hasher_type == 3i32 {
-      InitializeH3(params);
+      return UnionHasher::H3(InitializeH3(params));
     }
     if hasher_type == 4i32 {
-      InitializeH4(*handle, params);
+      return UnionHasher::H4(InitializeH4(params));
     }
     if hasher_type == 5i32 {
-      InitializeH5(*handle, params);
+      return UnionHasher::H5(InitializeH5(m16, m32, params));
     }
     if hasher_type == 6i32 {
-      InitializeH6(*handle, params);
+      return UnionHasher::H6(InitializeH6(m16, m32, params));
     }
+    /*
     if hasher_type == 40i32 {
-      InitializeH40(*handle, params);
+      return InitializeH40(params);
     }
     if hasher_type == 41i32 {
-      InitializeH41(*handle, params);
+      return InitializeH41(params);
     }
     if hasher_type == 42i32 {
-      InitializeH42(*handle, params);
+      return InitializeH42(params);
     }
+*/
     if hasher_type == 54i32 {
-      InitializeH54(*handle, params);
+      return UnionHasher::H54(InitializeH54(params));
     }
+    /*
     if hasher_type == 10i32 {
-      InitializeH10(*handle, params);
-    }
-FIXME*/
-return UnionHasher::Uninit;
+      return InitializeH10(params);
+    }*/
+    return UnionHasher::Uninit;
 }
 fn HasherReset<AllocU16:alloc::Allocator<u16>,
                                     AllocU32:alloc::Allocator<u32>>(mut t: &mut UnionHasher<AllocU16, AllocU32>) {
   match t {
-      Uninit => {},
+      &mut UnionHasher::Uninit => {},
       _ => (t.GetHasherCommon()).is_prepared_ = 0i32,
   };
 }
@@ -1033,373 +1108,6 @@ fn GetHasherCommon<AllocU16:alloc::Allocator<u16>,
   t.GetHasherCommon()
 }
 /*
-
-
-
-pub struct H2 {
-  pub buckets_: [u32; 65537],
-}
-
-fn HashMemAllocInBytesH2(mut params: &[BrotliEncoderParams],
-                         mut one_shot: i32,
-                         mut input_size: usize)
-                         -> usize {
-  params;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H2>()
-}
-pub struct H3 {
-  pub buckets_: [u32; 65538],
-}
-
-fn HashMemAllocInBytesH3(mut params: &[BrotliEncoderParams],
-                         mut one_shot: i32,
-                         mut input_size: usize)
-                         -> usize {
-  params;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H3>()
-}
-
-
-
-pub struct H4 {
-  pub buckets_: [u32; 131076],
-}
-
-fn HashMemAllocInBytesH4(mut params: &[BrotliEncoderParams],
-                         mut one_shot: i32,
-                         mut input_size: usize)
-                         -> usize {
-  params;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H4>()
-}
-
-
-
-pub struct H5 {
-  pub bucket_size_: usize,
-  pub block_size_: usize,
-  pub hash_shift_: i32,
-  pub block_mask_: u32,
-}
-
-fn HashMemAllocInBytesH5(mut params: &[BrotliEncoderParams],
-                         mut one_shot: i32,
-                         mut input_size: usize)
-                         -> usize {
-  let mut bucket_size: usize = 1usize << (*params).hasher.bucket_bits;
-  let mut block_size: usize = 1usize << (*params).hasher.block_bits;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H5>()
-    .wrapping_add(bucket_size.wrapping_mul((2usize).wrapping_add((4usize)
-                                                                   .wrapping_mul(block_size))))
-}
-
-
-
-pub struct H6 {
-  pub bucket_size_: usize,
-  pub block_size_: usize,
-  pub hash_shift_: i32,
-  pub hash_mask_: usize,
-  pub block_mask_: u32,
-}
-
-fn HashMemAllocInBytesH6(mut params: &[BrotliEncoderParams],
-                         mut one_shot: i32,
-                         mut input_size: usize)
-                         -> usize {
-  let mut bucket_size: usize = 1usize << (*params).hasher.bucket_bits;
-  let mut block_size: usize = 1usize << (*params).hasher.block_bits;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H6>()
-    .wrapping_add(bucket_size.wrapping_mul((2usize).wrapping_add((4usize)
-                                                                   .wrapping_mul(block_size))))
-}
-
-
-
-pub struct SlotH40 {
-  pub delta: u16,
-  pub next: u16,
-}
-
-
-
-pub struct BankH40 {
-  pub slots: [SlotH40; 65536],
-}
-
-
-
-pub struct H40 {
-  pub addr: [u32; 32768],
-  pub head: [u16; 32768],
-  pub tiny_hash: [u8; 65536],
-  pub banks: [BankH40; 1],
-  pub free_slot_idx: [u16; 1],
-  pub max_hops: usize,
-}
-
-fn HashMemAllocInBytesH40(mut params: &[BrotliEncoderParams],
-                          mut one_shot: i32,
-                          mut input_size: usize)
-                          -> usize {
-  params;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H40>()
-}
-
-
-
-pub struct SlotH41 {
-  pub delta: u16,
-  pub next: u16,
-}
-
-
-
-pub struct BankH41 {
-  pub slots: [SlotH41; 65536],
-}
-
-
-
-pub struct H41 {
-  pub addr: [u32; 32768],
-  pub head: [u16; 32768],
-  pub tiny_hash: [u8; 65536],
-  pub banks: [BankH41; 1],
-  pub free_slot_idx: [u16; 1],
-  pub max_hops: usize,
-}
-
-fn HashMemAllocInBytesH41(mut params: &[BrotliEncoderParams],
-                          mut one_shot: i32,
-                          mut input_size: usize)
-                          -> usize {
-  params;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H41>()
-}
-
-
-
-pub struct SlotH42 {
-  pub delta: u16,
-  pub next: u16,
-}
-
-
-
-pub struct BankH42 {
-  pub slots: [SlotH42; 512],
-}
-
-
-
-pub struct H42 {
-  pub addr: [u32; 32768],
-  pub head: [u16; 32768],
-  pub tiny_hash: [u8; 65536],
-  pub banks: [BankH42; 512],
-  pub free_slot_idx: [u16; 512],
-  pub max_hops: usize,
-}
-
-fn HashMemAllocInBytesH42(mut params: &[BrotliEncoderParams],
-                          mut one_shot: i32,
-                          mut input_size: usize)
-                          -> usize {
-  params;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H42>()
-}
-
-
-
-pub struct H54 {
-  pub buckets_: [u32; 1048580],
-}
-
-fn HashMemAllocInBytesH54(mut params: &[BrotliEncoderParams],
-                          mut one_shot: i32,
-                          mut input_size: usize)
-                          -> usize {
-  params;
-  one_shot;
-  input_size;
-  ::std::mem::size_of::<H54>()
-}
-
-
-
-pub struct H10 {
-  pub window_mask_: usize,
-  pub buckets_: [u32; 131072],
-  pub invalid_pos_: u32,
-}
-
-fn HashMemAllocInBytesH10(mut params: &[BrotliEncoderParams],
-                          mut one_shot: i32,
-                          mut input_size: usize)
-                          -> usize {
-  let mut num_nodes: usize = 1usize << (*params).lgwin;
-  if one_shot != 0 && (input_size < num_nodes) {
-    num_nodes = input_size;
-  }
-  ::std::mem::size_of::<H10>().wrapping_add((2usize)
-                                              .wrapping_mul(::std::mem::size_of::<u32>())
-                                              .wrapping_mul(num_nodes))
-}
-
-fn HasherSize(mut params: &[BrotliEncoderParams], mut one_shot: i32, input_size: usize) -> usize {
-  let mut result: usize = ::std::mem::size_of::<Struct4>();
-  let mut hashtype: i32 = (*params).hasher.type_;
-  if hashtype == 2i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH2(params, one_shot, input_size));
-  }
-  if hashtype == 3i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH3(params, one_shot, input_size));
-  }
-  if hashtype == 4i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH4(params, one_shot, input_size));
-  }
-  if hashtype == 5i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH5(params, one_shot, input_size));
-  }
-  if hashtype == 6i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH6(params, one_shot, input_size));
-  }
-  if hashtype == 40i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH40(params, one_shot, input_size));
-  }
-  if hashtype == 41i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH41(params, one_shot, input_size));
-  }
-  if hashtype == 42i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH42(params, one_shot, input_size));
-  }
-  if hashtype == 54i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH54(params, one_shot, input_size));
-  }
-  if hashtype == 10i32 {
-    result = result.wrapping_add(HashMemAllocInBytesH10(params, one_shot, input_size));
-  }
-  result
-}
-
-fn GetHasherCommon(mut handle: &mut [u8]) -> *mut Struct4 {
-  handle
-}
-
-fn InitializeH2(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  handle;
-  params;
-}
-
-fn InitializeH3(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  handle;
-  params;
-}
-
-fn InitializeH4(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  handle;
-  params;
-}
-
-fn SelfH5(mut handle: &mut [u8]) -> *mut H5 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
-}
-
-fn InitializeH5(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  let mut common: *mut Struct4 = GetHasherCommon(handle);
-  let mut xself: *mut H5 = SelfH5(handle);
-  params;
-  (*xself).hash_shift_ = 32i32 - (*common).params.bucket_bits;
-  (*xself).bucket_size_ = 1usize << (*common).params.bucket_bits;
-  (*xself).block_size_ = 1usize << (*common).params.block_bits;
-  (*xself).block_mask_ = (*xself).block_size_.wrapping_sub(1usize) as (u32);
-}
-
-fn SelfH6(mut handle: &mut [u8]) -> *mut H6 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
-}
-
-fn InitializeH6(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  let mut common: *mut Struct4 = GetHasherCommon(handle);
-  let mut xself: *mut H6 = SelfH6(handle);
-  params;
-  (*xself).hash_shift_ = 64i32 - (*common).params.bucket_bits;
-  (*xself).hash_mask_ = !(0u32 as (usize)) >> 64i32 - 8i32 * (*common).params.hash_len;
-  (*xself).bucket_size_ = 1usize << (*common).params.bucket_bits;
-  (*xself).block_size_ = 1usize << (*common).params.block_bits;
-  (*xself).block_mask_ = (*xself).block_size_.wrapping_sub(1usize) as (u32);
-}
-
-fn SelfH40(mut handle: &mut [u8]) -> *mut H40 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
-}
-
-fn InitializeH40(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  (*SelfH40(handle)).max_hops =
-    (if (*params).quality > 6i32 { 7u32 } else { 8u32 } << (*params).quality - 4i32) as (usize);
-}
-
-fn SelfH41(mut handle: &mut [u8]) -> *mut H41 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
-}
-
-fn InitializeH41(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  (*SelfH41(handle)).max_hops =
-    (if (*params).quality > 6i32 { 7u32 } else { 8u32 } << (*params).quality - 4i32) as (usize);
-}
-
-fn SelfH42(mut handle: &mut [u8]) -> *mut H42 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
-}
-
-fn InitializeH42(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  (*SelfH42(handle)).max_hops =
-    (if (*params).quality > 6i32 { 7u32 } else { 8u32 } << (*params).quality - 4i32) as (usize);
-}
-
-fn InitializeH54(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  handle;
-  params;
-}
-
-fn SelfH10(mut handle: &mut [u8]) -> *mut H10 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
-}
-
-fn InitializeH10(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
-  let mut xself: *mut H10 = SelfH10(handle);
-  (*xself).window_mask_ = (1u32 << (*params).lgwin).wrapping_sub(1u32) as (usize);
-  (*xself).invalid_pos_ = (0usize).wrapping_sub((*xself).window_mask_) as (u32);
-}
-
-
-fn SelfH2(mut handle: &mut [u8]) -> *mut H2 {
-  &mut *GetHasherCommon(handle).offset(1i32 as (isize))
-}
-
-fn BROTLI_UNALIGNED_LOAD64(mut p: &[::std::os::raw::c_void]) -> usize {
-  let mut t: usize;
-  memcpy(&mut t, p, ::std::mem::size_of::<usize>());
-  t
-}
-
 fn HashBytesH2(mut data: &[u8]) -> u32 {
   let h: usize = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
   (h >> 64i32 - 16i32) as (u32)
@@ -1721,7 +1429,7 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
                mut is_last: i32) {
   let mut one_shot: i32 = (position == 0usize && (is_last != 0)) as (i32);
   let is_uninit = match(handle) {
-      ref Uninit => true,
+      &mut UnionHasher::Uninit => true,
       _ => false,
   };
   if is_uninit {
@@ -1729,225 +1437,22 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
     ChooseHasher(&mut (*params));
     //alloc_size = HasherSize(params, one_shot, input_size);
     //xself = BrotliAllocate(m, alloc_size.wrapping_mul(::std::mem::size_of::<u8>()))
-    *handle = BrotliMakeHasher(params);
+    *handle = BrotliMakeHasher(m16, m32, params);
     handle.GetHasherCommon().params = (*params).hasher;
-    HasherReset(handle);
-  }
-  if GetHasherCommon(handle).is_prepared_ == 0 {
-  /* FIXME FIXME: always preparing, always preparing!
-    let mut hasher_type: i32 = (*common).params.type_;
-    if hasher_type == 2i32 {
-      PrepareH2(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 3i32 {
-      PrepareH3(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 4i32 {
-      PrepareH4(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 5i32 {
-      PrepareH5(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 6i32 {
-      PrepareH6(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 40i32 {
-      PrepareH40(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 41i32 {
-      PrepareH41(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 42i32 {
-      PrepareH42(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 54i32 {
-      PrepareH54(xself, one_shot, input_size, data);
-    }
-    if hasher_type == 10i32 {
-      PrepareH10(xself, one_shot, input_size, data);
-    }
-        */
-          let mut common: &mut Struct1;
-        common = GetHasherCommon(handle);
-    if position == 0usize {
-      (*common).dict_num_lookups = 0usize;
-      (*common).dict_num_matches = 0usize;
-    }
-    (*common).is_prepared_ = 1i32;
+    HasherReset(handle); // this sets everything to zero, unlike in C
+  } else {
+      match handle.Prepare(one_shot != 0, input_size, data) {
+          HowPrepared::ALREADY_PREPARED => {},
+          HowPrepared::NEWLY_PREPARED => if position == 0usize {
+              let mut common = handle.GetHasherCommon();
+              (*common).dict_num_lookups = 0usize;
+              (*common).dict_num_matches = 0usize;
+          },
+      }
   }
 }
+
 /*
-fn StoreLookaheadH2() -> usize {
-  8usize
-}
-
-fn StoreH2(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let key: u32 = HashBytesH2(&data[((ix & mask) as (usize))]);
-  let off: u32 = (ix >> 3i32).wrapping_rem(1usize) as (u32);
-  (*SelfH2(handle)).buckets_[key.wrapping_add(off) as (usize)] = ix as (u32);
-}
-
-fn StoreLookaheadH3() -> usize {
-  8usize
-}
-
-fn StoreH3(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let key: u32 = HashBytesH3(&data[((ix & mask) as (usize))]);
-  let off: u32 = (ix >> 3i32).wrapping_rem(2usize) as (u32);
-  (*SelfH3(handle)).buckets_[key.wrapping_add(off) as (usize)] = ix as (u32);
-}
-
-fn StoreLookaheadH4() -> usize {
-  8usize
-}
-
-fn StoreH4(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let key: u32 = HashBytesH4(&data[((ix & mask) as (usize))]);
-  let off: u32 = (ix >> 3i32).wrapping_rem(4usize) as (u32);
-  (*SelfH4(handle)).buckets_[key.wrapping_add(off) as (usize)] = ix as (u32);
-}
-
-fn StoreLookaheadH5() -> usize {
-  4usize
-}
-
-fn BucketsH5(mut xself: &mut H5) -> *mut u32 {
-  &mut *NumH5(xself).offset((*xself).bucket_size_ as (isize))
-}
-
-fn StoreH5(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let mut xself: *mut H5 = SelfH5(handle);
-  let mut num: *mut u16 = NumH5(xself);
-  let key: u32 = HashBytesH5(&data[((ix & mask) as (usize))], (*xself).hash_shift_);
-  let minor_ix: usize = (num[(key as (usize))] as (u32) & (*xself).block_mask_) as (usize);
-  let offset: usize = minor_ix.wrapping_add((key << (*GetHasherCommon(handle)).params.block_bits) as
-                                            (usize));
-  *BucketsH5(xself).offset(offset as (isize)) = ix as (u32);
-  {
-    let _rhs = 1;
-    let _lhs = &mut num[(key as (usize))];
-    *_lhs = (*_lhs as (i32) + _rhs) as (u16);
-  }
-}
-
-fn StoreLookaheadH6() -> usize {
-  8usize
-}
-
-fn BucketsH6(mut xself: &mut H6) -> *mut u32 {
-  &mut *NumH6(xself).offset((*xself).bucket_size_ as (isize))
-}
-
-fn StoreH6(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let mut xself: *mut H6 = SelfH6(handle);
-  let mut num: *mut u16 = NumH6(xself);
-  let key: u32 = HashBytesH6(&data[((ix & mask) as (usize))],
-                             (*xself).hash_mask_,
-                             (*xself).hash_shift_);
-  let minor_ix: usize = (num[(key as (usize))] as (u32) & (*xself).block_mask_) as (usize);
-  let offset: usize = minor_ix.wrapping_add((key << (*GetHasherCommon(handle)).params.block_bits) as
-                                            (usize));
-  *BucketsH6(xself).offset(offset as (isize)) = ix as (u32);
-  {
-    let _rhs = 1;
-    let _lhs = &mut num[(key as (usize))];
-    *_lhs = (*_lhs as (i32) + _rhs) as (u16);
-  }
-}
-
-fn StoreLookaheadH40() -> usize {
-  4usize
-}
-
-fn StoreH40(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let mut xself: *mut H40 = SelfH40(handle);
-  let key: usize = HashBytesH40(&data[((ix & mask) as (usize))]);
-  let bank: usize = key & (1i32 - 1i32) as (usize);
-  let idx: usize = (({
-                       let _rhs = 1;
-                       let _lhs = &mut (*xself).free_slot_idx[bank];
-                       let _old = *_lhs;
-                       *_lhs = (*_lhs as (i32) + _rhs) as (u16);
-                       _old
-                     }) as (i32) & 65536i32 - 1i32) as (usize);
-  let mut delta: usize = ix.wrapping_sub((*xself).addr[key] as (usize));
-  (*xself).tiny_hash[ix as (u16) as (usize)] = key as (u8);
-  if delta > 0xffffusize {
-    delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
-  }
-  (*xself).banks[bank].slots[idx].delta = delta as (u16);
-  (*xself).banks[bank].slots[idx].next = (*xself).head[key];
-  (*xself).addr[key] = ix as (u32);
-  (*xself).head[key] = idx as (u16);
-}
-
-fn StoreLookaheadH41() -> usize {
-  4usize
-}
-
-fn StoreH41(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let mut xself: *mut H41 = SelfH41(handle);
-  let key: usize = HashBytesH41(&data[((ix & mask) as (usize))]);
-  let bank: usize = key & (1i32 - 1i32) as (usize);
-  let idx: usize = (({
-                       let _rhs = 1;
-                       let _lhs = &mut (*xself).free_slot_idx[bank];
-                       let _old = *_lhs;
-                       *_lhs = (*_lhs as (i32) + _rhs) as (u16);
-                       _old
-                     }) as (i32) & 65536i32 - 1i32) as (usize);
-  let mut delta: usize = ix.wrapping_sub((*xself).addr[key] as (usize));
-  (*xself).tiny_hash[ix as (u16) as (usize)] = key as (u8);
-  if delta > 0xffffusize {
-    delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
-  }
-  (*xself).banks[bank].slots[idx].delta = delta as (u16);
-  (*xself).banks[bank].slots[idx].next = (*xself).head[key];
-  (*xself).addr[key] = ix as (u32);
-  (*xself).head[key] = idx as (u16);
-}
-
-fn StoreLookaheadH42() -> usize {
-  4usize
-}
-
-fn StoreH42(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let mut xself: *mut H42 = SelfH42(handle);
-  let key: usize = HashBytesH42(&data[((ix & mask) as (usize))]);
-  let bank: usize = key & (512i32 - 1i32) as (usize);
-  let idx: usize = (({
-                       let _rhs = 1;
-                       let _lhs = &mut (*xself).free_slot_idx[bank];
-                       let _old = *_lhs;
-                       *_lhs = (*_lhs as (i32) + _rhs) as (u16);
-                       _old
-                     }) as (i32) & 512i32 - 1i32) as (usize);
-  let mut delta: usize = ix.wrapping_sub((*xself).addr[key] as (usize));
-  (*xself).tiny_hash[ix as (u16) as (usize)] = key as (u8);
-  if delta > 0xffffusize {
-    delta = if 0i32 != 0 { 0i32 } else { 0xffffi32 } as (usize);
-  }
-  (*xself).banks[bank].slots[idx].delta = delta as (u16);
-  (*xself).banks[bank].slots[idx].next = (*xself).head[key];
-  (*xself).addr[key] = ix as (u32);
-  (*xself).head[key] = idx as (u16);
-}
-
-fn StoreLookaheadH54() -> usize {
-  8usize
-}
-
-fn StoreH54(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
-  let key: u32 = HashBytesH54(&data[((ix & mask) as (usize))]);
-  let off: u32 = (ix >> 3i32).wrapping_rem(4usize) as (u32);
-  (*SelfH54(handle)).buckets_[key.wrapping_add(off) as (usize)] = ix as (u32);
-}
-
-fn StoreLookaheadH10() -> usize {
-  128usize
-}
-
-
 
 pub struct BackwardMatch {
   pub distance: u32,
@@ -2127,7 +1632,8 @@ fn StoreH10(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
   let max_backward: usize = (*xself).window_mask_.wrapping_sub(16usize).wrapping_add(1usize);
   StoreAndFindMatchesH10(xself, data, ix, mask, 128usize, max_backward, 0i32, 0i32);
 }
-
+ */
+/* RESUME FROM HERE
 fn HasherPrependCustomDictionary(mut m: &mut [MemoryManager],
                                  mut handle: &mut [*mut u8],
                                  mut params: &mut [BrotliEncoderParams],

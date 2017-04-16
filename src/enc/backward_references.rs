@@ -66,7 +66,10 @@ fn brotli_min_size_t(a: usize, b: usize) -> usize {
   if a < b { a } else { b }
 }
 
-
+pub enum HowPrepared {
+    ALREADY_PREPARED,
+    NEWLY_PREPARED,
+}
 
 pub struct HasherSearchResult {
   pub len: usize,
@@ -101,6 +104,7 @@ pub trait AnyHasher {
                       -> bool;
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
+  fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) -> HowPrepared;
 }
 pub trait BasicHashComputer {
   fn HashBytes(&self, data: &[u8]) -> u32;
@@ -146,6 +150,28 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
       i = i.wrapping_add(1 as (usize));
     }
   }
+  fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) -> HowPrepared {
+      if self.GetHasherCommon.is_prepared_ != 0 {
+          return HowPrepared::ALREADY_PREPARED;
+      }
+      let partial_prepare_threshold = (4 << self.buckets_.BUCKET_BITS()) >> 7;
+      if one_shot && input_size <= partial_prepare_threshold {
+        for i in 0..input_size {
+            let key = self.HashBytes(&data[i..]) as usize;
+            let bs = self.buckets_.BUCKET_SWEEP() as usize;
+            for item in self.buckets_.slice_mut()[key..(key + bs)].iter_mut() {
+                *item = 0;
+            }
+        }
+      } else {
+        for item in self.buckets_.slice_mut().iter_mut() {
+          *item =0;
+        }
+      }
+      self.GetHasherCommon.is_prepared_ = 1;
+      HowPrepared::NEWLY_PREPARED
+  }
+
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
@@ -423,7 +449,7 @@ impl AdvHashSpecialization for H5Sub {
 }
 
 pub struct H6Sub {
-  hash_mask: u64,
+  pub hash_mask: u64,
 }
 
 impl AdvHashSpecialization for H6Sub {
@@ -469,6 +495,25 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
       }
     }
   }
+  fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) ->HowPrepared {
+      if self.GetHasherCommon.is_prepared_ != 0 {
+          return HowPrepared::ALREADY_PREPARED;
+      }
+      let partial_prepare_threshold = self.bucket_size_ as usize >> 6;
+      if one_shot && input_size <= partial_prepare_threshold {
+        for i in 0..input_size {
+          let key = self.HashBytes(&data[i..]);
+          self.num.slice_mut()[key] = 0;
+        }
+      } else {
+        for item in self.num.slice_mut()[..(self.bucket_size_ as usize)].iter_mut() {
+          *item =0;
+        }
+      }
+      self.GetHasherCommon.is_prepared_ = 1;
+      HowPrepared::NEWLY_PREPARED
+  }
+
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
     &mut self.GetHasherCommon
   }
@@ -856,6 +901,9 @@ impl<AllocU16: alloc::Allocator<u16>,
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
      return match_all_hashers_mut!(self, GetHasherCommon,);
   }
+  fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) -> HowPrepared {
+      return match_all_hashers_mut!(self, Prepare, one_shot, input_size, data);
+  }
   fn HashBytes(&self, data: &[u8]) -> usize {
      return match_all_hashers!(self, HashBytes, data);
   }
@@ -1105,7 +1153,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                            mut num_commands: &mut usize,
                                                                        mut num_literals: &mut usize) {
     match(hasher_union) {
-        Uninit => panic!("working with uninitialized hash map"),
+        &mut UnionHasher::Uninit => panic!("working with uninitialized hash map"),
         &mut UnionHasher::H2(ref mut hasher) =>
         CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
                                  ringbuffer, ringbuffer_mask,
