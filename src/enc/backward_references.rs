@@ -31,7 +31,7 @@ pub enum BrotliEncoderMode {
 }
 
 
-
+#[derive(Clone,Copy)]
 pub struct BrotliHasherParams {
   pub type_: i32,
   pub bucket_bits: i32,
@@ -82,7 +82,7 @@ pub struct Struct1 {
   pub dict_num_matches: usize,
 }
 
-trait AnyHasher {
+pub trait AnyHasher {
   fn GetHasherCommon(&mut self) -> &mut Struct1;
   fn HashBytes(&self, data: &[u8]) -> usize;
   fn HashTypeLength(&self) -> usize;
@@ -817,6 +817,7 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
 
 pub enum UnionHasher<AllocU16: alloc::Allocator<u16>,
                  AllocU32: alloc::Allocator<u32>> {
+    Uninit,
     H2(BasicHasher<H2Sub>),
     H3(BasicHasher<H3Sub>),
     H4(BasicHasher<H4Sub>),
@@ -824,10 +825,77 @@ pub enum UnionHasher<AllocU16: alloc::Allocator<u16>,
     H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
     H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
 }
+macro_rules! match_all_hashers_mut {
+    ($xself : expr, $func_call : ident, $( $args:expr),*) => {
+        match $xself {
+     &mut UnionHasher::H2(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H3(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H4(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H5(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H6(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H54(ref mut hasher) => hasher.$func_call($($args),*),
+     Uninit => panic!("UNINTIALIZED"),
+        }
+    };
+}
+macro_rules! match_all_hashers {
+    ($xself : expr, $func_call : ident, $( $args:expr),*) => {
+        match $xself {
+     &UnionHasher::H2(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H3(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H4(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H5(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H6(ref hasher) => hasher.$func_call($($args),*),
+     & UnionHasher::H54(ref hasher) => hasher.$func_call($($args),*),
+     Uninit => panic!("UNINTIALIZED"),
+        }
+    };
+}
+impl<AllocU16: alloc::Allocator<u16>,
+      AllocU32: alloc::Allocator<u32>> AnyHasher for UnionHasher<AllocU16, AllocU32> {
+  fn GetHasherCommon(&mut self) -> &mut Struct1 {
+     return match_all_hashers_mut!(self, GetHasherCommon,);
+  }
+  fn HashBytes(&self, data: &[u8]) -> usize {
+     return match_all_hashers!(self, HashBytes, data);
+  }
+  fn HashTypeLength(&self) -> usize{
+     return match_all_hashers!(self, HashTypeLength,);
+  }
+  fn StoreLookahead(&self) -> usize{
+     return match_all_hashers!(self, StoreLookahead,);
+  }
+  fn PrepareDistanceCache(&self, distance_cache: &mut [i32]){
+     return match_all_hashers!(self, PrepareDistanceCache, distance_cache);
+  }
+  fn FindLongestMatch(&mut self,
+                      dictionary: &BrotliDictionary,
+                      dictionary_hash: &[u16],
+                      data: &[u8],
+                      ring_buffer_mask: usize,
+                      distance_cache: &[i32],
+                      cur_ix: usize,
+                      max_length: usize,
+                      max_backward: usize,
+                      out: &mut HasherSearchResult)
+                      -> bool{
+     return match_all_hashers_mut!(self, FindLongestMatch, dictionary, dictionary_hash, data, ring_buffer_mask, distance_cache, cur_ix, max_length, max_backward, out);
+  }
+  fn Store(&mut self, data: &[u8], mask: usize, ix: usize){
+     return match_all_hashers_mut!(self, Store, data, mask, ix);
+  }
+  fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize){
+     return match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end);
+  }
+}
 impl<AllocU16: alloc::Allocator<u16>,
                  AllocU32: alloc::Allocator<u32>> Default for UnionHasher<AllocU16, AllocU32> {
                  fn default() -> Self {
-UnionHasher::H2(BasicHasher {
+    UnionHasher::Uninit
+}
+}
+
+/*UnionHasher::H2(BasicHasher {
           GetHasherCommon:Struct1{params:BrotliHasherParams{
            type_:2,
            block_bits: 8,
@@ -842,8 +910,7 @@ UnionHasher::H2(BasicHasher {
           buckets_:[0;65537],
           },
           })
-}
-}
+          */
 fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                            dictionary_hash: &[u16],
                                            num_bytes: usize,
@@ -1038,6 +1105,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                            mut num_commands: &mut usize,
                                                                        mut num_literals: &mut usize) {
     match(hasher_union) {
+        Uninit => panic!("working with uninitialized hash map"),
         &mut UnionHasher::H2(ref mut hasher) =>
         CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
                                  ringbuffer, ringbuffer_mask,

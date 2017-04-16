@@ -3,7 +3,7 @@ use super::compress_fragment::BrotliCompressFragmentFast;
 
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher, BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams,
-H2Sub, BasicHasher};
+H2Sub, BasicHasher,AnyHasher};
 use super::block_split::{BlockSplit};
 use super::utf8_util::{BrotliIsMostlyUTF8};
 use super::command::{Command};
@@ -926,7 +926,8 @@ fn CopyInputToRingBuffer<AllocU8:alloc::Allocator<u8>,
 }
 
 
-fn ChooseHasher(mut params: &BrotliEncoderParams, mut hparams: &mut BrotliHasherParams) {
+fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
+  let mut hparams = &mut params.hasher;
   if (*params).quality > 9i32 {
     (*hparams).type_ = 10i32;
   } else if (*params).quality == 4i32 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
@@ -970,6 +971,67 @@ fn ChooseHasher(mut params: &BrotliEncoderParams, mut hparams: &mut BrotliHasher
     };
   }
 }
+fn InitializeH2(params : &BrotliEncoderParams) -> BasicHasher<H2Sub> {
+    BasicHasher {
+          GetHasherCommon:Struct1{
+            params:params.hasher,
+            is_prepared_:0,
+            dict_num_lookups:0,
+            dict_num_matches:0,
+          },
+          buckets_:H2Sub{
+          buckets_:[0;65537],
+    },
+  }
+}
+fn BrotliMakeHasher<AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>>(params : &BrotliEncoderParams) -> UnionHasher<AllocU16, AllocU32> {
+    let hasher_type: i32 = params.hasher.type_;
+    if hasher_type == 2i32 {
+      return UnionHasher::H2(InitializeH2(params));
+    }
+    /*
+    if hasher_type == 3i32 {
+      InitializeH3(params);
+    }
+    if hasher_type == 4i32 {
+      InitializeH4(*handle, params);
+    }
+    if hasher_type == 5i32 {
+      InitializeH5(*handle, params);
+    }
+    if hasher_type == 6i32 {
+      InitializeH6(*handle, params);
+    }
+    if hasher_type == 40i32 {
+      InitializeH40(*handle, params);
+    }
+    if hasher_type == 41i32 {
+      InitializeH41(*handle, params);
+    }
+    if hasher_type == 42i32 {
+      InitializeH42(*handle, params);
+    }
+    if hasher_type == 54i32 {
+      InitializeH54(*handle, params);
+    }
+    if hasher_type == 10i32 {
+      InitializeH10(*handle, params);
+    }
+FIXME*/
+return UnionHasher::Uninit;
+}
+fn HasherReset<AllocU16:alloc::Allocator<u16>,
+                                    AllocU32:alloc::Allocator<u32>>(mut t: &mut UnionHasher<AllocU16, AllocU32>) {
+  match t {
+      Uninit => {},
+      _ => (t.GetHasherCommon()).is_prepared_ = 0i32,
+  };
+}
+fn GetHasherCommon<AllocU16:alloc::Allocator<u16>,
+               AllocU32:alloc::Allocator<u32>>(mut t: &mut UnionHasher<AllocU16, AllocU32>) -> &mut Struct1{
+  t.GetHasherCommon()
+}
 /*
 
 
@@ -987,9 +1049,6 @@ fn HashMemAllocInBytesH2(mut params: &[BrotliEncoderParams],
   input_size;
   ::std::mem::size_of::<H2>()
 }
-
-
-
 pub struct H3 {
   pub buckets_: [u32; 65538],
 }
@@ -1330,12 +1389,6 @@ fn InitializeH10(mut handle: &mut [u8], mut params: &[BrotliEncoderParams]) {
   (*xself).invalid_pos_ = (0usize).wrapping_sub((*xself).window_mask_) as (u32);
 }
 
-fn HasherReset(mut handle: &mut [u8]) {
-  if handle == 0i32 {
-    return;
-  }
-  (*GetHasherCommon(handle)).is_prepared_ = 0i32;
-}
 
 fn SelfH2(mut handle: &mut [u8]) -> *mut H2 {
   &mut *GetHasherCommon(handle).offset(1i32 as (isize))
@@ -1655,68 +1708,33 @@ fn PrepareH10(mut handle: &mut [u8], mut one_shot: i32, mut input_size: usize, m
     i = i.wrapping_add(1 as (u32));
   }
 }
+*/
 
-fn HasherSetup(mut m: &mut [MemoryManager],
-               mut handle: &mut [*mut u8],
-               mut params: &mut [BrotliEncoderParams],
+fn HasherSetup<AllocU16:alloc::Allocator<u16>,
+               AllocU32:alloc::Allocator<u32>>(mut m16: &mut AllocU16,
+               mut m32: &mut AllocU32,
+               mut handle: &mut UnionHasher<AllocU16, AllocU32>,
+               mut params: &mut BrotliEncoderParams,
                mut data: &[u8],
                mut position: usize,
                mut input_size: usize,
                mut is_last: i32) {
-  let mut xself: *mut u8 = 0i32;
-  let mut common: *mut Struct4 = 0i32;
   let mut one_shot: i32 = (position == 0usize && (is_last != 0)) as (i32);
-  if *handle == 0i32 {
+  let is_uninit = match(handle) {
+      ref Uninit => true,
+      _ => false,
+  };
+  if is_uninit {
     let mut alloc_size: usize;
-    ChooseHasher(params, &mut (*params).hasher);
-    alloc_size = HasherSize(params, one_shot, input_size);
-    xself = if alloc_size != 0 {
-      BrotliAllocate(m, alloc_size.wrapping_mul(::std::mem::size_of::<u8>()))
-    } else {
-      0i32
-    };
-    if !(0i32 == 0) {
-      return;
-    }
-    *handle = xself;
-    common = GetHasherCommon(xself);
-    (*common).params = (*params).hasher;
-    let mut hasher_type: i32 = (*common).params.type_;
-    if hasher_type == 2i32 {
-      InitializeH2(*handle, params);
-    }
-    if hasher_type == 3i32 {
-      InitializeH3(*handle, params);
-    }
-    if hasher_type == 4i32 {
-      InitializeH4(*handle, params);
-    }
-    if hasher_type == 5i32 {
-      InitializeH5(*handle, params);
-    }
-    if hasher_type == 6i32 {
-      InitializeH6(*handle, params);
-    }
-    if hasher_type == 40i32 {
-      InitializeH40(*handle, params);
-    }
-    if hasher_type == 41i32 {
-      InitializeH41(*handle, params);
-    }
-    if hasher_type == 42i32 {
-      InitializeH42(*handle, params);
-    }
-    if hasher_type == 54i32 {
-      InitializeH54(*handle, params);
-    }
-    if hasher_type == 10i32 {
-      InitializeH10(*handle, params);
-    }
-    HasherReset(*handle);
+    ChooseHasher(&mut (*params));
+    //alloc_size = HasherSize(params, one_shot, input_size);
+    //xself = BrotliAllocate(m, alloc_size.wrapping_mul(::std::mem::size_of::<u8>()))
+    *handle = BrotliMakeHasher(params);
+    handle.GetHasherCommon().params = (*params).hasher;
+    HasherReset(handle);
   }
-  xself = *handle;
-  common = GetHasherCommon(xself);
-  if (*common).is_prepared_ == 0 {
+  if GetHasherCommon(handle).is_prepared_ == 0 {
+  /* FIXME FIXME: always preparing, always preparing!
     let mut hasher_type: i32 = (*common).params.type_;
     if hasher_type == 2i32 {
       PrepareH2(xself, one_shot, input_size, data);
@@ -1748,6 +1766,9 @@ fn HasherSetup(mut m: &mut [MemoryManager],
     if hasher_type == 10i32 {
       PrepareH10(xself, one_shot, input_size, data);
     }
+        */
+          let mut common: &mut Struct1;
+        common = GetHasherCommon(handle);
     if position == 0usize {
       (*common).dict_num_lookups = 0usize;
       (*common).dict_num_matches = 0usize;
@@ -1755,7 +1776,7 @@ fn HasherSetup(mut m: &mut [MemoryManager],
     (*common).is_prepared_ = 1i32;
   }
 }
-
+/*
 fn StoreLookaheadH2() -> usize {
   8usize
 }
