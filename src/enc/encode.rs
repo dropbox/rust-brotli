@@ -3,12 +3,12 @@ use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionH
                                  H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 
-use super::bit_cost::BitsEntropy;
+use super::bit_cost::{BitsEntropy, ShannonEntropy};
 use super::block_split::BlockSplit;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
                                BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
                                BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock};
-use super::command::{Command, GetLengthCode};
+use super::command::{Command, GetLengthCode, CommandCopyLen, CommandRestoreDistanceCode, RecomputeDistancePrefixes};
 use super::compress_fragment::BrotliCompressFragmentFast;
 use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
@@ -17,6 +17,7 @@ use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffman
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BROTLI_UNALIGNED_STORE64,
                          FindMatchLengthWithLimit, BrotliGetDictionary};
+use super::histogram::{ContextType};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::utf8_util::BrotliIsMostlyUTF8;
@@ -1996,53 +1997,43 @@ fn HashTableSize(mut max_table_size: usize, mut input_size: usize) -> usize {
   htsize
 }
 
-/*
-fn GetHashTable<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
+
+fn GetHashTable<'a, AllocU8: alloc::Allocator<u8>,
+                 AllocU16: alloc::Allocator<u16>,
                      AllocU32: alloc::Allocator<u32>,
                      AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+                     AllocCommand: alloc::Allocator<Command>>(mut s: &'a mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
                 mut quality: i32,
                 mut input_size: usize,
-                mut table_size: &mut [usize])
-                -> *mut i32 {
-  let mut m: *mut MemoryManager = &mut (*s).memory_manager_;
+                mut table_size: &mut usize)
+                -> &'a mut [i32] {
   let max_table_size: usize = MaxHashTableSize(quality);
   let mut htsize: usize = HashTableSize(max_table_size, input_size);
-  let mut table: *mut i32;
-  0i32;
+  let mut table: &mut [i32];
   if quality == 0i32 {
     if htsize & 0xaaaaausize == 0usize {
       htsize = htsize << 1i32;
     }
   }
-  if htsize <= ::std::mem::size_of::<[i32; 1024]>().wrapping_div(::std::mem::size_of::<i32>()) {
-    table = (*s).small_table_.as_mut_ptr();
+  if htsize <= (*s).small_table_.len() {
+    table = &mut (*s).small_table_[..];
   } else {
-    if htsize > (*s).large_table_size_ {
+    if htsize > (*s).large_table_.slice().len() {
       (*s).large_table_size_ = htsize;
       {
-        BrotliFree(m, (*s).large_table_);
-        (*s).large_table_ = 0i32;
+          (*s).mi32.free_cell(core::mem::replace(&mut (*s).large_table_,
+                                                 AllocI32::AllocatedMemory::default()));
       }
-      (*s).large_table_ = if htsize != 0 {
-        BrotliAllocate(m, htsize.wrapping_mul(::std::mem::size_of::<i32>()))
-      } else {
-        0i32
-      };
-      if !(0i32 == 0) {
-        return 0i32;
-      }
+      (*s).large_table_ = (*s).mi32.alloc_cell(htsize);
     }
-    table = (*s).large_table_;
+    table = (*s).large_table_.slice_mut();
   }
   *table_size = htsize;
-  memset(table,
-         0i32,
-         htsize.wrapping_mul(::std::mem::size_of::<i32>()));
-  table
+  for item in table[..htsize].iter_mut() {
+      *item = 0;
+  }
+  table // FIXME: probably need a macro to do this without borrowing the whole EncoderStateStruct
 }
-
 fn UpdateLastProcessedPos<AllocU8: alloc::Allocator<u8>,
                      AllocU16: alloc::Allocator<u16>,
                      AllocU32: alloc::Allocator<u32>,
@@ -2058,91 +2049,24 @@ fn UpdateLastProcessedPos<AllocU8: alloc::Allocator<u8>,
   }
 }
 
-fn MaxMetablockSize(mut params: &[BrotliEncoderParams]) -> usize {
+fn MaxMetablockSize(mut params: &BrotliEncoderParams) -> usize {
   let mut bits: i32 = brotli_min_int(ComputeRbBits(params), 24i32);
   1usize << bits
 }
 
-fn CommandCopyLen(mut xself: &Command) -> u32 {
-  (*xself).copy_len_ & 0xffffffu32
-}
 
-fn PrefixEncodeCopyDistance(mut distance_code: usize,
-                            mut num_direct_codes: usize,
-                            mut postfix_bits: usize,
-                            mut code: &mut [u16],
-                            mut extra_bits: &mut [u32]) {
-  if distance_code < (16usize).wrapping_add(num_direct_codes) {
-    *code = distance_code as (u16);
-    *extra_bits = 0u32;
-  } else {
-    let mut dist: usize =
-      (1usize << postfix_bits.wrapping_add(2u32 as (usize)))
-        .wrapping_add(distance_code.wrapping_sub(16usize).wrapping_sub(num_direct_codes));
-    let mut bucket: usize = Log2FloorNonZero(dist).wrapping_sub(1u32) as (usize);
-    let mut postfix_mask: usize = (1u32 << postfix_bits).wrapping_sub(1u32) as (usize);
-    let mut postfix: usize = dist & postfix_mask;
-    let mut prefix: usize = dist >> bucket & 1usize;
-    let mut offset: usize = (2usize).wrapping_add(prefix) << bucket;
-    let mut nbits: usize = bucket.wrapping_sub(postfix_bits);
-    *code = (16usize)
-      .wrapping_add(num_direct_codes)
-      .wrapping_add((2usize).wrapping_mul(nbits.wrapping_sub(1usize)).wrapping_add(prefix) <<
-                    postfix_bits)
-      .wrapping_add(postfix) as (u16);
-    *extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
-  }
-}
-
-fn CommandRestoreDistanceCode(mut xself: &Command) -> u32 {
-  if (*xself).dist_prefix_ as (i32) < 16i32 {
-    (*xself).dist_prefix_ as (u32)
-  } else {
-    let mut nbits: u32 = (*xself).dist_extra_ >> 24i32;
-    let mut extra: u32 = (*xself).dist_extra_ & 0xffffffu32;
-    let mut prefix: u32 = ((*xself).dist_prefix_ as (u32))
-      .wrapping_add(4u32)
-      .wrapping_sub(16u32)
-      .wrapping_sub(2u32.wrapping_mul(nbits));
-    (prefix << nbits).wrapping_add(extra).wrapping_add(16u32).wrapping_sub(4u32)
-  }
-}
-
-fn RecomputeDistancePrefixes(mut cmds: &mut [Command],
-                             mut num_commands: usize,
-                             mut num_direct_distance_codes: u32,
-                             mut distance_postfix_bits: u32) {
-  let mut i: usize;
-  if num_direct_distance_codes == 0u32 && (distance_postfix_bits == 0u32) {
-    return;
-  }
-  i = 0usize;
-  while i < num_commands {
-    {
-      let mut cmd: *mut Command = &mut cmds[(i as (usize))];
-      if CommandCopyLen(cmd) != 0 && ((*cmd).cmd_prefix_ as (i32) >= 128i32) {
-        PrefixEncodeCopyDistance(CommandRestoreDistanceCode(cmd) as (usize),
-                                 num_direct_distance_codes as (usize),
-                                 distance_postfix_bits as (usize),
-                                 &mut (*cmd).dist_prefix_,
-                                 &mut (*cmd).dist_extra_);
-      }
-    }
-    i = i.wrapping_add(1 as (usize));
-  }
-}
 
 fn ChooseContextMap(mut quality: i32,
                     mut bigram_histo: &mut [u32],
-                    mut num_literal_contexts: &mut [usize],
-                    mut literal_context_map: &mut [&[u32]]) {
-  static mut kStaticContextMapContinuation: [u32; 64] =
+                    mut num_literal_contexts: &mut usize,
+                    mut literal_context_map: &mut &[u32]) {
+  static kStaticContextMapContinuation: [u32; 64] =
     [1u32, 1u32, 2u32, 2u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
      0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
      0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
      0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
      0u32, 0u32, 0u32, 0u32];
-  static mut kStaticContextMapSimpleUTF8: [u32; 64] =
+  static kStaticContextMapSimpleUTF8: [u32; 64] =
     [0u32, 0u32, 1u32, 1u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
      0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
      0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
@@ -2152,8 +2076,8 @@ fn ChooseContextMap(mut quality: i32,
   let mut two_prefix_histo: [u32; 6] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
   let mut total: usize;
   let mut i: usize;
-  let mut dummy: usize;
-  let mut entropy: [f64; 4];
+  let mut dummy: usize = 0;
+  let mut entropy: [f64; 4] = [0.0f64;4];
   i = 0usize;
   while i < 9usize {
     {
@@ -2170,16 +2094,16 @@ fn ChooseContextMap(mut quality: i32,
     }
     i = i.wrapping_add(1 as (usize));
   }
-  entropy[1usize] = ShannonEntropy(monogram_histo.as_mut_ptr(), 3usize, &mut dummy);
-  entropy[2usize] = ShannonEntropy(two_prefix_histo.as_mut_ptr(), 3usize, &mut dummy) +
-                    ShannonEntropy(two_prefix_histo.as_mut_ptr().offset(3i32 as (isize)),
+  entropy[1usize] = ShannonEntropy(&monogram_histo[..], 3usize, &mut dummy);
+  entropy[2usize] = ShannonEntropy(&two_prefix_histo[..], 3usize, &mut dummy) +
+                    ShannonEntropy(&two_prefix_histo[3i32 as (usize)..],
                                    3usize,
                                    &mut dummy);
   entropy[3usize] = 0i32 as (f64);
   i = 0usize;
   while i < 3usize {
     {
-      let _rhs = ShannonEntropy(bigram_histo[((3usize).wrapping_mul(i) as (usize))..],
+      let _rhs = ShannonEntropy(&bigram_histo[((3usize).wrapping_mul(i) as (usize))..],
                                 3usize,
                                 &mut dummy);
       let _lhs = &mut entropy[3usize];
@@ -2214,28 +2138,29 @@ fn ChooseContextMap(mut quality: i32,
     *num_literal_contexts = 1usize;
   } else if entropy[2usize] - entropy[3usize] < 0.02f64 {
     *num_literal_contexts = 2usize;
-    *literal_context_map = kStaticContextMapSimpleUTF8.as_ptr();
+    *literal_context_map = &kStaticContextMapSimpleUTF8[..];
   } else {
     *num_literal_contexts = 3usize;
-    *literal_context_map = kStaticContextMapContinuation.as_ptr();
+    *literal_context_map = &kStaticContextMapContinuation[..];
   }
 }
+
 
 fn DecideOverLiteralContextModeling(mut input: &[u8],
                                     mut start_pos: usize,
                                     mut length: usize,
                                     mut mask: usize,
                                     mut quality: i32,
-                                    mut literal_context_mode: &mut [ContextType],
-                                    mut num_literal_contexts: &mut [usize],
-                                    mut literal_context_map: &mut [&[u32]]) {
+                                    mut literal_context_mode: &mut ContextType,
+                                    mut num_literal_contexts: &mut usize,
+                                    mut literal_context_map: &mut &[u32]) {
   if quality < 5i32 || length < 64usize {
   } else {
     let end_pos: usize = start_pos.wrapping_add(length);
     let mut bigram_prefix_histo: [u32; 9] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
     while start_pos.wrapping_add(64usize) <= end_pos {
       {
-        static mut lut: [i32; 4] = [0i32, 0i32, 1i32, 2i32];
+        static lut: [i32; 4] = [0i32, 0i32, 1i32, 2i32];
         let stride_end_pos: usize = start_pos.wrapping_add(64usize);
         let mut prev: i32 = lut[(input[((start_pos & mask) as (usize))] as (i32) >> 6i32) as
         (usize)] * 3i32;
@@ -2260,12 +2185,12 @@ fn DecideOverLiteralContextModeling(mut input: &[u8],
     }
     *literal_context_mode = ContextType::CONTEXT_UTF8;
     ChooseContextMap(quality,
-                     &mut bigram_prefix_histo[0usize],
+                     &mut bigram_prefix_histo[..],
                      num_literal_contexts,
                      literal_context_map);
   }
 }
-
+/*
 fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                           mut data: &[u8],
                           mask: usize,

@@ -102,7 +102,7 @@ pub fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, m
   let copycode: u16 = GetCopyLengthCode(copylen);
   *code = CombineLengthCodes(inscode, copycode, use_last_distance);
 }
-fn PrefixEncodeCopyDistance(distance_code: usize,
+pub fn PrefixEncodeCopyDistance(distance_code: usize,
                             num_direct_codes: usize,
                             postfix_bits: u64,
                             mut code: &mut u16,
@@ -128,6 +128,44 @@ fn PrefixEncodeCopyDistance(distance_code: usize,
     *extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
   }
 }
+pub fn CommandRestoreDistanceCode(mut xself: &Command) -> u32 {
+  if (*xself).dist_prefix_ as (i32) < 16i32 {
+    (*xself).dist_prefix_ as (u32)
+  } else {
+    let mut nbits: u32 = (*xself).dist_extra_ >> 24i32;
+    let mut extra: u32 = (*xself).dist_extra_ & 0xffffffu32;
+    let mut prefix: u32 = ((*xself).dist_prefix_ as (u32))
+      .wrapping_add(4u32)
+      .wrapping_sub(16u32)
+      .wrapping_sub(2u32.wrapping_mul(nbits));
+    (prefix << nbits).wrapping_add(extra).wrapping_add(16u32).wrapping_sub(4u32)
+  }
+}
+
+pub fn RecomputeDistancePrefixes(mut cmds: &mut [Command],
+                             mut num_commands: usize,
+                             mut num_direct_distance_codes: u32,
+                             mut distance_postfix_bits: u32) {
+  let mut i: usize;
+  if num_direct_distance_codes == 0u32 && (distance_postfix_bits == 0u32) {
+    return;
+  }
+  i = 0usize;
+  while i < num_commands {
+    {
+      let mut cmd: &mut Command = &mut cmds[(i as (usize))];
+      if CommandCopyLen(cmd) != 0 && ((*cmd).cmd_prefix_ as (i32) >= 128i32) {
+        PrefixEncodeCopyDistance(CommandRestoreDistanceCode(cmd) as (usize),
+                                 num_direct_distance_codes as (usize),
+                                 distance_postfix_bits as (u64),
+                                 &mut (*cmd).dist_prefix_,
+                                 &mut (*cmd).dist_extra_);
+      }
+    }
+    i = i.wrapping_add(1 as (usize));
+  }
+}
+
 
 pub fn InitCommand(xself: &mut Command,
                    insertlen: usize,
