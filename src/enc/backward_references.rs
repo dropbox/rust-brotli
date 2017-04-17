@@ -23,7 +23,7 @@ pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32i32 | 0x1e35a7bdu64;
 pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32 as (u64);
 
 
-
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum BrotliEncoderMode {
   BROTLI_MODE_GENERIC = 0,
   BROTLI_MODE_TEXT = 1,

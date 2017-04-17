@@ -7,17 +7,18 @@ use super::bit_cost::{BitsEntropy, ShannonEntropy};
 use super::block_split::BlockSplit;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
                                BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
-                               BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock};
+                               BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
+                               MetaBlockSplit};
 use super::command::{Command, GetLengthCode, CommandCopyLen, CommandRestoreDistanceCode, RecomputeDistancePrefixes};
 use super::compress_fragment::BrotliCompressFragmentFast;
 use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
                             NewHuffmanTree};
-
+use super::cluster::{HistogramPair};
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BROTLI_UNALIGNED_STORE64,
                          FindMatchLengthWithLimit, BrotliGetDictionary};
-use super::histogram::{ContextType};
+use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::utf8_util::BrotliIsMostlyUTF8;
@@ -2190,30 +2191,48 @@ fn DecideOverLiteralContextModeling(mut input: &[u8],
                      literal_context_map);
   }
 }
-/*
-fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
-                          mut data: &[u8],
-                          mask: usize,
-                          last_flush_pos: usize,
-                          bytes: usize,
-                          is_last: i32,
-                          mut params: &[BrotliEncoderParams],
-                          prev_byte: u8,
-                          prev_byte2: u8,
-                          num_literals: usize,
-                          num_commands: usize,
-                          mut commands: &mut [Command],
-                          mut saved_dist_cache: &[i32],
-                          mut dist_cache: &mut [i32],
-                          mut storage_ix: &mut [usize],
-                          mut storage: &mut [u8]) {
+fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
+                          AllocU16: alloc::Allocator<u16>,
+                          AllocU32: alloc::Allocator<u32>,
+                          AllocF64: alloc::Allocator<f64>,
+                          AllocHL: alloc::Allocator<HistogramLiteral>,
+                          AllocHC: alloc::Allocator<HistogramCommand>,
+                          AllocHD: alloc::Allocator<HistogramDistance>,
+                          AllocHP: alloc::Allocator<HistogramPair>,
+                          AllocCT: alloc::Allocator<ContextType>,
+                          AllocHT: alloc::Allocator<HuffmanTree>>
+            (mut m8: &mut AllocU8,
+             mut m16: &mut AllocU16,
+             mut m32: &mut AllocU32,
+             mut mf64: &mut AllocF64,
+             mut mhl: &mut AllocHL,
+             mut mhc: &mut AllocHC,
+             mut mhd: &mut AllocHD,
+             mut mhp: &mut AllocHP,
+             mut mct: &mut AllocCT,
+             mut mht: &mut AllocHT,
+             mut data: &[u8],
+             mask: usize,
+             last_flush_pos: usize,
+             bytes: usize,
+             is_last: i32,
+             mut params: &BrotliEncoderParams,
+             prev_byte: u8,
+             prev_byte2: u8,
+             num_literals: usize,
+             num_commands: usize,
+             mut commands: &mut [Command],
+             mut saved_dist_cache: &[i32],
+             mut dist_cache: &mut [i32],
+             mut storage_ix: &mut usize,
+             mut storage: &mut [u8]) {
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let mut last_byte: u8;
   let mut last_byte_bits: u8;
   let mut num_direct_distance_codes: u32 = 0u32;
   let mut distance_postfix_bits: u32 = 0u32;
   if bytes == 0usize {
-    BrotliWriteBits(2usize, 3usize, storage_ix, storage);
+    BrotliWriteBits(2usize, 3, storage_ix, storage);
     *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
     return;
   }
@@ -2223,9 +2242,7 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                     bytes,
                     num_literals,
                     num_commands) == 0 {
-    memcpy(dist_cache,
-           saved_dist_cache,
-           (4usize).wrapping_mul(::std::mem::size_of::<i32>()));
+    dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
     BrotliStoreUncompressedMetaBlock(is_last,
                                      data,
                                      wrapped_last_flush_pos as (usize),
@@ -2247,7 +2264,7 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                               distance_postfix_bits);
   }
   if (*params).quality <= 2i32 {
-    BrotliStoreMetaBlockFast(m,
+    BrotliStoreMetaBlockFast(mht,
                              data,
                              wrapped_last_flush_pos as (usize),
                              bytes,
@@ -2261,8 +2278,7 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
       return;
     }
   } else if (*params).quality < 4i32 {
-    BrotliStoreMetaBlockTrivial(m,
-                                data,
+    BrotliStoreMetaBlockTrivial(data,
                                 wrapped_last_flush_pos as (usize),
                                 bytes,
                                 mask,
@@ -2276,11 +2292,11 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
     }
   } else {
     let mut literal_context_mode: ContextType = ContextType::CONTEXT_UTF8;
-    let mut mb: MetaBlockSplit;
-    InitMetaBlockSplit(&mut mb);
+    
+    let mut mb = MetaBlockSplit::<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>::new();
     if (*params).quality < 10i32 {
       let mut num_literal_contexts: usize = 1usize;
-      let mut literal_context_map: *const u32 = 0i32;
+      let mut literal_context_map: &[u32] = &[];
       if (*params).disable_literal_context_modeling == 0 {
         DecideOverLiteralContextModeling(data,
                                          wrapped_last_flush_pos as (usize),
@@ -2291,7 +2307,7 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                                          &mut num_literal_contexts,
                                          &mut literal_context_map);
       }
-      BrotliBuildMetaBlockGreedy(m,
+      BrotliBuildMetaBlockGreedy(m8, m32, mhl, mhc, mhd,
                                  data,
                                  wrapped_last_flush_pos as (usize),
                                  mask,
@@ -2303,9 +2319,6 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                                  commands,
                                  num_commands,
                                  &mut mb);
-      if !(0i32 == 0) {
-        return;
-      }
     } else {
       if BrotliIsMostlyUTF8(data,
                             wrapped_last_flush_pos as (usize),
@@ -2314,7 +2327,7 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                             kMinUTF8Ratio) == 0 {
         literal_context_mode = ContextType::CONTEXT_SIGNED;
       }
-      BrotliBuildMetaBlock(m,
+      BrotliBuildMetaBlock(m8, m16, m32, mf64, mhl, mhc, mhd, mhp, mct,
                            data,
                            wrapped_last_flush_pos as (usize),
                            mask,
@@ -2325,16 +2338,13 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                            num_commands,
                            literal_context_mode,
                            &mut mb);
-      if !(0i32 == 0) {
-        return;
-      }
     }
     if (*params).quality >= 4i32 {
       BrotliOptimizeHistograms(num_direct_distance_codes as (usize),
                                distance_postfix_bits as (usize),
                                &mut mb);
     }
-    BrotliStoreMetaBlock(m,
+    BrotliStoreMetaBlock(m8, m16, m32, mht,
                          data,
                          wrapped_last_flush_pos as (usize),
                          bytes,
@@ -2350,26 +2360,25 @@ fn WriteMetaBlockInternal(mut m: &mut [MemoryManager],
                          &mut mb,
                          storage_ix,
                          storage);
-    if !(0i32 == 0) {
-      return;
-    }
-    DestroyMetaBlockSplit(m, &mut mb);
+    mb.destroy(m8, m32, mhl, mhc, mhd);
   }
   if bytes.wrapping_add(4usize) < *storage_ix >> 3i32 {
-    memcpy(dist_cache,
-           saved_dist_cache,
-           (4usize).wrapping_mul(::std::mem::size_of::<i32>()));
-    storage[(0usize)] = last_byte;
-    *storage_ix = last_byte_bits as (usize);
-    BrotliStoreUncompressedMetaBlock(is_last,
-                                     data,
-                                     wrapped_last_flush_pos as (usize),
-                                     mask,
-                                     bytes,
-                                     storage_ix,
-                                     storage);
+      dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
+      //memcpy(dist_cache,
+      //     saved_dist_cache,
+      //     (4usize).wrapping_mul(::std::mem::size_of::<i32>()));
+      storage[(0usize)] = last_byte;
+      *storage_ix = last_byte_bits as (usize);
+      BrotliStoreUncompressedMetaBlock(is_last,
+                                       data,
+                                       wrapped_last_flush_pos as (usize),
+                                       mask,
+                                       bytes,
+                                       storage_ix,
+                                       storage);
   }
 }
+/*
 
 fn EncodeData<AllocU8: alloc::Allocator<u8>,
                      AllocU16: alloc::Allocator<u16>,
