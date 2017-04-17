@@ -105,7 +105,34 @@ pub trait AnyHasher {
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
   fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) -> HowPrepared;
+  fn StitchToPreviousBlock(&mut self,
+                           num_bytes: usize,
+                           position: usize,
+                           ringbuffer: &[u8],
+                           ringbuffer_mask: usize);
 }
+
+pub fn StitchToPreviousBlockInternal<T:AnyHasher>(mut handle: &mut T,
+                                          num_bytes: usize,
+                                          position: usize,
+                                          ringbuffer: &[u8],
+                                          ringbuffer_mask: usize) {
+    if num_bytes >= handle.HashTypeLength().wrapping_sub(1) && (position >= 3) {
+        handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(3));
+        handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(2));
+        handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(1));
+    }
+}
+
+pub fn StoreLookaheadThenStore<T:AnyHasher>(mut hasher: &mut T, size: usize, dict:&[u8]) {
+    let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
+    let mut i :usize = 0;
+    while i.wrapping_add(overlap) < size {
+        hasher.Store(dict, !(0usize), i);
+        i = i.wrapping_add(1 as (usize));
+    }
+}
+
 pub trait BasicHashComputer {
   fn HashBytes(&self, data: &[u8]) -> u32;
   fn BUCKET_BITS(&self) -> i32;
@@ -128,7 +155,17 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
   fn StoreLookahead(&self) -> usize {
     8
   }
-
+  fn StitchToPreviousBlock(&mut self,
+                           num_bytes: usize,
+                           position: usize,
+                           ringbuffer: &[u8],
+                           ringbuffer_mask: usize){
+      StitchToPreviousBlockInternal(self,
+                                    num_bytes,
+                                    position,
+                                    ringbuffer,
+                                    ringbuffer_mask);
+  }
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
     return &mut self.GetHasherCommon;
   }
@@ -494,6 +531,17 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
         distance_cache[(15usize)] = next_last_distance + 3i32;
       }
     }
+  }
+  fn StitchToPreviousBlock(&mut self,
+                           num_bytes: usize,
+                           position: usize,
+                           ringbuffer: &[u8],
+                           ringbuffer_mask: usize) {
+      StitchToPreviousBlockInternal(self,
+                                    num_bytes,
+                                    position,
+                                    ringbuffer,
+                                    ringbuffer_mask);
   }
   fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) ->HowPrepared {
       if self.GetHasherCommon.is_prepared_ != 0 {
@@ -915,6 +963,17 @@ impl<AllocU16: alloc::Allocator<u16>,
   }
   fn PrepareDistanceCache(&self, distance_cache: &mut [i32]){
      return match_all_hashers!(self, PrepareDistanceCache, distance_cache);
+  }
+  fn StitchToPreviousBlock(&mut self,
+                           num_bytes: usize,
+                           position: usize,
+                           ringbuffer: &[u8],
+                           ringbuffer_mask: usize) {
+    return match_all_hashers_mut!(self, StitchToPreviousBlock,
+                              num_bytes,
+                              position,
+                              ringbuffer,
+                              ringbuffer_mask);
   }
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,

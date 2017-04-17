@@ -1,62 +1,63 @@
-use super::compress_fragment_two_pass::BrotliCompressFragmentTwoPass;
-use super::compress_fragment::BrotliCompressFragmentFast;
-
-use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
-use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher, BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams,
-H2Sub, H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher,AnyHasher, HowPrepared};
-use super::block_split::{BlockSplit};
-use super::utf8_util::{BrotliIsMostlyUTF8};
-use super::command::{Command};
-use core;
+use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
+                                 BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
+                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher,
+                                 AnyHasher, HowPrepared, StoreLookaheadThenStore};
 
 use super::bit_cost::BitsEntropy;
+use super::block_split::BlockSplit;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
-                               BrotliStoreMetaBlock, BrotliStoreMetaBlockFast, BrotliStoreMetaBlockTrivial,
-                               BrotliStoreUncompressedMetaBlock,
-};
+                               BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
+                               BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock};
+use super::command::{Command, GetLengthCode};
+use super::compress_fragment::BrotliCompressFragmentFast;
+use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
                             NewHuffmanTree};
+
+use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BROTLI_UNALIGNED_STORE64,
                          FindMatchLengthWithLimit, BrotliGetDictionary};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
+use core;
 
-  //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
-  //                                          dictionary: &[BrotliDictionary],
-  //                                          num_bytes: usize,
-  //                                          position: usize,
-  //                                          ringbuffer: &[u8],
-  //                                          ringbuffer_mask: usize,
-  //                                          params: &[BrotliEncoderParams],
-  //                                          hasher: &mut [u8],
-  //                                          dist_cache: &mut [i32],
-  //                                          last_insert_len: &mut [usize],
-  //                                          commands: &mut [Command],
-  //                                          num_commands: &mut [usize],
-  //                                          num_literals: &mut [usize]);
-  //fn BrotliCreateZopfliBackwardReferences(m: &mut [MemoryManager],
-   //                                       dictionary: &[BrotliDictionary],
-    //                                      num_bytes: usize,
-  //                                        position: usize,
-  //                                        ringbuffer: &[u8],
-  //                                        ringbuffer_mask: usize,
-  //                                        params: &[BrotliEncoderParams],
-  //                                        hasher: &mut [u8],
-  //                                        dist_cache: &mut [i32],
-  //                                        last_insert_len: &mut [usize],
-  //                                        commands: &mut [Command],
-  //                                        num_commands: &mut [usize],
-  //                                        num_literals: &mut [usize]);
-  //fn BrotliInitBlockSplit(xself: &mut BlockSplit);
-  //fn BrotliInitMemoryManager(m: &mut [MemoryManager],
-  //                           alloc_func: fn(&mut [::std::os::raw::c_void], usize)
-  //                                          -> *mut ::std::os::raw::c_void,
-  //                           free_func: fn(*mut ::std::os::raw::c_void,
-  //                                         *mut ::std::os::raw::c_void),
-  //                           opaque: *mut ::std::os::raw::c_void);
-  //fn BrotliInitZopfliNodes(array: &mut [ZopfliNode], length: usize);
-  //fn BrotliWipeOutMemoryManager(m: &mut [MemoryManager]);
+//fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
+//                                          dictionary: &[BrotliDictionary],
+//                                          num_bytes: usize,
+//                                          position: usize,
+//                                          ringbuffer: &[u8],
+//                                          ringbuffer_mask: usize,
+//                                          params: &[BrotliEncoderParams],
+//                                          hasher: &mut [u8],
+//                                          dist_cache: &mut [i32],
+//                                          last_insert_len: &mut [usize],
+//                                          commands: &mut [Command],
+//                                          num_commands: &mut [usize],
+//                                          num_literals: &mut [usize]);
+//fn BrotliCreateZopfliBackwardReferences(m: &mut [MemoryManager],
+//                                       dictionary: &[BrotliDictionary],
+//                                      num_bytes: usize,
+//                                        position: usize,
+//                                        ringbuffer: &[u8],
+//                                        ringbuffer_mask: usize,
+//                                        params: &[BrotliEncoderParams],
+//                                        hasher: &mut [u8],
+//                                        dist_cache: &mut [i32],
+//                                        last_insert_len: &mut [usize],
+//                                        commands: &mut [Command],
+//                                        num_commands: &mut [usize],
+//                                        num_literals: &mut [usize]);
+//fn BrotliInitBlockSplit(xself: &mut BlockSplit);
+//fn BrotliInitMemoryManager(m: &mut [MemoryManager],
+//                           alloc_func: fn(&mut [::std::os::raw::c_void], usize)
+//                                          -> *mut ::std::os::raw::c_void,
+//                           free_func: fn(*mut ::std::os::raw::c_void,
+//                                         *mut ::std::os::raw::c_void),
+//                           opaque: *mut ::std::os::raw::c_void);
+//fn BrotliInitZopfliNodes(array: &mut [ZopfliNode], length: usize);
+//fn BrotliWipeOutMemoryManager(m: &mut [MemoryManager]);
 
 
 static kBrotliMinWindowBits: i32 = 10i32;
@@ -102,7 +103,7 @@ pub enum BrotliEncoderMode {
 
 
 
-pub struct RingBuffer<AllocU8:alloc::Allocator<u8>> {
+pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
   pub size_: u32,
   pub mask_: u32,
   pub tail_size_: u32,
@@ -124,10 +125,11 @@ pub enum BrotliEncoderStreamState {
 }
 
 
-pub struct BrotliEncoderStateStruct<AllocU8:alloc::Allocator<u8>,
-                                    AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>,
-                                    AllocCommand:alloc::Allocator<Command>> {
+pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
+                                    AllocU16: alloc::Allocator<u16>,
+                                    AllocU32: alloc::Allocator<u32>,
+                                    AllocCommand: alloc::Allocator<Command>>
+{
   pub params: BrotliEncoderParams,
   pub m8: AllocU8,
   pub m16: AllocU16,
@@ -163,7 +165,7 @@ pub struct BrotliEncoderStateStruct<AllocU8:alloc::Allocator<u8>,
   pub next_out_: AllocU8::AllocatedMemory, // not sure about this one: may be a pointer to l
   pub available_out_: usize,
   pub total_out_: usize,
-  pub tiny_buf_: [u8;16],
+  pub tiny_buf_: [u8; 16],
   pub remaining_metadata_bytes_: u32,
   pub stream_state_: BrotliEncoderStreamState,
   pub is_last_block_emitted_: i32,
@@ -172,25 +174,23 @@ pub struct BrotliEncoderStateStruct<AllocU8:alloc::Allocator<u8>,
 
 
 
-pub fn BrotliEncoderSetParameter<AllocU8:alloc::Allocator<u8>,
-                                    AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>,
-                                    AllocCommand:alloc::Allocator<Command>>(mut state: &mut BrotliEncoderStateStruct<AllocU8,
-                                    AllocU16,
-                                    AllocU32,
-                                    AllocCommand>,
-                                 mut p: BrotliEncoderParameter,
-                                 mut value: u32)
-                                 -> i32 {
+pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
+                                 AllocU16: alloc::Allocator<u16>,
+                                 AllocU32: alloc::Allocator<u32>,
+                                 AllocCommand: alloc::Allocator<Command>>
+  (mut state: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>,
+   mut p: BrotliEncoderParameter,
+   mut value: u32)
+   -> i32 {
   if (*state).is_initialized_ != 0 {
     return 0i32;
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_MODE as (i32) {
     (*state).params.mode = match value {
-     0 => BrotliEncoderMode::BROTLI_MODE_GENERIC,
-     1 => BrotliEncoderMode::BROTLI_MODE_TEXT,
-     2 => BrotliEncoderMode::BROTLI_MODE_FONT,
-     _ => BrotliEncoderMode::BROTLI_MODE_GENERIC,
+      0 => BrotliEncoderMode::BROTLI_MODE_GENERIC,
+      1 => BrotliEncoderMode::BROTLI_MODE_TEXT,
+      2 => BrotliEncoderMode::BROTLI_MODE_FONT,
+      _ => BrotliEncoderMode::BROTLI_MODE_GENERIC,
     };
     return 1i32;
   }
@@ -220,88 +220,89 @@ pub fn BrotliEncoderSetParameter<AllocU8:alloc::Allocator<u8>,
   0i32
 }
 fn BrotliEncoderInitParams() -> BrotliEncoderParams {
-  return BrotliEncoderParams{
-     mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
-     quality: 9,
-     lgwin: 22i32,
-     lgblock: 0i32,
-     size_hint: 0usize,
-     disable_literal_context_modeling: 0i32,
-     hasher: BrotliHasherParams {
-          type_: 6,
-          block_bits: 9 - 1,
-          bucket_bits: 15,
-          hash_len: 5,
-          num_last_distances_to_check: 16,
-     },
-   }
+  return BrotliEncoderParams {
+           mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
+           quality: 9,
+           lgwin: 22i32,
+           lgblock: 0i32,
+           size_hint: 0usize,
+           disable_literal_context_modeling: 0i32,
+           hasher: BrotliHasherParams {
+             type_: 6,
+             block_bits: 9 - 1,
+             bucket_bits: 15,
+             hash_len: 5,
+             num_last_distances_to_check: 16,
+           },
+         };
 }
 
 
-fn RingBufferInit<AllocU8:alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
-return RingBuffer {
-  size_: 0,
-  mask_: 0, // 0xff??
-  tail_size_: 0,
-  total_size_: 0,
+fn RingBufferInit<AllocU8: alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
+  return RingBuffer {
+           size_: 0,
+           mask_: 0, // 0xff??
+           tail_size_: 0,
+           total_size_: 0,
 
-       cur_size_ : 0,
-       pos_: 0,
-       data_: AllocU8::AllocatedMemory::default(),
-       buffer_index: 0usize,
-    }
+           cur_size_: 0,
+           pos_: 0,
+           data_: AllocU8::AllocatedMemory::default(),
+           buffer_index: 0usize,
+         };
 }
 
-pub fn BrotliEncoderCreateInstance<AllocU8:alloc::Allocator<u8>,
-                                    AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>,
-                                    AllocCommand:alloc::Allocator<Command>> (
-                                    m8:AllocU8,
-                                    m16:AllocU16,
-                                    m32:AllocU32,
-                                    mc:AllocCommand) -> BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand> {
-  let cache :[i32;16] = [4,11,15,16,0,0,0,0,0,0,0,0,0,0,0,0];
+pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
+                                   AllocU16: alloc::Allocator<u16>,
+                                   AllocU32: alloc::Allocator<u32>,
+                                   AllocCommand: alloc::Allocator<Command>>
+  (m8: AllocU8,
+   m16: AllocU16,
+   m32: AllocU32,
+   mc: AllocCommand)
+   -> BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand> {
+  let cache: [i32; 16] = [4, 11, 15, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
   BrotliEncoderStateStruct::<AllocU8, AllocU16, AllocU32, AllocCommand> {
-      params: BrotliEncoderInitParams(),
-  input_pos_ : 0usize,
-  num_commands_ : 0usize,
-  num_literals_ : 0usize,
-  last_insert_len_ : 0usize,
-  last_flush_pos_ : 0usize,
-  last_processed_pos_ : 0usize,
-  prev_byte_ : 0i32 as (u8),
-  prev_byte2_ : 0i32 as (u8),
-  storage_size_ : 0usize,
-  storage_ : AllocU8::AllocatedMemory::default(),
-  hasher_ : UnionHasher::<AllocU16, AllocU32>::default(),
-  large_table_ : AllocU32::AllocatedMemory::default(),
-  large_table_size_ : 0usize,
-  cmd_code_numbits_ : 0usize,
-  command_buf_ : AllocU32::AllocatedMemory::default(),
-  literal_buf_ : AllocU8::AllocatedMemory::default(),
-  next_out_ : AllocU8::AllocatedMemory::default(), //FIXME this should be a pointer
-  available_out_ : 0usize,
-  total_out_ : 0usize,
-  stream_state_ : BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING,
-  is_last_block_emitted_ : 0i32,
-  is_initialized_ : 0i32,
-  ringbuffer_:RingBufferInit(),
-  commands_ : AllocCommand::AllocatedMemory::default(),
-  cmd_alloc_size_ : 0usize,
-  dist_cache_:cache,
-  saved_dist_cache_:[cache[0], cache[1], cache[2], cache[3]],
-  cmd_bits_:[0;128],
-  cmd_depths_:[0;128],
-  last_byte_:0,
-  last_byte_bits_:0,
-  cmd_code_:[0;512],
-  m8:m8,
-  m16:m16,
-  m32:m32,
-  mc:mc,
-  remaining_metadata_bytes_:0,
-  small_table_:[0;1024],
-  tiny_buf_:[0;16],
+    params: BrotliEncoderInitParams(),
+    input_pos_: 0usize,
+    num_commands_: 0usize,
+    num_literals_: 0usize,
+    last_insert_len_: 0usize,
+    last_flush_pos_: 0usize,
+    last_processed_pos_: 0usize,
+    prev_byte_: 0i32 as (u8),
+    prev_byte2_: 0i32 as (u8),
+    storage_size_: 0usize,
+    storage_: AllocU8::AllocatedMemory::default(),
+    hasher_: UnionHasher::<AllocU16, AllocU32>::default(),
+    large_table_: AllocU32::AllocatedMemory::default(),
+    large_table_size_: 0usize,
+    cmd_code_numbits_: 0usize,
+    command_buf_: AllocU32::AllocatedMemory::default(),
+    literal_buf_: AllocU8::AllocatedMemory::default(),
+    next_out_: AllocU8::AllocatedMemory::default(), //FIXME this should be a pointer
+    available_out_: 0usize,
+    total_out_: 0usize,
+    stream_state_: BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING,
+    is_last_block_emitted_: 0i32,
+    is_initialized_: 0i32,
+    ringbuffer_: RingBufferInit(),
+    commands_: AllocCommand::AllocatedMemory::default(),
+    cmd_alloc_size_: 0usize,
+    dist_cache_: cache,
+    saved_dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
+    cmd_bits_: [0; 128],
+    cmd_depths_: [0; 128],
+    last_byte_: 0,
+    last_byte_bits_: 0,
+    cmd_code_: [0; 512],
+    m8: m8,
+    m16: m16,
+    m32: m32,
+    mc: mc,
+    remaining_metadata_bytes_: 0,
+    small_table_: [0; 1024],
+    tiny_buf_: [0; 16],
   }
 }
 
@@ -326,56 +327,60 @@ pub fn BrotliEncoderCreateInstance(mut alloc_func: fn(&mut [::std::os::raw::c_vo
   state
 }*/
 
-fn RingBufferFree<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8, mut rb: &mut RingBuffer<AllocU8>) {
+fn RingBufferFree<AllocU8: alloc::Allocator<u8>>(mut m: &mut AllocU8,
+                                                 mut rb: &mut RingBuffer<AllocU8>) {
   m.free_cell(core::mem::replace(&mut rb.data_, AllocU8::AllocatedMemory::default()));
 }
 
 fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>(
-    mut m16: &mut AllocU16, mut m32:&mut AllocU32, mut handle: &mut UnionHasher<AllocU16, AllocU32>) {
+mut m16: &mut AllocU16, mut m32:&mut AllocU32, mut handle: &mut UnionHasher<AllocU16, AllocU32>){
   match handle {
-      &mut UnionHasher::H5(ref mut hasher) => {
-          m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-          m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
-      },
-      &mut UnionHasher::H6(ref mut hasher) => {
-          m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-          m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
-      },
-      _ => {},
+    &mut UnionHasher::H5(ref mut hasher) => {
+      m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+    }
+    &mut UnionHasher::H6(ref mut hasher) => {
+      m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+    }
+    _ => {}
   }
   *handle = UnionHasher::<AllocU16, AllocU32>::default();
 }
 
 
-fn BrotliEncoderCleanupState<AllocU8:alloc::Allocator<u8>,
-                                    AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>,
-                             AllocCommand:alloc::Allocator<Command>>(
-    mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>) {
+fn BrotliEncoderCleanupState<AllocU8: alloc::Allocator<u8>,
+                             AllocU16: alloc::Allocator<u16>,
+                             AllocU32: alloc::Allocator<u32>,
+                             AllocCommand: alloc::Allocator<Command>>
+  (mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>) {
   {
     s.m8.free_cell(core::mem::replace(&mut (*s).storage_, AllocU8::AllocatedMemory::default()));
   }
   {
-    s.mc.free_cell(core::mem::replace(&mut (*s).commands_, AllocCommand::AllocatedMemory::default()));
+    s.mc.free_cell(core::mem::replace(&mut (*s).commands_,
+                                      AllocCommand::AllocatedMemory::default()));
   }
   RingBufferFree(&mut s.m8, &mut (*s).ringbuffer_);
   DestroyHasher(&mut s.m16, &mut s.m32, &mut (*s).hasher_);
   {
-    s.m32.free_cell(core::mem::replace(&mut (*s).large_table_, AllocU32::AllocatedMemory::default()));
+    s.m32.free_cell(core::mem::replace(&mut (*s).large_table_,
+                                       AllocU32::AllocatedMemory::default()));
   }
   {
-    s.m32.free_cell(core::mem::replace(&mut (*s).command_buf_, AllocU32::AllocatedMemory::default()));
+    s.m32.free_cell(core::mem::replace(&mut (*s).command_buf_,
+                                       AllocU32::AllocatedMemory::default()));
   }
   {
     s.m8.free_cell(core::mem::replace(&mut (*s).literal_buf_, AllocU8::AllocatedMemory::default()));
   }
 }
 
-pub fn BrotliEncoderDestroyInstance<AllocU8:alloc::Allocator<u8>,
-                                    AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>,
-                             AllocCommand:alloc::Allocator<Command>>(
-    mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>) {
+pub fn BrotliEncoderDestroyInstance<AllocU8: alloc::Allocator<u8>,
+                                    AllocU16: alloc::Allocator<u16>,
+                                    AllocU32: alloc::Allocator<u32>,
+                                    AllocCommand: alloc::Allocator<Command>>
+  (mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>) {
   BrotliEncoderCleanupState(s);
 }
 
@@ -417,7 +422,8 @@ fn ComputeRbBits(mut params: &BrotliEncoderParams) -> i32 {
   1i32 + brotli_max_int((*params).lgwin, (*params).lgblock)
 }
 
-fn RingBufferSetup<AllocU8:alloc::Allocator<u8>>(mut params: &BrotliEncoderParams, mut rb: &mut RingBuffer<AllocU8>) {
+fn RingBufferSetup<AllocU8: alloc::Allocator<u8>>(mut params: &BrotliEncoderParams,
+                                                  mut rb: &mut RingBuffer<AllocU8>) {
   let mut window_bits: i32 = ComputeRbBits(params);
   let mut tail_bits: i32 = (*params).lgblock;
   *(&mut (*rb).size_) = 1u32 << window_bits;
@@ -447,318 +453,318 @@ fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
                           mut cmd_code: &mut [u8],
                           mut cmd_code_numbits: &mut usize) {
   static kDefaultCommandDepths: [u8; 128] = [0i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 5i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 8i32 as (u8),
-                                                 8i32 as (u8),
-                                                 8i32 as (u8),
-                                                 8i32 as (u8),
-                                                 8i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 0i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 7i32 as (u8),
-                                                 8i32 as (u8),
-                                                 8i32 as (u8),
-                                                 9i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 10i32 as (u8),
-                                                 5i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 4i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 5i32 as (u8),
-                                                 6i32 as (u8),
-                                                 6i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 7i32 as (u8),
-                                                 8i32 as (u8),
-                                                 10i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 12i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8),
-                                                 0i32 as (u8)];
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             5i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             8i32 as (u8),
+                                             8i32 as (u8),
+                                             8i32 as (u8),
+                                             8i32 as (u8),
+                                             8i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             0i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             7i32 as (u8),
+                                             8i32 as (u8),
+                                             8i32 as (u8),
+                                             9i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             10i32 as (u8),
+                                             5i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             4i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             5i32 as (u8),
+                                             6i32 as (u8),
+                                             6i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             7i32 as (u8),
+                                             8i32 as (u8),
+                                             10i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             12i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8),
+                                             0i32 as (u8)];
   static kDefaultCommandBits: [u16; 128] = [0i32 as (u16),
-                                                0i32 as (u16),
-                                                8i32 as (u16),
-                                                9i32 as (u16),
-                                                3i32 as (u16),
-                                                35i32 as (u16),
-                                                7i32 as (u16),
-                                                71i32 as (u16),
-                                                39i32 as (u16),
-                                                103i32 as (u16),
-                                                23i32 as (u16),
-                                                47i32 as (u16),
-                                                175i32 as (u16),
-                                                111i32 as (u16),
-                                                239i32 as (u16),
-                                                31i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                4i32 as (u16),
-                                                12i32 as (u16),
-                                                2i32 as (u16),
-                                                10i32 as (u16),
-                                                6i32 as (u16),
-                                                13i32 as (u16),
-                                                29i32 as (u16),
-                                                11i32 as (u16),
-                                                43i32 as (u16),
-                                                27i32 as (u16),
-                                                59i32 as (u16),
-                                                87i32 as (u16),
-                                                55i32 as (u16),
-                                                15i32 as (u16),
-                                                79i32 as (u16),
-                                                319i32 as (u16),
-                                                831i32 as (u16),
-                                                191i32 as (u16),
-                                                703i32 as (u16),
-                                                447i32 as (u16),
-                                                959i32 as (u16),
-                                                0i32 as (u16),
-                                                14i32 as (u16),
-                                                1i32 as (u16),
-                                                25i32 as (u16),
-                                                5i32 as (u16),
-                                                21i32 as (u16),
-                                                19i32 as (u16),
-                                                51i32 as (u16),
-                                                119i32 as (u16),
-                                                159i32 as (u16),
-                                                95i32 as (u16),
-                                                223i32 as (u16),
-                                                479i32 as (u16),
-                                                991i32 as (u16),
-                                                63i32 as (u16),
-                                                575i32 as (u16),
-                                                127i32 as (u16),
-                                                639i32 as (u16),
-                                                383i32 as (u16),
-                                                895i32 as (u16),
-                                                255i32 as (u16),
-                                                767i32 as (u16),
-                                                511i32 as (u16),
-                                                1023i32 as (u16),
-                                                14i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                27i32 as (u16),
-                                                59i32 as (u16),
-                                                7i32 as (u16),
-                                                39i32 as (u16),
-                                                23i32 as (u16),
-                                                55i32 as (u16),
-                                                30i32 as (u16),
-                                                1i32 as (u16),
-                                                17i32 as (u16),
-                                                9i32 as (u16),
-                                                25i32 as (u16),
-                                                5i32 as (u16),
-                                                0i32 as (u16),
-                                                8i32 as (u16),
-                                                4i32 as (u16),
-                                                12i32 as (u16),
-                                                2i32 as (u16),
-                                                10i32 as (u16),
-                                                6i32 as (u16),
-                                                21i32 as (u16),
-                                                13i32 as (u16),
-                                                29i32 as (u16),
-                                                3i32 as (u16),
-                                                19i32 as (u16),
-                                                11i32 as (u16),
-                                                15i32 as (u16),
-                                                47i32 as (u16),
-                                                31i32 as (u16),
-                                                95i32 as (u16),
-                                                63i32 as (u16),
-                                                127i32 as (u16),
-                                                255i32 as (u16),
-                                                767i32 as (u16),
-                                                2815i32 as (u16),
-                                                1791i32 as (u16),
-                                                3839i32 as (u16),
-                                                511i32 as (u16),
-                                                2559i32 as (u16),
-                                                1535i32 as (u16),
-                                                3583i32 as (u16),
-                                                1023i32 as (u16),
-                                                3071i32 as (u16),
-                                                2047i32 as (u16),
-                                                4095i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16),
-                                                0i32 as (u16)];
+                                            0i32 as (u16),
+                                            8i32 as (u16),
+                                            9i32 as (u16),
+                                            3i32 as (u16),
+                                            35i32 as (u16),
+                                            7i32 as (u16),
+                                            71i32 as (u16),
+                                            39i32 as (u16),
+                                            103i32 as (u16),
+                                            23i32 as (u16),
+                                            47i32 as (u16),
+                                            175i32 as (u16),
+                                            111i32 as (u16),
+                                            239i32 as (u16),
+                                            31i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            4i32 as (u16),
+                                            12i32 as (u16),
+                                            2i32 as (u16),
+                                            10i32 as (u16),
+                                            6i32 as (u16),
+                                            13i32 as (u16),
+                                            29i32 as (u16),
+                                            11i32 as (u16),
+                                            43i32 as (u16),
+                                            27i32 as (u16),
+                                            59i32 as (u16),
+                                            87i32 as (u16),
+                                            55i32 as (u16),
+                                            15i32 as (u16),
+                                            79i32 as (u16),
+                                            319i32 as (u16),
+                                            831i32 as (u16),
+                                            191i32 as (u16),
+                                            703i32 as (u16),
+                                            447i32 as (u16),
+                                            959i32 as (u16),
+                                            0i32 as (u16),
+                                            14i32 as (u16),
+                                            1i32 as (u16),
+                                            25i32 as (u16),
+                                            5i32 as (u16),
+                                            21i32 as (u16),
+                                            19i32 as (u16),
+                                            51i32 as (u16),
+                                            119i32 as (u16),
+                                            159i32 as (u16),
+                                            95i32 as (u16),
+                                            223i32 as (u16),
+                                            479i32 as (u16),
+                                            991i32 as (u16),
+                                            63i32 as (u16),
+                                            575i32 as (u16),
+                                            127i32 as (u16),
+                                            639i32 as (u16),
+                                            383i32 as (u16),
+                                            895i32 as (u16),
+                                            255i32 as (u16),
+                                            767i32 as (u16),
+                                            511i32 as (u16),
+                                            1023i32 as (u16),
+                                            14i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            27i32 as (u16),
+                                            59i32 as (u16),
+                                            7i32 as (u16),
+                                            39i32 as (u16),
+                                            23i32 as (u16),
+                                            55i32 as (u16),
+                                            30i32 as (u16),
+                                            1i32 as (u16),
+                                            17i32 as (u16),
+                                            9i32 as (u16),
+                                            25i32 as (u16),
+                                            5i32 as (u16),
+                                            0i32 as (u16),
+                                            8i32 as (u16),
+                                            4i32 as (u16),
+                                            12i32 as (u16),
+                                            2i32 as (u16),
+                                            10i32 as (u16),
+                                            6i32 as (u16),
+                                            21i32 as (u16),
+                                            13i32 as (u16),
+                                            29i32 as (u16),
+                                            3i32 as (u16),
+                                            19i32 as (u16),
+                                            11i32 as (u16),
+                                            15i32 as (u16),
+                                            47i32 as (u16),
+                                            31i32 as (u16),
+                                            95i32 as (u16),
+                                            63i32 as (u16),
+                                            127i32 as (u16),
+                                            255i32 as (u16),
+                                            767i32 as (u16),
+                                            2815i32 as (u16),
+                                            1791i32 as (u16),
+                                            3839i32 as (u16),
+                                            511i32 as (u16),
+                                            2559i32 as (u16),
+                                            1535i32 as (u16),
+                                            3583i32 as (u16),
+                                            1023i32 as (u16),
+                                            3071i32 as (u16),
+                                            2047i32 as (u16),
+                                            4095i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16),
+                                            0i32 as (u16)];
   static kDefaultCommandCode: [u8; 57] = [0xffi32 as (u8),
-                                              0x77i32 as (u8),
-                                              0xd5i32 as (u8),
-                                              0xbfi32 as (u8),
-                                              0xe7i32 as (u8),
-                                              0xdei32 as (u8),
-                                              0xeai32 as (u8),
-                                              0x9ei32 as (u8),
-                                              0x51i32 as (u8),
-                                              0x5di32 as (u8),
-                                              0xdei32 as (u8),
-                                              0xc6i32 as (u8),
-                                              0x70i32 as (u8),
-                                              0x57i32 as (u8),
-                                              0xbci32 as (u8),
-                                              0x58i32 as (u8),
-                                              0x58i32 as (u8),
-                                              0x58i32 as (u8),
-                                              0xd8i32 as (u8),
-                                              0xd8i32 as (u8),
-                                              0x58i32 as (u8),
-                                              0xd5i32 as (u8),
-                                              0xcbi32 as (u8),
-                                              0x8ci32 as (u8),
-                                              0xeai32 as (u8),
-                                              0xe0i32 as (u8),
-                                              0xc3i32 as (u8),
-                                              0x87i32 as (u8),
-                                              0x1fi32 as (u8),
-                                              0x83i32 as (u8),
-                                              0xc1i32 as (u8),
-                                              0x60i32 as (u8),
-                                              0x1ci32 as (u8),
-                                              0x67i32 as (u8),
-                                              0xb2i32 as (u8),
-                                              0xaai32 as (u8),
-                                              0x6i32 as (u8),
-                                              0x83i32 as (u8),
-                                              0xc1i32 as (u8),
-                                              0x60i32 as (u8),
-                                              0x30i32 as (u8),
-                                              0x18i32 as (u8),
-                                              0xcci32 as (u8),
-                                              0xa1i32 as (u8),
-                                              0xcei32 as (u8),
-                                              0x88i32 as (u8),
-                                              0x54i32 as (u8),
-                                              0x94i32 as (u8),
-                                              0x46i32 as (u8),
-                                              0xe1i32 as (u8),
-                                              0xb0i32 as (u8),
-                                              0xd0i32 as (u8),
-                                              0x4ei32 as (u8),
-                                              0xb2i32 as (u8),
-                                              0xf7i32 as (u8),
-                                              0x4i32 as (u8),
-                                              0x0i32 as (u8)];
+                                          0x77i32 as (u8),
+                                          0xd5i32 as (u8),
+                                          0xbfi32 as (u8),
+                                          0xe7i32 as (u8),
+                                          0xdei32 as (u8),
+                                          0xeai32 as (u8),
+                                          0x9ei32 as (u8),
+                                          0x51i32 as (u8),
+                                          0x5di32 as (u8),
+                                          0xdei32 as (u8),
+                                          0xc6i32 as (u8),
+                                          0x70i32 as (u8),
+                                          0x57i32 as (u8),
+                                          0xbci32 as (u8),
+                                          0x58i32 as (u8),
+                                          0x58i32 as (u8),
+                                          0x58i32 as (u8),
+                                          0xd8i32 as (u8),
+                                          0xd8i32 as (u8),
+                                          0x58i32 as (u8),
+                                          0xd5i32 as (u8),
+                                          0xcbi32 as (u8),
+                                          0x8ci32 as (u8),
+                                          0xeai32 as (u8),
+                                          0xe0i32 as (u8),
+                                          0xc3i32 as (u8),
+                                          0x87i32 as (u8),
+                                          0x1fi32 as (u8),
+                                          0x83i32 as (u8),
+                                          0xc1i32 as (u8),
+                                          0x60i32 as (u8),
+                                          0x1ci32 as (u8),
+                                          0x67i32 as (u8),
+                                          0xb2i32 as (u8),
+                                          0xaai32 as (u8),
+                                          0x6i32 as (u8),
+                                          0x83i32 as (u8),
+                                          0xc1i32 as (u8),
+                                          0x60i32 as (u8),
+                                          0x30i32 as (u8),
+                                          0x18i32 as (u8),
+                                          0xcci32 as (u8),
+                                          0xa1i32 as (u8),
+                                          0xcei32 as (u8),
+                                          0x88i32 as (u8),
+                                          0x54i32 as (u8),
+                                          0x94i32 as (u8),
+                                          0x46i32 as (u8),
+                                          0xe1i32 as (u8),
+                                          0xb0i32 as (u8),
+                                          0xd0i32 as (u8),
+                                          0x4ei32 as (u8),
+                                          0xb2i32 as (u8),
+                                          0xf7i32 as (u8),
+                                          0x4i32 as (u8),
+                                          0x0i32 as (u8)];
   static kDefaultCommandCodeNumBits: usize = 448usize;
   cmd_depths[..].clone_from_slice(&kDefaultCommandDepths[..]);
   cmd_bits[..].clone_from_slice(&kDefaultCommandBits[..]);
@@ -766,13 +772,12 @@ fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
   *cmd_code_numbits = kDefaultCommandCodeNumBits;
 }
 
-fn EnsureInitialized<AllocU8:alloc::Allocator<u8>,
-                     AllocU16:alloc::Allocator<u16>,
-                     AllocU32:alloc::Allocator<u32>,
-                     AllocCommand:alloc::Allocator<Command>>(mut s: &mut BrotliEncoderStateStruct<AllocU8,
-                                                                                                  AllocU16,
-                                                                                                  AllocU32,
-                                                                                                  AllocCommand>) -> i32 {
+fn EnsureInitialized<AllocU8: alloc::Allocator<u8>,
+                     AllocU16: alloc::Allocator<u16>,
+                     AllocU32: alloc::Allocator<u32>,
+                     AllocCommand: alloc::Allocator<Command>>
+  (mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>)
+   -> i32 {
   if (*s).is_initialized_ != 0 {
     return 1i32;
   }
@@ -797,16 +802,17 @@ fn EnsureInitialized<AllocU8:alloc::Allocator<u8>,
   1i32
 }
 
-fn RingBufferInitBuffer<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
+fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(mut m: &mut AllocU8,
                                                        buflen: u32,
                                                        mut rb: &mut RingBuffer<AllocU8>) {
   static kSlackForEightByteHashingEverywhere: usize = 7usize;
-  let mut new_data = m.alloc_cell(((2u32).wrapping_add(buflen) as (usize))
-                     .wrapping_add(kSlackForEightByteHashingEverywhere));
+  let mut new_data =
+    m.alloc_cell(((2u32).wrapping_add(buflen) as (usize))
+                   .wrapping_add(kSlackForEightByteHashingEverywhere));
   let mut i: usize;
-    if !(*rb).data_.slice().len() != 0 {
-        let lim : usize = ((2u32).wrapping_add((*rb).cur_size_) as (usize))
-             .wrapping_add(kSlackForEightByteHashingEverywhere);
+  if !(*rb).data_.slice().len() != 0 {
+    let lim: usize = ((2u32).wrapping_add((*rb).cur_size_) as (usize))
+      .wrapping_add(kSlackForEightByteHashingEverywhere);
     new_data.slice_mut()[..lim].clone_from_slice(&(*rb).data_.slice()[..lim]);
     m.free_cell(core::mem::replace(&mut (*rb).data_, AllocU8::AllocatedMemory::default()));
   }
@@ -819,35 +825,36 @@ fn RingBufferInitBuffer<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
   while i < kSlackForEightByteHashingEverywhere {
     {
       (*rb).data_.slice_mut()[((*rb)
-          .buffer_index
-          .wrapping_add((*rb).cur_size_ as (usize))
-          .wrapping_add(i) as (usize))] = 0;
+         .buffer_index
+         .wrapping_add((*rb).cur_size_ as (usize))
+         .wrapping_add(i) as (usize))] = 0;
     }
     i = i.wrapping_add(1 as (usize));
   }
 }
 
 
-fn RingBufferWriteTail<AllocU8:alloc::Allocator<u8>>(bytes: &[u8], mut n: usize, mut rb: &mut RingBuffer<AllocU8>) {
+fn RingBufferWriteTail<AllocU8: alloc::Allocator<u8>>(bytes: &[u8],
+                                                      mut n: usize,
+                                                      mut rb: &mut RingBuffer<AllocU8>) {
   let masked_pos: usize = ((*rb).pos_ & (*rb).mask_) as (usize);
   if masked_pos < (*rb).tail_size_ as (usize) {
     let p: usize = ((*rb).size_ as (usize)).wrapping_add(masked_pos);
     let begin = ((*rb).buffer_index.wrapping_add(p) as (usize));
     let lim = brotli_min_size_t(n, ((*rb).tail_size_ as (usize)).wrapping_sub(masked_pos));
-    (*rb).data_.slice_mut()[begin..(begin + lim)].clone_from_slice(
-           &bytes[..lim]);
+    (*rb).data_.slice_mut()[begin..(begin + lim)].clone_from_slice(&bytes[..lim]);
   }
 }
 
-fn RingBufferWrite<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
-                   mut bytes: &[u8],
-                   mut n: usize,
-                   mut rb: &mut RingBuffer<AllocU8>) {
+fn RingBufferWrite<AllocU8: alloc::Allocator<u8>>(mut m: &mut AllocU8,
+                                                  mut bytes: &[u8],
+                                                  mut n: usize,
+                                                  mut rb: &mut RingBuffer<AllocU8>) {
   if (*rb).pos_ == 0u32 && (n < (*rb).tail_size_ as (usize)) {
     (*rb).pos_ = n as (u32);
     RingBufferInitBuffer(m, (*rb).pos_, rb);
     (*rb).data_.slice_mut()[((*rb).buffer_index as (usize))..(((*rb).buffer_index as (usize)) + n)]
-        .clone_from_slice(&bytes[..n]);
+      .clone_from_slice(&bytes[..n]);
     return;
   }
   if (*rb).cur_size_ < (*rb).total_size_ {
@@ -856,13 +863,13 @@ fn RingBufferWrite<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
       return;
     }
     (*rb).data_.slice_mut()[((*rb)
-        .buffer_index
-        .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(2usize) as (usize))] = 0i32 as (u8);
+       .buffer_index
+       .wrapping_add((*rb).size_ as (usize))
+       .wrapping_sub(2usize) as (usize))] = 0i32 as (u8);
     (*rb).data_.slice_mut()[((*rb)
-        .buffer_index
-        .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(1usize) as (usize))] = 0i32 as (u8);
+       .buffer_index
+       .wrapping_add((*rb).size_ as (usize))
+       .wrapping_sub(1usize) as (usize))] = 0i32 as (u8);
   }
   {
     let masked_pos: usize = ((*rb).pos_ & (*rb).mask_) as (usize);
@@ -875,26 +882,25 @@ fn RingBufferWrite<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
       {
         let start = ((*rb).buffer_index.wrapping_add(masked_pos) as (usize));
         let mid = brotli_min_size_t(n, ((*rb).total_size_ as (usize)).wrapping_sub(masked_pos));
-        (*rb).data_.slice_mut()[start..(start + mid)].clone_from_slice(
-            & bytes[..mid]);
+        (*rb).data_.slice_mut()[start..(start + mid)].clone_from_slice(&bytes[..mid]);
       }
       let xstart = ((*rb).buffer_index.wrapping_add(0usize) as (usize));
       let size = n.wrapping_sub(((*rb).size_ as (usize)).wrapping_sub(masked_pos));
       let bytes_start = (((*rb).size_ as (usize)).wrapping_sub(masked_pos) as (usize));
-      (*rb).data_.slice_mut()[xstart..(xstart + size)].clone_from_slice(
-             &bytes[bytes_start..(bytes_start + size)],
-             );
+      (*rb).data_.slice_mut()[xstart..(xstart + size)].clone_from_slice(&bytes[bytes_start..
+                                                                         (bytes_start +
+                                                                          size)]);
     }
   }
   let data_2 = (*rb).data_.slice()[((*rb)
-        .buffer_index
-        .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(2usize) as (usize))];
+     .buffer_index
+     .wrapping_add((*rb).size_ as (usize))
+     .wrapping_sub(2usize) as (usize))];
   (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize) as (usize))] = data_2;
   let data_1 = (*rb).data_.slice()[((*rb)
-        .buffer_index
-        .wrapping_add((*rb).size_ as (usize))
-        .wrapping_sub(1usize) as (usize))];
+     .buffer_index
+     .wrapping_add((*rb).size_ as (usize))
+     .wrapping_sub(1usize) as (usize))];
   (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize) as (usize))] = data_1;
   (*rb).pos_ = (*rb).pos_.wrapping_add(n as (u32));
   if (*rb).pos_ > 1u32 << 30i32 {
@@ -902,12 +908,13 @@ fn RingBufferWrite<AllocU8:alloc::Allocator<u8>>(mut m: &mut AllocU8,
   }
 }
 
-fn CopyInputToRingBuffer<AllocU8:alloc::Allocator<u8>,
-                                    AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>,
-                                    AllocCommand:alloc::Allocator<Command>>(mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>,
-                         input_size: usize,
-                         mut input_buffer: &[u8]) {
+fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
+                         AllocU16: alloc::Allocator<u16>,
+                         AllocU32: alloc::Allocator<u32>,
+                         AllocCommand: alloc::Allocator<Command>>
+  (mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>,
+   input_size: usize,
+   mut input_buffer: &[u8]) {
   if EnsureInitialized(s) == 0 {
     return;
   }
@@ -916,13 +923,13 @@ fn CopyInputToRingBuffer<AllocU8:alloc::Allocator<u8>,
     return;
   }
   (*s).input_pos_ = (*s).input_pos_.wrapping_add(input_size);
-    if (s.ringbuffer_).pos_ <= (s.ringbuffer_).mask_ {
+  if (s.ringbuffer_).pos_ <= (s.ringbuffer_).mask_ {
     let start = ((s.ringbuffer_).buffer_index.wrapping_add((s.ringbuffer_).pos_ as (usize)) as
-                                                  (usize));
+                 (usize));
     for item in (s.ringbuffer_).data_.slice_mut()[start..(start + 7)].iter_mut() {
-        *item = 0;
+      *item = 0;
     }
-    }
+  }
 }
 
 
@@ -988,95 +995,98 @@ macro_rules! InitializeHX{
     };
 }
 #[cfg(feature="unsafe")]
-fn if_unsafe_bzero<T : core::convert::From<u8>>(t : &mut [T]) {
-    for item in t.iter_mut() {
-        *item = T::from(0u8);
-    }
+fn if_unsafe_bzero<T: core::convert::From<u8>>(t: &mut [T]) {
+  for item in t.iter_mut() {
+    *item = T::from(0u8);
+  }
 }
 
 #[cfg(not(feature="unsafe"))]
-fn if_unsafe_bzero<T>(t : &mut [T]){}
-        
-InitializeHX!(InitializeH2, H2Sub {buckets_:[0;65537]}, H2Sub);
-InitializeHX!(InitializeH3, H3Sub {buckets_:[0;65538]}, H3Sub);
-InitializeHX!(InitializeH4, H4Sub {buckets_:[0;131076]}, H4Sub);
-InitializeHX!(InitializeH54, H54Sub{buckets_:[0;1048580]}, H54Sub);
-fn InitializeH5<AllocU16:alloc::Allocator<u16>,
-                AllocU32:alloc::Allocator<u32>>(mut m16:&mut AllocU16,
-                                                mut m32:&mut AllocU32,
-                                                mut params: &BrotliEncoderParams) -> AdvHasher<H5Sub, AllocU16, AllocU32> {
-    let block_size = 1u64 << params.hasher.block_bits;
-    let bucket_size = 1u64 << params.hasher.bucket_bits;
-    let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
-    let mut num = m16.alloc_cell(bucket_size as usize);
-    if_unsafe_bzero(buckets.slice_mut());
-    if_unsafe_bzero(num.slice_mut());
-    AdvHasher {
-        buckets:buckets,
-        num:num,
-        GetHasherCommon:Struct1{
-            params:params.hasher,
-            is_prepared_:0,
-            dict_num_lookups:0,
-            dict_num_matches:0,
-        },
-        specialization:H5Sub{},
-        hash_shift_: 32i32 - params.hasher.bucket_bits,
-        bucket_size_: bucket_size,
-        block_size_: block_size,
-        block_mask_: block_size.wrapping_sub(1u64) as (u32),
-    }
+fn if_unsafe_bzero<T>(t: &mut [T]) {}
+
+InitializeHX!(InitializeH2, H2Sub { buckets_: [0; 65537] }, H2Sub);
+InitializeHX!(InitializeH3, H3Sub { buckets_: [0; 65538] }, H3Sub);
+InitializeHX!(InitializeH4, H4Sub { buckets_: [0; 131076] }, H4Sub);
+InitializeHX!(InitializeH54, H54Sub { buckets_: [0; 1048580] }, H54Sub);
+fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   mut params: &BrotliEncoderParams)
+   -> AdvHasher<H5Sub, AllocU16, AllocU32> {
+  let block_size = 1u64 << params.hasher.block_bits;
+  let bucket_size = 1u64 << params.hasher.bucket_bits;
+  let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
+  let mut num = m16.alloc_cell(bucket_size as usize);
+  if_unsafe_bzero(buckets.slice_mut());
+  if_unsafe_bzero(num.slice_mut());
+  AdvHasher {
+    buckets: buckets,
+    num: num,
+    GetHasherCommon: Struct1 {
+      params: params.hasher,
+      is_prepared_: 0,
+      dict_num_lookups: 0,
+      dict_num_matches: 0,
+    },
+    specialization: H5Sub {},
+    hash_shift_: 32i32 - params.hasher.bucket_bits,
+    bucket_size_: bucket_size,
+    block_size_: block_size,
+    block_mask_: block_size.wrapping_sub(1u64) as (u32),
+  }
 }
-fn InitializeH6<AllocU16:alloc::Allocator<u16>,
-                AllocU32:alloc::Allocator<u32>>(mut m16:&mut AllocU16,
-                                                mut m32:&mut AllocU32,
-                                                mut params: &BrotliEncoderParams) -> AdvHasher<H6Sub, AllocU16, AllocU32> {
-    let block_size = 1u64 << params.hasher.block_bits;
-    let bucket_size = 1u64 << params.hasher.bucket_bits;
-    let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
-    let mut num = m16.alloc_cell(bucket_size as usize);
-    if_unsafe_bzero(buckets.slice_mut());
-    if_unsafe_bzero(num.slice_mut());
-    AdvHasher {
-        buckets: buckets,
-        num:num,
-        GetHasherCommon:Struct1{
-            params:params.hasher,
-            is_prepared_:0,
-            dict_num_lookups:0,
-            dict_num_matches:0,
-        },
-        hash_shift_: 64i32 - params.hasher.bucket_bits,
-        specialization:H6Sub{
-            hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
-        },
-        bucket_size_: 1u64 << params.hasher.bucket_bits,
-        block_size_: block_size,
-        block_mask_: block_size.wrapping_sub(1u64) as (u32),
-    }
+fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   mut params: &BrotliEncoderParams)
+   -> AdvHasher<H6Sub, AllocU16, AllocU32> {
+  let block_size = 1u64 << params.hasher.block_bits;
+  let bucket_size = 1u64 << params.hasher.bucket_bits;
+  let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
+  let mut num = m16.alloc_cell(bucket_size as usize);
+  if_unsafe_bzero(buckets.slice_mut());
+  if_unsafe_bzero(num.slice_mut());
+  AdvHasher {
+    buckets: buckets,
+    num: num,
+    GetHasherCommon: Struct1 {
+      params: params.hasher,
+      is_prepared_: 0,
+      dict_num_lookups: 0,
+      dict_num_matches: 0,
+    },
+    hash_shift_: 64i32 - params.hasher.bucket_bits,
+    specialization: H6Sub {
+      hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
+    },
+    bucket_size_: 1u64 << params.hasher.bucket_bits,
+    block_size_: block_size,
+    block_mask_: block_size.wrapping_sub(1u64) as (u32),
+  }
 }
 
-fn BrotliMakeHasher<AllocU16:alloc::Allocator<u16>,
-                    AllocU32:alloc::Allocator<u32>>(mut m16: &mut AllocU16,
-                                                    mut m32: &mut AllocU32,
-                                                    params : &BrotliEncoderParams) -> UnionHasher<AllocU16, AllocU32> {
-    let hasher_type: i32 = params.hasher.type_;
-    if hasher_type == 2i32 {
-      return UnionHasher::H2(InitializeH2(params));
-    }
-    if hasher_type == 3i32 {
-      return UnionHasher::H3(InitializeH3(params));
-    }
-    if hasher_type == 4i32 {
-      return UnionHasher::H4(InitializeH4(params));
-    }
-    if hasher_type == 5i32 {
-      return UnionHasher::H5(InitializeH5(m16, m32, params));
-    }
-    if hasher_type == 6i32 {
-      return UnionHasher::H6(InitializeH6(m16, m32, params));
-    }
-    /*
+fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   params: &BrotliEncoderParams)
+   -> UnionHasher<AllocU16, AllocU32> {
+  let hasher_type: i32 = params.hasher.type_;
+  if hasher_type == 2i32 {
+    return UnionHasher::H2(InitializeH2(params));
+  }
+  if hasher_type == 3i32 {
+    return UnionHasher::H3(InitializeH3(params));
+  }
+  if hasher_type == 4i32 {
+    return UnionHasher::H4(InitializeH4(params));
+  }
+  if hasher_type == 5i32 {
+    return UnionHasher::H5(InitializeH5(m16, m32, params));
+  }
+  if hasher_type == 6i32 {
+    return UnionHasher::H6(InitializeH6(m16, m32, params));
+  }
+  /*
     if hasher_type == 40i32 {
       return InitializeH40(params);
     }
@@ -1087,24 +1097,25 @@ fn BrotliMakeHasher<AllocU16:alloc::Allocator<u16>,
       return InitializeH42(params);
     }
 */
-    if hasher_type == 54i32 {
-      return UnionHasher::H54(InitializeH54(params));
-    }
-    /*
+  if hasher_type == 54i32 {
+    return UnionHasher::H54(InitializeH54(params));
+  }
+  /*
     if hasher_type == 10i32 {
       return InitializeH10(params);
     }*/
-    return UnionHasher::Uninit;
+  return UnionHasher::Uninit;
 }
 fn HasherReset<AllocU16:alloc::Allocator<u16>,
-                                    AllocU32:alloc::Allocator<u32>>(mut t: &mut UnionHasher<AllocU16, AllocU32>) {
+AllocU32:alloc::Allocator<u32>>(mut t: &mut UnionHasher<AllocU16, AllocU32>){
   match t {
-      &mut UnionHasher::Uninit => {},
-      _ => (t.GetHasherCommon()).is_prepared_ = 0i32,
+    &mut UnionHasher::Uninit => {}
+    _ => (t.GetHasherCommon()).is_prepared_ = 0i32,
   };
 }
-fn GetHasherCommon<AllocU16:alloc::Allocator<u16>,
-               AllocU32:alloc::Allocator<u32>>(mut t: &mut UnionHasher<AllocU16, AllocU32>) -> &mut Struct1{
+fn GetHasherCommon<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut t: &mut UnionHasher<AllocU16, AllocU32>)
+   -> &mut Struct1 {
   t.GetHasherCommon()
 }
 /*
@@ -1426,11 +1437,11 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
                mut data: &[u8],
                mut position: usize,
                mut input_size: usize,
-               mut is_last: i32) {
+mut is_last: i32){
   let mut one_shot: i32 = (position == 0usize && (is_last != 0)) as (i32);
-  let is_uninit = match(handle) {
-      &mut UnionHasher::Uninit => true,
-      _ => false,
+  let is_uninit = match (handle) {
+    &mut UnionHasher::Uninit => true,
+    _ => false,
   };
   if is_uninit {
     let mut alloc_size: usize;
@@ -1441,14 +1452,16 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
     handle.GetHasherCommon().params = (*params).hasher;
     HasherReset(handle); // this sets everything to zero, unlike in C
   } else {
-      match handle.Prepare(one_shot != 0, input_size, data) {
-          HowPrepared::ALREADY_PREPARED => {},
-          HowPrepared::NEWLY_PREPARED => if position == 0usize {
-              let mut common = handle.GetHasherCommon();
-              (*common).dict_num_lookups = 0usize;
-              (*common).dict_num_matches = 0usize;
-          },
+    match handle.Prepare(one_shot != 0, input_size, data) {
+      HowPrepared::ALREADY_PREPARED => {}
+      HowPrepared::NEWLY_PREPARED => {
+        if position == 0usize {
+          let mut common = handle.GetHasherCommon();
+          (*common).dict_num_lookups = 0usize;
+          (*common).dict_num_matches = 0usize;
+        }
       }
+    }
   }
 }
 
@@ -1633,130 +1646,38 @@ fn StoreH10(mut handle: &mut [u8], mut data: &[u8], mask: usize, ix: usize) {
   StoreAndFindMatchesH10(xself, data, ix, mask, 128usize, max_backward, 0i32, 0i32);
 }
  */
-/* RESUME FROM HERE
-fn HasherPrependCustomDictionary(mut m: &mut [MemoryManager],
-                                 mut handle: &mut [*mut u8],
-                                 mut params: &mut [BrotliEncoderParams],
-                                 size: usize,
-                                 mut dict: &[u8]) {
+
+
+fn HasherPrependCustomDictionary<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   mut handle: &mut UnionHasher<AllocU16, AllocU32>,
+   mut params: &mut BrotliEncoderParams,
+   size: usize,
+   mut dict: &[u8]) {
   let mut overlap: usize;
   let mut i: usize;
-  let mut xself: *mut u8;
-  HasherSetup(m, handle, params, dict, 0usize, size, 0i32);
-  if !(0i32 == 0) {
-    return;
-  }
-  xself = *handle;
-  let mut hasher_type: i32 = (*GetHasherCommon(xself)).params.type_;
-  if hasher_type == 2i32 {
-    overlap = StoreLookaheadH2().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH2(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 3i32 {
-    overlap = StoreLookaheadH3().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH3(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 4i32 {
-    overlap = StoreLookaheadH4().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH4(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 5i32 {
-    overlap = StoreLookaheadH5().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH5(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 6i32 {
-    overlap = StoreLookaheadH6().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH6(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 40i32 {
-    overlap = StoreLookaheadH40().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH40(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 41i32 {
-    overlap = StoreLookaheadH41().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH41(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 42i32 {
-    overlap = StoreLookaheadH42().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH42(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 54i32 {
-    overlap = StoreLookaheadH54().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH54(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
-  }
-  if hasher_type == 10i32 {
-    overlap = StoreLookaheadH10().wrapping_sub(1usize);
-    i = 0usize;
-    while i.wrapping_add(overlap) < size {
-      {
-        StoreH10(xself, dict, !(0usize), i);
-      }
-      i = i.wrapping_add(1 as (usize));
-    }
+  HasherSetup(m16, m32, handle, params, dict, 0usize, size, 0i32);
+  match handle {
+    &mut UnionHasher::H2(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H4(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H5(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H6(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H54(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::Uninit => panic!("Uninitialized"),
   }
 }
 
-
-pub fn BrotliEncoderSetCustomDictionary(mut s: &mut [BrotliEncoderStateStruct],
-                                        mut size: usize,
-                                        mut dict: &[u8]) {
+pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
+                                        AllocU16: alloc::Allocator<u16>,
+                                        AllocU32: alloc::Allocator<u32>,
+                                        AllocCommand: alloc::Allocator<Command>>
+  (mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocCommand>,
+   mut size: usize,
+   mut dict: &[u8]) {
   let mut max_dict_size: usize = (1usize << (*s).params.lgwin).wrapping_sub(16usize);
   let mut dict_size: usize = size;
-  let mut m: *mut MemoryManager = &mut (*s).memory_manager_;
   if EnsureInitialized(s) == 0 {
     return;
   }
@@ -1764,7 +1685,7 @@ pub fn BrotliEncoderSetCustomDictionary(mut s: &mut [BrotliEncoderStateStruct],
     return;
   }
   if size > max_dict_size {
-    dict = dict[(size.wrapping_sub(max_dict_size) as (usize))..];
+    dict = &dict[(size.wrapping_sub(max_dict_size) as (usize))..];
     dict_size = max_dict_size;
   }
   CopyInputToRingBuffer(s, dict_size, dict);
@@ -1776,8 +1697,14 @@ pub fn BrotliEncoderSetCustomDictionary(mut s: &mut [BrotliEncoderStateStruct],
   if dict_size > 1usize {
     (*s).prev_byte2_ = dict[(dict_size.wrapping_sub(2usize) as (usize))];
   }
-  HasherPrependCustomDictionary(m, &mut (*s).hasher_, &mut (*s).params, dict_size, dict);
-  if !(0i32 == 0) {}
+  let mut m16 = &mut s.m16;
+  let mut m32 = &mut s.m32;
+  HasherPrependCustomDictionary(m16,
+                                m32,
+                                &mut (*s).hasher_,
+                                &mut (*s).params,
+                                dict_size,
+                                dict);
 }
 
 
@@ -1802,245 +1729,7 @@ pub fn BrotliEncoderMaxCompressedSize(mut input_size: usize) -> usize {
 
 
 
-pub struct BrotliDictionary {
-  pub size_bits_by_length: [u8; 32],
-  pub offsets_by_length: [u32; 32],
-  pub data: [u8; 122784],
-}
-
-fn HashTypeLengthH2() -> usize {
-  8usize
-}
-
-fn StitchToPreviousBlockH2(mut handle: &mut [u8],
-                           mut num_bytes: usize,
-                           mut position: usize,
-                           mut ringbuffer: &[u8],
-                           mut ringbuffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH2().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH2(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(3usize));
-    StoreH2(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(2usize));
-    StoreH2(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH3() -> usize {
-  8usize
-}
-
-fn StitchToPreviousBlockH3(mut handle: &mut [u8],
-                           mut num_bytes: usize,
-                           mut position: usize,
-                           mut ringbuffer: &[u8],
-                           mut ringbuffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH3().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH3(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(3usize));
-    StoreH3(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(2usize));
-    StoreH3(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH4() -> usize {
-  8usize
-}
-
-fn StitchToPreviousBlockH4(mut handle: &mut [u8],
-                           mut num_bytes: usize,
-                           mut position: usize,
-                           mut ringbuffer: &[u8],
-                           mut ringbuffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH4().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH4(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(3usize));
-    StoreH4(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(2usize));
-    StoreH4(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH5() -> usize {
-  4usize
-}
-
-fn StitchToPreviousBlockH5(mut handle: &mut [u8],
-                           mut num_bytes: usize,
-                           mut position: usize,
-                           mut ringbuffer: &[u8],
-                           mut ringbuffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH5().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH5(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(3usize));
-    StoreH5(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(2usize));
-    StoreH5(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH6() -> usize {
-  8usize
-}
-
-fn StitchToPreviousBlockH6(mut handle: &mut [u8],
-                           mut num_bytes: usize,
-                           mut position: usize,
-                           mut ringbuffer: &[u8],
-                           mut ringbuffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH6().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH6(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(3usize));
-    StoreH6(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(2usize));
-    StoreH6(handle,
-            ringbuffer,
-            ringbuffer_mask,
-            position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH40() -> usize {
-  4usize
-}
-
-fn StitchToPreviousBlockH40(mut handle: &mut [u8],
-                            mut num_bytes: usize,
-                            mut position: usize,
-                            mut ringbuffer: &[u8],
-                            mut ring_buffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH40().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH40(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(3usize));
-    StoreH40(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(2usize));
-    StoreH40(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH41() -> usize {
-  4usize
-}
-
-fn StitchToPreviousBlockH41(mut handle: &mut [u8],
-                            mut num_bytes: usize,
-                            mut position: usize,
-                            mut ringbuffer: &[u8],
-                            mut ring_buffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH41().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH41(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(3usize));
-    StoreH41(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(2usize));
-    StoreH41(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH42() -> usize {
-  4usize
-}
-
-fn StitchToPreviousBlockH42(mut handle: &mut [u8],
-                            mut num_bytes: usize,
-                            mut position: usize,
-                            mut ringbuffer: &[u8],
-                            mut ring_buffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH42().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH42(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(3usize));
-    StoreH42(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(2usize));
-    StoreH42(handle,
-             ringbuffer,
-             ring_buffer_mask,
-             position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH54() -> usize {
-  8usize
-}
-
-fn StitchToPreviousBlockH54(mut handle: &mut [u8],
-                            mut num_bytes: usize,
-                            mut position: usize,
-                            mut ringbuffer: &[u8],
-                            mut ringbuffer_mask: usize) {
-  if num_bytes >= HashTypeLengthH54().wrapping_sub(1usize) && (position >= 3usize) {
-    StoreH54(handle,
-             ringbuffer,
-             ringbuffer_mask,
-             position.wrapping_sub(3usize));
-    StoreH54(handle,
-             ringbuffer,
-             ringbuffer_mask,
-             position.wrapping_sub(2usize));
-    StoreH54(handle,
-             ringbuffer,
-             ringbuffer_mask,
-             position.wrapping_sub(1usize));
-  }
-}
-
-fn HashTypeLengthH10() -> usize {
-  4usize
-}
-
-fn brotli_max_size_t(mut a: usize, mut b: usize) -> usize {
-  if a > b { a } else { b }
-}
-
+/*
 fn StitchToPreviousBlockH10(mut handle: &mut [u8],
                             mut num_bytes: usize,
                             mut position: usize,
@@ -2070,54 +1759,27 @@ fn StitchToPreviousBlockH10(mut handle: &mut [u8],
     }
   }
 }
-
-fn InitOrStitchToPreviousBlock(mut m: &mut [MemoryManager],
-                               mut handle: &mut [*mut u8],
-                               mut data: &[u8],
-                               mut mask: usize,
-                               mut params: &mut [BrotliEncoderParams],
-                               mut position: usize,
-                               mut input_size: usize,
-                               mut is_last: i32) {
-  let mut xself: *mut u8;
-  HasherSetup(m, handle, params, data, position, input_size, is_last);
-  if !(0i32 == 0) {
-    return;
-  }
-  xself = *handle;
-  let mut hasher_type: i32 = (*GetHasherCommon(xself)).params.type_;
-  if hasher_type == 2i32 {
-    StitchToPreviousBlockH2(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 3i32 {
-    StitchToPreviousBlockH3(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 4i32 {
-    StitchToPreviousBlockH4(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 5i32 {
-    StitchToPreviousBlockH5(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 6i32 {
-    StitchToPreviousBlockH6(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 40i32 {
-    StitchToPreviousBlockH40(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 41i32 {
-    StitchToPreviousBlockH41(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 42i32 {
-    StitchToPreviousBlockH42(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 54i32 {
-    StitchToPreviousBlockH54(xself, input_size, position, data, mask);
-  }
-  if hasher_type == 10i32 {
-    StitchToPreviousBlockH10(xself, input_size, position, data, mask);
-  }
+ */
+fn InitOrStitchToPreviousBlock<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   mut handle: &mut UnionHasher<AllocU16, AllocU32>,
+   data: &[u8],
+   mask: usize,
+   params: &mut BrotliEncoderParams,
+   mut position: usize,
+   mut input_size: usize,
+   mut is_last: i32) {
+  HasherSetup(m16,
+              m32,
+              handle,
+              params,
+              data,
+              position,
+              input_size,
+              is_last);
+  handle.StitchToPreviousBlock(input_size, position, data, mask);
 }
-
 
 
 pub struct Struct49 {
@@ -2135,75 +1797,6 @@ pub struct ZopfliNode {
   pub u: Struct49,
 }
 
-fn Log2FloorNonZero(mut n: usize) -> u32 {
-  let mut result: u32 = 0u32;
-  while {
-          n = n >> 1i32;
-          n
-        } != 0 {
-    result = result.wrapping_add(1 as (u32));
-  }
-  result
-}
-
-fn GetInsertLengthCode(mut insertlen: usize) -> u16 {
-  if insertlen < 6usize {
-    insertlen as (u16)
-  } else if insertlen < 130usize {
-    let mut nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2usize)).wrapping_sub(1u32);
-    ((nbits << 1i32) as (usize))
-      .wrapping_add(insertlen.wrapping_sub(2usize) >> nbits)
-      .wrapping_add(2usize) as (u16)
-  } else if insertlen < 2114usize {
-    Log2FloorNonZero(insertlen.wrapping_sub(66usize)).wrapping_add(10u32) as (u16)
-  } else if insertlen < 6210usize {
-    21u32 as (u16)
-  } else if insertlen < 22594usize {
-    22u32 as (u16)
-  } else {
-    23u32 as (u16)
-  }
-}
-
-fn GetCopyLengthCode(mut copylen: usize) -> u16 {
-  if copylen < 10usize {
-    copylen.wrapping_sub(2usize) as (u16)
-  } else if copylen < 134usize {
-    let mut nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize)).wrapping_sub(1u32);
-    ((nbits << 1i32) as (usize))
-      .wrapping_add(copylen.wrapping_sub(6usize) >> nbits)
-      .wrapping_add(4usize) as (u16)
-  } else if copylen < 2118usize {
-    Log2FloorNonZero(copylen.wrapping_sub(70usize)).wrapping_add(12u32) as (u16)
-  } else {
-    23u32 as (u16)
-  }
-}
-
-fn CombineLengthCodes(mut inscode: u16, mut copycode: u16, mut use_last_distance: i32) -> u16 {
-  let mut bits64: u16 = (copycode as (u32) & 0x7u32 | (inscode as (u32) & 0x7u32) << 3i32) as (u16);
-  if use_last_distance != 0 && (inscode as (i32) < 8i32) && (copycode as (i32) < 16i32) {
-    if copycode as (i32) < 8i32 {
-      bits64
-    } else {
-      let mut s64: u16 = 64i32 as (u16);
-      (bits64 as (i32) | s64 as (i32)) as (u16)
-    }
-  } else {
-    let mut offset: i32 = 2i32 * ((copycode as (i32) >> 3i32) + 3i32 * (inscode as (i32) >> 3i32));
-    offset = (offset << 5i32) + 0x40i32 + (0x520d40i32 >> offset & 0xc0i32);
-    (offset as (u16) as (i32) | bits64 as (i32)) as (u16)
-  }
-}
-
-fn GetLengthCode(mut insertlen: usize,
-                 mut copylen: usize,
-                 mut use_last_distance: i32,
-                 mut code: &mut [u16]) {
-  let mut inscode: u16 = GetInsertLengthCode(insertlen);
-  let mut copycode: u16 = GetCopyLengthCode(copylen);
-  *code = CombineLengthCodes(inscode, copycode, use_last_distance);
-}
 
 fn InitInsertCommand(mut xself: &mut Command, mut insertlen: usize) {
   (*xself).insert_len_ = insertlen as (u32);
@@ -2211,74 +1804,6 @@ fn InitInsertCommand(mut xself: &mut Command, mut insertlen: usize) {
   (*xself).dist_extra_ = 0u32;
   (*xself).dist_prefix_ = 16i32 as (u16);
   GetLengthCode(insertlen, 4usize, 0i32, &mut (*xself).cmd_prefix_);
-}
-
-fn BROTLI_UNALIGNED_STORE64(mut p: &mut [::std::os::raw::c_void], mut v: usize) {
-  memcpy(p, &mut v, ::std::mem::size_of::<usize>());
-}
-
-fn BrotliWriteBits(mut n_bits: usize,
-                   mut bits: usize,
-                   mut pos: &mut [usize],
-                   mut array: &mut [u8]) {
-  let mut p: *mut u8 = &mut array[((*pos >> 3i32) as (usize))];
-  let mut v: usize = *p as (usize);
-  0i32;
-  0i32;
-  v = v | bits << (*pos & 7usize);
-  BROTLI_UNALIGNED_STORE64(p, v);
-  *pos = (*pos).wrapping_add(n_bits);
-}
-
-fn FastLog2(mut v: usize) -> f64 {
-  if v < ::std::mem::size_of::<[f32; 256]>().wrapping_div(::std::mem::size_of::<f32>()) {
-    return kLog2Table[v] as (f64);
-  }
-  log2(v as (f64))
-}
-
-fn ShannonEntropy(mut population: &[u32], mut size: usize, mut total: &mut usize) -> f64 {
-  let mut sum: usize = 0usize;
-  let mut retval: f64 = 0i32 as (f64);
-  let mut population_end: *const u32 = population[(size as (usize))..];
-  let mut p: usize;
-  let mut odd_number_of_elements_left: i32 = 0i32;
-  if size & 1usize != 0 {
-    odd_number_of_elements_left = 1i32;
-  }
-  while population < population_end {
-    if odd_number_of_elements_left == 0 {
-      p = *{
-             let _old = population;
-             population = population[(1 as (usize))..];
-             _old
-           } as (usize);
-      sum = sum.wrapping_add(p);
-      retval = retval - p as (f64) * FastLog2(p);
-    }
-    odd_number_of_elements_left = 0i32;
-    p = *{
-           let _old = population;
-           population = population[(1 as (usize))..];
-           _old
-         } as (usize);
-    sum = sum.wrapping_add(p);
-    retval = retval - p as (f64) * FastLog2(p);
-  }
-  if sum != 0 {
-    retval = retval + sum as (f64) * FastLog2(sum);
-  }
-  *total = sum;
-  retval
-}
-
-fn BitsEntropy(mut population: &[u32], mut size: usize) -> f64 {
-  let mut sum: usize;
-  let mut retval: f64 = ShannonEntropy(population, size, &mut sum);
-  if retval < sum as (f64) {
-    retval = sum as (f64);
-  }
-  retval
 }
 
 fn ShouldCompress(mut data: &[u8],
@@ -2329,118 +1854,15 @@ fn ShouldCompress(mut data: &[u8],
         }
         i = i.wrapping_add(1 as (usize));
       }
-      if BitsEntropy(literal_histo.as_mut_ptr(), 256usize) > bit_cost_threshold {
+      if BitsEntropy(&literal_histo[..], 256usize) > bit_cost_threshold {
         return 0i32;
       }
     }
   }
   1i32
 }
-
-
-#[repr(i32)]
-pub enum ContextType {
-  CONTEXT_LSB6 = 0i32,
-  CONTEXT_MSB6 = 1i32,
-  CONTEXT_UTF8 = 2i32,
-  CONTEXT_SIGNED = 3i32,
-}
-
-
-
-pub struct BlockSplit {
-  pub num_types: usize,
-  pub num_blocks: usize,
-  pub types: *mut u8,
-  pub lengths: *mut u32,
-  pub types_alloc_size: usize,
-  pub lengths_alloc_size: usize,
-}
-
-
-
-pub struct HistogramLiteral {
-  pub data_: [u32; 256],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-
-
-
-pub struct HistogramCommand {
-  pub data_: [u32; 704],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-
-
-
-pub struct HistogramDistance {
-  pub data_: [u32; 520],
-  pub total_count_: usize,
-  pub bit_cost_: f64,
-}
-
-
-
-pub struct MetaBlockSplit {
-  pub literal_split: BlockSplit,
-  pub command_split: BlockSplit,
-  pub distance_split: BlockSplit,
-  pub literal_context_map: *mut u32,
-  pub literal_context_map_size: usize,
-  pub distance_context_map: *mut u32,
-  pub distance_context_map_size: usize,
-  pub literal_histograms: *mut HistogramLiteral,
-  pub literal_histograms_size: usize,
-  pub command_histograms: *mut HistogramCommand,
-  pub command_histograms_size: usize,
-  pub distance_histograms: *mut HistogramDistance,
-  pub distance_histograms_size: usize,
-}
-
-fn InitMetaBlockSplit(mut mb: &mut [MetaBlockSplit]) {
-  BrotliInitBlockSplit(&mut (*mb).literal_split);
-  BrotliInitBlockSplit(&mut (*mb).command_split);
-  BrotliInitBlockSplit(&mut (*mb).distance_split);
-  (*mb).literal_context_map = 0i32;
-  (*mb).literal_context_map_size = 0usize;
-  (*mb).distance_context_map = 0i32;
-  (*mb).distance_context_map_size = 0usize;
-  (*mb).literal_histograms = 0i32;
-  (*mb).literal_histograms_size = 0usize;
-  (*mb).command_histograms = 0i32;
-  (*mb).command_histograms_size = 0usize;
-  (*mb).distance_histograms = 0i32;
-  (*mb).distance_histograms_size = 0usize;
-}
-
-fn DestroyMetaBlockSplit(mut m: &mut [MemoryManager], mut mb: &mut [MetaBlockSplit]) {
-  BrotliDestroyBlockSplit(m, &mut (*mb).literal_split);
-  BrotliDestroyBlockSplit(m, &mut (*mb).command_split);
-  BrotliDestroyBlockSplit(m, &mut (*mb).distance_split);
-  {
-    BrotliFree(m, (*mb).literal_context_map);
-    (*mb).literal_context_map = 0i32;
-  }
-  {
-    BrotliFree(m, (*mb).distance_context_map);
-    (*mb).distance_context_map = 0i32;
-  }
-  {
-    BrotliFree(m, (*mb).literal_histograms);
-    (*mb).literal_histograms = 0i32;
-  }
-  {
-    BrotliFree(m, (*mb).command_histograms);
-    (*mb).command_histograms = 0i32;
-  }
-  {
-    BrotliFree(m, (*mb).distance_histograms);
-    (*mb).distance_histograms = 0i32;
-  }
-}
-
+//RESUME FROM HERE
+/*
 fn BrotliCompressBufferQuality10(mut lgwin: i32,
                                  mut input_size: usize,
                                  mut input_buffer: &[u8],
@@ -3300,7 +2722,8 @@ fn DecideOverLiteralContextModeling(mut input: &[u8],
             let literal: u8 = input[((pos & mask) as (usize))];
             {
               let _rhs = 1;
-              let _lhs = &mut bigram_prefix_histo[(prev + lut[(literal as (i32) >> 6i32) as (usize)]) as
+              let cur_ind = (prev + lut[(literal as (i32) >> 6i32) as (usize)]);
+              let _lhs = &mut bigram_prefix_histo[cur_ind as
                               (usize)];
               *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }

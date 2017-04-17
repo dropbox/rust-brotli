@@ -97,7 +97,7 @@ fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u1
   }
 }
 
-fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, mut code: &mut u16) {
+pub fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, mut code: &mut u16) {
   let inscode: u16 = GetInsertLengthCode(insertlen);
   let copycode: u16 = GetCopyLengthCode(copylen);
   *code = CombineLengthCodes(inscode, copycode, use_last_distance);

@@ -446,12 +446,10 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
               let sum_total = (tree.slice()[(left as (usize))])
                 .total_count_
                 .wrapping_add((tree.slice()[(right as (usize))]).total_count_);
-              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).total_count_ =
-                sum_total;
-              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).index_left_ = left as
-                                                                                           (i16);
-              (tree.slice_mut()[(node_index.wrapping_sub(1u32) as (usize))]).index_right_or_value_ = right as
-                                                                                         (i16);
+              let tree_ind = (node_index.wrapping_sub(1u32) as (usize));
+              (tree.slice_mut()[tree_ind]).total_count_ = sum_total;
+              (tree.slice_mut()[tree_ind]).index_left_ = left as (i16);
+              (tree.slice_mut()[tree_ind]).index_right_or_value_ = right as (i16);
               tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
               node_index = node_index.wrapping_add(1u32);
             }
@@ -586,7 +584,56 @@ pub struct MetaBlockSplit<AllocU8: alloc::Allocator<u8>,
   pub distance_histograms: AllocHD::AllocatedMemory,
   pub distance_histograms_size: usize,
 }
+impl <AllocU8: alloc::Allocator<u8>,
+                          AllocU32: alloc::Allocator<u32>,
+                          AllocHL: alloc::Allocator<HistogramLiteral>,
+                          AllocHC: alloc::Allocator<HistogramCommand>,
+      AllocHD: alloc::Allocator<HistogramDistance>>
+    MetaBlockSplit <AllocU8, AllocU32, AllocHL, AllocHC, AllocHD> {
+    pub fn new() -> Self {
+        return MetaBlockSplit {
+            literal_split:BlockSplit::<AllocU8, AllocU32>::new(),
+            command_split:BlockSplit::<AllocU8, AllocU32>::new(),
+            distance_split:BlockSplit::<AllocU8, AllocU32>::new(),
+            literal_context_map : AllocU32::AllocatedMemory::default(),
+            literal_context_map_size : 0,
+            distance_context_map : AllocU32::AllocatedMemory::default(),
+            distance_context_map_size : 0,
+            literal_histograms : AllocHL::AllocatedMemory::default(),
+            literal_histograms_size : 0,
+            command_histograms : AllocHC::AllocatedMemory::default(),
+            command_histograms_size : 0,
+            distance_histograms : AllocHD::AllocatedMemory::default(),
+            distance_histograms_size : 0,
+        }
+    }
+    pub fn destroy(&mut self,
+                   mut m8: &mut AllocU8,
+                   mut m32: &mut AllocU32,
+                   mut mhl: &mut AllocHL,
+                   mut mhc: &mut AllocHC,
+                   mut mhd: &mut AllocHD) {
+        self.literal_split.destroy(m8,m32);
+        self.command_split.destroy(m8,m32);
+        self.distance_split.destroy(m8,m32);
+        m32.free_cell(core::mem::replace(&mut self.literal_context_map,
+                                         AllocU32::AllocatedMemory::default()));
+        self.literal_context_map_size = 0;
+        m32.free_cell(core::mem::replace(&mut self.distance_context_map,
+                                         AllocU32::AllocatedMemory::default()));
+        self.distance_context_map_size = 0;
+        mhl.free_cell(core::mem::replace(&mut self.literal_histograms,
+                                         AllocHL::AllocatedMemory::default()));
 
+        self.literal_histograms_size = 0;
+        mhc.free_cell(core::mem::replace(&mut self.command_histograms,
+                                         AllocHC::AllocatedMemory::default()));
+        self.command_histograms_size = 0;
+        mhd.free_cell(core::mem::replace(&mut self.distance_histograms,
+                                         AllocHD::AllocatedMemory::default()));
+        self.distance_histograms_size = 0;
+    }
+}
 #[derive(Clone, Copy)]
 pub struct BlockTypeCodeCalculator {
   pub last_type: usize,
@@ -1448,12 +1495,13 @@ fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
 }
 
 fn StoreSymbolWithContext<AllocU8: alloc::Allocator<u8>,
-                             AllocU16: alloc::Allocator<u16>>(mut xself: &mut BlockEncoder<AllocU8, AllocU16>,
-                          symbol: usize,
-                          context: usize,
-                          context_map: &[u32],
-                          mut storage_ix: &mut usize,
-                          mut storage: &mut [u8],
+                          AllocU16: alloc::Allocator<u16>>(mut xself: &mut BlockEncoder<AllocU8,
+                                                                                        AllocU16>,
+                                                           symbol: usize,
+                                                           context: usize,
+                                                           context_map: &[u32],
+                                                           mut storage_ix: &mut usize,
+                                                           mut storage: &mut [u8],
 context_bits: usize){
   if (*xself).block_len_ == 0usize {
     let block_ix: usize = {
