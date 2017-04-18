@@ -1775,11 +1775,16 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
                              AllocCT: alloc::Allocator<ContextType>,
                              AllocCommand: alloc::Allocator<Command>,
                              AllocHT:alloc::Allocator<HuffmanTree>>(
-    mut m8: AllocU8,
-    mut m16: AllocU16,
-    mut m32: AllocU32,
-    mut mi32: AllocI32,
-    mut mc: AllocCommand,
+    mut empty_m8: AllocU8,
+    mut empty_m16: AllocU16,
+    mut empty_m32: AllocU32,
+    mut empty_mi32: AllocI32,
+    mut empty_mc: AllocCommand,
+    mut m8: &mut AllocU8,
+    mut m16: &mut AllocU16,
+    mut m32: &mut AllocU32,
+    mut mi32: &mut AllocI32,
+    mut mc: &mut AllocCommand,
     mut mf64: &mut AllocF64,
     mut mhl: &mut AllocHL,
     mut mhc: &mut AllocHC,
@@ -1823,8 +1828,14 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
     //  return 1i32;
     //}
   }
-  if is_fallback == 0 {      
-    let mut s_orig = BrotliEncoderCreateInstance(m8, m16, mi32, m32, mc);
+  if is_fallback == 0 {
+    
+    let mut s_orig = BrotliEncoderCreateInstance(core::mem::replace(m8, empty_m8),
+                                                 core::mem::replace(m16, empty_m16),
+                                                 core::mem::replace(mi32, empty_mi32),
+                                                 core::mem::replace(m32, empty_m32),
+                                                 core::mem::replace(mc, empty_mc));
+    let mut result: i32 = 0i32;
     {
       let mut s = &mut s_orig;
       let mut available_in: usize = input_size;
@@ -1834,7 +1845,6 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
       let mut next_out_array: &mut [u8] = output_start;
       let mut next_out_offset: usize = 0;
       let mut total_out = Some(0usize);
-      let mut result: i32 = 0i32;
       BrotliEncoderSetParameter(s,
                                 BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
                                 quality as (u32));
@@ -1861,11 +1871,16 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
        
       *encoded_size = total_out.unwrap();
       BrotliEncoderDestroyInstance(s);
-      if result == 0 || max_out_size != 0 && (*encoded_size > max_out_size) {
+    }
+    core::mem::replace(m8, s_orig.m8);
+    core::mem::replace(m16, s_orig.m16);
+    core::mem::replace(m32, s_orig.m32);
+    core::mem::replace(mi32, s_orig.mi32);
+    core::mem::replace(mc, s_orig.mc); // unreplace these things so the empty ones are the ones thrown out
+    if result == 0 || max_out_size != 0 && (*encoded_size > max_out_size) {
         is_fallback = 1i32;
-      } else {
-        return 1i32;
-      }
+    } else {
+      return 1i32;
     }
   }
   *encoded_size = 0usize;
