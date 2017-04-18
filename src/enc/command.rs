@@ -128,13 +128,13 @@ pub fn PrefixEncodeCopyDistance(distance_code: usize,
     *extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
   }
 }
-pub fn CommandRestoreDistanceCode(mut xself: &Command) -> u32 {
+pub fn CommandRestoreDistanceCode(xself: &Command) -> u32 {
   if (*xself).dist_prefix_ as (i32) < 16i32 {
     (*xself).dist_prefix_ as (u32)
   } else {
-    let mut nbits: u32 = (*xself).dist_extra_ >> 24i32;
-    let mut extra: u32 = (*xself).dist_extra_ & 0xffffffu32;
-    let mut prefix: u32 = ((*xself).dist_prefix_ as (u32))
+    let nbits: u32 = (*xself).dist_extra_ >> 24i32;
+    let extra: u32 = (*xself).dist_extra_ & 0xffffffu32;
+    let prefix: u32 = ((*xself).dist_prefix_ as (u32))
       .wrapping_add(4u32)
       .wrapping_sub(16u32)
       .wrapping_sub(2u32.wrapping_mul(nbits));
@@ -143,9 +143,9 @@ pub fn CommandRestoreDistanceCode(mut xself: &Command) -> u32 {
 }
 
 pub fn RecomputeDistancePrefixes(mut cmds: &mut [Command],
-                             mut num_commands: usize,
-                             mut num_direct_distance_codes: u32,
-                             mut distance_postfix_bits: u32) {
+                             num_commands: usize,
+                             num_direct_distance_codes: u32,
+                             distance_postfix_bits: u32) {
   let mut i: usize;
   if num_direct_distance_codes == 0u32 && (distance_postfix_bits == 0u32) {
     return;

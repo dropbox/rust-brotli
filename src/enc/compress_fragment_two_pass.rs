@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::backward_references::kHashMul32;
 //use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::bit_cost::BitsEntropy;

@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 use super::backward_references::kHashMul32;
 //use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-use super::bit_cost::BitsEntropy;
+
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
 //caution: lots of the functions look structurally the same as two_pass,
 // but have subtle index differences
@@ -11,11 +12,11 @@ use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHu
 use super::compress_fragment_two_pass::{BrotliStoreMetaBlockHeader, BrotliWriteBits, memcpy};
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
                             NewHuffmanTree};
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BROTLI_UNALIGNED_STORE64,
+use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
                          FindMatchLengthWithLimit};
 use super::super::alloc;
 use super::util::{brotli_min_size_t, brotli_min_uint32_t, Log2FloorNonZero, FastLog2};
-use core;
+
 //static kHashMul32: u32 = 0x1e35a7bdu32;
 
 static kCmdHistoSeed: [u32; 128] =
@@ -683,7 +684,6 @@ mut storage: &mut [u8]){
   let mut lit_depth: [u8; 256] = [0; 256];
   let mut lit_bits: [u16; 256] = [0; 256];
   let mut literal_ratio: usize;
-  let mut ip_index: usize = 0usize;
   let mut input_index: usize = 0usize;
   let mut last_distance: i32;
   let shift: usize = (64u32 as (usize)).wrapping_sub(table_bits);
@@ -715,7 +715,8 @@ mut storage: &mut [u8]){
                   storage);
   let mut code_block_selection: CodeBlockState = CodeBlockState::EMIT_COMMANDS;
   while 1i32 != 0 {
-    if code_block_selection as (i32) == CodeBlockState::EMIT_COMMANDS as (i32) {
+    let mut ip_index: usize;
+    if code_block_selection == CodeBlockState::EMIT_COMMANDS {
       cmd_histo[..128].clone_from_slice(&kCmdHistoSeed[..]);
       ip_index = input_index;
       last_distance = -1i32;

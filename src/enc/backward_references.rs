@@ -928,7 +928,7 @@ macro_rules! match_all_hashers_mut {
      &mut UnionHasher::H5(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H6(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H54(ref mut hasher) => hasher.$func_call($($args),*),
-     Uninit => panic!("UNINTIALIZED"),
+     &mut UnionHasher::Uninit => panic!("UNINTIALIZED"),
         }
     };
 }
@@ -941,7 +941,7 @@ macro_rules! match_all_hashers {
      &UnionHasher::H5(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H6(ref hasher) => hasher.$func_call($($args),*),
      & UnionHasher::H54(ref hasher) => hasher.$func_call($($args),*),
-     Uninit => panic!("UNINTIALIZED"),
+     &UnionHasher::Uninit => panic!("UNINTIALIZED"),
         }
     };
 }
