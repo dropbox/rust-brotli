@@ -32,7 +32,7 @@ macro_rules! fast {
    (($slice : expr)[$start: expr ;]) => (
        &($slice)[$start .. ]
    );
-   (($slice : expr)[; $end]) => (
+   (($slice : expr)[; $end: expr]) => (
        &($slice)[.. $end ]
    );
 }
@@ -53,7 +53,7 @@ macro_rules! fast_mut {
    (($slice : expr)[$start: expr ;]) => (
        &mut $slice[$start..]
    );
-   (($slice : expr)[; $end]) => (
+   (($slice : expr)[; $end : expr]) => (
        &mut $slice[..$end]
    );
 }
