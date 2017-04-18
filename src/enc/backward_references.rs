@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 use super::command::{Command, ComputeDistanceCode, InitCommand};
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
-use super::static_dict::BrotliDictionary;
+use super::static_dict::{BrotliDictionary};
+use super::dictionary_hash::kStaticDictionaryHash;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{Log2FloorNonZero, brotli_max_size_t};
@@ -1199,7 +1200,6 @@ macro_rules! call_brotli_create_backward_references {
 }
 pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                       AllocU32: alloc::Allocator<u32>>(dictionary: &BrotliDictionary,
-                                           dictionary_hash: &[u16],
                                            num_bytes: usize,
                                            position: usize,
                                            ringbuffer: &[u8],
@@ -1214,7 +1214,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
     match(hasher_union) {
         &mut UnionHasher::Uninit => panic!("working with uninitialized hash map"),
         &mut UnionHasher::H2(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
                                  ringbuffer, ringbuffer_mask,
                                  params,
                                  hasher,
@@ -1225,7 +1225,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                  num_literals),
 //     call_brotli_create_backward_references!(),
         &mut UnionHasher::H3(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
                                  ringbuffer, ringbuffer_mask,
                                  params,
                                  hasher,
@@ -1236,7 +1236,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                  num_literals),
 //            call_brotli_create_backward_references!(),
         &mut UnionHasher::H4(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
                                  ringbuffer, ringbuffer_mask,
                                  params,
                                  hasher,
@@ -1247,7 +1247,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                  num_literals),
 //            call_brotli_create_backward_references!(),
         &mut UnionHasher::H5(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
                                  ringbuffer, ringbuffer_mask,
                                  params,
                                  hasher,
@@ -1258,7 +1258,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                  num_literals),
 //            call_brotli_create_backward_references!(),
         &mut UnionHasher::H6(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
                                  ringbuffer, ringbuffer_mask,
                                  params,
                                  hasher,
@@ -1269,7 +1269,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                  num_literals),
 //            call_brotli_create_backward_references!(),
         &mut UnionHasher::H54(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
+        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
                                  ringbuffer, ringbuffer_mask,
                                  params,
                                  hasher,
