@@ -1,12 +1,20 @@
 #![cfg(test)]
-
-extern crate alloc_no_stdlib as alloc;
+use core;
+extern crate alloc_no_stdlib;
 use super::super::alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator, bzero};
 use super::encode::{BrotliEncoderCreateInstance};
+use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
+use super::cluster::{HistogramPair};
 #[cfg(not(feature="no-stdlib"))]
 use std::vec::Vec;
 #[cfg(not(feature="no-stdlib"))]
 use std::io;
+extern {
+  fn calloc(n_elem : usize, el_size : usize) -> *mut u8;
+}
+extern {
+  fn free(ptr : *mut u8);
+}
 
 use core::ops;
 use super::entropy_encode::{HuffmanTree};
@@ -14,22 +22,35 @@ use super::command::{Command};
 pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState, HuffmanCode};
 
 declare_stack_allocator_struct!(MemPool, 4096, stack);
+declare_stack_allocator_struct!(CallocatedFreelist4096, 4096, calloc);
+declare_stack_allocator_struct!(CallocatedFreelist2048, 2048, calloc);
 
 fn oneshot_compress(input: &mut [u8], mut output: &mut [u8]) -> (i32, usize) {
   let mut available_out: usize = output.len();
-  let mut stack_u8_buffer = define_allocator_memory_pool!(4096, u8, [0; 22 * 1024], stack);
-  let mut stack_u16_buffer = define_allocator_memory_pool!(4096, u16, [0; 2 * 1024], stack);
-  let mut stack_i32_buffer = define_allocator_memory_pool!(4096, i32, [0; 2 * 1024], stack);
-  let mut stack_u32_buffer = define_allocator_memory_pool!(4096, u32, [0; 2 * 1024], stack);
-  let mut stack_mc_buffer = define_allocator_memory_pool!(4096,
-                                                          Command,
-                                                          [Command::default(); 2 * 1024],
-                                                          stack);
-  let stack_u8_allocator = MemPool::<u8>::new_allocator(&mut stack_u8_buffer, bzero);
-  let stack_u16_allocator = MemPool::<u16>::new_allocator(&mut stack_u16_buffer, bzero);
-  let stack_i32_allocator = MemPool::<i32>::new_allocator(&mut stack_i32_buffer, bzero);
-  let stack_u32_allocator = MemPool::<u32>::new_allocator(&mut stack_u32_buffer, bzero);
-  let stack_mc_allocator = MemPool::<Command>::new_allocator(&mut stack_mc_buffer, bzero);
+  let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 1024 * 1024], calloc)};
+  let mut stack_u16_buffer = unsafe{define_allocator_memory_pool!(4096, u16, [0; 128 * 1024], calloc)};
+  let mut stack_i32_buffer = unsafe{define_allocator_memory_pool!(4096, i32, [0; 128 * 1024], calloc)};
+  let mut stack_u32_buffer = unsafe{define_allocator_memory_pool!(4096, u32, [0; 128 * 1024], calloc)};
+  let mut stack_f64_buffer = unsafe{define_allocator_memory_pool!(2048, f64, [0; 128 * 1024], calloc)};
+  let mut stack_hl_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramLiteral, [0; 128 * 1024], calloc)};
+  let mut stack_hc_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramCommand, [0; 128 * 1024], calloc)};
+  let mut stack_hd_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramDistance, [0; 128 * 1024], calloc)};
+  let mut stack_hp_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramPair, [0; 128 * 1024], calloc)};
+  let mut stack_ct_buffer = unsafe{define_allocator_memory_pool!(2048, ContextType, [0; 128 * 1024], calloc)};
+  let mut stack_ht_buffer = unsafe{define_allocator_memory_pool!(2048, HuffmanTree, [0; 128 * 1024], calloc)};
+  let mut stack_mc_buffer = unsafe{define_allocator_memory_pool!(2048, Command, [0; 128 * 1024], calloc)};
+  let stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
+  let stack_u16_allocator = CallocatedFreelist4096::<u16>::new_allocator(stack_u16_buffer.data, bzero);
+  let stack_i32_allocator = CallocatedFreelist4096::<i32>::new_allocator(stack_i32_buffer.data, bzero);
+  let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data, bzero);
+  let stack_f64_allocator = CallocatedFreelist2048::<f64>::new_allocator(stack_f64_buffer.data, bzero);
+  let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data, bzero);
+  let stack_hl_allocator = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data, bzero);
+  let stack_hc_allocator = CallocatedFreelist2048::<HistogramCommand>::new_allocator(stack_hc_buffer.data, bzero);
+  let stack_hd_allocator = CallocatedFreelist2048::<HistogramDistance>::new_allocator(stack_hd_buffer.data, bzero);
+  let stack_hp_allocator = CallocatedFreelist2048::<HistogramPair>::new_allocator(stack_hp_buffer.data, bzero);
+  let stack_ct_allocator = CallocatedFreelist2048::<ContextType>::new_allocator(stack_ct_buffer.data, bzero);
+  let stack_ht_allocator = CallocatedFreelist2048::<HuffmanTree>::new_allocator(stack_ht_buffer.data, bzero);
   let mut s_orig = BrotliEncoderCreateInstance(stack_u8_allocator,
                                                stack_u16_allocator,
                                                stack_i32_allocator,

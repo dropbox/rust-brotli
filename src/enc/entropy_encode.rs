@@ -15,7 +15,11 @@ pub struct HuffmanTree {
   pub index_left_: i16,
   pub index_right_or_value_: i16,
 }
-
+impl Default for HuffmanTree {
+    fn default() -> HuffmanTree {
+        HuffmanTree{total_count_:0, index_left_:0, index_right_or_value_:0}
+    }
+}
 
 pub fn NewHuffmanTree(count: u32, left: i16, right: i16) -> HuffmanTree {
   return HuffmanTree {

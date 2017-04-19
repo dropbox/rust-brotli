@@ -175,6 +175,11 @@ pub enum ContextType {
   CONTEXT_SIGNED = 3,
 }
 
+impl Default for ContextType {
+    fn default() -> ContextType {
+        ContextType::CONTEXT_LSB6
+    }
+}
 
 
 pub struct BlockSplitIterator<'a,
