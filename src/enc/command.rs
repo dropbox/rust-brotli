@@ -1,13 +1,24 @@
 #![allow(dead_code)]
 use super::util::Log2FloorNonZero;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Command {
   pub insert_len_: u32,
   pub copy_len_: u32,
   pub dist_extra_: u32,
   pub cmd_prefix_: u16,
   pub dist_prefix_: u16,
+}
+impl Default for Command {
+    fn default() -> Command {
+        Command {
+            insert_len_:0,
+            copy_len_:0,
+            dist_extra_:0,
+            cmd_prefix_:0,
+            dist_prefix_:0,
+        }
+    }
 }
 pub fn CommandCopyLen(xself: &Command) -> u32 {
   (*xself).copy_len_ & 0xffffffi32 as (u32)

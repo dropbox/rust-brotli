@@ -989,8 +989,8 @@ fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
 }
 
 macro_rules! InitializeHX{
-    ($name:ident,$subexpr:expr, $subtype:ty) => {
-        fn $name(params : &BrotliEncoderParams) -> BasicHasher<$subtype> {
+    ($name:ident, $subexpr:expr, $subtype:ty) => {
+        fn $name<AllocU32:alloc::Allocator<u32>>(params : &BrotliEncoderParams) -> BasicHasher<$subtype> {
             BasicHasher {
                 GetHasherCommon:Struct1{
                     params:params.hasher,
@@ -998,7 +998,7 @@ macro_rules! InitializeHX{
                     dict_num_lookups:0,
                     dict_num_matches:0,
                 },
-                buckets_:$subexpr,
+                buckets_:(subexpr),
             }
         }
     };
@@ -1012,11 +1012,50 @@ fn if_unsafe_bzero<T: core::convert::From<u8>>(t: &mut [T]) {
 
 #[cfg(not(feature="unsafe"))]
 fn if_unsafe_bzero<T>(_: &mut [T]) {}
-
-InitializeHX!(InitializeH2, H2Sub { buckets_: [0; 65537] }, H2Sub);
-InitializeHX!(InitializeH3, H3Sub { buckets_: [0; 65538] }, H3Sub);
-InitializeHX!(InitializeH4, H4Sub { buckets_: [0; 131076] }, H4Sub);
-InitializeHX!(InitializeH54, H54Sub { buckets_: [0; 1048580] }, H54Sub);
+fn InitializeH2<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H2Sub<AllocU32>> {
+    BasicHasher {
+        GetHasherCommon:Struct1{
+            params:params.hasher,
+            is_prepared_:0,
+            dict_num_lookups:0,
+            dict_num_matches:0,
+        },
+        buckets_:H2Sub{buckets_:m32.alloc_cell(65537)},
+    }
+}
+fn InitializeH3<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H3Sub<AllocU32>> {
+    BasicHasher {
+        GetHasherCommon:Struct1{
+            params:params.hasher,
+            is_prepared_:0,
+            dict_num_lookups:0,
+            dict_num_matches:0,
+        },
+        buckets_:H3Sub{buckets_:m32.alloc_cell(65538)},
+    }
+}
+fn InitializeH4<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H4Sub<AllocU32>> {
+    BasicHasher {
+        GetHasherCommon:Struct1{
+            params:params.hasher,
+            is_prepared_:0,
+            dict_num_lookups:0,
+            dict_num_matches:0,
+        },
+        buckets_:H4Sub{buckets_:m32.alloc_cell(131072)},
+    }
+}
+fn InitializeH54<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H54Sub<AllocU32>> {
+    BasicHasher {
+        GetHasherCommon:Struct1{
+            params:params.hasher,
+            is_prepared_:0,
+            dict_num_lookups:0,
+            dict_num_matches:0,
+        },
+        buckets_:H54Sub{buckets_:m32.alloc_cell(1048580)},
+    }
+}
 fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
   (mut m16: &mut AllocU16,
    mut m32: &mut AllocU32,
@@ -1081,13 +1120,13 @@ fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<
    -> UnionHasher<AllocU16, AllocU32> {
   let hasher_type: i32 = params.hasher.type_;
   if hasher_type == 2i32 {
-    return UnionHasher::H2(InitializeH2(params));
+    return UnionHasher::H2(InitializeH2(m32, params));
   }
   if hasher_type == 3i32 {
-    return UnionHasher::H3(InitializeH3(params));
+    return UnionHasher::H3(InitializeH3(m32, params));
   }
   if hasher_type == 4i32 {
-    return UnionHasher::H4(InitializeH4(params));
+    return UnionHasher::H4(InitializeH4(m32, params));
   }
   if hasher_type == 5i32 {
     return UnionHasher::H5(InitializeH5(m16, m32, params));
@@ -1107,7 +1146,7 @@ fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<
     }
 */
   if hasher_type == 54i32 {
-    return UnionHasher::H54(InitializeH54(params));
+    return UnionHasher::H54(InitializeH54(m32, params));
   }
   /*
     if hasher_type == 10i32 {

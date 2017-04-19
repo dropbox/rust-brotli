@@ -144,8 +144,8 @@ pub struct BasicHasher<Buckets: SliceWrapperMut<u32> + SliceWrapper<u32> + Basic
   pub GetHasherCommon: Struct1,
   pub buckets_: Buckets,
 }
-pub struct H2Sub {
-  pub buckets_: [u32; 65537],
+pub struct H2Sub<AllocU32:alloc::Allocator<u32>> {
+  pub buckets_: AllocU32::AllocatedMemory, // 65537
 }
 impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher for BasicHasher<T> {
   #[allow(unused_variables)]
@@ -341,7 +341,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
 
   }
 }
-impl BasicHashComputer for H2Sub {
+impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H2Sub<AllocU32> {
   fn HashBytes(&self, data: &[u8]) -> u32 {
     let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
     (h >> 64i32 - 16i32) as (u32)
@@ -356,30 +356,30 @@ impl BasicHashComputer for H2Sub {
     1
   }
 }
-impl SliceWrapperMut<u32> for H2Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H2Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
-    return &mut self.buckets_[..];
+    return self.buckets_.slice_mut();
   }
 }
-impl SliceWrapper<u32> for H2Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H2Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
-    return &self.buckets_[..];
+    return self.buckets_.slice();
   }
 }
-pub struct H3Sub {
-  pub buckets_: [u32; 65538],
+pub struct H3Sub<AllocU32:alloc::Allocator<u32>> {
+  pub buckets_: AllocU32::AllocatedMemory, // 65538
 }
-impl SliceWrapperMut<u32> for H3Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H3Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
-    return &mut self.buckets_[..];
+    return self.buckets_.slice_mut();
   }
 }
-impl SliceWrapper<u32> for H3Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H3Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
-    return &self.buckets_[..];
+    return self.buckets_.slice();
   }
 }
-impl BasicHashComputer for H3Sub {
+impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H3Sub<AllocU32> {
   fn BUCKET_BITS(&self) -> i32 {
     16
   }
@@ -394,10 +394,10 @@ impl BasicHashComputer for H3Sub {
     (h >> 64i32 - 16i32) as (u32)
   }
 }
-pub struct H4Sub {
-  pub buckets_: [u32; 131076],
+pub struct H4Sub<AllocU32:alloc::Allocator<u32>> {
+  pub buckets_: AllocU32::AllocatedMemory, // 131076
 }
-impl BasicHashComputer for H4Sub {
+impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H4Sub<AllocU32> {
   fn BUCKET_BITS(&self) -> i32 {
     17
   }
@@ -412,20 +412,20 @@ impl BasicHashComputer for H4Sub {
     (h >> 64i32 - 17i32) as (u32)
   }
 }
-impl SliceWrapperMut<u32> for H4Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H4Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
-    return &mut self.buckets_[..];
+    return self.buckets_.slice_mut();
   }
 }
-impl SliceWrapper<u32> for H4Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H4Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
-    return &self.buckets_[..];
+    return self.buckets_.slice();
   }
 }
-pub struct H54Sub {
-  pub buckets_: [u32; 1048580],
+pub struct H54Sub<AllocU32:alloc::Allocator<u32>> {
+  pub buckets_: AllocU32::AllocatedMemory,
 }
-impl BasicHashComputer for H54Sub {
+impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H54Sub<AllocU32> {
   fn BUCKET_BITS(&self) -> i32 {
     20
   }
@@ -441,14 +441,14 @@ impl BasicHashComputer for H54Sub {
   }
 }
 
-impl SliceWrapperMut<u32> for H54Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H54Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
-    return &mut self.buckets_[..];
+    return self.buckets_.slice_mut();
   }
 }
-impl SliceWrapper<u32> for H54Sub {
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H54Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
-    return &self.buckets_[..];
+    return self.buckets_.slice();
   }
 }
 pub trait AdvHashSpecialization {
@@ -912,10 +912,10 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
 pub enum UnionHasher<AllocU16: alloc::Allocator<u16>,
                  AllocU32: alloc::Allocator<u32>> {
     Uninit,
-    H2(BasicHasher<H2Sub>),
-    H3(BasicHasher<H3Sub>),
-    H4(BasicHasher<H4Sub>),
-    H54(BasicHasher<H54Sub>),
+    H2(BasicHasher<H2Sub<AllocU32>>),
+    H3(BasicHasher<H3Sub<AllocU32>>),
+    H4(BasicHasher<H4Sub<AllocU32>>),
+    H54(BasicHasher<H54Sub<AllocU32>>),
     H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
     H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
 }
