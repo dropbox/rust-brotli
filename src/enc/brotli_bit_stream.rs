@@ -135,10 +135,10 @@ fn BrotliWriteBits(n_bits: u8, bits: u64, mut pos: &mut usize, mut array: &mut [
   array[ptr_offset + 7] = (v >> 56) as u8;
   array[ptr_offset + 6] = ((v >> 48) & 0xff) as u8;
   array[ptr_offset + 5] = ((v >> 40) & 0xff) as u8;
-  array[ptr_offset + 4] = ((v >> 24) & 0xff) as u8;
-  array[ptr_offset + 3] = ((v >> 16) & 0xff) as u8;
-  array[ptr_offset + 2] = ((v >> 8) & 0xff) as u8;
-  array[ptr_offset + 1] = ((v >> 4) & 0xff) as u8;
+  array[ptr_offset + 4] = ((v >> 32) & 0xff) as u8;
+  array[ptr_offset + 3] = ((v >> 24) & 0xff) as u8;
+  array[ptr_offset + 2] = ((v >> 16) & 0xff) as u8;
+  array[ptr_offset + 1] = ((v >> 8) & 0xff) as u8;
   array[ptr_offset] = (v & 0xff) as u8;
   *pos += n_bits as usize
 }
