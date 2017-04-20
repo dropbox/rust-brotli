@@ -147,7 +147,7 @@ fn oneshot_decompress(mut compressed: &mut [u8], mut output: &mut [u8]) -> (Brot
 
 }
 
-fn oneshot(input: &mut [u8], mut compressed: &mut [u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
+fn oneshot(input: &[u8], mut compressed: &mut [u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
   let (success, mut available_in) = oneshot_compress(input, compressed, 9, 4);
   if success == 0 {
       //return (BrotliResult::ResultFailure, 0, 0);
@@ -180,6 +180,45 @@ fn test_roundtrip_10x10y() {
   assert_eq!(compressed_offset, compressed.len());
 }
 
+macro_rules! test_roundtrip_file {
+  ($filename : expr, $bufsize: expr) => {{
+    let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 16 * 1024 * 1024], calloc)};
+    let mut stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
+
+    let mut compressed = stack_u8_allocator.alloc_cell($bufsize);
+    let inp = include_bytes!($filename);
+    let mut output = stack_u8_allocator.alloc_cell(inp.len() + 16);
+    let (result, compressed_offset, output_offset) = oneshot(&inp[..],
+                                                          compressed.slice_mut(),
+                                                          output.slice_mut());
+    match result {
+      BrotliResult::ResultSuccess => {}
+      _ => assert!(false),
+    }
+    let mut i: usize = 0;
+    for i in 0..inp.len() {
+      assert_eq!(inp[i], output[i]);
+    }
+    assert_eq!(output_offset, inp.len());
+    stack_u8_allocator.free_cell(output);
+    stack_u8_allocator.free_cell(compressed);
+  }};
+}
+
+#[test]
+fn test_roundtrip_64x() {
+  test_roundtrip_file!("../bin/testdata/64x", 72);
+}
+/* FIXME: doesn't yet pass
+#[test]
+fn test_roundtrip_asyoulik() {
+  test_roundtrip_file!("../bin/testdata/asyoulik.txt", 64384);
+}
+*/
+#[test]
+fn test_roundtrip_quickfox() {
+  test_roundtrip_file!("../bin/testdata/quickfox", 256);
+}
 
 
 #[test]
