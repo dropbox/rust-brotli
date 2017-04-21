@@ -2575,7 +2575,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
   }
   InitOrStitchToPreviousBlock(&mut (*s).m16, &mut (*s).m32,
                               &mut (*s).hasher_,
-                              &mut (*s).ringbuffer_.data_mo.slice_mut()[(*s).ringbuffer_.buffer_index.wrapping_add((wrapped_last_processed_pos & mask) as (usize))..],
+                              &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as (usize))..],
                               mask as (usize),
                               &mut (*s).params,
                               wrapped_last_processed_pos as (usize),
@@ -2615,8 +2615,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     BrotliCreateBackwardReferences(&dictionary,
                                    bytes as (usize),
                                    wrapped_last_processed_pos as (usize),
-                                   &mut (*s).ringbuffer_.data_mo.slice_mut()[(*s).ringbuffer_.buffer_index.wrapping_add((wrapped_last_processed_pos
-                                                                             & mask) as usize)..],
+                                   &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                                    mask as (usize),
                                    &mut (*s).params,
                                    &mut (*s).hasher_,
@@ -2675,8 +2674,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     let mut storage_ix: usize = (*s).last_byte_bits_ as (usize);
     (*s).storage_.slice_mut()[(0usize)] = (*s).last_byte_;
     WriteMetaBlockInternal(&mut (*s).m8, &mut (*s).m16, &mut (*s).m32, mf64, mhl, mhc, mhd, mhp, mct, mht,
-                           &mut (*s).ringbuffer_.data_mo.slice_mut()[(*s).ringbuffer_.buffer_index.wrapping_add((wrapped_last_processed_pos
-                                                                   & mask) as usize)..],
+                           &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                            mask as (usize),
                            (*s).last_flush_pos_,
                            metablock_size as (usize),
@@ -2698,8 +2696,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     if UpdateLastProcessedPos(s) != 0 {
       HasherReset(&mut (*s).hasher_);
     }
-    let data = &(*s).ringbuffer_.data_mo.slice()[(*s).ringbuffer_.buffer_index + (wrapped_last_processed_pos
-                                                & mask) as usize..];
+    let data = &(*s).ringbuffer_.data_mo.slice()[(*s).ringbuffer_.buffer_index as usize..];
     if (*s).last_flush_pos_ > 0usize {
       (*s).prev_byte_ = data[((((*s).last_flush_pos_ as (u32)).wrapping_sub(1u32) & mask) as
        (usize))];

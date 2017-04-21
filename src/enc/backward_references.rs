@@ -454,8 +454,10 @@ impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H54Sub<AllocU32> {
 pub trait AdvHashSpecialization {
   fn get_hash_mask(&self) -> u64;
   fn set_hash_mask(&mut self, params_hash_len: i32);
+  fn get_k_hash_mul(&self) -> u64;  
   fn HashTypeLength(&self) -> usize;
   fn StoreLookahead(&self) -> usize;
+  fn load_and_mix_word(&self, data: &[u8]) -> u64;
 }
 
 pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized,
@@ -474,7 +476,14 @@ pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized,
 pub struct H5Sub {}
 impl AdvHashSpecialization for H5Sub {
   fn get_hash_mask(&self) -> u64 {
-    return 0xffffffffffffffffu64;
+    //return 0xffffffffffffffffu64;
+    return 0xffffffffu64; // make it 32 bit
+  }
+  fn get_k_hash_mul(&self) -> u64 {
+      return kHashMul32 as u64;
+  }
+  fn load_and_mix_word(&self, data: &[u8]) -> u64 {
+    return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
   }
   #[allow(unused_variables)]
   fn set_hash_mask(&mut self, params_hash_len: i32) {}
@@ -496,6 +505,13 @@ impl AdvHashSpecialization for H6Sub {
   }
   fn set_hash_mask(&mut self, params_hash_len: i32) {
     self.hash_mask = !(0u32 as (u64)) >> 64i32 - 8i32 * params_hash_len;
+  }
+  fn get_k_hash_mul(&self) -> u64 {
+      kHashMul64Long
+  }
+  fn load_and_mix_word(&self, data: &[u8]) -> u64 {
+      return (BROTLI_UNALIGNED_LOAD64(data)
+              & self.get_hash_mask()).wrapping_mul(self.get_k_hash_mul());
   }
   fn HashTypeLength(&self) -> usize {
     8
@@ -573,9 +589,8 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
      self.specialization.StoreLookahead()
   }
   fn HashBytes(&self, data: &[u8]) -> usize {
-    let mask = self.specialization.get_hash_mask();
     let shift = self.hash_shift_;
-    let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) & mask).wrapping_mul(kHashMul64Long);
+    let h: u64 = self.specialization.load_and_mix_word(data);
     (h >> shift) as (u32) as usize
   }
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
@@ -672,6 +687,11 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
     {
       let key: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
       let common_block_bits = self.GetHasherCommon.params.block_bits;
+        if (key << common_block_bits) as usize >= self.buckets.slice().len() {
+            let key2: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
+            let key3: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
+            assert_eq!(key2, key3 + 1);
+        }
       let mut bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
       let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).block_size_ {
         (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).block_size_) as usize

@@ -32,8 +32,9 @@ declare_stack_allocator_struct!(MemPool, 4096, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 4096, calloc);
 declare_stack_allocator_struct!(CallocatedFreelist2048, 2048, calloc);
 
-fn oneshot_compress(input: &[u8], mut output: &mut [u8], quality : u32, lgwin : u32) -> (i32, usize) {
-  let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 1024 * 1024], calloc)};
+fn oneshot_compress(input: &[u8], mut output: &mut [u8], quality : u32, lgwin : u32,
+                    in_batch_size: usize, out_batch_size: usize) -> (i32, usize) {
+  let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 24 * 1024 * 1024], calloc)};
   let mut stack_u16_buffer = unsafe{define_allocator_memory_pool!(4096, u16, [0; 128 * 1024], calloc)};
   let mut stack_i32_buffer = unsafe{define_allocator_memory_pool!(4096, i32, [0; 128 * 1024], calloc)};
   let mut stack_u32_buffer = unsafe{define_allocator_memory_pool!(4096, u32, [0; 32 * 1024 * 1024], calloc)};
@@ -77,9 +78,7 @@ fn oneshot_compress(input: &[u8], mut output: &mut [u8], quality : u32, lgwin : 
       BrotliEncoderSetParameter(s,
                                 BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
                                 input.len() as (u32));
-      while true {
-          const in_batch_size : usize = 3;
-          const out_batch_size : usize = 2;
+      loop {
           let mut available_in: usize = brotli_min_size_t(input.len() - next_in_offset, in_batch_size);
           let mut available_out: usize = brotli_min_size_t(output.len() - next_out_offset, out_batch_size);
           if available_out == 0 {
@@ -116,7 +115,7 @@ fn oneshot_compress(input: &[u8], mut output: &mut [u8], quality : u32, lgwin : 
   return (1, next_out_offset);
 }
  
-fn oneshot_decompress(mut compressed: &mut [u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
+fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
   let mut available_in: usize = compressed.len();
   let mut available_out: usize = output.len();
   let mut stack_u8_buffer = define_allocator_memory_pool!(4096, u8, [0; 100 * 1024], stack);
@@ -147,8 +146,12 @@ fn oneshot_decompress(mut compressed: &mut [u8], mut output: &mut [u8]) -> (Brot
 
 }
 
-fn oneshot(input: &[u8], mut compressed: &mut [u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
-  let (success, mut available_in) = oneshot_compress(input, compressed, 9, 4);
+fn oneshot(input: &[u8], mut compressed: &mut [u8], mut output: &mut [u8],
+           q: u32, lg:u32,
+           in_buffer_size:usize, out_buffer_size:usize) -> (BrotliResult, usize, usize) {
+  let (success, mut available_in) = oneshot_compress(input, compressed,
+                                                     q, lg,
+                                                     in_buffer_size, out_buffer_size);
   if success == 0 {
       //return (BrotliResult::ResultFailure, 0, 0);
       available_in = compressed.len();
@@ -165,7 +168,8 @@ fn test_roundtrip_10x10y() {
                       'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8,
                       'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8,
                       'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8];
-  let (result, compressed_offset, output_offset) = oneshot(&mut input[..], &mut compressed, &mut output[..]);
+    let (result, compressed_offset, output_offset) = oneshot(&mut input[..], &mut compressed, &mut output[..],
+                                                             9, 10, 1, 1);
   match result {
     BrotliResult::ResultSuccess => {}
     _ => assert!(false),
@@ -181,8 +185,8 @@ fn test_roundtrip_10x10y() {
 }
 
 macro_rules! test_roundtrip_file {
-  ($filename : expr, $bufsize: expr) => {{
-    let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 16 * 1024 * 1024], calloc)};
+  ($filename : expr, $bufsize: expr, $quality: expr, $lgwin: expr, $in_buf:expr, $out_buf:expr) => {{
+    let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 18 * 1024 * 1024], calloc)};
     let mut stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
 
     let mut compressed = stack_u8_allocator.alloc_cell($bufsize);
@@ -190,15 +194,22 @@ macro_rules! test_roundtrip_file {
     let mut output = stack_u8_allocator.alloc_cell(inp.len() + 16);
     let (result, compressed_offset, output_offset) = oneshot(&inp[..],
                                                           compressed.slice_mut(),
-                                                          output.slice_mut());
+                                                             output.slice_mut(),
+                                                             $quality,
+                                                             $lgwin,
+                                                             $in_buf,
+                                                             $out_buf);
     match result {
       BrotliResult::ResultSuccess => {}
       _ => assert!(false),
     }
-    let mut i: usize = 0;
     for i in 0..inp.len() {
-      assert_eq!(inp[i], output[i]);
+        if inp[i] != output[i] {
+            assert_eq!((i,inp[i]), (i,output[i]));
+        }
+        assert_eq!(inp[i], output[i]);
     }
+    assert!(compressed_offset <= compressed.slice().len());
     assert_eq!(output_offset, inp.len());
     stack_u8_allocator.free_cell(output);
     stack_u8_allocator.free_cell(compressed);
@@ -207,17 +218,47 @@ macro_rules! test_roundtrip_file {
 
 #[test]
 fn test_roundtrip_64x() {
-  test_roundtrip_file!("../bin/testdata/64x", 72);
+  test_roundtrip_file!("../bin/testdata/64x", 72, 9, 10, 3, 2);
 }
-/* FIXME: doesn't yet pass
+#[test]
+fn test_roundtrip_ukkonooa() {
+  test_roundtrip_file!("../bin/testdata/ukkonooa", 72, 9, 10, 3, 2);
+}
+#[test]
+fn test_roundtrip_backward65536() {
+  test_roundtrip_file!("../bin/testdata/backward65536", 72000, 9, 10, 3, 2);
+}
+#[test]
+fn test_roundtrip_aaabaaaa() {
+  test_roundtrip_file!("../bin/testdata/aaabaaaa", 72000, 9, 10, 3, 2);
+}
+#[test]
+fn test_roundtrip_monkey() {
+  test_roundtrip_file!("../bin/testdata/monkey", 72000, 9, 10, 16, 15);
+}
+#[test]
+fn test_roundtrip_quickfox_repeated() {
+  test_roundtrip_file!("../bin/testdata/quickfox_repeated", 16384, 9, 10, 257, 255);
+}
+
 #[test]
 fn test_roundtrip_asyoulik() {
-  test_roundtrip_file!("../bin/testdata/asyoulik.txt", 64384);
+  test_roundtrip_file!("../bin/testdata/asyoulik.txt", 64384, 9, 15, 513, 511);
 }
-*/
+
+#[test]
+fn test_roundtrip_compressed() {
+  test_roundtrip_file!("../bin/testdata/compressed_file", 50400, 9, 10, 1025, 1024);
+}
+
+#[test]
+fn test_roundtrip_compressed_repeated() {
+  test_roundtrip_file!("../bin/testdata/compressed_repeated", 120000, 9, 16, 2049, 2047);
+}
+
 #[test]
 fn test_roundtrip_quickfox() {
-  test_roundtrip_file!("../bin/testdata/quickfox", 256);
+  test_roundtrip_file!("../bin/testdata/quickfox", 256, 9, 10, 1, 2);
 }
 
 
@@ -227,7 +268,8 @@ fn test_roundtrip_x() {
   let mut compressed: [u8; 6] = [0x0b, 0x00, 0x80, 0x58, 0x03, 0];
   let mut output = [0u8; BUFFER_SIZE];
   let mut input = ['X' as u8];
-  let (result, compressed_offset, output_offset) = oneshot(&mut input[..], &mut compressed[..], &mut output[..]);
+    let (result, compressed_offset, output_offset) = oneshot(&mut input[..], &mut compressed[..], &mut output[..],
+                                                             9, 10, 1, 2);
   match result {
     BrotliResult::ResultSuccess => {}
     _ => assert!(false),
@@ -239,10 +281,10 @@ fn test_roundtrip_x() {
 
 #[test]
 fn test_roundtrip_empty() {
-  const BUFFER_SIZE: usize = 16384;
   let mut compressed: [u8; 2] = [0x06,0];
   let mut output = [0u8; 1];
-  let (result, compressed_offset, output_offset) = oneshot(&mut [], &mut compressed[..], &mut output[..]);
+    let (result, compressed_offset, output_offset) = oneshot(&mut [], &mut compressed[..], &mut output[..],
+                                                             9, 10, 2, 3);
   match result {
     BrotliResult::ResultSuccess => {}
     _ => assert!(false),
@@ -250,9 +292,7 @@ fn test_roundtrip_empty() {
   assert_eq!(output_offset, 0);
   assert_eq!(compressed_offset, compressed.len());
 }
-const QF_BUFFER_SIZE: usize = 180 * 1024;
-static mut quick_fox_output: [u8; QF_BUFFER_SIZE] = [0u8; QF_BUFFER_SIZE];
-
+/*
 
 
 #[cfg(not(feature="no-stdlib"))]
@@ -295,3 +335,4 @@ impl io::Write for Buffer {
 }
 
 
+*/
