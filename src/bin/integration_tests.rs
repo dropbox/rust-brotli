@@ -3,11 +3,14 @@ extern crate core;
 use super::HeapAllocator;
 #[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
+#[cfg(not(feature="no-stdlib"))]
 use super::brotli::BrotliCompress;
 use super::brotli::BrotliDecompressStream;
 use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
+#[cfg(not(feature="no-stdlib"))]
 use super::brotli::CompressorReader;
+#[cfg(not(feature="no-stdlib"))]
 use super::brotli::Decompressor;
 use super::brotli::HuffmanCode;
 use core::cmp;
@@ -256,7 +259,7 @@ fn test_roundtrip_64x() {
   let mut output = UnlimitedBuffer::new(&[]);
   let q: u32 = 9;
   let lgwin: u32 = 16;
-  match BrotliCompress(&mut input, &mut compressed, q, lgwin) {
+  match super::compress(&mut input, &mut compressed, 65536, q, lgwin) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -276,7 +279,7 @@ fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  match BrotliCompress(&mut input, &mut compressed, q, lgwin) {
+  match super::compress(&mut input, &mut compressed, 65536, q, lgwin) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -307,6 +310,7 @@ fn test_roundtrip_as_you_lik() {
   roundtrip_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
 }
 
+#[cfg(not(feature="no-stdlib"))]
 fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
   let mut input = UnlimitedBuffer::new(&in_buf);
   let renc = CompressorReader::new(&mut input, 255, q, lgwin);
@@ -327,22 +331,23 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
 
   assert_eq!(in_buf.len(), 0);
 }
+#[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_as_you_lik() {
   reader_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
 }
-
+#[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_quickfox_rep() {
   reader_helper(include_bytes!("testdata/quickfox_rep"), 9, 20);
 }
-
+#[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_x() {
   reader_helper(include_bytes!("testdata/x"), 9, 20);
 }
 
-
+#[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_alice() {
   reader_helper(include_bytes!("testdata/alice29.txt"), 9, 22);

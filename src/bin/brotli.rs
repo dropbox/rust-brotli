@@ -7,6 +7,12 @@ extern crate core;
 extern crate alloc_no_stdlib;
 use brotli::CustomRead;
 use core::ops;
+use brotli::enc::cluster::HistogramPair;
+use brotli::enc::command::Command;
+use brotli::enc::entropy_encode::HuffmanTree;
+use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
+
+
 pub struct Rebox<T> {
   b: Box<[T]>,
 }
@@ -223,7 +229,48 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
 
 
 
-
+pub fn compress<InputType, OutputType>(r: &mut InputType,
+                                       mut w: &mut OutputType,
+                                       buffer_size: usize,
+                                       q : u32,
+                                       lgwin: u32) -> Result<usize, io::Error>
+    where InputType: Read,
+          OutputType: Write {
+    let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
+    let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
+    let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
+    
+    brotli::BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
+                                   &mut IoWriterWrapper::<OutputType>(w),
+                                   &mut input_buffer.slice_mut(),
+                                   &mut output_buffer.slice_mut(),
+                                   q, lgwin,
+                                   alloc_u8,
+                                   HeapAllocator::<u16>{default_value:0},
+                                   HeapAllocator::<i32>{default_value:0},
+                                   HeapAllocator::<u32>{default_value:0},
+                                   HeapAllocator::<Command>{default_value:Command::default()},
+                                   HeapAllocator::<f64>{default_value:0.0f64},
+                                   HeapAllocator::<HistogramLiteral>{
+                                       default_value:HistogramLiteral::default(),
+                                   },
+                                   HeapAllocator::<HistogramCommand>{
+                                       default_value:HistogramCommand::default(),
+                                   },
+                                   HeapAllocator::<HistogramDistance>{
+                                       default_value:HistogramDistance::default(),
+                                   },
+                                   HeapAllocator::<HistogramPair>{
+                                       default_value:HistogramPair::default(),
+                                   },
+                                   HeapAllocator::<ContextType>{
+                                       default_value:ContextType::default(),
+                                   },
+                                   HeapAllocator::<HuffmanTree>{
+                                       default_value:HuffmanTree::default(),
+                                   },
+                                   Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
+}
 
 // This decompressor is defined unconditionally on whether no-stdlib is defined
 // so we can exercise the code in any case
@@ -280,7 +327,7 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 fn main() {
   let mut q: u32 = 9;
   let mut lgwin: u32 = 22;
-  let mut compress = false;
+  let mut do_compress = false;
   if env::args_os().len() > 1 {
     let mut first = true;
     let mut found_file = false;
@@ -343,7 +390,7 @@ fn main() {
         continue;
       }
       if argument == "-c" {
-        compress = true;
+        do_compress = true;
         continue;
       }
       let mut input = match File::open(&Path::new(&argument)) {
@@ -356,8 +403,8 @@ fn main() {
         Err(why) => panic!("couldn't open file for writing: {:} {:?}", oa, why),
         Ok(file) => file,
       };
-      if compress {
-        match brotli::BrotliCompress(&mut input, &mut output, q, lgwin) {
+      if do_compress {
+        match compress(&mut input, &mut output, 65536, q, lgwin) {
           Ok(_) => {}
           Err(e) => panic!("Error {:?}", e),
         }
@@ -371,8 +418,8 @@ fn main() {
       drop(input);
     }
     if !found_file {
-      if compress {
-        match brotli::BrotliCompress(&mut io::stdin(), &mut io::stdout(), q, lgwin) {
+      if do_compress {
+        match compress(&mut io::stdin(), &mut io::stdout(), 65536, q, lgwin) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),
         }

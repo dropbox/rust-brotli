@@ -24,7 +24,7 @@ pub use alloc::HeapAllocUninitialized;
 #[macro_use]
 mod memory;
 mod dictionary;
-mod enc;
+pub mod enc;
 #[macro_use]
 mod bit_reader;
 mod huffman;
@@ -55,8 +55,8 @@ pub use io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 pub use decode::{BrotliDecompressStream, BrotliResult};
 
 #[cfg(not(feature="no-stdlib"))]
-pub use enc::{BrotliCompress};
-pub use enc::{BrotliCompressCustomAlloc, BrotliCompressCustomIo};
+pub use enc::{BrotliCompress, BrotliCompressCustomAlloc};
+pub use enc::{BrotliCompressCustomIo};
 
 #[cfg(not(feature="no-stdlib"))]
 pub use enc::reader::{CompressorReader};
