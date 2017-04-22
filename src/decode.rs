@@ -758,7 +758,7 @@ fn ReadCodeLengthCodeLengths<AllocU8: alloc::Allocator<u8>,
     fast_mut!((s.code_length_code_lengths)[code_len_idx as usize]) = v as u8;
     BROTLI_LOG_ARRAY_INDEX!(s.code_length_code_lengths, code_len_idx);
     if v != 0 {
-      space -= (32 >> v);
+      space = space.wrapping_sub(32 >> v);
       num_codes += 1;
       fast_mut!((s.code_length_histo)[v as usize]) += 1;
       if space.wrapping_sub(1) >= 32 {
