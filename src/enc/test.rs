@@ -12,10 +12,6 @@ use super::encode::{BrotliEncoderCreateInstance,
                     BrotliEncoderOperation};
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use super::cluster::{HistogramPair};
-#[cfg(not(feature="no-stdlib"))]
-use std::vec::Vec;
-#[cfg(not(feature="no-stdlib"))]
-use std::io;
 extern {
   fn calloc(n_elem : usize, el_size : usize) -> *mut u8;
 }

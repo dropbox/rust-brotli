@@ -25,7 +25,6 @@ mod test;
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                    BrotliEncoderParameter, BrotliEncoderSetParameter,
                    BrotliEncoderOperation,
-                   BrotliEncoderStateStruct,
                    BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use self::cluster::{HistogramPair};
 use self::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
@@ -241,7 +240,10 @@ pub fn BrotliCompressCustomIo<ErrType,
           if available_in == 0 && !eof {
               next_in_offset = 0;
               match r.read(input_buffer) {
-                  Err(e) => return Err(e),
+                  Err(_) => {
+                      available_in = 0;
+                      eof = true;
+                  },
                   Ok(size) => {
                       if size == 0 {
                           eof = true;
@@ -279,6 +281,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                       }
                   }
               }
+              available_out = output_buffer.len();
               next_out_offset = 0;
           }
           if result <= 0 {

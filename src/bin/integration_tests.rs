@@ -7,7 +7,7 @@ use super::brotli::BrotliDecompressStream;
 use super::brotli::BrotliState;
 use super::brotli::HuffmanCode;
 use super::HeapAllocator;
-
+use super::brotli::BrotliCompress;
 #[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
 use std::time::Duration;
@@ -15,6 +15,11 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 struct Buffer {
+  data: Vec<u8>,
+  read_offset: usize,
+}
+
+struct UnlimitedBuffer {
   data: Vec<u8>,
   read_offset: usize,
 }
@@ -177,10 +182,20 @@ impl Buffer {
     return ret;
   }
 }
+impl UnlimitedBuffer {
+  pub fn new(buf: &[u8]) -> Self {
+    let mut ret = UnlimitedBuffer {
+      data: Vec::<u8>::new(),
+      read_offset: 0,
+    };
+    ret.data.extend(buf);
+    return ret;
+  }
+}
 impl io::Read for Buffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
     if self.read_offset == self.data.len() {
-      self.read_offset = 0;
+      self.read_offset =0 ;
     }
     let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
     if bytes_to_read > 0 {
@@ -203,6 +218,93 @@ impl io::Write for Buffer {
     return Ok(());
   }
 }
+impl io::Read for UnlimitedBuffer {
+  fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
+    let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
+    if bytes_to_read > 0 {
+      buf[0..bytes_to_read]
+        .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+    }
+    self.read_offset += bytes_to_read;
+    return Ok(bytes_to_read);
+  }
+}
+
+impl io::Write for UnlimitedBuffer {
+  fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
+    self.data.extend(buf);
+    return Ok(buf.len());
+  }
+  fn flush(self: &mut Self) -> io::Result<()> {
+    return Ok(());
+  }
+}
+
+#[allow(non_snake_case)] 
+#[test]
+fn test_roundtrip_64x() {
+  let X = 'X' as u8;
+  let in_buf: [u8; 64] = [X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,
+                          X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,
+                          X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,
+                          X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,];
+    
+  let mut input = UnlimitedBuffer::new(&in_buf);
+  let mut compressed = UnlimitedBuffer::new(&[]);
+  let mut output = UnlimitedBuffer::new(&[]);
+  let q : u32 = 9;
+  let lgwin: u32 = 16;
+  match BrotliCompress(&mut input, &mut compressed, q, lgwin) {
+    Ok(_) => {},
+    Err(e) => panic!("Error {:?}", e),
+  }
+  let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
+  match super::decompress(&mut compressed_in, &mut output, 65536) {
+    Ok(_) => {}
+    Err(e) => panic!("Error {:?}", e),
+  }
+  for i in 0..input.data.len() {
+    assert_eq!(output.data[i], input.data[i]);
+  }
+  assert_eq!(output.data.len(), input.data.len());
+  assert_eq!(input.read_offset, in_buf.len());
+}
+
+fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
+  let mut input = UnlimitedBuffer::new(&in_buf);
+  let mut compressed = UnlimitedBuffer::new(&[]);
+  let mut output = UnlimitedBuffer::new(&[]);
+  match BrotliCompress(&mut input, &mut compressed, q, lgwin) {
+    Ok(_) => {},
+    Err(e) => panic!("Error {:?}", e),
+  }
+  let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
+  match super::decompress(&mut compressed_in, &mut output, 65536) {
+    Ok(_) => {}
+    Err(e) => panic!("Error {:?}", e),
+  }
+  for i in 0..input.data.len() {
+    assert_eq!(output.data[i], input.data[i]);
+  }
+  assert_eq!(output.data.len(), input.data.len());
+  assert_eq!(input.read_offset, in_buf.len());
+}
+
+#[test]
+fn test_roundtrip_quickfox_rep() {
+    roundtrip_helper(include_bytes!("testdata/quickfox_rep"), 9, 22);
+}
+
+#[test]
+fn test_roundtrip_alice29() {
+    roundtrip_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
+}
+
+#[test]
+fn test_roundtrip_as_you_lik() {
+    roundtrip_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
+}
+
 #[test]
 fn test_10x_10y() {
   let in_buf: [u8; 12] = [0x1b, 0x13, 0x00, 0x00, 0xa4, 0xb0, 0xb2, 0xea, 0x81, 0x47, 0x02, 0x8a];

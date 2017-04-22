@@ -7,7 +7,7 @@ use super::cluster::{HistogramPair};
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use super::command::{Command};
 use super::entropy_encode::{HuffmanTree};
-use super::super::io_wrappers::{CustomRead, CustomWrite};
+use super::super::io_wrappers::{CustomRead};
 
 #[cfg(not(feature="no-stdlib"))]
 use std::io::{Read, Error, ErrorKind};
@@ -79,7 +79,9 @@ impl<R: Read,
                alloc_hd:AllocHD,
                alloc_hp:AllocHP,
                alloc_ct:AllocCT,
-               alloc_ht:AllocHT) -> Self {
+               alloc_ht:AllocHT,
+               q: u32,
+               lgwin: u32) -> Self {
         CompressorReaderCustomAlloc::<R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
                                 AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>(
           CompressorReaderCustomIo::<Error,
@@ -92,7 +94,8 @@ impl<R: Read,
               alloc_u8, alloc_u16, alloc_i32, alloc_u32, alloc_c,
               alloc_f64, alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct,alloc_ht,
               Error::new(ErrorKind::InvalidData,
-                         "Invalid Data")))
+                         "Invalid Data"),
+              q, lgwin))
     }
     }
 
@@ -140,7 +143,7 @@ pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
 
 #[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
 impl<R: Read> CompressorReader<R> {
-  pub fn new(r: R, buffer_size: usize) -> Self {
+  pub fn new(r: R, buffer_size: usize, q: u32, lgwin: u32) -> Self {
     let mut alloc_u8 = HeapAlloc::<u8> { default_value: 0 };
     let buffer = alloc_u8.alloc_cell(buffer_size);
     let alloc_u16 = HeapAlloc::<u16> { default_value: 0 };
@@ -167,7 +170,8 @@ impl<R: Read> CompressorReader<R> {
                                                    alloc_hd,
                                                    alloc_hp,
                                                    alloc_ct,
-                                                   alloc_ht))
+                                                   alloc_ht,
+                                                   q,lgwin))
   }
 }
 
@@ -298,8 +302,10 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
                alloc_hp:AllocHP,
                alloc_ct:AllocCT,
                alloc_ht:AllocHT,
-               invalid_data_error_type : ErrType) -> Self {
-        CompressorReaderCustomIo{
+               invalid_data_error_type : ErrType,
+               q: u32,
+               lgwin: u32) -> Self {
+        let mut ret = CompressorReaderCustomIo{
             input_buffer : buffer,
             total_out : Some(0),
             input_offset : 0,
@@ -320,7 +326,15 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
             alloc_ht:alloc_ht,
             error_if_invalid_data : Some(invalid_data_error_type),
             read_error : None,
-        }
+        };
+        BrotliEncoderSetParameter(&mut ret.state,
+                                  BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
+                                  q as (u32));
+        BrotliEncoderSetParameter(&mut ret.state,
+                                  BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
+                                  lgwin as (u32));
+
+        ret
     }
     pub fn copy_to_front(&mut self) {
         if self.input_offset == self.input_buffer.slice_mut().len() {
@@ -438,34 +452,3 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
       }
 }
 
-#[cfg(not(feature="no-stdlib"))]
-pub fn copy_from_to<R: io::Read, W: io::Write>(mut r: R, mut w: W) -> io::Result<usize> {
-  let mut buffer: [u8; 65536] = [0; 65536];
-  let mut out_size: usize = 0;
-  loop {
-    match r.read(&mut buffer[..]) {
-      Err(e) => {
-        if let io::ErrorKind::Interrupted =  e.kind() {
-          continue
-        }
-        return Err(e);
-      }
-      Ok(size) => {
-        if size == 0 {
-          break;
-        } else {
-          match w.write_all(&buffer[..size]) {
-            Err(e) => {
-              if let io::ErrorKind::Interrupted = e.kind() {
-                continue
-              }
-              return Err(e);
-            }
-            Ok(_) => out_size += size,
-          }
-        }
-      }
-    }
-  }
-  Ok(out_size)
-}
