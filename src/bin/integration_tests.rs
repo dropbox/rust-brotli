@@ -296,8 +296,8 @@ fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
 }
 
 #[test]
-fn test_roundtrip_quickfox_rep() {
-  roundtrip_helper(include_bytes!("testdata/quickfox_rep"), 9, 22);
+fn test_roundtrip_quickfox_repeated() {
+  roundtrip_helper(include_bytes!("testdata/quickfox_repeated"), 9, 22);
 }
 
 #[test]
@@ -338,8 +338,8 @@ fn test_reader_as_you_lik() {
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
-fn test_reader_quickfox_rep() {
-  reader_helper(include_bytes!("testdata/quickfox_rep"), 9, 20);
+fn test_reader_quickfox_repeated() {
+  reader_helper(include_bytes!("testdata/quickfox_repeated"), 9, 20);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
