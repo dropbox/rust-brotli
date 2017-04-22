@@ -337,12 +337,12 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
         ret
     }
     pub fn copy_to_front(&mut self) {
+        let avail_in = self.input_len - self.input_offset;
         if self.input_offset == self.input_buffer.slice_mut().len() {
             self.input_offset = 0;
             self.input_len = 0;
-        } else if self.input_offset + 256 > self.input_buffer.slice_mut().len() {
+        } else if self.input_offset + 256 > self.input_buffer.slice_mut().len() && avail_in < self.input_offset {
             let (mut first, second) = self.input_buffer.slice_mut().split_at_mut(self.input_offset);
-            let avail_in = self.input_len - self.input_offset;
             first[0..avail_in].clone_from_slice(&second[0..avail_in]);
             self.input_len -= self.input_offset;
             self.input_offset = 0;
