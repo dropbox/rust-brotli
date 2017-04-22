@@ -426,7 +426,6 @@ is_final: i32){
     for j in 0..2 {
       {
         let last_histogram_ix: usize = (*xself).last_histogram_ix_[j];
-        combined_histo[j] = histograms[((*xself).curr_histogram_ix_ as (usize))].clone();
         HistogramAddHistogram(&mut combined_histo[j],
                               &histograms[(last_histogram_ix as (usize))]);
         combined_entropy[j] = BitsEntropy(&mut combined_histo[j].slice_mut()[0usize..],
