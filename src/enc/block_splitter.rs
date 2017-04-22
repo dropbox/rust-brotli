@@ -954,4 +954,3 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
     m16.free_cell(distance_prefixes);
   }
 }
-

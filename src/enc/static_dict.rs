@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets,
                              kStaticDictionaryWords, DictWord};
-use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength, kBrotliDictionaryOffsetsByLength};
+use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength,
+                               kBrotliDictionaryOffsetsByLength};
 static kUppercaseFirst: u8 = 10i32 as (u8);
 
 static kOmitLastNTransforms: [u8; 10] = [0i32 as (u8),
@@ -21,14 +22,14 @@ pub struct BrotliDictionary {
   pub data: &'static [u8; 122784],
 }
 
-pub const kBrotliEncDictionary : BrotliDictionary = BrotliDictionary {
-    size_bits_by_length:&kBrotliDictionarySizeBitsByLength,
-    offsets_by_length:&kBrotliDictionaryOffsetsByLength,
-    data: &kBrotliDictionary,
+pub const kBrotliEncDictionary: BrotliDictionary = BrotliDictionary {
+  size_bits_by_length: &kBrotliDictionarySizeBitsByLength,
+  offsets_by_length: &kBrotliDictionaryOffsetsByLength,
+  data: &kBrotliDictionary,
 };
 
-pub fn BrotliGetDictionary() -> BrotliDictionary{
-    return kBrotliEncDictionary;
+pub fn BrotliGetDictionary() -> BrotliDictionary {
+  return kBrotliEncDictionary;
 }
 pub fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
@@ -44,7 +45,7 @@ pub fn BROTLI_UNALIGNED_LOAD64(p: &[u8]) -> u64 {
          ((p[3] as u64) << 24) | ((p[4] as u64) << 32) | ((p[5] as u64) << 40) |
          ((p[6] as u64) << 48) | ((p[7] as u64) << 56);
 }
-pub fn BROTLI_UNALIGNED_STORE64(p: &mut[u8], v: u64) {
+pub fn BROTLI_UNALIGNED_STORE64(p: &mut [u8], v: u64) {
   p[0] = (v & 0xff) as u8;
   p[1] = ((v >> 8) & 0xff) as u8;
   p[2] = ((v >> 16) & 0xff) as u8;

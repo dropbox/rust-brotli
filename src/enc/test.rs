@@ -1,56 +1,77 @@
 #![cfg(test)]
 use core;
 extern crate alloc_no_stdlib;
-use enc::util::brotli_min_size_t;
-use super::super::alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator, bzero};
-use super::encode::{BrotliEncoderCreateInstance,
-                    BrotliEncoderSetParameter,
-                    BrotliEncoderDestroyInstance,
-                    BrotliEncoderIsFinished,
-                    BrotliEncoderCompressStream,
-                    BrotliEncoderParameter,
-                    BrotliEncoderOperation};
+use super::cluster::HistogramPair;
+use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderSetParameter,
+                    BrotliEncoderDestroyInstance, BrotliEncoderIsFinished,
+                    BrotliEncoderCompressStream, BrotliEncoderParameter, BrotliEncoderOperation};
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
-use super::cluster::{HistogramPair};
-extern {
-  fn calloc(n_elem : usize, el_size : usize) -> *mut u8;
+use super::super::alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut,
+                          StackAllocator, bzero};
+use enc::util::brotli_min_size_t;
+extern "C" {
+  fn calloc(n_elem: usize, el_size: usize) -> *mut u8;
 }
-extern {
-  fn free(ptr : *mut u8);
+extern "C" {
+  fn free(ptr: *mut u8);
 }
 
-use core::ops;
-use super::entropy_encode::{HuffmanTree};
-use super::command::{Command};
+use super::command::Command;
+use super::entropy_encode::HuffmanTree;
 pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState, HuffmanCode};
+use core::ops;
 
 declare_stack_allocator_struct!(MemPool, 4096, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 4096, calloc);
 declare_stack_allocator_struct!(CallocatedFreelist2048, 2048, calloc);
 
-fn oneshot_compress(input: &[u8], mut output: &mut [u8], quality : u32, lgwin : u32,
-                    in_batch_size: usize, out_batch_size: usize) -> (i32, usize) {
-  let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 24 * 1024 * 1024], calloc)};
-  let mut stack_u16_buffer = unsafe{define_allocator_memory_pool!(4096, u16, [0; 128 * 1024], calloc)};
-  let mut stack_i32_buffer = unsafe{define_allocator_memory_pool!(4096, i32, [0; 128 * 1024], calloc)};
-  let mut stack_u32_buffer = unsafe{define_allocator_memory_pool!(4096, u32, [0; 32 * 1024 * 1024], calloc)};
-  let mut stack_f64_buffer = unsafe{define_allocator_memory_pool!(2048, f64, [0; 128 * 1024], calloc)};
-  let mut stack_hl_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramLiteral, [0; 128 * 1024], calloc)};
-  let mut stack_hc_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramCommand, [0; 128 * 1024], calloc)};
-  let mut stack_hd_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramDistance, [0; 128 * 1024], calloc)};
-  let mut stack_hp_buffer = unsafe{define_allocator_memory_pool!(2048, HistogramPair, [0; 128 * 1024], calloc)};
-  let mut stack_ct_buffer = unsafe{define_allocator_memory_pool!(2048, ContextType, [0; 128 * 1024], calloc)};
-  let mut stack_ht_buffer = unsafe{define_allocator_memory_pool!(2048, HuffmanTree, [0; 128 * 1024], calloc)};
-  let mut stack_mc_buffer = unsafe{define_allocator_memory_pool!(2048, Command, [0; 128 * 1024], calloc)};
+fn oneshot_compress(input: &[u8],
+                    mut output: &mut [u8],
+                    quality: u32,
+                    lgwin: u32,
+                    in_batch_size: usize,
+                    out_batch_size: usize)
+                    -> (i32, usize) {
+  let mut stack_u8_buffer =
+    unsafe { define_allocator_memory_pool!(4096, u8, [0; 24 * 1024 * 1024], calloc) };
+  let mut stack_u16_buffer =
+    unsafe { define_allocator_memory_pool!(4096, u16, [0; 128 * 1024], calloc) };
+  let mut stack_i32_buffer =
+    unsafe { define_allocator_memory_pool!(4096, i32, [0; 128 * 1024], calloc) };
+  let mut stack_u32_buffer =
+    unsafe { define_allocator_memory_pool!(4096, u32, [0; 32 * 1024 * 1024], calloc) };
+  let mut stack_f64_buffer =
+    unsafe { define_allocator_memory_pool!(2048, f64, [0; 128 * 1024], calloc) };
+  let mut stack_hl_buffer =
+    unsafe { define_allocator_memory_pool!(2048, HistogramLiteral, [0; 128 * 1024], calloc) };
+  let mut stack_hc_buffer =
+    unsafe { define_allocator_memory_pool!(2048, HistogramCommand, [0; 128 * 1024], calloc) };
+  let mut stack_hd_buffer =
+    unsafe { define_allocator_memory_pool!(2048, HistogramDistance, [0; 128 * 1024], calloc) };
+  let mut stack_hp_buffer =
+    unsafe { define_allocator_memory_pool!(2048, HistogramPair, [0; 128 * 1024], calloc) };
+  let mut stack_ct_buffer =
+    unsafe { define_allocator_memory_pool!(2048, ContextType, [0; 128 * 1024], calloc) };
+  let mut stack_ht_buffer =
+    unsafe { define_allocator_memory_pool!(2048, HuffmanTree, [0; 128 * 1024], calloc) };
+  let mut stack_mc_buffer =
+    unsafe { define_allocator_memory_pool!(2048, Command, [0; 128 * 1024], calloc) };
   let stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
-  let stack_u16_allocator = CallocatedFreelist4096::<u16>::new_allocator(stack_u16_buffer.data, bzero);
-  let stack_i32_allocator = CallocatedFreelist4096::<i32>::new_allocator(stack_i32_buffer.data, bzero);
-  let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data, bzero);
+  let stack_u16_allocator = CallocatedFreelist4096::<u16>::new_allocator(stack_u16_buffer.data,
+                                                                         bzero);
+  let stack_i32_allocator = CallocatedFreelist4096::<i32>::new_allocator(stack_i32_buffer.data,
+                                                                         bzero);
+  let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data,
+                                                                         bzero);
   let mut mf64 = CallocatedFreelist2048::<f64>::new_allocator(stack_f64_buffer.data, bzero);
-  let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data, bzero);
-  let mut mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data, bzero);
-  let mut mhc = CallocatedFreelist2048::<HistogramCommand>::new_allocator(stack_hc_buffer.data, bzero);
-  let mut mhd = CallocatedFreelist2048::<HistogramDistance>::new_allocator(stack_hd_buffer.data, bzero);
+  let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data,
+                                                                            bzero);
+  let mut mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data,
+                                                                          bzero);
+  let mut mhc = CallocatedFreelist2048::<HistogramCommand>::new_allocator(stack_hc_buffer.data,
+                                                                          bzero);
+  let mut mhd = CallocatedFreelist2048::<HistogramDistance>::new_allocator(stack_hd_buffer.data,
+                                                                           bzero);
   let mut mhp = CallocatedFreelist2048::<HistogramPair>::new_allocator(stack_hp_buffer.data, bzero);
   let mut mct = CallocatedFreelist2048::<ContextType>::new_allocator(stack_ct_buffer.data, bzero);
   let mut mht = CallocatedFreelist2048::<HuffmanTree>::new_allocator(stack_ht_buffer.data, bzero);
@@ -59,58 +80,65 @@ fn oneshot_compress(input: &[u8], mut output: &mut [u8], quality : u32, lgwin : 
                                                stack_i32_allocator,
                                                stack_u32_allocator,
                                                stack_mc_allocator);
-  let mut next_in_offset: usize = 0;  
+  let mut next_in_offset: usize = 0;
   let mut next_out_offset: usize = 0;
   {
-      let mut s = &mut s_orig;
-      
-      BrotliEncoderSetParameter(s,
-                                BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
-                                quality as (u32));
-      BrotliEncoderSetParameter(s,
-                                BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
-                                lgwin as (u32));
-      BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0 as (u32)); // gen, text, font
-      BrotliEncoderSetParameter(s,
-                                BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
-                                input.len() as (u32));
-      loop {
-          let mut available_in: usize = brotli_min_size_t(input.len() - next_in_offset, in_batch_size);
-          let mut available_out: usize = brotli_min_size_t(output.len() - next_out_offset, out_batch_size);
-          if available_out == 0 {
-              panic!("No output buffer space");
-          }
-          let mut total_out = Some(0usize);
-          let op : BrotliEncoderOperation;
-          if available_in == input.len() - next_in_offset {
-              op = BrotliEncoderOperation::BROTLI_OPERATION_FINISH;
-          } else {
-              op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
-          }
-          let result = BrotliEncoderCompressStream(s,
-                                               &mut mf64, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht,
+    let mut s = &mut s_orig;
+
+    BrotliEncoderSetParameter(s,
+                              BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
+                              quality as (u32));
+    BrotliEncoderSetParameter(s,
+                              BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
+                              lgwin as (u32));
+    BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0 as (u32)); // gen, text, font
+    BrotliEncoderSetParameter(s,
+                              BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
+                              input.len() as (u32));
+    loop {
+      let mut available_in: usize = brotli_min_size_t(input.len() - next_in_offset, in_batch_size);
+      let mut available_out: usize = brotli_min_size_t(output.len() - next_out_offset,
+                                                       out_batch_size);
+      if available_out == 0 {
+        panic!("No output buffer space");
+      }
+      let mut total_out = Some(0usize);
+      let op: BrotliEncoderOperation;
+      if available_in == input.len() - next_in_offset {
+        op = BrotliEncoderOperation::BROTLI_OPERATION_FINISH;
+      } else {
+        op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
+      }
+      let result = BrotliEncoderCompressStream(s,
+                                               &mut mf64,
+                                               &mut mhl,
+                                               &mut mhc,
+                                               &mut mhd,
+                                               &mut mhp,
+                                               &mut mct,
+                                               &mut mht,
                                                op,
                                                &mut available_in,
                                                input,
-                                               &mut next_in_offset,  
+                                               &mut next_in_offset,
                                                &mut available_out,
                                                output,
                                                &mut next_out_offset,
                                                &mut total_out);
-          if result <= 0 {
-              return (result, next_out_offset);
-          }
-          if BrotliEncoderIsFinished(s) != 0 {
-              break
-          }
+      if result <= 0 {
+        return (result, next_out_offset);
       }
+      if BrotliEncoderIsFinished(s) != 0 {
+        break;
+      }
+    }
 
-      BrotliEncoderDestroyInstance(s);
+    BrotliEncoderDestroyInstance(s);
   }
-    
+
   return (1, next_out_offset);
 }
- 
+
 fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
   let mut available_in: usize = compressed.len();
   let mut available_out: usize = output.len();
@@ -142,15 +170,19 @@ fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult
 
 }
 
-fn oneshot(input: &[u8], mut compressed: &mut [u8], mut output: &mut [u8],
-           q: u32, lg:u32,
-           in_buffer_size:usize, out_buffer_size:usize) -> (BrotliResult, usize, usize) {
-  let (success, mut available_in) = oneshot_compress(input, compressed,
-                                                     q, lg,
-                                                     in_buffer_size, out_buffer_size);
+fn oneshot(input: &[u8],
+           mut compressed: &mut [u8],
+           mut output: &mut [u8],
+           q: u32,
+           lg: u32,
+           in_buffer_size: usize,
+           out_buffer_size: usize)
+           -> (BrotliResult, usize, usize) {
+  let (success, mut available_in) =
+    oneshot_compress(input, compressed, q, lg, in_buffer_size, out_buffer_size);
   if success == 0 {
-      //return (BrotliResult::ResultFailure, 0, 0);
-      available_in = compressed.len();
+    //return (BrotliResult::ResultFailure, 0, 0);
+    available_in = compressed.len();
   }
   return oneshot_decompress(&mut compressed[..available_in], output);
 }
@@ -158,14 +190,18 @@ fn oneshot(input: &[u8], mut compressed: &mut [u8], mut output: &mut [u8],
 #[test]
 fn test_roundtrip_10x10y() {
   const BUFFER_SIZE: usize = 16384;
-  let mut compressed: [u8; 13] = [0;13];
+  let mut compressed: [u8; 13] = [0; 13];
   let mut output = [0u8; BUFFER_SIZE];
-    let mut input  = ['x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8,
-                      'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8,
-                      'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8,
-                      'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8];
-    let (result, compressed_offset, output_offset) = oneshot(&mut input[..], &mut compressed, &mut output[..],
-                                                             9, 10, 1, 1);
+  let mut input = ['x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8,
+                   'x' as u8, 'x' as u8, 'x' as u8, 'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8,
+                   'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8, 'y' as u8];
+  let (result, compressed_offset, output_offset) = oneshot(&mut input[..],
+                                                           &mut compressed,
+                                                           &mut output[..],
+                                                           9,
+                                                           10,
+                                                           1,
+                                                           1);
   match result {
     BrotliResult::ResultSuccess => {}
     _ => assert!(false),
@@ -249,7 +285,12 @@ fn test_roundtrip_compressed() {
 
 #[test]
 fn test_roundtrip_compressed_repeated() {
-  test_roundtrip_file!("../bin/testdata/compressed_repeated", 120000, 9, 16, 2049, 2047);
+  test_roundtrip_file!("../bin/testdata/compressed_repeated",
+                       120000,
+                       9,
+                       16,
+                       2049,
+                       2047);
 }
 
 #[test]
@@ -264,8 +305,13 @@ fn test_roundtrip_x() {
   let mut compressed: [u8; 6] = [0x0b, 0x00, 0x80, 0x58, 0x03, 0];
   let mut output = [0u8; BUFFER_SIZE];
   let mut input = ['X' as u8];
-    let (result, compressed_offset, output_offset) = oneshot(&mut input[..], &mut compressed[..], &mut output[..],
-                                                             9, 10, 1, 2);
+  let (result, compressed_offset, output_offset) = oneshot(&mut input[..],
+                                                           &mut compressed[..],
+                                                           &mut output[..],
+                                                           9,
+                                                           10,
+                                                           1,
+                                                           2);
   match result {
     BrotliResult::ResultSuccess => {}
     _ => assert!(false),
@@ -277,10 +323,10 @@ fn test_roundtrip_x() {
 
 #[test]
 fn test_roundtrip_empty() {
-  let mut compressed: [u8; 2] = [0x06,0];
+  let mut compressed: [u8; 2] = [0x06, 0];
   let mut output = [0u8; 1];
-    let (result, compressed_offset, output_offset) = oneshot(&mut [], &mut compressed[..], &mut output[..],
-                                                             9, 10, 2, 3);
+  let (result, compressed_offset, output_offset) =
+    oneshot(&mut [], &mut compressed[..], &mut output[..], 9, 10, 2, 3);
   match result {
     BrotliResult::ResultSuccess => {}
     _ => assert!(false),

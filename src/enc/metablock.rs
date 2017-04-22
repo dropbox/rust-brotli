@@ -730,10 +730,10 @@ fn MapStaticContexts<AllocU8: alloc::Allocator<u8>,
   }
 }
 pub fn BrotliBuildMetaBlockGreedyInternal<AllocU8: alloc::Allocator<u8>,
-                                      AllocU32: alloc::Allocator<u32>,
-                                      AllocHL: alloc::Allocator<HistogramLiteral>,
-                                      AllocHC: alloc::Allocator<HistogramCommand>,
-                                      AllocHD: alloc::Allocator<HistogramDistance>>
+                                          AllocU32: alloc::Allocator<u32>,
+                                          AllocHL: alloc::Allocator<HistogramLiteral>,
+                                          AllocHC: alloc::Allocator<HistogramCommand>,
+                                          AllocHD: alloc::Allocator<HistogramDistance>>
   (mut m8: &mut AllocU8,
    mut m32: &mut AllocU32,
    mut mhl: &mut AllocHL,
@@ -891,10 +891,10 @@ pub fn BrotliBuildMetaBlockGreedyInternal<AllocU8: alloc::Allocator<u8>,
   }
 }
 pub fn BrotliBuildMetaBlockGreedy<AllocU8: alloc::Allocator<u8>,
-                              AllocU32: alloc::Allocator<u32>,
-                              AllocHL: alloc::Allocator<HistogramLiteral>,
-                              AllocHC: alloc::Allocator<HistogramCommand>,
-                              AllocHD: alloc::Allocator<HistogramDistance>>
+                                  AllocU32: alloc::Allocator<u32>,
+                                  AllocHL: alloc::Allocator<HistogramLiteral>,
+                                  AllocHC: alloc::Allocator<HistogramCommand>,
+                                  AllocHD: alloc::Allocator<HistogramDistance>>
   (mut m8: &mut AllocU8,
    mut m32: &mut AllocU32,
    mut mhl: &mut AllocHL,

@@ -1,15 +1,18 @@
 #![cfg(test)]
 extern crate core;
-use std::io;
-use core::cmp;
-use super::brotli::BrotliResult;
-use super::brotli::BrotliDecompressStream;
-use super::brotli::BrotliState;
-use super::brotli::HuffmanCode;
 use super::HeapAllocator;
-use super::brotli::BrotliCompress;
 #[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
+use super::brotli::BrotliCompress;
+use super::brotli::BrotliDecompressStream;
+use super::brotli::BrotliResult;
+use super::brotli::BrotliState;
+use super::brotli::CompressorReader;
+use super::brotli::Decompressor;
+use super::brotli::HuffmanCode;
+use core::cmp;
+use std::io;
+use std::io::Read;
 use std::time::Duration;
 #[cfg(not(feature="disable-timer"))]
 use std::time::SystemTime;
@@ -195,12 +198,12 @@ impl UnlimitedBuffer {
 impl io::Read for Buffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
     if self.read_offset == self.data.len() {
-      self.read_offset =0 ;
+      self.read_offset = 0;
     }
     let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
     if bytes_to_read > 0 {
-      buf[0..bytes_to_read]
-        .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+      buf[0..bytes_to_read].clone_from_slice(&self.data[self.read_offset..
+                                              self.read_offset + bytes_to_read]);
     }
     self.read_offset += bytes_to_read;
     return Ok(bytes_to_read);
@@ -222,8 +225,8 @@ impl io::Read for UnlimitedBuffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
     let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
     if bytes_to_read > 0 {
-      buf[0..bytes_to_read]
-        .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+      buf[0..bytes_to_read].clone_from_slice(&self.data[self.read_offset..
+                                              self.read_offset + bytes_to_read]);
     }
     self.read_offset += bytes_to_read;
     return Ok(bytes_to_read);
@@ -240,22 +243,21 @@ impl io::Write for UnlimitedBuffer {
   }
 }
 
-#[allow(non_snake_case)] 
+#[allow(non_snake_case)]
 #[test]
 fn test_roundtrip_64x() {
   let X = 'X' as u8;
-  let in_buf: [u8; 64] = [X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,
-                          X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,
-                          X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,
-                          X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,];
-    
+  let in_buf: [u8; 64] = [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
+                          X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
+                          X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X];
+
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  let q : u32 = 9;
+  let q: u32 = 9;
   let lgwin: u32 = 16;
   match BrotliCompress(&mut input, &mut compressed, q, lgwin) {
-    Ok(_) => {},
+    Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
@@ -275,7 +277,7 @@ fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
   match BrotliCompress(&mut input, &mut compressed, q, lgwin) {
-    Ok(_) => {},
+    Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
@@ -292,18 +294,61 @@ fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
 
 #[test]
 fn test_roundtrip_quickfox_rep() {
-    roundtrip_helper(include_bytes!("testdata/quickfox_rep"), 9, 22);
+  roundtrip_helper(include_bytes!("testdata/quickfox_rep"), 9, 22);
 }
 
 #[test]
 fn test_roundtrip_alice29() {
-    roundtrip_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
+  roundtrip_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
 }
 
 #[test]
 fn test_roundtrip_as_you_lik() {
-    roundtrip_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
+  roundtrip_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
 }
+
+fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
+  let mut input = UnlimitedBuffer::new(&in_buf);
+  let renc = CompressorReader::new(&mut input, 255, q, lgwin);
+  let mut rdec = Decompressor::new(renc, 257);
+  let mut cmp = [0u8; 259];
+  loop {
+    match rdec.read(&mut cmp[..]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        assert_eq!(cmp[..size], in_buf[..size]);
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+
+  assert_eq!(in_buf.len(), 0);
+}
+#[test]
+fn test_reader_as_you_lik() {
+  reader_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
+}
+
+#[test]
+fn test_reader_quickfox_rep() {
+  reader_helper(include_bytes!("testdata/quickfox_rep"), 9, 20);
+}
+
+#[test]
+fn test_reader_x() {
+  reader_helper(include_bytes!("testdata/x"), 9, 20);
+}
+
+
+#[test]
+fn test_reader_alice() {
+  reader_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
+}
+
+
 
 #[test]
 fn test_10x_10y() {

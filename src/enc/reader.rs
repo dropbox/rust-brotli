@@ -1,27 +1,26 @@
+
+use super::cluster::HistogramPair;
+use super::command::Command;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-                   BrotliEncoderParameter, BrotliEncoderSetParameter,
-                   BrotliEncoderOperation,
-                   BrotliEncoderStateStruct,
-                   BrotliEncoderCompressStream, BrotliEncoderIsFinished};
-use super::cluster::{HistogramPair};
+                    BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
+                    BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
+use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
-use super::command::{Command};
-use super::entropy_encode::{HuffmanTree};
-use super::super::io_wrappers::{CustomRead};
+use super::super::io_wrappers::CustomRead;
 
 #[cfg(not(feature="no-stdlib"))]
-use std::io::{Read, Error, ErrorKind};
-#[cfg(not(feature="no-stdlib"))]
-use std::io;
+pub use super::super::io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
+
+pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
 #[cfg(all(feature="unsafe",not(feature="no-stdlib")))]
 pub use alloc::HeapAllocUninitialized;
-
-pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
+#[cfg(not(feature="no-stdlib"))]
+use std::io;
 
 #[cfg(not(feature="no-stdlib"))]
-pub use super::super::io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
+use std::io::{Read, Error, ErrorKind};
 
 
 
@@ -149,7 +148,7 @@ impl<R: Read> CompressorReader<R> {
     let alloc_u16 = HeapAlloc::<u16> { default_value: 0 };
     let alloc_i32 = HeapAlloc::<i32> { default_value: 0 };
     let alloc_u32 = HeapAlloc::<u32> { default_value: 0 };
-    let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };  
+    let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };
     let alloc_f64 = HeapAlloc::<f64> { default_value: 0.0f64 };
     let alloc_hl = HeapAlloc::<HistogramLiteral> { default_value: HistogramLiteral::default() };
     let alloc_hc = HeapAlloc::<HistogramCommand> { default_value: HistogramCommand::default() };
@@ -158,20 +157,21 @@ impl<R: Read> CompressorReader<R> {
     let alloc_ct = HeapAlloc::<ContextType> { default_value: ContextType::default() };
     let alloc_ht = HeapAlloc::<HuffmanTree> { default_value: HuffmanTree::default() };
     CompressorReader::<R>(CompressorReaderCustomAlloc::new(r,
-                                                   buffer,
-                                                   alloc_u8,
-                                                   alloc_u16,
-                                                   alloc_i32,
-                                                   alloc_u32,
-                                                   alloc_c,
-                                                   alloc_f64,
-                                                   alloc_hl,
-                                                   alloc_hc,
-                                                   alloc_hd,
-                                                   alloc_hp,
-                                                   alloc_ct,
-                                                   alloc_ht,
-                                                   q,lgwin))
+                                                           buffer,
+                                                           alloc_u8,
+                                                           alloc_u16,
+                                                           alloc_i32,
+                                                           alloc_u32,
+                                                           alloc_c,
+                                                           alloc_f64,
+                                                           alloc_hl,
+                                                           alloc_hc,
+                                                           alloc_hd,
+                                                           alloc_hp,
+                                                           alloc_ct,
+                                                           alloc_ht,
+                                                           q,
+                                                           lgwin))
   }
 }
 
@@ -208,23 +208,23 @@ impl<R: Read> CompressorReader<R> {
     let alloc_hc = unsafe { HeapAllocUninitialized::<HistogramCommand>::new() };
     let alloc_hd = unsafe { HeapAllocUninitialized::<HistogramDistance>::new() };
     let alloc_hp = unsafe { HeapAllocUninitialized::<HistogramPair>::new() };
-      
+
     let alloc_ct = unsafe { HeapAllocUninitialized::<ContextType>::new() };
     let alloc_ht = unsafe { HeapAllocUninitialized::<HuffmanTree>::new() };
     CompressorReader::<R>(CompressorReaderCustomAlloc::new(r,
-                                                   buffer,
-                                                   alloc_u8,
-                                                   alloc_u16,
-                                                   alloc_i32,
-                                                   alloc_u32,
-                                                   alloc_c,
-                                                   alloc_f64,
-                                                   alloc_hl,
-                                                   alloc_hc,
-                                                   alloc_hd,
-                                                   alloc_hp,
-                                                   alloc_ct,
-                                                   alloc_ht))
+                                                           buffer,
+                                                           alloc_u8,
+                                                           alloc_u16,
+                                                           alloc_i32,
+                                                           alloc_u32,
+                                                           alloc_c,
+                                                           alloc_f64,
+                                                           alloc_hl,
+                                                           alloc_hc,
+                                                           alloc_hd,
+                                                           alloc_hp,
+                                                           alloc_ct,
+                                                           alloc_ht))
   }
 }
 
@@ -260,13 +260,13 @@ pub struct CompressorReaderCustomIo<ErrType,
   input: R,
   error_if_invalid_data: Option<ErrType>,
   read_error: Option<ErrType>,
-  alloc_f64 : AllocF64,
-  alloc_hl:AllocHL,
-  alloc_hc:AllocHC,
-  alloc_hd:AllocHD,
-  alloc_hp:AllocHP,
-  alloc_ct:AllocCT,
-  alloc_ht:AllocHT,  
+  alloc_f64: AllocF64,
+  alloc_hl: AllocHL,
+  alloc_hc: AllocHC,
+  alloc_hd: AllocHD,
+  alloc_hp: AllocHP,
+  alloc_ct: AllocCT,
+  alloc_ht: AllocHT,
   state: BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
 }
 
@@ -344,6 +344,7 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
             let (mut first, second) = self.input_buffer.slice_mut().split_at_mut(self.input_offset);
             let avail_in = self.input_len - self.input_offset;
             first[0..avail_in].clone_from_slice(&second[0..avail_in]);
+            self.input_len -= self.input_offset;
             self.input_offset = 0;
         }
     }
@@ -363,7 +364,7 @@ impl<ErrType,
      AllocHD: Allocator<HistogramDistance>,
      AllocHP: Allocator<HistogramPair>,
      AllocCT: Allocator<ContextType>,
-     AllocHT: Allocator<HuffmanTree>> Drop for 
+     AllocHT: Allocator<HuffmanTree>> Drop for
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
                          AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
     fn drop(&mut self) {
@@ -384,7 +385,7 @@ impl<ErrType,
      AllocHD: Allocator<HistogramDistance>,
      AllocHP: Allocator<HistogramPair>,
      AllocCT: Allocator<ContextType>,
-     AllocHT: Allocator<HuffmanTree>> CustomRead<ErrType> for 
+     AllocHT: Allocator<HuffmanTree>> CustomRead<ErrType> for
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
                          AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
 	fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, ErrType > {
@@ -451,4 +452,3 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
         Ok(output_offset)
       }
 }
-

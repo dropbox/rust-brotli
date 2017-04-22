@@ -176,9 +176,9 @@ pub enum ContextType {
 }
 
 impl Default for ContextType {
-    fn default() -> ContextType {
-        ContextType::CONTEXT_LSB6
-    }
+  fn default() -> ContextType {
+    ContextType::CONTEXT_LSB6
+  }
 }
 
 

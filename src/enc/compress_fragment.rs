@@ -12,8 +12,7 @@ use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHu
 use super::compress_fragment_two_pass::{BrotliStoreMetaBlockHeader, BrotliWriteBits, memcpy};
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
                             NewHuffmanTree};
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
-                         FindMatchLengthWithLimit};
+use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
 use super::super::alloc;
 use super::util::{brotli_min_size_t, brotli_min_uint32_t, Log2FloorNonZero, FastLog2};
 

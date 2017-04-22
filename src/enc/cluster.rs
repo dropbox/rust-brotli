@@ -16,9 +16,14 @@ pub struct HistogramPair {
 }
 
 impl Default for HistogramPair {
-    fn default() -> HistogramPair {
-        HistogramPair{idx1:0, idx2:0, cost_combo:0.0f64, cost_diff:0.0f64}
+  fn default() -> HistogramPair {
+    HistogramPair {
+      idx1: 0,
+      idx2: 0,
+      cost_combo: 0.0f64,
+      cost_diff: 0.0f64,
     }
+  }
 }
 /* Returns entropy reduction of the context map when we combine two clusters. */
 fn ClusterCostDiff(size_a: usize, size_b: usize) -> f64 {

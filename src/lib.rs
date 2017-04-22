@@ -386,6 +386,7 @@ impl<ErrType,
         } else if self.input_offset + 256 > self.input_buffer.slice_mut().len() {
             let (mut first, second) = self.input_buffer.slice_mut().split_at_mut(self.input_offset);
             let avail_in = self.input_len - self.input_offset;
+            self.input_len -= self.input_offset;
             first[0..avail_in].clone_from_slice(&second[0..avail_in]);
             self.input_offset = 0;
         }

@@ -10,15 +10,15 @@ pub struct Command {
   pub dist_prefix_: u16,
 }
 impl Default for Command {
-    fn default() -> Command {
-        Command {
-            insert_len_:0,
-            copy_len_:0,
-            dist_extra_:0,
-            cmd_prefix_:0,
-            dist_prefix_:0,
-        }
+  fn default() -> Command {
+    Command {
+      insert_len_: 0,
+      copy_len_: 0,
+      dist_extra_: 0,
+      cmd_prefix_: 0,
+      dist_prefix_: 0,
     }
+  }
 }
 pub fn CommandCopyLen(xself: &Command) -> u32 {
   (*xself).copy_len_ & 0xffffffi32 as (u32)
@@ -108,23 +108,26 @@ fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u1
   }
 }
 
-pub fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, mut code: &mut u16) {
+pub fn GetLengthCode(insertlen: usize,
+                     copylen: usize,
+                     use_last_distance: i32,
+                     mut code: &mut u16) {
   let inscode: u16 = GetInsertLengthCode(insertlen);
   let copycode: u16 = GetCopyLengthCode(copylen);
   *code = CombineLengthCodes(inscode, copycode, use_last_distance);
 }
 pub fn PrefixEncodeCopyDistance(distance_code: usize,
-                            num_direct_codes: usize,
-                            postfix_bits: u64,
-                            mut code: &mut u16,
-                            mut extra_bits: &mut u32) {
+                                num_direct_codes: usize,
+                                postfix_bits: u64,
+                                mut code: &mut u16,
+                                mut extra_bits: &mut u32) {
   if distance_code < (16usize).wrapping_add(num_direct_codes) {
     *code = distance_code as (u16);
     *extra_bits = 0u32;
   } else {
-    let dist: u64 =
-      (1u64 << (postfix_bits as u64).wrapping_add(2u32 as (u64)))
-        .wrapping_add((distance_code as u64).wrapping_sub(16).wrapping_sub(num_direct_codes as u64) as u64);
+    let dist: u64 = (1u64 << (postfix_bits as u64).wrapping_add(2u32 as (u64)))
+      .wrapping_add((distance_code as u64).wrapping_sub(16).wrapping_sub(num_direct_codes as u64) as
+                    u64);
     let bucket: u64 = Log2FloorNonZero(dist).wrapping_sub(1u32) as (u64);
     let postfix_mask: u64 = (1u32 << postfix_bits).wrapping_sub(1u32) as (u64);
     let postfix: u64 = dist & postfix_mask;
@@ -154,9 +157,9 @@ pub fn CommandRestoreDistanceCode(xself: &Command) -> u32 {
 }
 
 pub fn RecomputeDistancePrefixes(mut cmds: &mut [Command],
-                             num_commands: usize,
-                             num_direct_distance_codes: u32,
-                             distance_postfix_bits: u32) {
+                                 num_commands: usize,
+                                 num_direct_distance_codes: u32,
+                                 distance_postfix_bits: u32) {
   let mut i: usize;
   if num_direct_distance_codes == 0u32 && (distance_postfix_bits == 0u32) {
     return;

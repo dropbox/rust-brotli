@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 use super::command::{Command, ComputeDistanceCode, InitCommand};
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
-use super::static_dict::{BrotliDictionary};
 use super::dictionary_hash::kStaticDictionaryHash;
+use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
+use super::static_dict::BrotliDictionary;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{Log2FloorNonZero, brotli_max_size_t};
@@ -68,8 +68,8 @@ fn brotli_min_size_t(a: usize, b: usize) -> usize {
 }
 
 pub enum HowPrepared {
-    ALREADY_PREPARED,
-    NEWLY_PREPARED,
+  ALREADY_PREPARED,
+  NEWLY_PREPARED,
 }
 
 pub struct HasherSearchResult {
@@ -105,7 +105,7 @@ pub trait AnyHasher {
                       -> bool;
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
-  fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) -> HowPrepared;
+  fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared;
   fn StitchToPreviousBlock(&mut self,
                            num_bytes: usize,
                            position: usize,
@@ -113,25 +113,25 @@ pub trait AnyHasher {
                            ringbuffer_mask: usize);
 }
 
-pub fn StitchToPreviousBlockInternal<T:AnyHasher>(mut handle: &mut T,
-                                          num_bytes: usize,
-                                          position: usize,
-                                          ringbuffer: &[u8],
-                                          ringbuffer_mask: usize) {
-    if num_bytes >= handle.HashTypeLength().wrapping_sub(1) && (position >= 3) {
-        handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(3));
-        handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(2));
-        handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(1));
-    }
+pub fn StitchToPreviousBlockInternal<T: AnyHasher>(mut handle: &mut T,
+                                                   num_bytes: usize,
+                                                   position: usize,
+                                                   ringbuffer: &[u8],
+                                                   ringbuffer_mask: usize) {
+  if num_bytes >= handle.HashTypeLength().wrapping_sub(1) && (position >= 3) {
+    handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(3));
+    handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(2));
+    handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(1));
+  }
 }
 
-pub fn StoreLookaheadThenStore<T:AnyHasher>(mut hasher: &mut T, size: usize, dict:&[u8]) {
-    let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
-    let mut i :usize = 0;
-    while i.wrapping_add(overlap) < size {
-        hasher.Store(dict, !(0usize), i);
-        i = i.wrapping_add(1 as (usize));
-    }
+pub fn StoreLookaheadThenStore<T: AnyHasher>(mut hasher: &mut T, size: usize, dict: &[u8]) {
+  let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
+  let mut i: usize = 0;
+  while i.wrapping_add(overlap) < size {
+    hasher.Store(dict, !(0usize), i);
+    i = i.wrapping_add(1 as (usize));
+  }
 }
 
 pub trait BasicHashComputer {
@@ -144,7 +144,7 @@ pub struct BasicHasher<Buckets: SliceWrapperMut<u32> + SliceWrapper<u32> + Basic
   pub GetHasherCommon: Struct1,
   pub buckets_: Buckets,
 }
-pub struct H2Sub<AllocU32:alloc::Allocator<u32>> {
+pub struct H2Sub<AllocU32: alloc::Allocator<u32>> {
   pub buckets_: AllocU32::AllocatedMemory, // 65537
 }
 impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher for BasicHasher<T> {
@@ -160,12 +160,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                            num_bytes: usize,
                            position: usize,
                            ringbuffer: &[u8],
-                           ringbuffer_mask: usize){
-      StitchToPreviousBlockInternal(self,
-                                    num_bytes,
-                                    position,
-                                    ringbuffer,
-                                    ringbuffer_mask);
+                           ringbuffer_mask: usize) {
+    StitchToPreviousBlockInternal(self, num_bytes, position, ringbuffer, ringbuffer_mask);
   }
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
     return &mut self.GetHasherCommon;
@@ -188,26 +184,26 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
       i = i.wrapping_add(1 as (usize));
     }
   }
-  fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) -> HowPrepared {
-      if self.GetHasherCommon.is_prepared_ != 0 {
-          return HowPrepared::ALREADY_PREPARED;
-      }
-      let partial_prepare_threshold = (4 << self.buckets_.BUCKET_BITS()) >> 7;
-      if one_shot && input_size <= partial_prepare_threshold {
-        for i in 0..input_size {
-            let key = self.HashBytes(&data[i..]) as usize;
-            let bs = self.buckets_.BUCKET_SWEEP() as usize;
-            for item in self.buckets_.slice_mut()[key..(key + bs)].iter_mut() {
-                *item = 0;
-            }
-        }
-      } else {
-        for item in self.buckets_.slice_mut().iter_mut() {
-          *item =0;
+  fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
+    if self.GetHasherCommon.is_prepared_ != 0 {
+      return HowPrepared::ALREADY_PREPARED;
+    }
+    let partial_prepare_threshold = (4 << self.buckets_.BUCKET_BITS()) >> 7;
+    if one_shot && input_size <= partial_prepare_threshold {
+      for i in 0..input_size {
+        let key = self.HashBytes(&data[i..]) as usize;
+        let bs = self.buckets_.BUCKET_SWEEP() as usize;
+        for item in self.buckets_.slice_mut()[key..(key + bs)].iter_mut() {
+          *item = 0;
         }
       }
-      self.GetHasherCommon.is_prepared_ = 1;
-      HowPrepared::NEWLY_PREPARED
+    } else {
+      for item in self.buckets_.slice_mut().iter_mut() {
+        *item = 0;
+      }
+    }
+    self.GetHasherCommon.is_prepared_ = 1;
+    HowPrepared::NEWLY_PREPARED
   }
 
   fn FindLongestMatch(&mut self,
@@ -341,7 +337,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
 
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H2Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H2Sub<AllocU32> {
   fn HashBytes(&self, data: &[u8]) -> u32 {
     let h: u64 = (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
     (h >> 64i32 - 16i32) as (u32)
@@ -356,30 +352,30 @@ impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H2Sub<AllocU32> {
     1
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H2Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapperMut<u32> for H2Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
     return self.buckets_.slice_mut();
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H2Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapper<u32> for H2Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
     return self.buckets_.slice();
   }
 }
-pub struct H3Sub<AllocU32:alloc::Allocator<u32>> {
+pub struct H3Sub<AllocU32: alloc::Allocator<u32>> {
   pub buckets_: AllocU32::AllocatedMemory, // 65538
 }
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H3Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapperMut<u32> for H3Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
     return self.buckets_.slice_mut();
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H3Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapper<u32> for H3Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
     return self.buckets_.slice();
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H3Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H3Sub<AllocU32> {
   fn BUCKET_BITS(&self) -> i32 {
     16
   }
@@ -394,10 +390,10 @@ impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H3Sub<AllocU32> {
     (h >> 64i32 - 16i32) as (u32)
   }
 }
-pub struct H4Sub<AllocU32:alloc::Allocator<u32>> {
+pub struct H4Sub<AllocU32: alloc::Allocator<u32>> {
   pub buckets_: AllocU32::AllocatedMemory, // 131076
 }
-impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H4Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H4Sub<AllocU32> {
   fn BUCKET_BITS(&self) -> i32 {
     17
   }
@@ -412,20 +408,20 @@ impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H4Sub<AllocU32> {
     (h >> 64i32 - 17i32) as (u32)
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H4Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapperMut<u32> for H4Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
     return self.buckets_.slice_mut();
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H4Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapper<u32> for H4Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
     return self.buckets_.slice();
   }
 }
-pub struct H54Sub<AllocU32:alloc::Allocator<u32>> {
+pub struct H54Sub<AllocU32: alloc::Allocator<u32>> {
   pub buckets_: AllocU32::AllocatedMemory,
 }
-impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H54Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H54Sub<AllocU32> {
   fn BUCKET_BITS(&self) -> i32 {
     20
   }
@@ -441,12 +437,12 @@ impl<AllocU32:alloc::Allocator<u32>> BasicHashComputer for H54Sub<AllocU32> {
   }
 }
 
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapperMut<u32> for H54Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapperMut<u32> for H54Sub<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
     return self.buckets_.slice_mut();
   }
 }
-impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H54Sub<AllocU32> {
+impl<AllocU32: alloc::Allocator<u32>> SliceWrapper<u32> for H54Sub<AllocU32> {
   fn slice(&self) -> &[u32] {
     return self.buckets_.slice();
   }
@@ -454,7 +450,7 @@ impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for H54Sub<AllocU32> {
 pub trait AdvHashSpecialization {
   fn get_hash_mask(&self) -> u64;
   fn set_hash_mask(&mut self, params_hash_len: i32);
-  fn get_k_hash_mul(&self) -> u64;  
+  fn get_k_hash_mul(&self) -> u64;
   fn HashTypeLength(&self) -> usize;
   fn StoreLookahead(&self) -> usize;
   fn load_and_mix_word(&self, data: &[u8]) -> u64;
@@ -480,7 +476,7 @@ impl AdvHashSpecialization for H5Sub {
     return 0xffffffffu64; // make it 32 bit
   }
   fn get_k_hash_mul(&self) -> u64 {
-      return kHashMul32 as u64;
+    return kHashMul32 as u64;
   }
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
     return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
@@ -507,11 +503,11 @@ impl AdvHashSpecialization for H6Sub {
     self.hash_mask = !(0u32 as (u64)) >> 64i32 - 8i32 * params_hash_len;
   }
   fn get_k_hash_mul(&self) -> u64 {
-      kHashMul64Long
+    kHashMul64Long
   }
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-      return (BROTLI_UNALIGNED_LOAD64(data)
-              & self.get_hash_mask()).wrapping_mul(self.get_k_hash_mul());
+    return (BROTLI_UNALIGNED_LOAD64(data) & self.get_hash_mask())
+             .wrapping_mul(self.get_k_hash_mul());
   }
   fn HashTypeLength(&self) -> usize {
     8
@@ -842,7 +838,8 @@ fn BackwardReferenceScore(copy_length: usize, backward_reference_offset: usize) 
   ((30i32 * 8i32) as (usize))
     .wrapping_mul(::core::mem::size_of::<usize>())
     .wrapping_add((135usize).wrapping_mul(copy_length))
-    .wrapping_sub((30u32).wrapping_mul(Log2FloorNonZero(backward_reference_offset as u64)) as (usize))
+    .wrapping_sub((30u32).wrapping_mul(Log2FloorNonZero(backward_reference_offset as u64)) as
+                  (usize))
 }
 
 fn Hash14(data: &[u8]) -> u32 {
@@ -929,15 +926,14 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
   is_match_found
 }
 
-pub enum UnionHasher<AllocU16: alloc::Allocator<u16>,
-                 AllocU32: alloc::Allocator<u32>> {
-    Uninit,
-    H2(BasicHasher<H2Sub<AllocU32>>),
-    H3(BasicHasher<H3Sub<AllocU32>>),
-    H4(BasicHasher<H4Sub<AllocU32>>),
-    H54(BasicHasher<H54Sub<AllocU32>>),
-    H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
-    H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
+pub enum UnionHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> {
+  Uninit,
+  H2(BasicHasher<H2Sub<AllocU32>>),
+  H3(BasicHasher<H3Sub<AllocU32>>),
+  H4(BasicHasher<H4Sub<AllocU32>>),
+  H54(BasicHasher<H54Sub<AllocU32>>),
+  H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
+  H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
 }
 macro_rules! match_all_hashers_mut {
     ($xself : expr, $func_call : ident, $( $args:expr),*) => {
@@ -965,36 +961,37 @@ macro_rules! match_all_hashers {
         }
     };
 }
-impl<AllocU16: alloc::Allocator<u16>,
-      AllocU32: alloc::Allocator<u32>> AnyHasher for UnionHasher<AllocU16, AllocU32> {
+impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
+  for UnionHasher<AllocU16, AllocU32> {
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
-     return match_all_hashers_mut!(self, GetHasherCommon,);
+    return match_all_hashers_mut!(self, GetHasherCommon,);
   }
-  fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) -> HowPrepared {
-      return match_all_hashers_mut!(self, Prepare, one_shot, input_size, data);
+  fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
+    return match_all_hashers_mut!(self, Prepare, one_shot, input_size, data);
   }
   fn HashBytes(&self, data: &[u8]) -> usize {
-     return match_all_hashers!(self, HashBytes, data);
+    return match_all_hashers!(self, HashBytes, data);
   }
-  fn HashTypeLength(&self) -> usize{
-     return match_all_hashers!(self, HashTypeLength,);
+  fn HashTypeLength(&self) -> usize {
+    return match_all_hashers!(self, HashTypeLength,);
   }
-  fn StoreLookahead(&self) -> usize{
-     return match_all_hashers!(self, StoreLookahead,);
+  fn StoreLookahead(&self) -> usize {
+    return match_all_hashers!(self, StoreLookahead,);
   }
-  fn PrepareDistanceCache(&self, distance_cache: &mut [i32]){
-     return match_all_hashers!(self, PrepareDistanceCache, distance_cache);
+  fn PrepareDistanceCache(&self, distance_cache: &mut [i32]) {
+    return match_all_hashers!(self, PrepareDistanceCache, distance_cache);
   }
   fn StitchToPreviousBlock(&mut self,
                            num_bytes: usize,
                            position: usize,
                            ringbuffer: &[u8],
                            ringbuffer_mask: usize) {
-    return match_all_hashers_mut!(self, StitchToPreviousBlock,
-                              num_bytes,
-                              position,
-                              ringbuffer,
-                              ringbuffer_mask);
+    return match_all_hashers_mut!(self,
+                                  StitchToPreviousBlock,
+                                  num_bytes,
+                                  position,
+                                  ringbuffer,
+                                  ringbuffer_mask);
   }
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
@@ -1006,21 +1003,31 @@ impl<AllocU16: alloc::Allocator<u16>,
                       max_length: usize,
                       max_backward: usize,
                       out: &mut HasherSearchResult)
-                      -> bool{
-     return match_all_hashers_mut!(self, FindLongestMatch, dictionary, dictionary_hash, data, ring_buffer_mask, distance_cache, cur_ix, max_length, max_backward, out);
+                      -> bool {
+    return match_all_hashers_mut!(self,
+                                  FindLongestMatch,
+                                  dictionary,
+                                  dictionary_hash,
+                                  data,
+                                  ring_buffer_mask,
+                                  distance_cache,
+                                  cur_ix,
+                                  max_length,
+                                  max_backward,
+                                  out);
   }
-  fn Store(&mut self, data: &[u8], mask: usize, ix: usize){
-     return match_all_hashers_mut!(self, Store, data, mask, ix);
+  fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
+    return match_all_hashers_mut!(self, Store, data, mask, ix);
   }
-  fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize){
-     return match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end);
+  fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+    return match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end);
   }
 }
-impl<AllocU16: alloc::Allocator<u16>,
-                 AllocU32: alloc::Allocator<u32>> Default for UnionHasher<AllocU16, AllocU32> {
-                 fn default() -> Self {
+impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> Default
+  for UnionHasher<AllocU16, AllocU32> {
+  fn default() -> Self {
     UnionHasher::Uninit
-}
+  }
 }
 
 /*UnionHasher::H2(BasicHasher {
@@ -1219,85 +1226,116 @@ macro_rules! call_brotli_create_backward_references {
     };
 }
 pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
-                                      AllocU32: alloc::Allocator<u32>>(dictionary: &BrotliDictionary,
-                                           num_bytes: usize,
-                                           position: usize,
-                                           ringbuffer: &[u8],
-                                           ringbuffer_mask: usize,
-                                           params: &BrotliEncoderParams,
-                                           mut hasher_union: &mut UnionHasher<AllocU16, AllocU32>,
-                                           mut dist_cache: &mut [i32],
-                                           mut last_insert_len: &mut usize,
-                                           mut commands: &mut [Command],
-                                           mut num_commands: &mut usize,
-                                                                       mut num_literals: &mut usize) {
-    match(hasher_union) {
-        &mut UnionHasher::Uninit => panic!("working with uninitialized hash map"),
-        &mut UnionHasher::H2(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
-                                 ringbuffer, ringbuffer_mask,
-                                 params,
-                                 hasher,
-                                 dist_cache,
-                                 last_insert_len,
-                                 commands,
-                                 num_commands,
-                                 num_literals),
-//     call_brotli_create_backward_references!(),
-        &mut UnionHasher::H3(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
-                                 ringbuffer, ringbuffer_mask,
-                                 params,
-                                 hasher,
-                                 dist_cache,
-                                 last_insert_len,
-                                 commands,
-                                 num_commands,
-                                 num_literals),
-//            call_brotli_create_backward_references!(),
-        &mut UnionHasher::H4(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
-                                 ringbuffer, ringbuffer_mask,
-                                 params,
-                                 hasher,
-                                 dist_cache,
-                                 last_insert_len,
-                                 commands,
-                                 num_commands,
-                                 num_literals),
-//            call_brotli_create_backward_references!(),
-        &mut UnionHasher::H5(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
-                                 ringbuffer, ringbuffer_mask,
-                                 params,
-                                 hasher,
-                                 dist_cache,
-                                 last_insert_len,
-                                 commands,
-                                 num_commands,
-                                 num_literals),
-//            call_brotli_create_backward_references!(),
-        &mut UnionHasher::H6(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
-                                 ringbuffer, ringbuffer_mask,
-                                 params,
-                                 hasher,
-                                 dist_cache,
-                                 last_insert_len,
-                                 commands,
-                                 num_commands,
-                                 num_literals),
-//            call_brotli_create_backward_references!(),
-        &mut UnionHasher::H54(ref mut hasher) =>
-        CreateBackwardReferences(dictionary, &kStaticDictionaryHash[..], num_bytes, position,
-                                 ringbuffer, ringbuffer_mask,
-                                 params,
-                                 hasher,
-                                 dist_cache,
-                                 last_insert_len,
-                                 commands,
-                                 num_commands,
-                                 num_literals),
-//            call_brotli_create_backward_references!(),
+                                      AllocU32: alloc::Allocator<u32>>
+  (dictionary: &BrotliDictionary,
+   num_bytes: usize,
+   position: usize,
+   ringbuffer: &[u8],
+   ringbuffer_mask: usize,
+   params: &BrotliEncoderParams,
+   mut hasher_union: &mut UnionHasher<AllocU16, AllocU32>,
+   mut dist_cache: &mut [i32],
+   mut last_insert_len: &mut usize,
+   mut commands: &mut [Command],
+   mut num_commands: &mut usize,
+   mut num_literals: &mut usize) {
+  match (hasher_union) {
+    &mut UnionHasher::Uninit => panic!("working with uninitialized hash map"),
+    &mut UnionHasher::H2(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
     }
+    //     call_brotli_create_backward_references!(),
+    &mut UnionHasher::H3(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    //            call_brotli_create_backward_references!(),
+    &mut UnionHasher::H4(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    //            call_brotli_create_backward_references!(),
+    &mut UnionHasher::H5(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    //            call_brotli_create_backward_references!(),
+    &mut UnionHasher::H6(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    //            call_brotli_create_backward_references!(),
+    &mut UnionHasher::H54(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    //            call_brotli_create_backward_references!(),
+  }
 }
