@@ -275,28 +275,110 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 }
 
 fn main() {
+  let mut q : u32 = 9;
+  let mut lgwin : u32 = 22;
+  let mut compress = false;
   if env::args_os().len() > 1 {
     let mut first = true;
+    let mut found_file = false;  
     for argument in env::args() {
       if first {
         first = false;
+        continue;
+      }
+      if argument == "-d" {
+        continue
+      }
+      if argument == "-0" {
+        q=0;
+        lgwin = 10;
+        continue
+      }
+      if argument == "-1" {
+        q=1;
+        lgwin = 10;
+        continue
+      }
+      if argument == "-2" {
+        q=2;
+        lgwin = 12;
+        continue
+      }
+      if argument == "-3" {
+        q=3;
+        lgwin = 14;
+        continue
+      }
+      if argument == "-4" {
+        q=4;
+        lgwin = 16;
+        continue
+      }
+      if argument == "-5" {
+        q=5;
+        lgwin = 18;
+        continue
+      }
+      if argument == "-6" {
+        q=6;
+        lgwin = 19;
+        continue
+      }
+      if argument == "-7" {
+        q=7;
+        lgwin = 20;
+        continue
+      }
+      if argument == "-8" {
+        q=8;
+        lgwin = 21;
+        continue
+      }
+      if argument == "-9" {
+        q=9;
+        lgwin = 22;
+        continue;
+      }
+      if argument == "-c" {
+        compress = true;
         continue;
       }
       let mut input = match File::open(&Path::new(&argument)) {
         Err(why) => panic!("couldn't open {}: {:?}", argument, why),
         Ok(file) => file,
       };
+      found_file = true;
       let oa = argument + ".original";
       let mut output = match File::create(&Path::new(&oa)) {
         Err(why) => panic!("couldn't open file for writing: {:} {:?}", oa, why),
         Ok(file) => file,
       };
-      match decompress(&mut input, &mut output, 65536) {
-        Ok(_) => {}
-        Err(e) => panic!("Error {:?}", e),
+      if compress {
+        match brotli::BrotliCompress(&mut input, &mut output, q, lgwin) {
+          Ok(_) => {}
+          Err(e) => panic!("Error {:?}", e),
+        }            
+      } else {
+        match decompress(&mut input, &mut output, 65536) {
+          Ok(_) => {}
+          Err(e) => panic!("Error {:?}", e),
+        }
       }
       drop(output);
       drop(input);
+    }
+    if !found_file {
+      if compress {
+        match brotli::BrotliCompress(&mut io::stdin(), &mut io::stdout(), q, lgwin) {
+          Ok(_) => return,
+          Err(e) => panic!("Error {:?}", e),
+        }
+      } else {
+        match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
+          Ok(_) => return,
+          Err(e) => panic!("Error {:?}", e),
+        }
+      }
     }
   } else {
     match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {

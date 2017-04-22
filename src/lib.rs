@@ -54,7 +54,13 @@ pub use io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
 pub use decode::{BrotliDecompressStream, BrotliResult};
 
+#[cfg(not(feature="no-stdlib"))]
+pub use enc::{BrotliCompress};
+pub use enc::{BrotliCompressCustomAlloc, BrotliCompressCustomIo};
 
+#[cfg(not(feature="no-stdlib"))]
+pub use enc::reader::{CompressorReader};
+pub use enc::reader::{CompressorReaderCustomIo};
 
 
 #[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
