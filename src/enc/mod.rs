@@ -93,7 +93,9 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
 
 #[cfg(all(feature="unsafe",not(feature="no-stdlib")))]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
-                                               w: &mut OutputType)
+                                             w: &mut OutputType,
+                                             quality:u32,
+                                             lgwin:u32)
                                                -> Result<usize, io::Error>
   where InputType: Read,
         OutputType: Write

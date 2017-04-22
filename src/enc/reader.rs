@@ -178,7 +178,7 @@ impl<R: Read> CompressorReader<R> {
 
 #[cfg(all(feature="unsafe", not(feature="no-stdlib")))]
 pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
-                                     <alloc::HeapAlloc<u8>
+                                     <HeapAllocUninitialized<u8>
                                       as Allocator<u8>>::AllocatedMemory,
                                      HeapAllocUninitialized<u8>,
                                      HeapAllocUninitialized<u16>,
@@ -196,7 +196,7 @@ pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
 
 #[cfg(all(feature="unsafe", not(feature="no-stdlib")))]
 impl<R: Read> CompressorReader<R> {
-  pub fn new(r: R, buffer_size: usize) -> Self {
+  pub fn new(r: R, buffer_size: usize, q: u32, lgwin:u32) -> Self {
     let mut alloc_u8 = unsafe { HeapAllocUninitialized::<u8>::new() };
     let buffer = alloc_u8.alloc_cell(buffer_size);
     let alloc_u16 = unsafe { HeapAllocUninitialized::<u16>::new() };
@@ -224,7 +224,9 @@ impl<R: Read> CompressorReader<R> {
                                                            alloc_hd,
                                                            alloc_hp,
                                                            alloc_ct,
-                                                           alloc_ht))
+                                                           alloc_ht,
+                                                           q,
+                                                           lgwin))
   }
 }
 
