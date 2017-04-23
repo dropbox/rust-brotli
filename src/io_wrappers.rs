@@ -4,6 +4,7 @@ use std::io::{self, ErrorKind, Read, Write};
 /// this trait does not allow for transient errors: they must be retried in the underlying layer
 pub trait CustomWrite<ErrType> {
   fn write(self: &mut Self, data: &[u8]) -> Result<usize, ErrType>;
+  fn flush(self: &mut Self) -> Result<(), ErrType>;
 }
 /// this trait does not allow for transient errors: they must be retried in the underlying layer
 pub trait CustomRead<ErrType> {
@@ -31,6 +32,9 @@ pub fn write_all<ErrType, OutputType>(w: &mut OutputType, buf: &[u8]) -> Result<
 #[cfg(not(feature="no-stdlib"))]
 pub struct IntoIoReader<InputType: Read>(pub InputType);
 
+#[cfg(not(feature="no-stdlib"))]
+pub struct IntoIoWriter<InputType: Write>(pub InputType);
+
 
 #[cfg(not(feature="no-stdlib"))]
 pub struct IoWriterWrapper<'a, OutputType: Write + 'a>(pub &'a mut OutputType);
@@ -51,6 +55,19 @@ impl<'a, OutputType: Write> CustomWrite<io::Error> for IoWriterWrapper<'a, Outpu
           }
         }
         Ok(cur_written) => return Ok(cur_written),
+      }
+    }
+  }
+  fn flush(self: &mut Self) -> Result<(), io::Error> {
+    loop {
+      match self.0.flush() {
+        Err(e) => {
+          match e.kind() {
+            ErrorKind::Interrupted => continue,
+            _ => return Err(e),
+          }
+        }
+        Ok(_) => return Ok(()),
       }
     }
   }
@@ -86,6 +103,36 @@ impl<InputType: Read> CustomRead<io::Error> for IntoIoReader<InputType> {
           }
         }
         Ok(cur_read) => return Ok(cur_read),
+      }
+    }
+  }
+}
+
+#[cfg(not(feature="no-stdlib"))]
+impl<InputType: Write> CustomWrite<io::Error> for IntoIoWriter<InputType> {
+  fn flush(self: &mut Self) -> Result<(), io::Error> {
+    loop {
+      match self.0.flush() {
+        Err(e) => {
+          match e.kind() {
+            ErrorKind::Interrupted => continue,
+            _ => return Err(e),
+          }
+        }
+        Ok(_) => return Ok(()),
+      }
+    }     
+  }
+  fn write(self: &mut Self, buf: &[u8]) -> Result<usize, io::Error> {
+    loop {
+      match self.0.write(buf) {
+        Err(e) => {
+          match e.kind() {
+            ErrorKind::Interrupted => continue,
+            _ => return Err(e),
+          }
+        }
+        Ok(cur_written) => return Ok(cur_written),
       }
     }
   }

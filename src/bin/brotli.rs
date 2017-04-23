@@ -104,6 +104,19 @@ struct IoWriterWrapper<'a, OutputType: Write + 'a>(&'a mut OutputType);
 struct IoReaderWrapper<'a, OutputType: Read + 'a>(&'a mut OutputType);
 
 impl<'a, OutputType: Write> brotli::CustomWrite<io::Error> for IoWriterWrapper<'a, OutputType> {
+  fn flush(self: &mut Self) -> Result<(), io::Error> {
+    loop {
+      match self.0.flush() {
+        Err(e) => {
+          match e.kind() {
+            ErrorKind::Interrupted => continue,
+            _ => return Err(e),
+          }
+        }
+        Ok(_) => return Ok(()),
+      }
+    }
+  }
   fn write(self: &mut Self, buf: &[u8]) -> Result<usize, io::Error> {
     loop {
       match self.0.write(buf) {

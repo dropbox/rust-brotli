@@ -4,7 +4,6 @@ use super::HeapAllocator;
 #[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
 #[cfg(not(feature="no-stdlib"))]
-use super::brotli::BrotliCompress;
 use super::brotli::BrotliDecompressStream;
 use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
@@ -15,10 +14,12 @@ use super::brotli::Decompressor;
 use super::brotli::HuffmanCode;
 use core::cmp;
 use std::io;
+#[cfg(not(feature="no-stdlib"))]
 use std::io::Read;
 use std::time::Duration;
 #[cfg(not(feature="disable-timer"))]
 use std::time::SystemTime;
+use brotli::BrotliDecompressStream;
 
 struct Buffer {
   data: Vec<u8>,

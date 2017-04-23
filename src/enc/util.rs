@@ -283,7 +283,7 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9943534368588578f32];
 
 #[cfg(not(feature="no-stdlib"))]
-pub fn FastLog2(mut v: u64) -> f64 {
+pub fn FastLog2(v: u64) -> f64 {
   if v < kLog2Table.len() as u64 {
     return kLog2Table[v as usize] as (f64);
   }

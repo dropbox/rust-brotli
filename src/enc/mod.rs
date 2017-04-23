@@ -20,6 +20,7 @@ pub mod compress_fragment_two_pass;
 pub mod compress_fragment;
 pub mod encode;
 pub mod reader;
+pub mod writer;
 mod test;
 
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
