@@ -1,4 +1,7 @@
 #![allow(dead_code)]
+
+
+
 pub fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
   if a > b { a } else { b }
 }
@@ -278,6 +281,15 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9829935746943104f32,
                                  7.9886846867721664f32,
                                  7.9943534368588578f32];
+
+#[cfg(not(feature="no-stdlib"))]
+pub fn FastLog2(mut v: u64) -> f64 {
+  if v < kLog2Table.len() as u64 {
+    return kLog2Table[v as usize] as (f64);
+  }
+  return (v as f64).log2();
+}
+#[cfg(feature="no-stdlib")]
 pub fn FastLog2(mut v: u64) -> f64 {
   if v < kLog2Table.len() as u64 {
     kLog2Table[v as usize] as (f64)
