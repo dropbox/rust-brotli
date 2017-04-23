@@ -3,8 +3,6 @@ extern crate core;
 use super::HeapAllocator;
 #[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
-#[cfg(not(feature="no-stdlib"))]
-use super::brotli::BrotliDecompressStream;
 use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
 #[cfg(not(feature="no-stdlib"))]
@@ -313,10 +311,12 @@ fn test_roundtrip_as_you_lik() {
 
 #[cfg(not(feature="no-stdlib"))]
 fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
+  let original_buf = in_buf;
+  let mut cmp = [0u8; 259];
   let mut input = UnlimitedBuffer::new(&in_buf);
+  {
   let renc = CompressorReader::new(&mut input, 255, q, lgwin);
   let mut rdec = Decompressor::new(renc, 257);
-  let mut cmp = [0u8; 259];
   loop {
     match rdec.read(&mut cmp[..]) {
       Ok(size) => {
@@ -329,8 +329,24 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
       Err(e) => panic!("Error {:?}", e),
     }
   }
-
-  assert_eq!(in_buf.len(), 0);
+  }
+  in_buf = original_buf;
+  input = UnlimitedBuffer::new(&in_buf);
+  let mut r2enc = CompressorReader::new(&mut input, 255, q, lgwin);
+  let mut compressed_size = 0usize;
+  loop {
+    match r2enc.read(&mut cmp[..]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        compressed_size += size;
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  let pct_ratio = 90usize;
+  assert!(compressed_size < original_buf.len() * pct_ratio / 100);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
@@ -344,8 +360,8 @@ fn test_reader_quickfox_repeated() {
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
-fn test_reader_x() {
-  reader_helper(include_bytes!("testdata/x"), 9, 20);
+fn test_reader_random_then_unicode() {
+  reader_helper(include_bytes!("testdata/random_then_unicode"), 9, 20);
 }
 
 #[cfg(not(feature="no-stdlib"))]
