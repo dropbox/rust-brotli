@@ -6,14 +6,14 @@ use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
 #[cfg(not(feature="no-stdlib"))]
-use super::brotli::CompressorReader;
+use super::brotli::{CompressorReader, CompressorWriter};
 #[cfg(not(feature="no-stdlib"))]
-use super::brotli::Decompressor;
+use super::brotli::{Decompressor, DecompressorWriter};
 use super::brotli::HuffmanCode;
 use core::cmp;
 use std::io;
 #[cfg(not(feature="no-stdlib"))]
-use std::io::Read;
+use std::io::{Read, Write};
 use std::time::Duration;
 #[cfg(not(feature="disable-timer"))]
 use std::time::SystemTime;
@@ -370,6 +370,77 @@ fn test_reader_alice() {
   reader_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
 }
 
+#[cfg(not(feature="no-stdlib"))]
+fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32) {
+  let original_buf = in_buf;
+  let mut cmp = [0u8; 259];
+  let mut output = UnlimitedBuffer::new(&[]);
+  {
+  {let mut wdec = DecompressorWriter::new(&mut output, 257);
+  {let mut wenc = CompressorWriter::new(wdec, 255, q, lgwin);
+  while in_buf.len() > 0 {
+    match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  }
+  }
+  assert_eq!(output.data.len(), original_buf.len());
+  for i in 0..cmp::min(original_buf.len(), output.data.len()) {
+    assert_eq!(output.data[i], original_buf[i]);
+  }
+  in_buf = original_buf;
+  let mut compressed = UnlimitedBuffer::new(&[]);
+  {
+  let mut wenc = CompressorWriter::new(&mut compressed, 255, q, lgwin);
+  while in_buf.len() > 0 {
+    match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  }
+  let pct_ratio = 90usize;
+  assert!(compressed.data.len() < original_buf.len() * pct_ratio / 100);
+  }
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_as_you_lik() {
+  writer_helper(include_bytes!("testdata/asyoulik.txt"), 17, 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_64x() {
+  writer_helper(include_bytes!("testdata/64x"), 17, 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_quickfox_repeated() {
+  writer_helper(include_bytes!("testdata/quickfox_repeated"), 251, 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_random_then_unicode() {
+  writer_helper(include_bytes!("testdata/random_then_unicode"), 277, 9, 20);
+}
+
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_alice() {
+  writer_helper(include_bytes!("testdata/alice29.txt"), 299, 9, 22);
+}
 
 
 #[test]

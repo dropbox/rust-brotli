@@ -456,6 +456,8 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
               Ok(_) => {},
               Err(e) => return Err(e),
              }
+             output_offset = 0;
+             avail_out = self.output_buffer.slice_mut().len();
            }
            if ret <= 0 {
               return Err(self.error_if_invalid_data.take().unwrap());

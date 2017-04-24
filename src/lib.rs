@@ -76,6 +76,11 @@ pub use enc::reader::{CompressorReader};
 pub use enc::reader::{CompressorReaderCustomIo};
 
 
+#[cfg(not(feature="no-stdlib"))]
+pub use enc::writer::{CompressorWriter};
+pub use enc::writer::{CompressorWriterCustomIo};
+
+
 #[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
 pub fn BrotliDecompress<InputType, OutputType>(r: &mut InputType,
                                                w: &mut OutputType)
