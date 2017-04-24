@@ -93,7 +93,7 @@ macro_rules! fast {
        unsafe{::core::slice::from_raw_parts(($slice).as_ptr().offset($start as isize),
                                                                      $slice.len() - $start)};
    );
-   (($slice : expr)[; $end]) => (
+   (($slice : expr)[; $end: expr]) => (
        unsafe{::core::slice::from_raw_parts(($slice).as_ptr(), $slice.len())};
    );
 }
@@ -143,7 +143,7 @@ macro_rules! fast_mut {
        unsafe{::core::slice::from_raw_parts_mut(($slice).as_mut_ptr().offset($start as isize),
                                                 $slice.len() - $start)};
    );
-   (($slice : expr)[; $end]) => (
+   (($slice : expr)[; $end : expr]) => (
        unsafe{::core::slice::from_raw_parts_mut(($slice).as_mut_ptr(), $slice.len())};
    );
 }
