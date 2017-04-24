@@ -226,11 +226,11 @@ impl<ErrType,
                                                                                      AllocU32,
                                                                                      AllocHC> {
 	fn write(&mut self, buf: &[u8]) -> Result<usize, ErrType > {
-        let mut output_offset : usize = 0;
-        let mut avail_out = self.output_buffer.slice_mut().len();
         let mut avail_in = buf.len();
         let mut input_offset : usize = 0;
         loop {
+            let mut output_offset = 0;
+            let mut avail_out = self.output_buffer.slice_mut().len();
             let op_result = BrotliDecompressStream(&mut avail_in,
                                      &mut input_offset,
                                      &buf[..],
@@ -243,9 +243,6 @@ impl<ErrType,
           Ok(_) => {},
           Err(e) => return Err(e),
          }
-         output_offset = 0;
-         avail_out = self.output_buffer.slice_mut().len();
-
          match op_result {
           BrotliResult::NeedsMoreInput => assert_eq!(avail_in, 0),
           BrotliResult::NeedsMoreOutput => continue,

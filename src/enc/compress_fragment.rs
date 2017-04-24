@@ -656,6 +656,7 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                          storage_ix,
                          storage);
 }
+#[allow(unused_assignments)]
 fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
                                   input_ptr: &[u8],
                                   mut input_size: usize,

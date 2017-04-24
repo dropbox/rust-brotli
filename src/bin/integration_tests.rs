@@ -373,10 +373,9 @@ fn test_reader_alice() {
 #[cfg(not(feature="no-stdlib"))]
 fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32) {
   let original_buf = in_buf;
-  let mut cmp = [0u8; 259];
   let mut output = UnlimitedBuffer::new(&[]);
   {
-  {let mut wdec = DecompressorWriter::new(&mut output, 257);
+  {let wdec = DecompressorWriter::new(&mut output, 257);
   {let mut wenc = CompressorWriter::new(wdec, 255, q, lgwin);
   while in_buf.len() > 0 {
     match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {

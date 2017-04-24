@@ -159,6 +159,7 @@ fn IsMatch(p1: &[u8], p2: &[u8]) -> i32 {
   }
 }
 
+#[allow(unused_assignments)]
 fn CreateCommands(input_index: usize,
                   block_size: usize,
                   input_size: usize,

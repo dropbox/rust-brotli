@@ -427,13 +427,11 @@ impl<ErrType,
 CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
                          AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
 	fn write(&mut self, buf: & [u8]) -> Result<usize, ErrType > {
-        let mut output_offset : usize = 0;
-        let mut avail_out = self.output_buffer.slice_mut().len() - output_offset;
         let mut avail_in = buf.len();
         let mut input_offset : usize = 0;
-        while avail_in != 0 || avail_out == 0 {
-            avail_out = self.output_buffer.slice_mut().len();
-            output_offset = 0;
+        while avail_in != 0 {
+            let mut output_offset = 0;
+            let mut avail_out = self.output_buffer.slice_mut().len();
             let ret = BrotliEncoderCompressStream(
                 &mut self.state,
                 &mut self.alloc_f64,
@@ -456,8 +454,6 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
               Ok(_) => {},
               Err(e) => return Err(e),
              }
-             output_offset = 0;
-             avail_out = self.output_buffer.slice_mut().len();
            }
            if ret <= 0 {
               return Err(self.error_if_invalid_data.take().unwrap());
