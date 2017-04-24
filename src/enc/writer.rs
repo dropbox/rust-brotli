@@ -198,7 +198,7 @@ pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
 
 
 #[cfg(all(feature="unsafe", not(feature="no-stdlib")))]
-impl<R: Write> CompressorWriter<W> {
+impl<W: Write> CompressorWriter<W> {
   pub fn new(w: W, buffer_size: usize, q: u32, lgwin:u32) -> Self {
     let mut alloc_u8 = unsafe { HeapAllocUninitialized::<u8>::new() };
     let buffer = alloc_u8.alloc_cell(buffer_size);
