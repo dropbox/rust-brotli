@@ -1,6 +1,7 @@
 #![cfg(test)]
 use core;
 extern crate alloc_no_stdlib;
+extern crate brotli_decompressor;
 use super::cluster::HistogramPair;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderSetParameter,
                     BrotliEncoderDestroyInstance, BrotliEncoderIsFinished,
@@ -18,7 +19,8 @@ extern "C" {
 
 use super::command::Command;
 use super::entropy_encode::HuffmanTree;
-pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState, HuffmanCode};
+pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState};
+use brotli_decompressor::HuffmanCode;
 use core::ops;
 
 declare_stack_allocator_struct!(MemPool, 4096, stack);

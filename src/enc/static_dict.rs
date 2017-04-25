@@ -22,14 +22,14 @@ pub struct BrotliDictionary {
   pub data: &'static [u8; 122784],
 }
 
-pub const kBrotliEncDictionary: BrotliDictionary = BrotliDictionary {
+pub static kBrotliEncDictionary: BrotliDictionary = BrotliDictionary {
   size_bits_by_length: &kBrotliDictionarySizeBitsByLength,
   offsets_by_length: &kBrotliDictionaryOffsetsByLength,
   data: &kBrotliDictionary,
 };
 
-pub fn BrotliGetDictionary() -> BrotliDictionary {
-  return kBrotliEncDictionary;
+pub fn BrotliGetDictionary() -> &'static BrotliDictionary {
+  return &kBrotliEncDictionary;
 }
 pub fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);

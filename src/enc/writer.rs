@@ -6,10 +6,10 @@ use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
-use super::super::io_wrappers::CustomWrite;
+use brotli_decompressor::CustomWrite;
 
 #[cfg(not(feature="no-stdlib"))]
-pub use super::super::io_wrappers::{IntoIoWriter, IoWriterWrapper};
+pub use brotli_decompressor::{IntoIoWriter, IoWriterWrapper};
 
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 #[cfg(not(feature="no-stdlib"))]

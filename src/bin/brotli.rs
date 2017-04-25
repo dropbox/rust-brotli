@@ -1,6 +1,7 @@
 mod integration_tests;
 mod tests;
 extern crate brotli;
+extern crate brotli_decompressor;
 extern crate core;
 #[allow(unused_imports)]
 #[macro_use]
@@ -83,7 +84,7 @@ impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
 #[allow(unused_imports)]
 use alloc_no_stdlib::{SliceWrapper, SliceWrapperMut, StackAllocator, AllocatedStackMemory,
                       Allocator, bzero};
-use brotli::HuffmanCode;
+use brotli_decompressor::HuffmanCode;
 
 use std::env;
 

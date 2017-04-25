@@ -1,5 +1,6 @@
 #![cfg(test)]
 extern crate core;
+extern crate brotli_decompressor;
 use super::HeapAllocator;
 #[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
@@ -8,8 +9,8 @@ use super::brotli::BrotliState;
 #[cfg(not(feature="no-stdlib"))]
 use super::brotli::{CompressorReader, CompressorWriter};
 #[cfg(not(feature="no-stdlib"))]
-use super::brotli::{Decompressor, DecompressorWriter};
-use super::brotli::HuffmanCode;
+use super::brotli_decompressor::{Decompressor, DecompressorWriter};
+use super::brotli_decompressor::HuffmanCode;
 use core::cmp;
 use std::io;
 #[cfg(not(feature="no-stdlib"))]

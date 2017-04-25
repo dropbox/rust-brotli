@@ -31,7 +31,7 @@ use self::cluster::{HistogramPair};
 use self::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use self::command::{Command};
 use self::entropy_encode::{HuffmanTree};
-use super::io_wrappers::{CustomRead, CustomWrite};
+use brotli_decompressor::{CustomRead, CustomWrite};
 
 #[cfg(not(feature="no-stdlib"))]
 use std::io::{Read,Write, Error, ErrorKind};
@@ -45,7 +45,7 @@ pub use alloc::HeapAllocUninitialized;
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 
 #[cfg(not(feature="no-stdlib"))]
-pub use super::io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
+pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
 #[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
