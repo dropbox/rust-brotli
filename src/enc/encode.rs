@@ -1192,6 +1192,7 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
     *handle = BrotliMakeHasher(m16, m32, params);
     handle.GetHasherCommon().params = (*params).hasher;
     HasherReset(handle); // this sets everything to zero, unlike in C
+    handle.GetHasherCommon().is_prepared_ = 1;
   } else {
     match handle.Prepare(one_shot != 0, input_size, data) {
       HowPrepared::ALREADY_PREPARED => {}
