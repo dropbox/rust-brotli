@@ -482,23 +482,23 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
          (8usize),
          &cmd_bits[..],
          40i32 as (usize),
-         16usize);
+         8usize);
   memcpy(&mut bits,
          (16usize),
          &cmd_bits[..],
          56i32 as (usize),
-         16usize);
+         8usize);
   memcpy(&mut bits, (24usize), &cmd_bits[..], 0, 48usize);
   memcpy(&mut bits,
          (48usize),
          &cmd_bits[..],
          32i32 as (usize),
-         16usize);
+         8usize);
   memcpy(&mut bits,
          (56usize),
          &cmd_bits[..],
          48i32 as (usize),
-         16usize);
+         8usize);
   BrotliConvertBitDepthsToSymbols(&mut depth[(64usize)..], 64usize, &mut bits[(64usize)..]);
   {
     let mut i: usize;
@@ -692,8 +692,8 @@ mut storage: &mut [u8]){
     let mut num_literals: usize = 0;
     let mut num_commands: usize = 0;
     {
-      let mut literals = &mut literal_buf;
-      let mut commands = &mut command_buf;
+      let mut literals = &mut literal_buf[..];
+      let mut commands = &mut command_buf[..];
       CreateCommands(input_index,
                      block_size,
                      input_size,

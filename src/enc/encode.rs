@@ -2969,7 +2969,7 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
         }
       }
       if max_out_size <= *available_out {
-        storage = GetNextOut!(s);
+        storage = &mut next_out_array[*next_out_offset..];//GetNextOut!(s);
       } else {
         inplace = 0i32;
         GetBrotliStorage(s, max_out_size);

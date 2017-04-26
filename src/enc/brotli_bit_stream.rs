@@ -2088,7 +2088,7 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
   if masked_pos.wrapping_add(len) > mask.wrapping_add(1usize) {
     let len1: usize = mask.wrapping_add(1usize).wrapping_sub(masked_pos);
     let dst_start = ((*storage_ix >> 3i32) as (usize));
-    storage[dst_start..len1].clone_from_slice(&input[masked_pos..(masked_pos + len1)]);
+    storage[dst_start..(dst_start + len1)].clone_from_slice(&input[masked_pos..(masked_pos + len1)]);
     *storage_ix = (*storage_ix).wrapping_add(len1 << 3i32);
     len = len.wrapping_sub(len1);
     masked_pos = 0usize;
