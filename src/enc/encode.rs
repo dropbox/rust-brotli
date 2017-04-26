@@ -1020,7 +1020,7 @@ fn InitializeH2<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params :
             dict_num_lookups:0,
             dict_num_matches:0,
         },
-        buckets_:H2Sub{buckets_:m32.alloc_cell(65537)},
+        buckets_:H2Sub{buckets_:m32.alloc_cell(65537 + 8)},
     }
 }
 fn InitializeH3<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H3Sub<AllocU32>> {
@@ -1031,7 +1031,7 @@ fn InitializeH3<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params :
             dict_num_lookups:0,
             dict_num_matches:0,
         },
-        buckets_:H3Sub{buckets_:m32.alloc_cell(65538)},
+        buckets_:H3Sub{buckets_:m32.alloc_cell(65538 + 8)},
     }
 }
 fn InitializeH4<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H4Sub<AllocU32>> {
@@ -1042,7 +1042,7 @@ fn InitializeH4<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params :
             dict_num_lookups:0,
             dict_num_matches:0,
         },
-        buckets_:H4Sub{buckets_:m32.alloc_cell(131072)},
+        buckets_:H4Sub{buckets_:m32.alloc_cell(131072 + 8)},
     }
 }
 fn InitializeH54<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H54Sub<AllocU32>> {
@@ -1053,7 +1053,7 @@ fn InitializeH54<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params 
             dict_num_lookups:0,
             dict_num_matches:0,
         },
-        buckets_:H54Sub{buckets_:m32.alloc_cell(1048580)},
+        buckets_:H54Sub{buckets_:m32.alloc_cell(1048580 + 8)},
     }
 }
 fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>

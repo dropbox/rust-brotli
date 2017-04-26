@@ -373,6 +373,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
     BrotliWriteBits(max_bits as u8, symbols[0usize], storage_ix, storage);
     depth[symbols[0usize] as (usize)] = 0i32 as (u8);
     bits[symbols[0usize] as (usize)] = 0i32 as (u16);
+    return ;
   }
   for depth_elem in depth[..(length as usize)].iter_mut() {
     *depth_elem = 0; // memset

@@ -57,7 +57,8 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
         }
       }
     } else {
-      depth[((pool[(p as (usize))]).index_right_or_value_ as (usize))] = level as (u8);
+      let pp = pool[(p as (usize))];
+      depth[((pp).index_right_or_value_ as (usize))] = level as (u8);
     }
     while level >= 0i32 && (stack[level as (usize)] == -1i32) {
       level = level - 1;
