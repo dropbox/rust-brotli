@@ -35,29 +35,29 @@ fn oneshot_compress(input: &[u8],
                     out_batch_size: usize)
                     -> (i32, usize) {
   let mut stack_u8_buffer =
-    unsafe { define_allocator_memory_pool!(4096, u8, [0; 24 * 1024 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(96, u8, [0; 24 * 1024 * 1024], calloc) };
   let mut stack_u16_buffer =
-    unsafe { define_allocator_memory_pool!(4096, u16, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(96, u16, [0; 128 * 1024], calloc) };
   let mut stack_i32_buffer =
-    unsafe { define_allocator_memory_pool!(4096, i32, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(96, i32, [0; 128 * 1024], calloc) };
   let mut stack_u32_buffer =
-    unsafe { define_allocator_memory_pool!(4096, u32, [0; 32 * 1024 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(96, u32, [0; 32 * 1024 * 1024], calloc) };
   let mut stack_f64_buffer =
-    unsafe { define_allocator_memory_pool!(2048, f64, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, f64, [0; 128 * 1024], calloc) };
   let mut stack_hl_buffer =
-    unsafe { define_allocator_memory_pool!(2048, HistogramLiteral, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, HistogramLiteral, [0; 128 * 1024], calloc) };
   let mut stack_hc_buffer =
-    unsafe { define_allocator_memory_pool!(2048, HistogramCommand, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, HistogramCommand, [0; 128 * 1024], calloc) };
   let mut stack_hd_buffer =
-    unsafe { define_allocator_memory_pool!(2048, HistogramDistance, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, HistogramDistance, [0; 128 * 1024], calloc) };
   let mut stack_hp_buffer =
-    unsafe { define_allocator_memory_pool!(2048, HistogramPair, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, HistogramPair, [0; 128 * 1024], calloc) };
   let mut stack_ct_buffer =
-    unsafe { define_allocator_memory_pool!(2048, ContextType, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, ContextType, [0; 128 * 1024], calloc) };
   let mut stack_ht_buffer =
-    unsafe { define_allocator_memory_pool!(2048, HuffmanTree, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, HuffmanTree, [0; 128 * 1024], calloc) };
   let mut stack_mc_buffer =
-    unsafe { define_allocator_memory_pool!(2048, Command, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, Command, [0; 128 * 1024], calloc) };
   let stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
   let stack_u16_allocator = CallocatedFreelist4096::<u16>::new_allocator(stack_u16_buffer.data,
                                                                          bzero);
