@@ -279,12 +279,12 @@ fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  match super::compress(&mut input, &mut compressed, 65536, q, lgwin) {
+  match super::compress(&mut input, &mut compressed, 4096, q, lgwin) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
-  match super::decompress(&mut compressed_in, &mut output, 65536) {
+  match super::decompress(&mut compressed_in, &mut output, 4096) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -295,19 +295,80 @@ fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
   assert_eq!(input.read_offset, in_buf.len());
 }
 
+fn total_roundtrip_helper(data: &[u8]) {
+    for q in 0..9 {
+        roundtrip_helper(data, q as u32, (q + 13) as u32);
+    }
+}
+static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("testdata/random_then_unicode");
+#[test]
+fn test_random_then_unicode_0() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13);
+}
+
+#[test]
+fn test_random_then_unicode_1() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 1, 14);
+}
+
+#[test]
+fn test_random_then_unicode_2() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 2, 15);
+}
+
+#[test]
+fn test_random_then_unicode_3() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 3, 16);
+}
+
+#[test]
+fn test_random_then_unicode_4() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 4, 17);
+}
+
+#[test]
+fn test_random_then_unicode_5() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 5, 18);
+}
+
+#[test]
+fn test_random_then_unicode_6() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 6, 19);
+}
+
+#[test]
+fn test_random_then_unicode_7() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 7, 20);
+}
+
+#[test]
+fn test_random_then_unicode_8() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 8, 21);
+}
+
+#[test]
+fn test_random_then_unicode_9() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22);
+}
+
+#[test]
+fn test_random_then_unicode_9_a() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 28);
+}
+
 #[test]
 fn test_roundtrip_quickfox_repeated() {
-  roundtrip_helper(include_bytes!("testdata/quickfox_repeated"), 9, 22);
+  total_roundtrip_helper(include_bytes!("testdata/quickfox_repeated"));
 }
 
 #[test]
 fn test_roundtrip_alice29() {
-  roundtrip_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
+  total_roundtrip_helper(include_bytes!("testdata/alice29.txt"));
 }
 
 #[test]
 fn test_roundtrip_as_you_lik() {
-  roundtrip_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
+  total_roundtrip_helper(include_bytes!("testdata/asyoulik.txt"));
 }
 
 #[cfg(not(feature="no-stdlib"))]
