@@ -266,6 +266,7 @@ fn CreateCommands(input_index: usize,
         (*literals)[..(insert as usize)].clone_from_slice(&base_ip[(next_emit as usize)..
                                                            ((next_emit +
                                                              insert as usize))]);
+        *num_literals += insert as usize;
         let mut new_literals = core::mem::replace(literals, &mut []);
         core::mem::replace(literals, &mut new_literals[(insert as usize)..]);
         if distance == last_distance {
