@@ -23,9 +23,9 @@ pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState};
 use brotli_decompressor::HuffmanCode;
 use core::ops;
 
-declare_stack_allocator_struct!(MemPool, 4096, stack);
-declare_stack_allocator_struct!(CallocatedFreelist4096, 4096, calloc);
-declare_stack_allocator_struct!(CallocatedFreelist2048, 2048, calloc);
+declare_stack_allocator_struct!(MemPool, 128, stack);
+declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);
+declare_stack_allocator_struct!(CallocatedFreelist2048, 64, calloc);
 
 fn oneshot_compress(input: &[u8],
                     mut output: &mut [u8],
@@ -191,7 +191,7 @@ fn oneshot(input: &[u8],
 
 #[test]
 fn test_roundtrip_10x10y() {
-  const BUFFER_SIZE: usize = 16384;
+  const BUFFER_SIZE: usize = 128;
   let mut compressed: [u8; 13] = [0; 13];
   let mut output = [0u8; BUFFER_SIZE];
   let mut input = ['x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8, 'x' as u8,
