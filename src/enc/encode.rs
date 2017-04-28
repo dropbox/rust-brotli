@@ -775,7 +775,7 @@ fn InitCommandPrefixCodes(mut cmd_depths: &mut [u8],
   static kDefaultCommandCodeNumBits: usize = 448usize;
   cmd_depths[..].clone_from_slice(&kDefaultCommandDepths[..]);
   cmd_bits[..].clone_from_slice(&kDefaultCommandBits[..]);
-  cmd_code[..].clone_from_slice(&kDefaultCommandCode[..]);
+  cmd_code[..kDefaultCommandCode.len()].clone_from_slice(&kDefaultCommandCode[..]);
   *cmd_code_numbits = kDefaultCommandCodeNumBits;
 }
 
