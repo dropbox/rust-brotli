@@ -1,7 +1,7 @@
 #![cfg(test)]
 extern crate core;
-use std::io;
 use core::cmp;
+use std::io;
 
 struct Buffer {
   data: Vec<u8>,
@@ -21,8 +21,8 @@ impl io::Read for Buffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
     let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
     if bytes_to_read > 0 {
-      buf[0..bytes_to_read]
-        .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+      buf[0..bytes_to_read].clone_from_slice(&self.data[self.read_offset..
+                                              self.read_offset + bytes_to_read]);
     }
     self.read_offset += bytes_to_read;
     return Ok(bytes_to_read);

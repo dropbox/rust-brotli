@@ -1,20 +1,31 @@
 #![cfg(test)]
 extern crate core;
-use std::io;
-use core::cmp;
-use super::brotli::BrotliResult;
-use super::brotli::BrotliDecompressStream;
-use super::brotli::BrotliState;
-use super::brotli::HuffmanCode;
+extern crate brotli_decompressor;
 use super::HeapAllocator;
-
 #[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
+use super::brotli::BrotliResult;
+use super::brotli::BrotliState;
+#[cfg(not(feature="no-stdlib"))]
+use super::brotli::{CompressorReader, CompressorWriter};
+#[cfg(not(feature="no-stdlib"))]
+use super::brotli_decompressor::{Decompressor, DecompressorWriter};
+use super::brotli_decompressor::HuffmanCode;
+use core::cmp;
+use std::io;
+#[cfg(not(feature="no-stdlib"))]
+use std::io::{Read, Write};
 use std::time::Duration;
 #[cfg(not(feature="disable-timer"))]
 use std::time::SystemTime;
+use brotli::BrotliDecompressStream;
 
 struct Buffer {
+  data: Vec<u8>,
+  read_offset: usize,
+}
+
+struct UnlimitedBuffer {
   data: Vec<u8>,
   read_offset: usize,
 }
@@ -177,6 +188,16 @@ impl Buffer {
     return ret;
   }
 }
+impl UnlimitedBuffer {
+  pub fn new(buf: &[u8]) -> Self {
+    let mut ret = UnlimitedBuffer {
+      data: Vec::<u8>::new(),
+      read_offset: 0,
+    };
+    ret.data.extend(buf);
+    return ret;
+  }
+}
 impl io::Read for Buffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
     if self.read_offset == self.data.len() {
@@ -184,8 +205,8 @@ impl io::Read for Buffer {
     }
     let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
     if bytes_to_read > 0 {
-      buf[0..bytes_to_read]
-        .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+      buf[0..bytes_to_read].clone_from_slice(&self.data[self.read_offset..
+                                              self.read_offset + bytes_to_read]);
     }
     self.read_offset += bytes_to_read;
     return Ok(bytes_to_read);
@@ -203,6 +224,286 @@ impl io::Write for Buffer {
     return Ok(());
   }
 }
+impl io::Read for UnlimitedBuffer {
+  fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
+    let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
+    if bytes_to_read > 0 {
+      buf[0..bytes_to_read].clone_from_slice(&self.data[self.read_offset..
+                                              self.read_offset + bytes_to_read]);
+    }
+    self.read_offset += bytes_to_read;
+    return Ok(bytes_to_read);
+  }
+}
+
+impl io::Write for UnlimitedBuffer {
+  fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
+    self.data.extend(buf);
+    return Ok(buf.len());
+  }
+  fn flush(self: &mut Self) -> io::Result<()> {
+    return Ok(());
+  }
+}
+
+#[allow(non_snake_case)]
+#[test]
+fn test_roundtrip_64x() {
+  let X = 'X' as u8;
+  let in_buf: [u8; 64] = [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
+                          X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
+                          X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X];
+
+  let mut input = UnlimitedBuffer::new(&in_buf);
+  let mut compressed = UnlimitedBuffer::new(&[]);
+  let mut output = UnlimitedBuffer::new(&[]);
+  let q: u32 = 9;
+  let lgwin: u32 = 16;
+  match super::compress(&mut input, &mut compressed, 65536, q, lgwin) {
+    Ok(_) => {}
+    Err(e) => panic!("Error {:?}", e),
+  }
+  let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
+  match super::decompress(&mut compressed_in, &mut output, 65536) {
+    Ok(_) => {}
+    Err(e) => panic!("Error {:?}", e),
+  }
+  for i in 0..input.data.len() {
+    assert_eq!(output.data[i], input.data[i]);
+  }
+  assert_eq!(output.data.len(), input.data.len());
+  assert_eq!(input.read_offset, in_buf.len());
+}
+
+fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
+  let mut input = UnlimitedBuffer::new(&in_buf);
+  let mut compressed = UnlimitedBuffer::new(&[]);
+  let mut output = UnlimitedBuffer::new(&[]);
+  match super::compress(&mut input, &mut compressed, 4096, q, lgwin) {
+    Ok(_) => {}
+    Err(e) => panic!("Error {:?}", e),
+  }
+  let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
+  match super::decompress(&mut compressed_in, &mut output, 4096) {
+    Ok(_) => {}
+    Err(e) => panic!("Error {:?}", e),
+  }
+  for i in 0..input.data.len() {
+    assert_eq!(output.data[i], input.data[i]);
+  }
+  assert_eq!(output.data.len(), input.data.len());
+  assert_eq!(input.read_offset, in_buf.len());
+}
+
+fn total_roundtrip_helper(data: &[u8]) {
+    for q in 0..9 {
+        roundtrip_helper(data, q as u32, (q + 13) as u32);
+    }
+}
+static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("testdata/random_then_unicode");
+#[test]
+fn test_random_then_unicode_0() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13);
+}
+
+#[test]
+fn test_random_then_unicode_1() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 1, 14);
+}
+
+#[test]
+fn test_random_then_unicode_2() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 2, 15);
+}
+
+#[test]
+fn test_random_then_unicode_3() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 3, 16);
+}
+
+#[test]
+fn test_random_then_unicode_4() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 4, 17);
+}
+
+#[test]
+fn test_random_then_unicode_5() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 5, 18);
+}
+
+#[test]
+fn test_random_then_unicode_6() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 6, 19);
+}
+
+#[test]
+fn test_random_then_unicode_7() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 7, 20);
+}
+
+#[test]
+fn test_random_then_unicode_8() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 8, 21);
+}
+
+#[test]
+fn test_random_then_unicode_9() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22);
+}
+
+#[test]
+fn test_random_then_unicode_9_a() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 28);
+}
+
+#[test]
+fn test_roundtrip_quickfox_repeated() {
+  total_roundtrip_helper(include_bytes!("testdata/quickfox_repeated"));
+}
+
+#[test]
+fn test_roundtrip_alice29() {
+  total_roundtrip_helper(include_bytes!("testdata/alice29.txt"));
+}
+
+#[test]
+fn test_roundtrip_as_you_lik() {
+  total_roundtrip_helper(include_bytes!("testdata/asyoulik.txt"));
+}
+
+#[cfg(not(feature="no-stdlib"))]
+fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
+  let original_buf = in_buf;
+  let mut cmp = [0u8; 259];
+  let mut input = UnlimitedBuffer::new(&in_buf);
+  {
+  let renc = CompressorReader::new(&mut input, 255, q, lgwin);
+  let mut rdec = Decompressor::new(renc, 257);
+  loop {
+    match rdec.read(&mut cmp[..]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        assert_eq!(cmp[..size], in_buf[..size]);
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  }
+  in_buf = original_buf;
+  input = UnlimitedBuffer::new(&in_buf);
+  let mut r2enc = CompressorReader::new(&mut input, 255, q, lgwin);
+  let mut compressed_size = 0usize;
+  loop {
+    match r2enc.read(&mut cmp[..]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        compressed_size += size;
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  let pct_ratio = 90usize;
+  assert!(compressed_size < original_buf.len() * pct_ratio / 100);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_reader_as_you_lik() {
+  reader_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_reader_quickfox_repeated() {
+  reader_helper(include_bytes!("testdata/quickfox_repeated"), 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_reader_random_then_unicode() {
+  reader_helper(include_bytes!("testdata/random_then_unicode"), 9, 20);
+}
+
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_reader_alice() {
+  reader_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
+}
+
+#[cfg(not(feature="no-stdlib"))]
+fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32) {
+  let original_buf = in_buf;
+  let mut output = UnlimitedBuffer::new(&[]);
+  {
+  {let wdec = DecompressorWriter::new(&mut output, 257);
+  {let mut wenc = CompressorWriter::new(wdec, 255, q, lgwin);
+  while in_buf.len() > 0 {
+    match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  }
+  }
+  assert_eq!(output.data.len(), original_buf.len());
+  for i in 0..cmp::min(original_buf.len(), output.data.len()) {
+    assert_eq!(output.data[i], original_buf[i]);
+  }
+  in_buf = original_buf;
+  let mut compressed = UnlimitedBuffer::new(&[]);
+  {
+  let mut wenc = CompressorWriter::new(&mut compressed, 255, q, lgwin);
+  while in_buf.len() > 0 {
+    match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  }
+  let pct_ratio = 90usize;
+  assert!(compressed.data.len() < original_buf.len() * pct_ratio / 100);
+  }
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_as_you_lik() {
+  writer_helper(include_bytes!("testdata/asyoulik.txt"), 17, 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_64x() {
+  writer_helper(include_bytes!("testdata/64x"), 17, 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_quickfox_repeated() {
+  writer_helper(include_bytes!("testdata/quickfox_repeated"), 251, 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_random_then_unicode() {
+  writer_helper(include_bytes!("testdata/random_then_unicode"), 277, 9, 20);
+}
+
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_writer_alice() {
+  writer_helper(include_bytes!("testdata/alice29.txt"), 299, 9, 22);
+}
+
+
 #[test]
 fn test_10x_10y() {
   let in_buf: [u8; 12] = [0x1b, 0x13, 0x00, 0x00, 0xa4, 0xb0, 0xb2, 0xea, 0x81, 0x47, 0x02, 0x8a];
