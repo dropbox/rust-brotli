@@ -8,7 +8,7 @@ use super::constants::{BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDep
                        kInsBase, kInsExtra, kCopyBase, kCopyExtra};
 use super::entropy_encode::{HuffmanTree, BrotliWriteHuffmanTree, BrotliCreateHuffmanTree,
                             BrotliConvertBitDepthsToSymbols, NewHuffmanTree, InitHuffmanTree,
-                            SortHuffmanTreeItems, SortHuffmanTree, BrotliSetDepth};
+                            SortHuffmanTreeItems, HuffmanComparator, BrotliSetDepth};
 use super::histogram::{HistogramAddItem, HistogramLiteral, HistogramCommand, HistogramDistance,
                        ContextType};
 use super::super::alloc;
@@ -344,6 +344,14 @@ fn StoreStaticCodeLengthCode(mut storage_ix: &mut usize, mut storage: &mut [u8])
                   storage);
 }
 
+pub struct SimpleSortHuffmanTree {}
+
+impl HuffmanComparator for SimpleSortHuffmanTree {
+  fn Cmp(self: &Self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
+    return (*v0).total_count_ < (*v1).total_count_;
+  }
+}
+
 pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>>(
     mut m : &mut AllocHT,
     histogram : &[u32],
@@ -418,7 +426,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
           let mut i: i32 = 0i32;
           let mut j: i32 = n + 1i32;
           let mut k: i32;
-          SortHuffmanTreeItems(tree.slice_mut(), n as (usize), SortHuffmanTree {});
+          SortHuffmanTreeItems(tree.slice_mut(), n as (usize), SimpleSortHuffmanTree {});
           sentinel = NewHuffmanTree(!(0u32), -1i16, -1i16);
           tree.slice_mut()[(node_index.wrapping_add(1u32) as (usize))] = sentinel.clone();
           tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
