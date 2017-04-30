@@ -23,8 +23,36 @@ the system also enables all syscalls to be "frontloaded" in the initial generati
 of a memory pool for the allocator. Afterwards, SECCOMP can be activated or
 other mechanisms can be used to secure the application, if desired
 
+## Compression Usage
 
-## Usage
+Rust brotli currently supports compression levels 0 - 9
+They should be bitwise identical to the brotli C compression engine at those levels
+Recommended lg_window_size is between 20 and 22
+
+### With the io::Read abstraction
+```rust
+let mut input = brotli::CompressorReader::new(&mut io::stdin(), 4096 /* buffer size */,
+                                              quality as u32, lg_window_size as u32);
+```
+then you can simply read input as you would any other io::Read class
+
+### With the io::Write abstraction
+
+```rust
+let mut writer = brotli::Compressor::new(&mut io::stdout(), 4096 /* buffer size */,
+                                         quality as u32, lg_window_size as u32);
+```
+
+### With the Stream Copy abstraction
+
+```rust
+match brotli::BrotliCompress(&mut io::stdin(), &mut io::stdout(), quality as u32, lg_window_size as u32) {
+    Ok(_) => {},
+    Err(e) => panic!("Error {:?}", e),
+}
+```
+
+## Decompression Usage
 
 ### With the io::Read abstraction
 
@@ -33,10 +61,16 @@ let mut input = brotli::Decompressor::new(&mut io::stdin(), 4096 /* buffer size 
 ```
 then you can simply read input as you would any other io::Read class
 
+### With the io::Write abstraction
+
+```rust
+let mut writer = brotli::DecompressorWriter::new(&mut io::stdout(), 4096 /* buffer size */);
+```
+
 ### With the Stream Copy abstraction
 
 ```rust
-match brotli::BrotliDecompress(&mut io::stdin(), &mut io::stdout(), 65536 /* buffer size */) {
+match brotli::BrotliDecompress(&mut io::stdin(), &mut io::stdout()) {
     Ok(_) => {},
     Err(e) => panic!("Error {:?}", e),
 }
