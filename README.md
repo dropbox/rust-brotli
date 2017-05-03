@@ -9,23 +9,13 @@ Direct no-stdlib port of the C brotli decompressor to Rust
 
 no dependency on the Rust stdlib: this library would be ideal for decompressing within a rust kernel among other things.
 
-This will be useful to see how C and Rust compare in an apples-to-apples
+This is useful to see how C and Rust compare in an apples-to-apples
 comparison where the same algorithms and data structures and
 optimizations are employed.
 
-The current expected performance losses come from
-
-1. an extra indirection in the hgroups
-2. array bounds checks on every access
-3. no ability to load a full aligned 64 bit or 128 bit item from a [u8]
-
-the system also enables all syscalls to be "frontloaded" in the initial generation
-of a memory pool for the allocator. Afterwards, SECCOMP can be activated or
-other mechanisms can be used to secure the application, if desired
-
 ## Compression Usage
 
-Rust brotli currently supports compression levels 0 - 9
+Rust brotli currently supports compression levels 0 - 9 (an approximation similar to 10 is coming soon)
 They should be bitwise identical to the brotli C compression engine at those levels
 Recommended lg_window_size is between 20 and 22
 
