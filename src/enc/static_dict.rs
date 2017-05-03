@@ -31,7 +31,9 @@ pub static kBrotliEncDictionary: BrotliDictionary = BrotliDictionary {
 pub fn BrotliGetDictionary() -> &'static BrotliDictionary {
   return &kBrotliEncDictionary;
 }
-pub fn BROTLI_UNALIGNED_LOAD32(p: &[u8]) -> u32 {
+pub fn BROTLI_UNALIGNED_LOAD32(sl: &[u8]) -> u32 {
+  let mut p = [0u8;4];
+  p[..].clone_from_slice(&sl[..4]);
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
 }
 
@@ -40,20 +42,23 @@ pub fn Hash(data: &[u8]) -> u32 {
   h >> 32i32 - kDictNumBits
 }
 
-pub fn BROTLI_UNALIGNED_LOAD64(p: &[u8]) -> u64 {
+pub fn BROTLI_UNALIGNED_LOAD64(sl: &[u8]) -> u64 {
+  let mut p = [0u8;8];
+  p[..].clone_from_slice(&sl[..8]);
   return (p[0] as u64) | ((p[1] as u64) << 8) | ((p[2] as u64) << 16) |
          ((p[3] as u64) << 24) | ((p[4] as u64) << 32) | ((p[5] as u64) << 40) |
          ((p[6] as u64) << 48) | ((p[7] as u64) << 56);
 }
-pub fn BROTLI_UNALIGNED_STORE64(p: &mut [u8], v: u64) {
-  p[0] = (v & 0xff) as u8;
-  p[1] = ((v >> 8) & 0xff) as u8;
-  p[2] = ((v >> 16) & 0xff) as u8;
-  p[3] = ((v >> 24) & 0xff) as u8;
-  p[4] = ((v >> 32) & 0xff) as u8;
-  p[5] = ((v >> 40) & 0xff) as u8;
-  p[6] = ((v >> 48) & 0xff) as u8;
-  p[7] = ((v >> 56) & 0xff) as u8;
+pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
+  let p = [(v & 0xff) as u8,
+       ((v >> 8) & 0xff) as u8,
+       ((v >> 16) & 0xff) as u8,
+       ((v >> 24) & 0xff) as u8,
+       ((v >> 32) & 0xff) as u8,
+       ((v >> 40) & 0xff) as u8,
+       ((v >> 48) & 0xff) as u8,
+       ((v >> 56) & 0xff) as u8];
+  outp[..8].clone_from_slice(&p[..]);
 }
 
 fn unopt_ctzll(mut val: u64) -> u8 {
