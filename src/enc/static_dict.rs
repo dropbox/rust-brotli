@@ -98,8 +98,9 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
           limit = limit.wrapping_sub(1 as (usize));
           limit
         } != 0 {
-    if s1[(matched as (usize))] as (i32) == s2[0] as (i32) {
-      s2 = &s2[(1 as (usize))..];
+    let (s2_0, s2_rest) = s2.split_at(1);
+    if s1[(matched as (usize))] as (i32) == s2_0[0] as (i32) {
+      s2 = s2_rest;
       matched = matched.wrapping_add(1 as (usize)) as u32 as usize;
     } else {
       return matched;
