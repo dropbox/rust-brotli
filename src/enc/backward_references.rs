@@ -170,7 +170,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
     self.buckets_.HashBytes(data) as usize
   }
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-    let key: u32 = self.HashBytes(&data[((ix & mask) as (usize))..]) as u32;
+    let (_, data_window) = data.split_at((ix & mask) as (usize));
+    let key: u32 = self.HashBytes(data_window) as u32;
     let off: u32 = (ix >> 3i32).wrapping_rem(self.buckets_.BUCKET_SWEEP() as usize) as (u32);
     self.buckets_.slice_mut()[key.wrapping_add(off) as (usize)] = ix as (u32);
   }
@@ -590,15 +591,15 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
     (h >> shift) as (u32) as usize
   }
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-    let key: u32 = self.HashBytes(&data[((ix & mask) as (usize))..]) as u32;
+    let (_, data_window) = data.split_at((ix & mask) as (usize));
+    let key: u32 = self.HashBytes(data_window) as u32;
     let minor_ix: usize = (self.num.slice()[(key as (usize))] as (u32) & (*self).block_mask_) as (usize);
     let offset: usize = minor_ix.wrapping_add((key << (self.GetHasherCommon).params.block_bits) as
                                               (usize));
     self.buckets.slice_mut()[offset] = ix as (u32);
     {
-      let _rhs = 1;
       let _lhs = &mut self.num.slice_mut()[(key as (usize))];
-      *_lhs = (*_lhs as (i32) + _rhs) as (u16);
+      *_lhs = (*_lhs as (i32) + 1) as (u16);
     }
   }
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
@@ -655,8 +656,11 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
             }
           }
           {
-            let len: usize = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
-                                                      &data[(cur_ix_masked as (usize))..],
+            let (_, prev_data) = data.split_at(prev_ix as usize);
+            let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+
+            let len: usize = FindMatchLengthWithLimit(&prev_data,
+                                                      &cur_data,
                                                       max_length);
             if len >= 3usize || len == 2usize && (i < 2usize) {
               let mut score: usize = BackwardReferenceScoreUsingLastDistance(len);
@@ -715,8 +719,10 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
           }
         }
         {
-          let len: usize = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
-                                                    &data[(cur_ix_masked as (usize))..],
+          let (_, prev_data) = data.split_at(prev_ix as usize);
+          let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+          let len: usize = FindMatchLengthWithLimit(&prev_data,
+                                                    &cur_data,
                                                     max_length);
           if len >= 4usize {
             let score: usize = BackwardReferenceScore(len, backward);
@@ -739,10 +745,11 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
       }
     }
     if is_match_found == 0 {
+      let (_, cur_data) = data.split_at(cur_ix_masked as usize);
       is_match_found = SearchInStaticDictionary(dictionary,
                                                 dictionary_hash,
                                                 self,
-                                                &data[(cur_ix_masked as (usize))..],
+                                                cur_data,
                                                 max_length,
                                                 max_backward,
                                                 out,
