@@ -82,12 +82,16 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
           limit2 = limit2.wrapping_sub(1 as (usize));
           limit2
         } != 0 {
-    if BROTLI_UNALIGNED_LOAD64(s2) == BROTLI_UNALIGNED_LOAD64(&s1[(matched as u32 as (usize))..(matched as u32 + 8)as usize]) {
-      s2 = &s2[(8usize)..];
+    let s1_matched = &s1[(matched as u32 as (usize))..(matched as u32 + 8)as usize];
+    let (s2_8, s2_rest) = s2.split_at(8);
+    let s2_as_64 = BROTLI_UNALIGNED_LOAD64(s2_8);
+    let s1_as_64 = BROTLI_UNALIGNED_LOAD64(s1_matched);
+    if s2_as_64 == s1_as_64 {
+      s2 = s2_rest;
       matched = matched.wrapping_add(8usize) as u32 as usize;
     } else {
-      let x: u64 = BROTLI_UNALIGNED_LOAD64(s2) ^
-                   BROTLI_UNALIGNED_LOAD64(&s1[(matched as u32 as (usize))..(matched as u32 + 8) as usize]);
+      let x: u64 = s2_as_64 ^
+                   s1_as_64;
       let matching_bits: usize = unopt_ctzll(x) as (usize);
       matched = matched.wrapping_add(matching_bits >> 3i32) as u32 as usize;
       return matched;
