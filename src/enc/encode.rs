@@ -20,7 +20,7 @@ use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffman
 use super::cluster::{HistogramPair};
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::static_dict::{BrotliGetDictionary};
-use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
+use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, Context};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::utf8_util::BrotliIsMostlyUTF8;
@@ -1331,6 +1331,8 @@ fn InitInsertCommand(mut xself: &mut Command, insertlen: usize) {
   GetLengthCode(insertlen, 4usize, 0i32, &mut (*xself).cmd_prefix_);
 }
 
+
+
 fn ShouldCompress(data: &[u8],
                   mask: usize,
                   last_flush_pos: usize,
@@ -2228,16 +2230,103 @@ fn ChooseContextMap(quality: i32,
   }
 }
 
+static kStaticContextMapComplexUTF8: [u32; 64] = [
+    11, 11, 12, 12, /* 0 special */
+    0, 0, 0, 0, /* 4 lf */
+    1, 1, 9, 9, /* 8 space */
+    2, 2, 2, 2, /* !, first after space/lf and after something else. */
+    1, 1, 1, 1, /* " */
+    8, 3, 3, 3, /* % */
+    1, 1, 1, 1, /* ({[ */
+    2, 2, 2, 2, /* }]) */
+    8, 4, 4, 4, /* :; */
+    8, 7, 4, 4, /* . */
+    8, 0, 0, 0, /* > */
+    3, 3, 3, 3, /* [0..9] */
+    5, 5, 10, 5, /* [A-Z] */
+    5, 5, 10, 5,
+    6, 6, 6, 6, /* [a-z] */
+    6, 6, 6, 6,
+  ];
+/* Decide if we want to use a more complex static context map containing 13
+   context values, based on the entropy reduction of histograms over the
+   first 5 bits of literals. */
+fn ShouldUseComplexStaticContextMap(input: &[u8],
+    mut start_pos: usize, length : usize, mask : usize, quality: i32,
+    size_hint: usize, literal_context_mode: &mut ContextType,
+    num_literal_contexts: &mut usize, literal_context_map: &mut &[u32]) -> bool {
+  let _ = quality;
+  //BROTLI_UNUSED(quality);
+  /* Try the more complex static context map only for long data. */
+  if (size_hint < (1 << 20)) {
+    return false;
+  } else {
+    let end_pos = start_pos + length;
+    /* To make entropy calculations faster and to fit on the stack, we collect
+       histograms over the 5 most significant bits of literals. One histogram
+       without context and 13 additional histograms for each context value. */
+    let mut combined_histo:[u32; 32] = [0;32];
+    let mut context_histo:[[u32;32]; 13] = [[0;32];13];
+    let mut total = 0u32;
+    let mut entropy = [0.0f64;3];
+    let mut dummy = 0usize;
+    while start_pos + 64 <= end_pos {
+      let stride_end_pos = start_pos + 64;
+      let mut prev2 = input[start_pos & mask];
+      let mut prev1 = input[(start_pos + 1) & mask];
 
+      /* To make the analysis of the data faster we only examine 64 byte long
+         strides at every 4kB intervals. */
+      for pos in start_pos + 2..stride_end_pos {
+        let literal = input[pos & mask];
+        let context = kStaticContextMapComplexUTF8[
+            Context(prev1, prev2, ContextType::CONTEXT_UTF8) as usize] as u8;
+        total += 1;
+        combined_histo[(literal >> 3) as usize] += 1;
+        context_histo[context as usize][(literal >> 3) as usize] += 1;
+        prev2 = prev1;
+        prev1 = literal;
+      }
+      start_pos += 4096;
+    }
+    entropy[1] = ShannonEntropy(&combined_histo[..], 32, &mut dummy);
+    entropy[2] = 0.0f64;
+    for i in 0..13 {
+      assert!(i < 13);
+      entropy[2] += ShannonEntropy(&context_histo[i][..], 32, &mut dummy);
+    }
+    entropy[0] = 1.0 / (total as f64);
+    entropy[1] *= entropy[0];
+    entropy[2] *= entropy[0];
+    /* The triggering heuristics below were tuned by compressing the individual
+       files of the silesia corpus. If we skip this kind of context modeling
+       for not very well compressible input (i.e. entropy using context modeling
+       is 60% of maximal entropy) or if expected savings by symbol are less
+       than 0.2 bits, then in every case when it triggers, the final compression
+       ratio is improved. Note however that this heuristics might be too strict
+       for some cases and could be tuned further. */
+    if (entropy[2] > 3.0 || entropy[1] - entropy[2] < 0.2) {
+      return false;
+    } else {
+      *literal_context_mode = ContextType::CONTEXT_UTF8;
+      *num_literal_contexts = 13;
+      *literal_context_map = &kStaticContextMapComplexUTF8;
+      return true;
+    }
+  }
+}
 fn DecideOverLiteralContextModeling(input: &[u8],
                                     mut start_pos: usize,
                                     length: usize,
                                     mask: usize,
                                     quality: i32,
+                                    size_hint: usize,
                                     mut literal_context_mode: &mut ContextType,
                                     mut num_literal_contexts: &mut usize,
                                     mut literal_context_map: &mut &[u32]) {
   if quality < 5i32 || length < 64usize {
+  } else if ShouldUseComplexStaticContextMap(input, start_pos, length, mask, quality, size_hint, literal_context_mode,
+     num_literal_contexts, literal_context_map) {
   } else {
     let end_pos: usize = start_pos.wrapping_add(length);
     let mut bigram_prefix_histo: [u32; 9] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
@@ -2385,6 +2474,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                          bytes,
                                          mask,
                                          (*params).quality,
+                                         (*params).size_hint,
                                          &mut literal_context_mode,
                                          &mut num_literal_contexts,
                                          &mut literal_context_map);
