@@ -67,7 +67,7 @@ use core;
 
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 
-static kMinUTF8Ratio: floatX!() = 0.75 as floatX!();
+static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum BrotliEncoderParameter {
@@ -1339,7 +1339,7 @@ fn ShouldCompress(data: &[u8],
                   num_commands: usize)
                   -> i32 {
   if num_commands < (bytes >> 8i32).wrapping_add(2usize) {
-    if num_literals as (floatX!()) > 0.99 as floatX!() * bytes as (floatX!()) {
+    if num_literals as (super::util::floatX) > 0.99 as super::util::floatX * bytes as (super::util::floatX) {
       let mut literal_histo: [u32; 256] =
         [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
          0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
@@ -1360,8 +1360,8 @@ fn ShouldCompress(data: &[u8],
          0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
          0u32];
       static kSampleRate: u32 = 13u32;
-      static kMinEntropy: floatX!() = 7.92 as floatX!();
-      let bit_cost_threshold: floatX!() = bytes as (floatX!()) * kMinEntropy / kSampleRate as (floatX!());
+      static kMinEntropy: super::util::floatX = 7.92 as super::util::floatX;
+      let bit_cost_threshold: super::util::floatX = bytes as (super::util::floatX) * kMinEntropy / kSampleRate as (super::util::floatX);
       let t: usize = bytes.wrapping_add(kSampleRate as (usize))
         .wrapping_sub(1usize)
         .wrapping_div(kSampleRate as (usize));
@@ -1794,7 +1794,7 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
                              AllocU16: alloc::Allocator<u16>,
                              AllocU32: alloc::Allocator<u32>,
                              AllocI32: alloc::Allocator<i32>,
-                             AllocF64: alloc::Allocator<floatX!()>,
+                             AllocF64: alloc::Allocator<super::util::floatX>,
                              AllocHL: alloc::Allocator<HistogramLiteral>,
                              AllocHC: alloc::Allocator<HistogramCommand>,
                              AllocHD: alloc::Allocator<HistogramDistance>,
@@ -2160,7 +2160,7 @@ fn ChooseContextMap(quality: i32,
   let total: usize;
   let mut i: usize;
   let mut dummy: usize = 0;
-  let mut entropy: [floatX!(); 4] = [0.0 as floatX!();4];
+  let mut entropy: [super::util::floatX; 4] = [0.0 as super::util::floatX;4];
   i = 0usize;
   while i < 9usize {
     {
@@ -2182,7 +2182,7 @@ fn ChooseContextMap(quality: i32,
                     ShannonEntropy(&two_prefix_histo[3i32 as (usize)..],
                                    3usize,
                                    &mut dummy);
-  entropy[3usize] = 0i32 as (floatX!());
+  entropy[3usize] = 0i32 as (super::util::floatX);
   i = 0usize;
   while i < 3usize {
     {
@@ -2198,7 +2198,7 @@ fn ChooseContextMap(quality: i32,
     .wrapping_add(monogram_histo[1usize])
     .wrapping_add(monogram_histo[2usize]) as (usize);
   0i32;
-  entropy[0usize] = 1.0 as floatX!() / total as (floatX!());
+  entropy[0usize] = 1.0 as super::util::floatX / total as (super::util::floatX);
   {
     let _rhs = entropy[0usize];
     let _lhs = &mut entropy[1usize];
@@ -2215,11 +2215,11 @@ fn ChooseContextMap(quality: i32,
     *_lhs = *_lhs * _rhs;
   }
   if quality < 7i32 {
-    entropy[3usize] = entropy[1usize] * 10i32 as (floatX!());
+    entropy[3usize] = entropy[1usize] * 10i32 as (super::util::floatX);
   }
-  if entropy[1usize] - entropy[2usize] < 0.2 as floatX!() && (entropy[1usize] - entropy[3usize] < 0.2 as floatX!()) {
+  if entropy[1usize] - entropy[2usize] < 0.2 as super::util::floatX && (entropy[1usize] - entropy[3usize] < 0.2 as super::util::floatX) {
     *num_literal_contexts = 1usize;
-  } else if entropy[2usize] - entropy[3usize] < 0.02 as floatX!() {
+  } else if entropy[2usize] - entropy[3usize] < 0.02 as super::util::floatX {
     *num_literal_contexts = 2usize;
     *literal_context_map = &kStaticContextMapSimpleUTF8[..];
   } else {
@@ -2276,7 +2276,7 @@ fn DecideOverLiteralContextModeling(input: &[u8],
 fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                           AllocU16: alloc::Allocator<u16>,
                           AllocU32: alloc::Allocator<u32>,
-                          AllocF64: alloc::Allocator<floatX!()>,
+                          AllocF64: alloc::Allocator<super::util::floatX>,
                           AllocHL: alloc::Allocator<HistogramLiteral>,
                           AllocHC: alloc::Allocator<HistogramCommand>,
                           AllocHD: alloc::Allocator<HistogramDistance>,
@@ -2466,7 +2466,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
               AllocU32: alloc::Allocator<u32>,
               AllocI32: alloc::Allocator<i32>,
               
-              AllocF64: alloc::Allocator<floatX!()>,
+              AllocF64: alloc::Allocator<super::util::floatX>,
               AllocHL: alloc::Allocator<HistogramLiteral>,
               AllocHC: alloc::Allocator<HistogramCommand>,
               AllocHD: alloc::Allocator<HistogramDistance>,
@@ -2758,7 +2758,7 @@ fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
               AllocU32: alloc::Allocator<u32>,
               AllocI32: alloc::Allocator<i32>,
               
-              AllocF64: alloc::Allocator<floatX!()>,
+              AllocF64: alloc::Allocator<super::util::floatX>,
               AllocHL: alloc::Allocator<HistogramLiteral>,
               AllocHC: alloc::Allocator<HistogramCommand>,
               AllocHD: alloc::Allocator<HistogramDistance>,
@@ -3068,7 +3068,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
                                    AllocU32: alloc::Allocator<u32>,
                                    AllocI32: alloc::Allocator<i32>,
                                    
-                                   AllocF64: alloc::Allocator<floatX!()>,
+                                   AllocF64: alloc::Allocator<super::util::floatX>,
                                    AllocHL: alloc::Allocator<HistogramLiteral>,
                                    AllocHC: alloc::Allocator<HistogramCommand>,
                                    AllocHD: alloc::Allocator<HistogramDistance>,
@@ -3289,7 +3289,7 @@ pub fn BrotliEncoderWriteData<'a, AllocU8: alloc::Allocator<u8>,
               AllocU32: alloc::Allocator<u32>,
               AllocI32: alloc::Allocator<i32>,
               
-              AllocF64: alloc::Allocator<floatX!()>,
+              AllocF64: alloc::Allocator<super::util::floatX>,
               AllocHL: alloc::Allocator<HistogramLiteral>,
               AllocHC: alloc::Allocator<HistogramCommand>,
               AllocHD: alloc::Allocator<HistogramDistance>,

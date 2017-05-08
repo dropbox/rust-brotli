@@ -525,15 +525,15 @@ fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> i32 {
   }
   {
     let total: usize = len.wrapping_add(kSampleRate).wrapping_sub(1usize).wrapping_div(kSampleRate);
-    let mut r: floatX!() = (FastLog2(total as u64) + 0.5 as floatX!()) * total as (floatX!()) + 200i32 as (floatX!());
+    let mut r: super::util::floatX = (FastLog2(total as u64) + 0.5 as super::util::floatX) * total as (super::util::floatX) + 200i32 as (super::util::floatX);
     i = 0usize;
     while i < 256usize {
       {
-        r = r - histo[i] as (floatX!()) * (depths[(i as (usize))] as (floatX!()) + FastLog2(histo[i] as u64));
+        r = r - histo[i] as (super::util::floatX) * (depths[(i as (usize))] as (super::util::floatX) + FastLog2(histo[i] as u64));
       }
       i = i.wrapping_add(1 as (usize));
     }
-    if !!(r >= 0.0 as floatX!()) { 1i32 } else { 0i32 }
+    if !!(r >= 0.0 as super::util::floatX) { 1i32 } else { 0i32 }
   }
 }
 

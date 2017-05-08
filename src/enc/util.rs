@@ -1,18 +1,10 @@
 #![allow(dead_code)]
 
 #[cfg(feature="float64")]
-macro_rules! floatX {
-    () => {
-        f64
-    }
-}
+pub type floatX = f64;
 
 #[cfg(not(feature="float64"))]
-macro_rules! floatX {
-    () => {
-        f32
-    }
-}
+pub type floatX = f32;
 
 pub fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
   if a > b { a } else { b }
@@ -295,24 +287,24 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9943534368588578f32];
 
 #[cfg(not(feature="no-stdlib"))]
-pub fn FastLog2(v: u64) -> floatX!() {
+pub fn FastLog2(v: u64) -> super::util::floatX {
   if v < kLog2Table.len() as u64 {
-    return kLog2Table[v as usize] as (floatX!());
+    return kLog2Table[v as usize] as (super::util::floatX);
   }
-  return (v as floatX!()).log2();
+  return (v as super::util::floatX).log2();
 }
 #[cfg(feature="no-stdlib")]
-pub fn FastLog2(mut v: u64) -> floatX!() {
+pub fn FastLog2(mut v: u64) -> super::util::floatX {
   if v < kLog2Table.len() as u64 {
-    kLog2Table[v as usize] as (floatX!())
+    kLog2Table[v as usize] as (super::util::floatX)
   } else {
     // approximate here
-    let mut count: floatX!() = 0.0 as floatX!();
+    let mut count: super::util::floatX = 0.0 as super::util::floatX;
     loop {
       v /= 2;
-      count += 1.0 as floatX!();
+      count += 1.0 as super::util::floatX;
       if v < kLog2Table.len() as u64 {
-        return kLog2Table[v as usize] as (floatX!()) + count;
+        return kLog2Table[v as usize] as (super::util::floatX) + count;
       }
     }
   }

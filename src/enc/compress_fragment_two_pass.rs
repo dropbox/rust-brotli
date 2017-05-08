@@ -377,12 +377,12 @@ fn CreateCommands(input_index: usize,
 }
 
 fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
-  let corpus_size: floatX!() = input_size as (floatX!());
-  if num_literals as (floatX!()) < 0.98 as floatX!() * corpus_size {
+  let corpus_size: super::util::floatX = input_size as (super::util::floatX);
+  if num_literals as (super::util::floatX) < 0.98 as super::util::floatX * corpus_size {
     1i32
   } else {
     let mut literal_histo: [u32; 256] = [0; 256];
-    let max_total_bit_cost: floatX!() = corpus_size * 8i32 as (floatX!()) * 0.98 as floatX!() / 43i32 as (floatX!());
+    let max_total_bit_cost: super::util::floatX = corpus_size * 8i32 as (super::util::floatX) * 0.98 as super::util::floatX / 43i32 as (super::util::floatX);
     let mut i: usize;
     i = 0usize;
     while i < input_size {

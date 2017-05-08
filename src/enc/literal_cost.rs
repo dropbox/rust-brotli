@@ -2,7 +2,7 @@
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::FastLog2;
 
-static kMinUTF8Ratio: floatX!() = 0.75 as floatX!();
+static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
 fn brotli_min_size_t(a: usize, b: usize) -> usize {
   if a < b { a } else { b }
@@ -147,19 +147,19 @@ fn EstimateBitCostsForLiteralsUTF8(pos: usize,
         let utf8_pos: usize = UTF8Position(last_c, c, max_utf8);
         let masked_pos: usize = pos.wrapping_add(i) & mask;
         let mut histo: usize = histogram[utf8_pos][data[(masked_pos as (usize))] as (usize)];
-        let mut lit_cost: floatX!();
+        let mut lit_cost: super::util::floatX;
         if histo == 0usize {
           histo = 1usize;
         }
         lit_cost = FastLog2(in_window_utf8[utf8_pos] as u64) - FastLog2(histo as u64);
-        lit_cost = lit_cost + 0.02905 as floatX!();
-        if lit_cost < 1.0 as floatX!() {
-          lit_cost = lit_cost * 0.5 as floatX!();
-          lit_cost = lit_cost + 0.5 as floatX!();
+        lit_cost = lit_cost + 0.02905 as super::util::floatX;
+        if lit_cost < 1.0 as super::util::floatX {
+          lit_cost = lit_cost * 0.5 as super::util::floatX;
+          lit_cost = lit_cost + 0.5 as super::util::floatX;
         }
         if i < 2000usize {
           lit_cost = lit_cost +
-                     (0.7 as floatX!() - (2000usize).wrapping_sub(i) as (floatX!()) / 2000.0 as floatX!() * 0.35 as floatX!());
+                     (0.7 as super::util::floatX - (2000usize).wrapping_sub(i) as (super::util::floatX) / 2000.0 as super::util::floatX * 0.35 as super::util::floatX);
         }
         cost[(i as (usize))] = lit_cost as (f32);
       }
@@ -217,11 +217,11 @@ pub fn BrotliEstimateBitCostsForLiterals(pos: usize,
           histo = 1usize;
         }
         {
-          let mut lit_cost: floatX!() = FastLog2(in_window as u64) - FastLog2(histo as u64);
-          lit_cost = lit_cost + 0.029 as floatX!();
-          if lit_cost < 1.0 as floatX!() {
-            lit_cost = lit_cost * 0.5 as floatX!();
-            lit_cost = lit_cost + 0.5 as floatX!();
+          let mut lit_cost: super::util::floatX = FastLog2(in_window as u64) - FastLog2(histo as u64);
+          lit_cost = lit_cost + 0.029 as super::util::floatX;
+          if lit_cost < 1.0 as super::util::floatX {
+            lit_cost = lit_cost * 0.5 as super::util::floatX;
+            lit_cost = lit_cost + 0.5 as super::util::floatX;
           }
           cost[(i as (usize))] = lit_cost as (f32);
         }

@@ -17,9 +17,9 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 
 
 
-pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> floatX!() {
+pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> super::util::floatX {
   let mut sum: usize = 0usize;
-  let mut retval: floatX!() = 0i32 as floatX!();
+  let mut retval: super::util::floatX = 0i32 as super::util::floatX;
   population = &population[..(size as usize)];
   let mut p: usize;
   let mut odd_number_of_elements_left: i32 = 0i32;
@@ -31,41 +31,41 @@ pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize
       p = population[0] as usize;
       population = &population[1..];
       sum = sum.wrapping_add(p);
-      retval = retval - p as floatX!() * FastLog2(p as u64);
+      retval = retval - p as super::util::floatX * FastLog2(p as u64);
     }
     odd_number_of_elements_left = 0i32;
     p = population[0] as usize;
     population = &population[1..];
     sum = sum.wrapping_add(p);
-    retval = retval - p as floatX!() * FastLog2(p as u64);
+    retval = retval - p as super::util::floatX * FastLog2(p as u64);
   }
   if sum != 0 {
-    retval = retval + sum as floatX!() * FastLog2(sum as u64);
+    retval = retval + sum as super::util::floatX * FastLog2(sum as u64);
   }
   *total = sum;
   retval
 }
 
-pub fn BitsEntropy(population: &[u32], size: usize) -> floatX!() {
+pub fn BitsEntropy(population: &[u32], size: usize) -> super::util::floatX {
   let mut sum: usize = 0;
-  let mut retval: floatX!() = ShannonEntropy(population, size, &mut sum);
-  if retval < sum as floatX!() {
-    retval = sum as floatX!();
+  let mut retval: super::util::floatX = ShannonEntropy(population, size, &mut sum);
+  if retval < sum as super::util::floatX {
+    retval = sum as super::util::floatX;
   }
   retval
 }
 
 pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     histogram : &HistogramType
-) -> floatX!(){
-  static kOneSymbolHistogramCost: floatX!() = 12i32 as floatX!();
-  static kTwoSymbolHistogramCost: floatX!() = 20i32 as floatX!();
-  static kThreeSymbolHistogramCost: floatX!() = 28i32 as floatX!();
-  static kFourSymbolHistogramCost: floatX!() = 37i32 as floatX!();
+) -> super::util::floatX{
+  static kOneSymbolHistogramCost: super::util::floatX = 12i32 as super::util::floatX;
+  static kTwoSymbolHistogramCost: super::util::floatX = 20i32 as super::util::floatX;
+  static kThreeSymbolHistogramCost: super::util::floatX = 28i32 as super::util::floatX;
+  static kFourSymbolHistogramCost: super::util::floatX = 37i32 as super::util::floatX;
   let data_size: usize = (*histogram).slice().len();
   let mut count: i32 = 0i32;
   let mut s: [usize; 5] = [0; 5];
-  let mut bits: floatX!() = 0.0 as floatX!();
+  let mut bits: super::util::floatX = 0.0 as super::util::floatX;
   let mut i: usize;
   if (*histogram).total_count() == 0usize {
     return kOneSymbolHistogramCost;
@@ -89,7 +89,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     return kOneSymbolHistogramCost;
   }
   if count == 2i32 {
-    return kTwoSymbolHistogramCost + (*histogram).total_count() as floatX!();
+    return kTwoSymbolHistogramCost + (*histogram).total_count() as super::util::floatX;
   }
   if count == 3i32 {
     let histo0: u32 = (*histogram).slice()[s[0usize]];
@@ -97,8 +97,8 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     let histo2: u32 = (*histogram).slice()[s[2usize]];
     let histomax: u32 = brotli_max_uint32_t(histo0, brotli_max_uint32_t(histo1, histo2));
     return kThreeSymbolHistogramCost +
-           (2u32).wrapping_mul(histo0.wrapping_add(histo1).wrapping_add(histo2)) as floatX!() -
-           histomax as floatX!();
+           (2u32).wrapping_mul(histo0.wrapping_add(histo1).wrapping_add(histo2)) as super::util::floatX -
+           histomax as super::util::floatX;
   }
   if count == 4i32 {
     let mut histo: [u32; 4] = [0; 4];
@@ -131,21 +131,21 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     }
     h23 = histo[2usize].wrapping_add(histo[3usize]);
     histomax = brotli_max_uint32_t(h23, histo[0usize]);
-    return kFourSymbolHistogramCost + (3u32).wrapping_mul(h23) as floatX!() +
-           (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as floatX!() -
-           histomax as floatX!();
+    return kFourSymbolHistogramCost + (3u32).wrapping_mul(h23) as super::util::floatX +
+           (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as super::util::floatX -
+           histomax as super::util::floatX;
   }
   {
     let mut max_depth: usize = 1usize;
     let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
-    let log2total: floatX!() = FastLog2((*histogram).total_count() as u64);
+    let log2total: super::util::floatX = FastLog2((*histogram).total_count() as u64);
     i = 0usize;
     while i < data_size {
       if (*histogram).slice()[i] > 0u32 {
-        let log2p: floatX!() = log2total - FastLog2((*histogram).slice()[i] as (u64));
-        let mut depth: usize = (log2p + 0.5 as floatX!()) as (usize);
-        bits = bits + (*histogram).slice()[i] as floatX!() * log2p;
+        let log2p: super::util::floatX = log2total - FastLog2((*histogram).slice()[i] as (u64));
+        let mut depth: usize = (log2p + 0.5 as super::util::floatX) as (usize);
+        bits = bits + (*histogram).slice()[i] as super::util::floatX * log2p;
         if depth > 15usize {
           depth = 15usize;
         }
@@ -186,13 +186,13 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
               let _lhs = &mut depth_histo[17usize];
               *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
-            bits = bits + 3i32 as floatX!();
+            bits = bits + 3i32 as super::util::floatX;
             reps = reps >> 3i32;
           }
         }
       }
     }
-    bits = bits + (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as floatX!();
+    bits = bits + (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as super::util::floatX;
     bits = bits + BitsEntropy(&depth_histo[..], 18usize);
   }
   bits

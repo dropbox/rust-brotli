@@ -15,7 +15,7 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 pub struct HistogramLiteral {
   pub data_: [u32; 256],
   pub total_count_: usize,
-  pub bit_cost_: floatX!(),
+  pub bit_cost_: super::util::floatX,
 }
 impl Clone for HistogramLiteral {
   fn clone(&self) -> HistogramLiteral {
@@ -31,7 +31,7 @@ impl Default for HistogramLiteral {
     return HistogramLiteral {
              data_: [0; 256],
              total_count_: 0,
-             bit_cost_: 3.402e+38 as floatX!(),
+             bit_cost_: 3.402e+38 as super::util::floatX,
            };
   }
 }
@@ -39,7 +39,7 @@ impl Default for HistogramLiteral {
 pub struct HistogramCommand {
   pub data_: [u32; 704],
   pub total_count_: usize,
-  pub bit_cost_: floatX!(),
+  pub bit_cost_: super::util::floatX,
 }
 impl Clone for HistogramCommand {
   fn clone(&self) -> HistogramCommand {
@@ -55,7 +55,7 @@ impl Default for HistogramCommand {
     return HistogramCommand {
              data_: [0; 704],
              total_count_: 0,
-             bit_cost_: 3.402e+38 as floatX!(),
+             bit_cost_: 3.402e+38 as super::util::floatX,
            };
   }
 }
@@ -63,7 +63,7 @@ impl Default for HistogramCommand {
 pub struct HistogramDistance {
   pub data_: [u32; 520],
   pub total_count_: usize,
-  pub bit_cost_: floatX!(),
+  pub bit_cost_: super::util::floatX,
 }
 impl Clone for HistogramDistance {
   fn clone(&self) -> HistogramDistance {
@@ -79,15 +79,15 @@ impl Default for HistogramDistance {
     return HistogramDistance {
              data_: [0; 520],
              total_count_: 0,
-             bit_cost_: 3.402e+38 as floatX!(),
+             bit_cost_: 3.402e+38 as super::util::floatX,
            };
   }
 }
 
 pub trait CostAccessors {
   fn total_count(&self) -> usize;
-  fn bit_cost(&self) -> floatX!();
-  fn set_bit_cost(&mut self, cost: floatX!());
+  fn bit_cost(&self) -> super::util::floatX;
+  fn set_bit_cost(&mut self, cost: super::util::floatX);
   fn set_total_count(&mut self, count: usize);
 }
 impl SliceWrapper<u32> for HistogramLiteral {
@@ -104,10 +104,10 @@ impl CostAccessors for HistogramLiteral {
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
-  fn bit_cost(&self) -> floatX!() {
+  fn bit_cost(&self) -> super::util::floatX {
     return self.bit_cost_;
   }
-  fn set_bit_cost(&mut self, data: floatX!()) {
+  fn set_bit_cost(&mut self, data: super::util::floatX) {
     self.bit_cost_ = data;
   }
   fn set_total_count(&mut self, data: usize) {
@@ -130,10 +130,10 @@ impl CostAccessors for HistogramCommand {
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
-  fn bit_cost(&self) -> floatX!() {
+  fn bit_cost(&self) -> super::util::floatX {
     return self.bit_cost_;
   }
-  fn set_bit_cost(&mut self, data: floatX!()) {
+  fn set_bit_cost(&mut self, data: super::util::floatX) {
     self.bit_cost_ = data;
   }
   fn set_total_count(&mut self, data: usize) {
@@ -155,10 +155,10 @@ impl CostAccessors for HistogramDistance {
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
-  fn bit_cost(&self) -> floatX!() {
+  fn bit_cost(&self) -> super::util::floatX {
     return self.bit_cost_;
   }
-  fn set_bit_cost(&mut self, data: floatX!()) {
+  fn set_bit_cost(&mut self, data: super::util::floatX) {
     self.bit_cost_ = data;
   }
   fn set_total_count(&mut self, data: usize) {
@@ -271,7 +271,7 @@ pub fn HistogramClear<HistogramType:SliceWrapperMut<u32>+CostAccessors>(mut xsel
     *data_elem = 0;
   }
   (*xself).set_total_count(0);
-  (*xself).set_bit_cost(3.402e+38 as floatX!());
+  (*xself).set_bit_cost(3.402e+38 as super::util::floatX);
 }
 pub fn ClearHistograms<HistogramType:SliceWrapperMut<u32>+CostAccessors>(mut array: &mut [HistogramType], length: usize){
   for item in array[..length].iter_mut() {
