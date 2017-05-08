@@ -944,43 +944,43 @@ fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
 
 fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
   let mut hparams = &mut params.hasher;
-  if (*params).quality > 9i32 {
-    (*hparams).type_ = 10i32;
-  } else if (*params).quality == 4i32 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
+  if (*params).quality > 10 { // we are using quality 10 as a proxy for "9.5"
+    (*hparams).type_ = 10;
+  } else if (*params).quality == 4 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
     (*hparams).type_ = 54i32;
-  } else if (*params).quality < 5i32 {
+  } else if (*params).quality < 5 {
     (*hparams).type_ = (*params).quality;
-  } else if (*params).lgwin <= 16i32 {
-    (*hparams).type_ = if (*params).quality < 7i32 {
+  } else if (*params).lgwin <= 16 {
+    (*hparams).type_ = if (*params).quality < 7 {
       40i32
-    } else if (*params).quality < 9i32 {
+    } else if (*params).quality < 9 {
       41i32
     } else {
       42i32
     };
   } else if (*params).size_hint >= (1i32 << 20i32) as (usize) && ((*params).lgwin >= 19i32) {
     (*hparams).type_ = 6i32;
-    (*hparams).block_bits = (*params).quality - 1i32;
+    (*hparams).block_bits = (*params).quality - 1;
     (*hparams).bucket_bits = 15i32;
     (*hparams).hash_len = 5i32;
-    (*hparams).num_last_distances_to_check = if (*params).quality < 7i32 {
+    (*hparams).num_last_distances_to_check = if (*params).quality < 7 {
       4i32
-    } else if (*params).quality < 9i32 {
+    } else if (*params).quality < 9 {
       10i32
     } else {
       16i32
     };
   } else {
     (*hparams).type_ = 5i32;
-    (*hparams).block_bits = (*params).quality - 1i32;
-    (*hparams).bucket_bits = if (*params).quality < 7i32 {
+    (*hparams).block_bits = (*params).quality - 1;
+    (*hparams).bucket_bits = if (*params).quality < 7 {
       14i32
     } else {
       15i32
     };
-    (*hparams).num_last_distances_to_check = if (*params).quality < 7i32 {
+    (*hparams).num_last_distances_to_check = if (*params).quality < 7 {
       4i32
-    } else if (*params).quality < 9i32 {
+    } else if (*params).quality < 9 {
       10i32
     } else {
       16i32
@@ -2583,7 +2583,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                               bytes as (usize),
                               is_last);
 
-  if (*s).params.quality == 10i32 {
+  if false { // we are remapping 10 as quality=9.5 since Zopfli doesn't seem to offer much benefits here
     panic!(r####"
     BrotliCreateZopfliBackwardReferences(m,
                                          dictionary,

@@ -225,7 +225,6 @@ split: &'a BlockSplit<AllocU8, AllocU32>){
     0i32 as (u32)
   } as (usize);
 }
-
 fn BlockSplitIteratorNext<'a,
                           AllocU8: alloc::Allocator<u8>,
 AllocU32:alloc::Allocator<u32>>(mut xself: &mut BlockSplitIterator<AllocU8, AllocU32>){
@@ -252,12 +251,11 @@ pub fn HistogramAddVector<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32
                           IntegerType: Sized + Clone>
   (mut xself: &mut HistogramType,
    p: &[IntegerType],
-   mut n: usize)
+   n: usize)
   where u64: core::convert::From<IntegerType>
 {
   let new_tc = (*xself).total_count().wrapping_add(n);
   (*xself).set_total_count(new_tc);
-  n = n.wrapping_add(1usize);
   for p_item in p[..n].iter() {
     let _rhs = 1;
     let index: usize = u64::from(p_item.clone()) as usize;

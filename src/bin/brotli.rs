@@ -92,6 +92,12 @@ use std::fs::File;
 
 use std::io::{self, Error, ErrorKind, Read, Write};
 
+macro_rules! println_stderr(
+    ($($val:tt)*) => { {
+        writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
+    } }
+);
+
 use std::path::Path;
 
 
@@ -388,6 +394,15 @@ fn main() {
       }
       if argument == "-9" {
         params.quality = 9;
+        continue;
+      }
+      if argument == "-9.5" {
+        params.quality = 10;
+        continue;
+      }
+      if argument == "-10" {
+        params.quality = 10;
+        println_stderr!("Quality 10 unimplemented; using more efficient quality 9.5");
         continue;
       }
       if argument.starts_with("-w") {

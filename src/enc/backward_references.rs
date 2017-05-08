@@ -56,7 +56,7 @@ pub struct BrotliEncoderParams {
 
 
 fn LiteralSpreeLengthForSparseSearch(params: &BrotliEncoderParams) -> usize {
-  (if (*params).quality < 9i32 {
+  (if (*params).quality < 9 {
      64i32
    } else {
      512i32
@@ -1115,7 +1115,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
             distance: 0,
             score: 0,
           };
-          sr2.len = if (*params).quality < 5i32 {
+          sr2.len = if (*params).quality < 5 {
             brotli_min_size_t(sr.len.wrapping_sub(1usize), max_length)
           } else {
             0usize

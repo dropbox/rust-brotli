@@ -303,9 +303,10 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) {
 }
 
 fn total_roundtrip_helper(data: &[u8]) {
-    for q in 0..9 {
+    for q in 0..10 {
         roundtrip_helper(data, q as i32, (q + 13) as i32);
     }
+    roundtrip_helper(data, 10, 23);
 }
 static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("testdata/random_then_unicode");
 #[test]
@@ -359,8 +360,8 @@ fn test_random_then_unicode_9() {
 }
 
 #[test]
-fn test_random_then_unicode_9_a() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 28);
+fn test_random_then_unicode_9_5() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28);
 }
 
 #[test]
