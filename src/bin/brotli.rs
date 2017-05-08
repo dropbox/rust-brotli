@@ -246,8 +246,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
 pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        mut w: &mut OutputType,
                                        buffer_size: usize,
-                                       q : u32,
-                                       lgwin: u32) -> Result<usize, io::Error>
+                                       params:&brotli::enc::BrotliEncoderParams) -> Result<usize, io::Error>
     where InputType: Read,
           OutputType: Write {
     let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
@@ -258,7 +257,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    &mut IoWriterWrapper::<OutputType>(w),
                                    &mut input_buffer.slice_mut(),
                                    &mut output_buffer.slice_mut(),
-                                   q, lgwin,
+                                   params,
                                    alloc_u8,
                                    HeapAllocator::<u16>{default_value:0},
                                    HeapAllocator::<i32>{default_value:0},
@@ -339,11 +338,9 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 }
 
 fn main() {
-  let mut q: u32 = 9;
-  let mut lgwin_default: u32 = 22;
-  let mut lgwin: u32 = 22;
-  let mut has_set_lgwin = false;
   let mut do_compress = false;
+  let mut params = brotli::enc::BrotliEncoderInitParams();
+  params.size_hint = 2048 * 1024;
   if env::args_os().len() > 1 {
     let mut first = true;
     let mut found_file = false;
@@ -356,58 +353,51 @@ fn main() {
         continue;
       }
       if argument == "-0" {
-        q = 0;
-        lgwin_default = 10;
+        params.quality = 0;
         continue;
       }
       if argument == "-1" {
-        q = 1;
-        lgwin_default = 10;
+        params.quality = 1;
         continue;
       }
       if argument == "-2" {
-        q = 2;
-        lgwin_default = 12;
+        params.quality = 2;
         continue;
       }
       if argument == "-3" {
-        q = 3;
-        lgwin_default = 14;
+        params.quality = 3;
         continue;
       }
       if argument == "-4" {
-        q = 4;
-        lgwin_default = 16;
+        params.quality = 4;
         continue;
       }
       if argument == "-5" {
-        q = 5;
-        lgwin_default = 18;
+        params.quality = 5;
         continue;
       }
       if argument == "-6" {
-        q = 6;
-        lgwin_default = 19;
+        params.quality = 6;
         continue;
       }
       if argument == "-7" {
-        q = 7;
-        lgwin_default = 20;
+        params.quality = 7;
         continue;
       }
       if argument == "-8" {
-        q = 8;
-        lgwin_default = 21;
+        params.quality = 8;
         continue;
       }
       if argument == "-9" {
-        q = 9;
-        lgwin_default = 22;
+        params.quality = 9;
         continue;
       }
       if argument.starts_with("-w") {
-          lgwin = argument.trim_matches('-').trim_matches('w').parse::<u32>().unwrap();
-          has_set_lgwin = true;
+          params.lgwin = argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap();
+          continue;
+      }
+      if argument.starts_with("-s") {
+          params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<usize>().unwrap();
           continue;
       }
       if argument == "-c" {
@@ -425,10 +415,7 @@ fn main() {
         Ok(file) => file,
       };
       if do_compress {
-        if !has_set_lgwin {
-          lgwin = lgwin_default;
-        }
-        match compress(&mut input, &mut output, 65536, q, lgwin) {
+        match compress(&mut input, &mut output, 65536, &params) {
           Ok(_) => {}
           Err(e) => panic!("Error {:?}", e),
         }
@@ -443,10 +430,7 @@ fn main() {
     }
     if !found_file {
       if do_compress {
-        if !has_set_lgwin {
-          lgwin = lgwin_default;
-        }
-        match compress(&mut io::stdin(), &mut io::stdout(), 65536, q, lgwin) {
+        match compress(&mut io::stdin(), &mut io::stdout(), 65536, &params) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),
         }

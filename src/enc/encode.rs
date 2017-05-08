@@ -242,7 +242,7 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
   }
   0i32
 }
-fn BrotliEncoderInitParams() -> BrotliEncoderParams {
+pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
   return BrotliEncoderParams {
            mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
            quality: 9,

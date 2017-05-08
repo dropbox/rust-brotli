@@ -42,7 +42,7 @@ pub struct BrotliHasherParams {
 }
 
 
-
+#[derive(Clone)]
 pub struct BrotliEncoderParams {
   pub mode: BrotliEncoderMode,
   pub quality: i32,
