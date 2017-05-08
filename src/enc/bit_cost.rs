@@ -17,9 +17,9 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 
 
 
-pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> f64 {
+pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> floatX!() {
   let mut sum: usize = 0usize;
-  let mut retval: f64 = 0i32 as (f64);
+  let mut retval: floatX!() = 0i32 as floatX!();
   population = &population[..(size as usize)];
   let mut p: usize;
   let mut odd_number_of_elements_left: i32 = 0i32;
@@ -31,41 +31,41 @@ pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize
       p = population[0] as usize;
       population = &population[1..];
       sum = sum.wrapping_add(p);
-      retval = retval - p as (f64) * FastLog2(p as u64);
+      retval = retval - p as floatX!() * FastLog2(p as u64);
     }
     odd_number_of_elements_left = 0i32;
     p = population[0] as usize;
     population = &population[1..];
     sum = sum.wrapping_add(p);
-    retval = retval - p as (f64) * FastLog2(p as u64);
+    retval = retval - p as floatX!() * FastLog2(p as u64);
   }
   if sum != 0 {
-    retval = retval + sum as (f64) * FastLog2(sum as u64);
+    retval = retval + sum as floatX!() * FastLog2(sum as u64);
   }
   *total = sum;
   retval
 }
 
-pub fn BitsEntropy(population: &[u32], size: usize) -> f64 {
+pub fn BitsEntropy(population: &[u32], size: usize) -> floatX!() {
   let mut sum: usize = 0;
-  let mut retval: f64 = ShannonEntropy(population, size, &mut sum);
-  if retval < sum as (f64) {
-    retval = sum as (f64);
+  let mut retval: floatX!() = ShannonEntropy(population, size, &mut sum);
+  if retval < sum as floatX!() {
+    retval = sum as floatX!();
   }
   retval
 }
 
 pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     histogram : &HistogramType
-) -> f64{
-  static kOneSymbolHistogramCost: f64 = 12i32 as (f64);
-  static kTwoSymbolHistogramCost: f64 = 20i32 as (f64);
-  static kThreeSymbolHistogramCost: f64 = 28i32 as (f64);
-  static kFourSymbolHistogramCost: f64 = 37i32 as (f64);
+) -> floatX!(){
+  static kOneSymbolHistogramCost: floatX!() = 12i32 as floatX!();
+  static kTwoSymbolHistogramCost: floatX!() = 20i32 as floatX!();
+  static kThreeSymbolHistogramCost: floatX!() = 28i32 as floatX!();
+  static kFourSymbolHistogramCost: floatX!() = 37i32 as floatX!();
   let data_size: usize = (*histogram).slice().len();
   let mut count: i32 = 0i32;
   let mut s: [usize; 5] = [0; 5];
-  let mut bits: f64 = 0.0f64;
+  let mut bits: floatX!() = 0.0 as floatX!();
   let mut i: usize;
   if (*histogram).total_count() == 0usize {
     return kOneSymbolHistogramCost;
@@ -89,7 +89,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     return kOneSymbolHistogramCost;
   }
   if count == 2i32 {
-    return kTwoSymbolHistogramCost + (*histogram).total_count() as (f64);
+    return kTwoSymbolHistogramCost + (*histogram).total_count() as floatX!();
   }
   if count == 3i32 {
     let histo0: u32 = (*histogram).slice()[s[0usize]];
@@ -97,8 +97,8 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     let histo2: u32 = (*histogram).slice()[s[2usize]];
     let histomax: u32 = brotli_max_uint32_t(histo0, brotli_max_uint32_t(histo1, histo2));
     return kThreeSymbolHistogramCost +
-           (2u32).wrapping_mul(histo0.wrapping_add(histo1).wrapping_add(histo2)) as (f64) -
-           histomax as (f64);
+           (2u32).wrapping_mul(histo0.wrapping_add(histo1).wrapping_add(histo2)) as floatX!() -
+           histomax as floatX!();
   }
   if count == 4i32 {
     let mut histo: [u32; 4] = [0; 4];
@@ -131,21 +131,21 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     }
     h23 = histo[2usize].wrapping_add(histo[3usize]);
     histomax = brotli_max_uint32_t(h23, histo[0usize]);
-    return kFourSymbolHistogramCost + (3u32).wrapping_mul(h23) as (f64) +
-           (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as (f64) -
-           histomax as (f64);
+    return kFourSymbolHistogramCost + (3u32).wrapping_mul(h23) as floatX!() +
+           (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as floatX!() -
+           histomax as floatX!();
   }
   {
     let mut max_depth: usize = 1usize;
     let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
-    let log2total: f64 = FastLog2((*histogram).total_count() as u64);
+    let log2total: floatX!() = FastLog2((*histogram).total_count() as u64);
     i = 0usize;
     while i < data_size {
       if (*histogram).slice()[i] > 0u32 {
-        let log2p: f64 = log2total - FastLog2((*histogram).slice()[i] as (u64));
-        let mut depth: usize = (log2p + 0.5f64) as (usize);
-        bits = bits + (*histogram).slice()[i] as (f64) * log2p;
+        let log2p: floatX!() = log2total - FastLog2((*histogram).slice()[i] as (u64));
+        let mut depth: usize = (log2p + 0.5 as floatX!()) as (usize);
+        bits = bits + (*histogram).slice()[i] as floatX!() * log2p;
         if depth > 15usize {
           depth = 15usize;
         }
@@ -186,13 +186,13 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
               let _lhs = &mut depth_histo[17usize];
               *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
-            bits = bits + 3i32 as (f64);
+            bits = bits + 3i32 as floatX!();
             reps = reps >> 3i32;
           }
         }
       }
     }
-    bits = bits + (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as (f64);
+    bits = bits + (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as floatX!();
     bits = bits + BitsEntropy(&depth_histo[..], 18usize);
   }
   bits

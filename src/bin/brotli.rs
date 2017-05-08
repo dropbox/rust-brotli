@@ -240,8 +240,15 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
       }
   }
 }
-
-
+#[cfg(not(feature="float64"))]
+macro_rules! get_alloc {
+    () => {HeapAllocator::<f32>{default_value:0.0 as f32}}
+}
+#[cfg(feature="float64")]
+macro_rules! get_alloc {
+    () => {HeapAllocator::<f64>{default_value:0.0 as f64}
+    }
+}
 
 pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        mut w: &mut OutputType,
@@ -263,7 +270,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<i32>{default_value:0},
                                    HeapAllocator::<u32>{default_value:0},
                                    HeapAllocator::<Command>{default_value:Command::default()},
-                                   HeapAllocator::<f64>{default_value:0.0f64},
+                                   get_alloc!(),
                                    HeapAllocator::<HistogramLiteral>{
                                        default_value:HistogramLiteral::default(),
                                    },

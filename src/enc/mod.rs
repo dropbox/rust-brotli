@@ -2,15 +2,16 @@ pub mod fast_log;
 pub mod command;
 pub mod block_split;
 pub mod brotli_bit_stream;
-pub mod cluster;
 pub mod constants;
 pub mod entropy_encode;
-pub mod utf8_util;
 pub mod static_dict;
 pub mod static_dict_lut;
 pub mod dictionary_hash;
-pub mod bit_cost;
+#[macro_use]
 pub mod util;
+pub mod utf8_util;
+pub mod bit_cost;
+pub mod cluster;
 pub mod literal_cost;
 pub mod histogram;
 pub mod backward_references;
@@ -70,7 +71,7 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             HeapAlloc::<Command> {
                                 default_value: Command::default(),
                             },
-                            HeapAlloc::<f64> { default_value: 0.0f64 },
+                            HeapAlloc::<floatX!()> { default_value: 0.0 as floatX!() },
                             HeapAlloc::<HistogramLiteral>{
                                 default_value: HistogramLiteral::default(),
                             },
@@ -111,7 +112,7 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             unsafe { HeapAllocUninitialized::<i32>::new() },
                             unsafe { HeapAllocUninitialized::<u32>::new() },
                             unsafe { HeapAllocUninitialized::<Command>::new() },
-                            unsafe { HeapAllocUninitialized::<f64>::new() },
+                            unsafe { HeapAllocUninitialized::<floatX!()>::new() },
                             unsafe { HeapAllocUninitialized::<HistogramLiteral>::new() },
                             unsafe { HeapAllocUninitialized::<HistogramCommand>::new() },
                             unsafe { HeapAllocUninitialized::<HistogramDistance>::new() },
@@ -128,7 +129,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                                  AllocI32: Allocator<i32>,
                                  AllocU32: Allocator<u32>,
                                  AllocCommand: Allocator<Command>,
-                                 AllocF64: Allocator<f64>,
+                                 AllocF64: Allocator<floatX!()>,
                                  AllocHL: Allocator<HistogramLiteral>,
                                  AllocHC: Allocator<HistogramCommand>,
                                  AllocHD: Allocator<HistogramDistance>,
@@ -184,7 +185,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocI32: Allocator<i32>,
                               AllocU32: Allocator<u32>,
                               AllocCommand: Allocator<Command>,
-                              AllocF64: Allocator<f64>,
+                              AllocF64: Allocator<floatX!()>,
                               AllocHL: Allocator<HistogramLiteral>,
                               AllocHC: Allocator<HistogramCommand>,
                               AllocHD: Allocator<HistogramDistance>,

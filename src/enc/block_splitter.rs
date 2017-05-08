@@ -16,11 +16,11 @@ static kMaxLiteralHistograms: usize = 100usize;
 
 static kMaxCommandHistograms: usize = 50usize;
 
-static kLiteralBlockSwitchCost: f64 = 28.1f64;
+static kLiteralBlockSwitchCost: floatX!() = 28.1 as floatX!();
 
-static kCommandBlockSwitchCost: f64 = 13.5f64;
+static kCommandBlockSwitchCost: floatX!() = 13.5 as floatX!();
 
-static kDistanceBlockSwitchCost: f64 = 14.6f64;
+static kDistanceBlockSwitchCost: floatX!() = 14.6 as floatX!();
 
 static kLiteralStrideLength: usize = 70usize;
 
@@ -184,9 +184,9 @@ mut histograms: &mut [HistogramType]) where u64: core::convert::From<IntegerType
   }
 }
 
-fn BitCost(count: usize) -> f64 {
+fn BitCost(count: usize) -> floatX!() {
   if count == 0usize {
-    -2.0f64
+    -2.0 as floatX!()
   } else {
     FastLog2(count as u64)
   }
@@ -195,11 +195,11 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
               IntegerType: Sized + Clone>
   (data: &[IntegerType],
    length: usize,
-   block_switch_bitcost: f64,
+   block_switch_bitcost: floatX!(),
    num_histograms: usize,
    histograms: &[HistogramType],
-   mut insert_cost: &mut [f64],
-   mut cost: &mut [f64],
+   mut insert_cost: &mut [floatX!()],
+   mut cost: &mut [floatX!()],
    mut switch_signal: &mut [u8],
    mut block_id: &mut [u8])
    -> usize
@@ -225,7 +225,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
     return 1usize;
   }
   for item in insert_cost[..(data_size * num_histograms)].iter_mut() {
-    *item = 0.0f64;
+    *item = 0.0 as floatX!();
   }
   i = 0usize;
   while i < num_histograms {
@@ -248,7 +248,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
     }
   }
   for item in cost[..num_histograms].iter_mut() {
-    *item = 0.0f64;
+    *item = 0.0 as floatX!();
   }
   for item in switch_signal[..(length * bitmaplen)].iter_mut() {
     *item = 0;
@@ -260,8 +260,8 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
       let ix: usize = byte_ix.wrapping_mul(bitmaplen);
       let insert_cost_ix: usize = u64::from(data[(byte_ix as (usize))].clone())
         .wrapping_mul(num_histograms as u64) as usize;
-      let mut min_cost: f64 = 1e99f64;
-      let mut block_switch_cost: f64 = block_switch_bitcost;
+      let mut min_cost: floatX!() = 1e38 as floatX!();
+      let mut block_switch_cost: floatX!() = block_switch_bitcost;
       let mut k: usize;
       k = 0usize;
       while k < num_histograms {
@@ -280,7 +280,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
       }
       if byte_ix < 2000usize {
         block_switch_cost = block_switch_cost *
-                            (0.77f64 + 0.07f64 * byte_ix as (f64) / 2000i32 as (f64));
+                            (0.77 as floatX!() + 0.07 as floatX!() * byte_ix as (floatX!()) / 2000i32 as (floatX!()));
       }
       k = 0usize;
       while k < num_histograms {
@@ -601,7 +601,7 @@ mut split: &mut BlockSplit<AllocU8,AllocU32>) where u64: core::convert::From<Int
         let mut histo: HistogramType = HistogramType::default();
         let mut j: usize;
         let mut best_out: u32;
-        let mut best_bits: f64;
+        let mut best_bits: floatX!();
         HistogramClear(&mut histo);
         j = 0usize;
         while j < block_lengths.slice()[(i as (usize))] as (usize) {
@@ -628,7 +628,7 @@ mut split: &mut BlockSplit<AllocU8,AllocU32>) where u64: core::convert::From<Int
         j = 0usize;
         while j < num_final_clusters {
           {
-            let cur_bits: f64 =
+            let cur_bits: floatX!() =
               BrotliHistogramBitCostDistance(&mut histo,
                                              &mut all_histograms.slice_mut()[(clusters.slice()[(j as (usize))] as
                                                    (usize))]);
@@ -720,7 +720,7 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
                         AllocU8:alloc::Allocator<u8>,
                         AllocU16:alloc::Allocator<u16>,
                         AllocU32:alloc::Allocator<u32>,
-                        AllocF64:alloc::Allocator<f64>,
+                        AllocF64:alloc::Allocator<floatX!()>,
                         AllocHT:alloc::Allocator<HistogramType>,
                         AllocHP:alloc::Allocator<HistogramPair>,
                         IntegerType:Sized+Clone>(mut m8: &mut AllocU8,
@@ -734,7 +734,7 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
                           literals_per_histogram: usize,
                           max_histograms: usize,
                           sampling_stride_length: usize,
-                          block_switch_cost: f64,
+                          block_switch_cost: floatX!(),
                           params: &BrotliEncoderParams,
 mut split: &mut BlockSplit<AllocU8, AllocU32>) where u64: core::convert::From<IntegerType>{
   let data_size: usize = HistogramType::default().slice().len();
@@ -856,7 +856,7 @@ mut split: &mut BlockSplit<AllocU8, AllocU32>) where u64: core::convert::From<In
 pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
                         AllocU16: alloc::Allocator<u16>,
                         AllocU32: alloc::Allocator<u32>,
-                        AllocF64: alloc::Allocator<f64>,
+                        AllocF64: alloc::Allocator<floatX!()>,
                         AllocHL: alloc::Allocator<HistogramLiteral>,
                         AllocHC: alloc::Allocator<HistogramCommand>,
                         AllocHD: alloc::Allocator<HistogramDistance>,

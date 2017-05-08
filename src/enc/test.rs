@@ -43,7 +43,7 @@ fn oneshot_compress(input: &[u8],
   let mut stack_u32_buffer =
     unsafe { define_allocator_memory_pool!(96, u32, [0; 32 * 1024 * 1024], calloc) };
   let mut stack_f64_buffer =
-    unsafe { define_allocator_memory_pool!(48, f64, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, floatX!(), [0; 128 * 1024], calloc) };
   let mut stack_hl_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramLiteral, [0; 128 * 1024], calloc) };
   let mut stack_hc_buffer =
@@ -65,7 +65,7 @@ fn oneshot_compress(input: &[u8],
                                                                          bzero);
   let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data,
                                                                          bzero);
-  let mut mf64 = CallocatedFreelist2048::<f64>::new_allocator(stack_f64_buffer.data, bzero);
+  let mut mf64 = CallocatedFreelist2048::<floatX!()>::new_allocator(stack_f64_buffer.data, bzero);
   let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data,
                                                                             bzero);
   let mut mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data,

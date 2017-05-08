@@ -11,8 +11,8 @@ use core;
 pub struct HistogramPair {
   pub idx1: u32,
   pub idx2: u32,
-  pub cost_combo: f64,
-  pub cost_diff: f64,
+  pub cost_combo: floatX!(),
+  pub cost_diff: floatX!(),
 }
 
 impl Default for HistogramPair {
@@ -20,19 +20,19 @@ impl Default for HistogramPair {
     HistogramPair {
       idx1: 0,
       idx2: 0,
-      cost_combo: 0.0f64,
-      cost_diff: 0.0f64,
+      cost_combo: 0.0 as floatX!(),
+      cost_diff: 0.0 as floatX!(),
     }
   }
 }
 /* Returns entropy reduction of the context map when we combine two clusters. */
-fn ClusterCostDiff(size_a: usize, size_b: usize) -> f64 {
+fn ClusterCostDiff(size_a: usize, size_b: usize) -> floatX!() {
   let size_c: usize = size_a.wrapping_add(size_b);
-  size_a as (f64) * FastLog2(size_a as u64) + size_b as (f64) * FastLog2(size_b as u64) -
-  size_c as (f64) * FastLog2(size_c as u64)
+  size_a as (floatX!()) * FastLog2(size_a as u64) + size_b as (floatX!()) * FastLog2(size_b as u64) -
+  size_c as (floatX!()) * FastLog2(size_c as u64)
 }
 
-fn brotli_max_double(a: f64, b: f64) -> f64 {
+fn brotli_max_double(a: floatX!(), b: floatX!()) -> floatX!() {
   if a > b { a } else { b }
 }
 
@@ -78,7 +78,7 @@ fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper
     }
     p.idx1 = idx1;
     p.idx2 = idx2;
-    p.cost_diff = 0.5f64 *
+    p.cost_diff = 0.5 as floatX!() *
                   ClusterCostDiff(cluster_size[idx1 as usize] as (usize),
                                   cluster_size[idx2 as usize] as (usize));
     p.cost_diff = p.cost_diff - (out[idx1 as (usize)]).bit_cost();
@@ -90,12 +90,12 @@ fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper
       p.cost_combo = (out[idx1 as (usize)]).bit_cost();
       is_good_pair = 1i32;
     } else {
-      let threshold: f64 = if *num_pairs == 0i32 as (usize) {
-        1e99f64
+      let threshold: floatX!() = if *num_pairs == 0i32 as (usize) {
+        1e38 as floatX!()
       } else {
-        brotli_max_double(0.0f64, (pairs[0i32 as (usize)]).cost_diff)
+        brotli_max_double(0.0 as floatX!(), (pairs[0i32 as (usize)]).cost_diff)
       };
-      let cost_combo: f64;
+      let cost_combo: floatX!();
       HistogramSelfAddHistogram(out, idx1 as usize, idx2 as usize);
       let combo: &HistogramType = &out[idx1 as (usize)];
       cost_combo = BrotliPopulationCost(combo);
@@ -132,7 +132,7 @@ pub fn BrotliHistogramCombine<HistogramType:SliceWrapperMut<u32> + SliceWrapper<
      symbols_size: usize,
      max_clusters: usize,
 max_num_pairs: usize) -> usize{
-  let mut cost_diff_threshold: f64 = 0.0f64;
+  let mut cost_diff_threshold: floatX!() = 0.0 as floatX!();
   let mut min_cluster_size: usize = 1usize;
   let mut num_pairs: usize = 0usize;
   {
@@ -165,7 +165,7 @@ max_num_pairs: usize) -> usize{
     let best_idx2: u32;
     let mut i: usize;
     if (pairs[(0usize)]).cost_diff >= cost_diff_threshold {
-      cost_diff_threshold = 1e99f64;
+      cost_diff_threshold = 1e38 as floatX!();
       min_cluster_size = max_clusters;
       {
         {
@@ -258,9 +258,9 @@ max_num_pairs: usize) -> usize{
 pub fn BrotliHistogramBitCostDistance<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors + Clone>
                                              (histogram: &HistogramType,
                                              candidate: &HistogramType)
--> f64{
+-> floatX!(){
   if (*histogram).total_count() == 0usize {
-    0.0f64
+    0.0 as floatX!()
   } else {
     let mut tmp: HistogramType = histogram.clone();
     HistogramAddHistogram(&mut tmp, candidate);
@@ -289,13 +289,13 @@ mut symbols: &mut [u32]){
       } else {
         symbols[(i.wrapping_sub(1usize) as (usize))]
       };
-      let mut best_bits: f64 = BrotliHistogramBitCostDistance(&inp[(i as (usize))],
+      let mut best_bits: floatX!() = BrotliHistogramBitCostDistance(&inp[(i as (usize))],
                                                               &mut out[(best_out as (usize))]);
       let mut j: usize;
       j = 0usize;
       while j < num_clusters {
         {
-          let cur_bits: f64 = BrotliHistogramBitCostDistance(&inp[(i as (usize))],
+          let cur_bits: floatX!() = BrotliHistogramBitCostDistance(&inp[(i as (usize))],
                                                              &mut out[(clusters[(j as (usize))] as
                                                                    (usize))]);
           if cur_bits < best_bits {
