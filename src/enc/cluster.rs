@@ -53,8 +53,8 @@ fn HistogramPairIsLess(p1: &HistogramPair, p2: &HistogramPair) -> bool {
 
 /* Computes the bit cost reduction by combining out[idx1] and out[idx2] and if
    it is below a threshold, stores the pair (idx1, idx2) in the *pairs queue. */
-fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
-    mut out : &mut[HistogramType],
+fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors + Clone>(
+    out : &[HistogramType],
     cluster_size : &[u32],
     mut idx1 : u32,
     mut idx2 : u32,
@@ -96,9 +96,9 @@ fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper
         brotli_max_double(0.0 as super::util::floatX, (pairs[0i32 as (usize)]).cost_diff)
       };
       let cost_combo: super::util::floatX;
-      HistogramSelfAddHistogram(out, idx1 as usize, idx2 as usize);
-      let combo: &HistogramType = &out[idx1 as (usize)];
-      cost_combo = BrotliPopulationCost(combo);
+      let mut combo : HistogramType = out[idx1 as usize ].clone();
+      HistogramAddHistogram(&mut combo, &out[idx2 as usize]);
+      cost_combo = BrotliPopulationCost(&combo);
       if cost_combo < threshold - p.cost_diff {
         p.cost_combo = cost_combo;
         is_good_pair = 1i32;
@@ -122,7 +122,7 @@ fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper
   }
 }
 
-pub fn BrotliHistogramCombine<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>
+pub fn BrotliHistogramCombine<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors +Clone>
     (mut out: &mut [HistogramType],
      mut cluster_size: &mut [u32],
      mut symbols: &mut [u32],
