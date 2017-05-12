@@ -38,7 +38,230 @@ static kIterMulForRefining: usize = 2usize;
 
 static kMinItersForRefining: usize = 100usize;
 
+struct v128i {
+    x3: i32,
+    x2: i32,
+    x1: i32,
+    x0: i32,
+}
 
+struct v256i {
+    hi: v128i,
+    lo: v128i,    
+}
+
+struct v128 {
+    x3: super::util::floatX,
+    x2: super::util::floatX,
+    x1: super::util::floatX,
+    x0: super::util::floatX,
+}
+
+struct v256 {
+    hi: v128,
+    lo: v128,    
+}
+
+macro_rules! vind{
+    (($inp:expr)[0]) => (
+        $inp.x0
+    );
+    (($inp:expr)[1]) => (
+        $inp.x1
+    );
+    (($inp:expr)[2]) => (
+        $inp.x2
+    );
+    (($inp:expr)[3]) => (
+        $inp.x3
+    );
+    (($inp:expr)[4]) => (
+        $inp.x4
+    );
+    (($inp:expr)[5]) => (
+        $inp.x5
+    );
+    (($inp:expr)[6]) => (
+        $inp.x6
+    );
+    (($inp:expr)[7]) => (
+        $inp.x7
+    );
+}
+use core::ops::Add;
+macro_rules! apply128i {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v128i{x3:$fun($a.x3, $b.x3),
+              x2:$fun($a.x2, $b.x2),
+              x1:$fun($a.x1, $b.x1),
+              x0:$fun($a.x0, $b.x0),
+        }
+    );
+}
+macro_rules! apply256i {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v256i{
+            hi:apply128i!($a.hi, $b.hi, $fun),
+            lo:apply128i!($a.lo, $b.lo, $fun),
+        }
+    );
+}
+macro_rules! op128i {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v128i{x3:$a.x3.$fun($b.x3),
+              x2:$a.x2.$fun($b.x2),
+              x1:$a.x1.$fun($b.x1),
+              x0:$a.x0.$fun($b.x0),
+        }
+    );
+}
+macro_rules! op256i {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v256i{
+            hi:op128i!($a.hi, $b.hi),
+            lo:op128i!($a.lo, $b.lo),
+        }
+    );
+}
+macro_rules! bcast256i {
+    ($inp: expr) => {
+        v256i{lo:v128i{x3:$inp,
+                       x2:$inp,
+                       x1:$inp,
+                       x0:$inp,
+        },
+              hi:v128i{
+                  x3:$inp,
+                  x2:$inp,
+                  x1:$inp,
+                  x0:$inp,
+              },
+        }
+    };
+}
+macro_rules! bcast128i {
+    ($inp: expr) => {
+        v128i{x3:$inp,
+              x2:$inp,
+              x1:$inp,
+              x0:$inp,
+        }
+    };
+}
+macro_rules! shuf128i {
+    ($inp: expr, $i3 :tt, $i2 : tt, $i1 : tt, $i0: tt) => {
+        v128i{x3:vind!(($inp)[$i3]),
+              x2:vind!(($inp)[$i2]),
+              x1:vind!(($inp)[$i1]),
+              x0:vind!(($inp)[$i0]),
+        }
+    }
+}
+
+macro_rules! apply128 {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v128{x3:$fun($a.x3, $b.x3),
+              x2:$fun($a.x2, $b.x2),
+              x1:$fun($a.x1, $b.x1),
+              x0:$fun($a.x0, $b.x0),
+        }
+    );
+}
+macro_rules! apply256 {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v256{
+            hi:apply128!($a.hi, $b.hi, $fun),
+            lo:apply128!($a.lo, $b.lo, $fun),
+        }
+    );
+}
+macro_rules! op128 {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v128{x3:$a.x3.$fun($b.x3),
+              x2:$a.x2.$fun($b.x2),
+              x1:$a.x1.$fun($b.x1),
+              x0:$a.x0.$fun($b.x0),
+        }
+    );
+}
+macro_rules! op256 {
+    ($a: expr, $b : expr, $fun : tt) => (
+        v256{
+            hi:op128!($a.hi, $b.hi),
+            lo:op128!($a.lo, $b.lo),
+        }
+    );
+}
+macro_rules! bcast256 {
+    ($inp: expr) => {
+        v256{lo:v128{x3:$inp,
+                       x2:$inp,
+                       x1:$inp,
+                       x0:$inp,
+        },
+              hi:v128{
+                  x3:$inp,
+                  x2:$inp,
+                  x1:$inp,
+                  x0:$inp,
+              },
+        }
+    };
+}
+macro_rules! bcast128 {
+    ($inp: expr) => {
+        v128{x3:$inp,
+              x2:$inp,
+              x1:$inp,
+              x0:$inp,
+        }
+    };
+}
+macro_rules! shuf128 {
+    ($inp: expr, $i3 :tt, $i2 : tt, $i1 : tt, $i0: tt) => {
+        v128{x3:vind!(($inp)[$i3]),
+              x2:vind!(($inp)[$i2]),
+              x1:vind!(($inp)[$i1]),
+              x0:vind!(($inp)[$i0]),
+        }
+    }
+}
+
+
+fn sum8(x : v256i) -> i32 {
+    // hiQuad = ( x7, x6, x5, x4 )
+    let hiQuad = x.hi;
+    // loQuad = ( x3, x2, x1, x0 )
+    let loQuad = x.lo;
+    let sumQuad = op128i!(hiQuad, loQuad, add);
+    let shuf = shuf128i!(sumQuad, 1,0,3,2);
+    let sumPair = op128i!(sumQuad, shuf, add);
+    let sum23 = shuf128i!(sumPair, 1,0,3,2);
+    let finalSum = op128i!(sum23, sumPair, add);
+    finalSum.x0
+}
+
+fn update_cost_and_signal(num_histograms32: u32,
+                          ix: usize,
+                          min_cost: super::util::floatX,
+                          block_switch_cost: super::util::floatX,
+                          mut cost: &mut [super::util::floatX],
+                          mut switch_signal: &mut [u8]) {
+    let round_num_histograms = (((num_histograms32 as usize) + 7) >> 3) << 3;
+    let ymm_block_switch_cost = bcast256!(block_switch_cost);
+    for cost_it in cost[..round_num_histograms].iter_mut() {
+        *cost_it -= min_cost;
+    }
+    let ymm_and_mask = v256i{hi:v128i{x3:1<<7,
+                                      x2:1<<6,
+                                      x1:1<<5,
+                                      x0:1<<4},
+                             lo:v128i{x3:1<<3,
+                                      x2:1<<2,
+                                      x1:1<<1,
+                                      x0:1<<0}};
+    
+}
 fn CountLiterals(cmds: &[Command], num_commands: usize) -> usize {
   let mut total_length: usize = 0usize;
   let mut i: usize;
@@ -721,12 +944,14 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
                         AllocU16:alloc::Allocator<u16>,
                         AllocU32:alloc::Allocator<u32>,
                         AllocF64:alloc::Allocator<super::util::floatX>,
+                        AllocFV:alloc::Allocator<[super::util::floatX; 8]>,
                         AllocHT:alloc::Allocator<HistogramType>,
                         AllocHP:alloc::Allocator<HistogramPair>,
                         IntegerType:Sized+Clone>(mut m8: &mut AllocU8,
                         mut m16:&mut AllocU16,
                         mut m32:&mut AllocU32,
                         mut mf64:&mut AllocF64,
+                        mut mfv:&mut AllocFV,
                         mut mht:&mut AllocHT,
                         mut mhp:&mut AllocHP,
                           data: &[IntegerType],
@@ -802,7 +1027,7 @@ mut split: &mut BlockSplit<AllocU8, AllocU32>) where u64: core::convert::From<In
     let mut num_blocks: usize = 0usize;
     let bitmaplen: usize = num_histograms.wrapping_add(7usize) >> 3i32;
     let mut insert_cost = mf64.alloc_cell(data_size.wrapping_mul(num_histograms));
-    let mut cost = mf64.alloc_cell(num_histograms);
+    let mut cost = mf64.alloc_cell(((num_histograms + 7) >> 3) << 3);
     let mut switch_signal = m8.alloc_cell(length.wrapping_mul(bitmaplen));
     let mut new_id = m16.alloc_cell(num_histograms);
     let iters: usize = (if (*params).quality < 11 {
@@ -857,6 +1082,7 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
                         AllocU16: alloc::Allocator<u16>,
                         AllocU32: alloc::Allocator<u32>,
                         AllocF64: alloc::Allocator<super::util::floatX>,
+                        AllocFV:alloc::Allocator<[super::util::floatX; 8]>,
                         AllocHL: alloc::Allocator<HistogramLiteral>,
                         AllocHC: alloc::Allocator<HistogramCommand>,
                         AllocHD: alloc::Allocator<HistogramDistance>,
@@ -865,6 +1091,7 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
    mut m16: &mut AllocU16,
    mut m32: &mut AllocU32,
    mut mf64: &mut AllocF64,
+   mut mfv: &mut AllocFV,
    mut mhl: &mut AllocHL,
    mut mhc: &mut AllocHC,
    mhd: &mut AllocHD,
@@ -886,6 +1113,7 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
                     m16,
                     m32,
                     mf64,
+                    mfv,
                     mhl,
                     mhp,
                     literals.slice(),
@@ -907,6 +1135,7 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
                     m16,
                     m32,
                     mf64,
+                    mfv,
                     mhc,
                     mhp,
                     insert_and_copy_codes.slice(),
@@ -941,6 +1170,7 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
                     m16,
                     m32,
                     mf64,
+                    mfv,
                     mhd,
                     mhp,
                     distance_prefixes.slice(),

@@ -268,6 +268,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<u32>{default_value:0},
                                    HeapAllocator::<Command>{default_value:Command::default()},
                                    HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
+                                   HeapAllocator::<[brotli::enc::floatX;8]>{default_value:[0.0 as brotli::enc::floatX;8]},
                                    HeapAllocator::<HistogramLiteral>{
                                        default_value:HistogramLiteral::default(),
                                    },
