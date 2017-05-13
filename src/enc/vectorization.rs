@@ -129,7 +129,7 @@ macro_rules! shuf128i {
 }
 
 macro_rules! apply128 {
-    ($a: expr, $b : expr, $fun : tt) => (
+    ($a: expr, $b : expr, $fun : expr) => (
         v128{x3:$fun($a.x3, $b.x3),
               x2:$fun($a.x2, $b.x2),
               x1:$fun($a.x1, $b.x1),
@@ -138,7 +138,7 @@ macro_rules! apply128 {
     );
 }
 macro_rules! apply256 {
-    ($a: expr, $b : expr, $fun : tt) => (
+    ($a: expr, $b : expr, $fun : expr) => (
         v256{
             hi:apply128!($a.hi, $b.hi, $fun),
             lo:apply128!($a.lo, $b.lo, $fun),
@@ -146,7 +146,7 @@ macro_rules! apply256 {
     );
 }
 macro_rules! op128 {
-    ($a: expr, $b : expr, $fun : tt) => (
+    ($a: expr, $b : expr, $fun : expr) => (
         v128{x3:$a.x3.$fun($b.x3),
               x2:$a.x2.$fun($b.x2),
               x1:$a.x1.$fun($b.x1),
@@ -155,7 +155,7 @@ macro_rules! op128 {
     );
 }
 macro_rules! op256 {
-    ($a: expr, $b : expr, $fun : tt) => (
+    ($a: expr, $b : expr, $fun : expr) => (
         v256{
             hi:op128!($a.hi, $b.hi),
             lo:op128!($a.lo, $b.lo),
