@@ -2,6 +2,7 @@
 use core;
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
+use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderSetParameter,
                     BrotliEncoderDestroyInstance, BrotliEncoderIsFinished,
@@ -45,7 +46,7 @@ fn oneshot_compress(input: &[u8],
   let mut stack_f64_buffer =
     unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
   let mut stack_fv_buffer =
-    unsafe { define_allocator_memory_pool!(48, [super::util::floatX;8], [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, Mem256f, [0; 128 * 1024], calloc) };
   let mut stack_hl_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramLiteral, [0; 128 * 1024], calloc) };
   let mut stack_hc_buffer =
@@ -68,7 +69,7 @@ fn oneshot_compress(input: &[u8],
   let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data,
                                                                          bzero);
   let mut mf64 = CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
-  let mut mfv = CallocatedFreelist2048::<[super::util::floatX;8]>::new_allocator(stack_fv_buffer.data, bzero);
+  let mut mfv = CallocatedFreelist2048::<Mem256f>::new_allocator(stack_fv_buffer.data, bzero);
   let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data,
                                                                             bzero);
   let mut mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data,

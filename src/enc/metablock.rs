@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use super::vectorization::Mem256f;
 use super::backward_references::BrotliEncoderParams;
 use super::bit_cost::BitsEntropy;
 use super::block_split::BlockSplit;
@@ -20,7 +21,7 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
                             AllocU16: alloc::Allocator<u16>,
                             AllocU32: alloc::Allocator<u32>,
                             AllocF64: alloc::Allocator<super::util::floatX>,
-                            AllocFV:alloc::Allocator<[super::util::floatX; 8]>,
+                            AllocFV:alloc::Allocator<Mem256f>,
                             AllocHL: alloc::Allocator<HistogramLiteral>,
                             AllocHC: alloc::Allocator<HistogramCommand>,
                             AllocHD: alloc::Allocator<HistogramDistance>,

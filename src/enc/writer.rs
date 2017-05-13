@@ -1,4 +1,4 @@
-
+use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
 use super::command::Command;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
@@ -34,7 +34,7 @@ pub struct CompressorWriterCustomAlloc<W: Write,
                                        AllocU32: Allocator<u32>,
                                        AllocCommand: Allocator<Command>,
                                        AllocF64: Allocator<super::util::floatX>,
-                                       AllocFV: Allocator<[super::util::floatX;8]>,
+                                       AllocFV: Allocator<Mem256f>,
                                        AllocHL: Allocator<HistogramLiteral>,
                                        AllocHC: Allocator<HistogramCommand>,
                                        AllocHD: Allocator<HistogramDistance>,
@@ -57,7 +57,7 @@ impl<W: Write,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<[super::util::floatX;8]>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -110,7 +110,7 @@ impl<W: Write,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<[super::util::floatX;8]>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -139,7 +139,7 @@ pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
                                      HeapAlloc<u32>,
                                      HeapAlloc<Command>,
                                      HeapAlloc<super::util::floatX>,
-                                     HeapAlloc<[super::util::floatX;8]>,
+                                     HeapAlloc<Mem256f>,
                                      HeapAlloc<HistogramLiteral>,
                                      HeapAlloc<HistogramCommand>,
                                      HeapAlloc<HistogramDistance>,
@@ -158,7 +158,7 @@ impl<W: Write> CompressorWriter<W> {
     let alloc_u32 = HeapAlloc::<u32> { default_value: 0 };
     let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };
     let alloc_f64 = HeapAlloc::<super::util::floatX> { default_value: 0.0 as super::util::floatX };
-    let alloc_fv = HeapAlloc::<[super::util::floatX;8]> { default_value: [0.0 as super::util::floatX;8] };
+    let alloc_fv = HeapAlloc::<Mem256f> { default_value: Mem256f::default() };
     let alloc_hl = HeapAlloc::<HistogramLiteral> { default_value: HistogramLiteral::default() };
     let alloc_hc = HeapAlloc::<HistogramCommand> { default_value: HistogramCommand::default() };
     let alloc_hd = HeapAlloc::<HistogramDistance> { default_value: HistogramDistance::default() };
@@ -196,6 +196,7 @@ pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
                                      HeapAllocUninitialized<u32>,
                                      HeapAllocUninitialized<Command>,
                                      HeapAllocUninitialized<super::util::floatX>,
+                                     HeapAllocUninitialized<Mem256f>,
                                      HeapAllocUninitialized<HistogramLiteral>,
                                      HeapAllocUninitialized<HistogramCommand>,
                                      HeapAllocUninitialized<HistogramDistance>,
@@ -214,7 +215,7 @@ impl<W: Write> CompressorWriter<W> {
     let alloc_u32 = unsafe { HeapAllocUninitialized::<u32>::new() };
     let alloc_c = unsafe { HeapAllocUninitialized::<Command>::new() };
     let alloc_f64 = unsafe { HeapAllocUninitialized::<super::util::floatX>::new() };
-    let alloc_fv = unsafe { HeapAllocUninitialized::<[super::util::floatX; 8]>::new() };
+    let alloc_fv = unsafe { HeapAllocUninitialized::<Mem256f>::new() };
     let alloc_hl = unsafe { HeapAllocUninitialized::<HistogramLiteral>::new() };
     let alloc_hc = unsafe { HeapAllocUninitialized::<HistogramCommand>::new() };
     let alloc_hd = unsafe { HeapAllocUninitialized::<HistogramDistance>::new() };
@@ -262,7 +263,7 @@ pub struct CompressorWriterCustomIo<ErrType,
                                     AllocU32: Allocator<u32>,
                                     AllocCommand: Allocator<Command>,
                                     AllocF64: Allocator<super::util::floatX>,
-                                    AllocFV: Allocator<[super::util::floatX;8]>,
+                                    AllocFV: Allocator<Mem256f>,
                                     AllocHL: Allocator<HistogramLiteral>,
                                     AllocHC: Allocator<HistogramCommand>,
                                     AllocHD: Allocator<HistogramDistance>,
@@ -302,7 +303,7 @@ impl<ErrType,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<[super::util::floatX;8]>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -408,7 +409,7 @@ impl<ErrType,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<[super::util::floatX;8]>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -434,7 +435,7 @@ impl<ErrType,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<[super::util::floatX;8]>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
