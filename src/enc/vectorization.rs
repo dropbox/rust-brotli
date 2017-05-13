@@ -197,17 +197,23 @@ macro_rules! shuf128 {
     }
 }
 
+fn addf(a: super::util::floatX, b:super::util::floatX) -> super::util::floatX{
+    a + b
+}
+fn addi(a: i32, b:i32) -> i32{
+    a + b
+}
 
 fn sum8(x : v256i) -> i32 {
     // hiQuad = ( x7, x6, x5, x4 )
     let hiQuad = x.hi;
     // loQuad = ( x3, x2, x1, x0 )
     let loQuad = x.lo;
-    let sumQuad = op128i!(hiQuad, loQuad, add);
+    let sumQuad = apply128i!(hiQuad, loQuad, addi);
     let shuf = shuf128i!(sumQuad, 1,0,3,2);
-    let sumPair = op128i!(sumQuad, shuf, add);
+    let sumPair = apply128i!(sumQuad, shuf, addi);
     let sum23 = shuf128i!(sumPair, 1,0,3,2);
-    let finalSum = op128i!(sum23, sumPair, add);
+    let finalSum = apply128i!(sum23, sumPair, addi);
     finalSum.x0
 }
 
