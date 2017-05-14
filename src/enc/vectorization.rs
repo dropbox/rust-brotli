@@ -59,37 +59,20 @@ macro_rules! vind{
     );
 }
 use core::ops::Add;
-macro_rules! apply128i {
-    ($a: expr, $b : expr, $fun : tt) => (
-        v128i{x3:$fun($a.x3, $b.x3),
-              x2:$fun($a.x2, $b.x2),
-              x1:$fun($a.x1, $b.x1),
-              x0:$fun($a.x0, $b.x0),
+macro_rules! add128i {
+    ($a: expr, $b : expr) => (
+        v128i{x3:$a.x3.wrapping_add($b.x3),
+              x2:$a.x2.wrapping_add($b.x2),
+              x1:$a.x1.wrapping_add($b.x1),
+              x0:$a.x0.wrapping_add($b.x0),
         }
     );
 }
-macro_rules! apply256i {
-    ($a: expr, $b : expr, $fun : tt) => (
+macro_rules! add256i {
+    ($a: expr, $b : expr) => (
         v256i{
-            hi:apply128i!($a.hi, $b.hi, $fun),
-            lo:apply128i!($a.lo, $b.lo, $fun),
-        }
-    );
-}
-macro_rules! op128i {
-    ($a: expr, $b : expr, $fun : tt) => (
-        v128i{x3:$a.x3.$fun($b.x3),
-              x2:$a.x2.$fun($b.x2),
-              x1:$a.x1.$fun($b.x1),
-              x0:$a.x0.$fun($b.x0),
-        }
-    );
-}
-macro_rules! op256i {
-    ($a: expr, $b : expr, $fun : tt) => (
-        v256i{
-            hi:op128i!($a.hi, $b.hi),
-            lo:op128i!($a.lo, $b.lo),
+            hi:add128i!($a.hi, $b.hi),
+            lo:add128i!($a.lo, $b.lo),
         }
     );
 }
@@ -128,37 +111,20 @@ macro_rules! shuf128i {
     }
 }
 
-macro_rules! apply128 {
-    ($a: expr, $b : expr, $fun : expr) => (
-        v128{x3:$fun($a.x3, $b.x3),
-              x2:$fun($a.x2, $b.x2),
-              x1:$fun($a.x1, $b.x1),
-              x0:$fun($a.x0, $b.x0),
+macro_rules! add128 {
+    ($a: expr, $b : expr) => (
+        v128{x3:$a.x3 + $b.x3,
+              x2:$a.x2 + $b.x2,
+              x1:$a.x1 + $b.x1,
+              x0:$a.x0 + $b.x0,
         }
     );
 }
-macro_rules! apply256 {
+macro_rules! add256 {
     ($a: expr, $b : expr, $fun : expr) => (
         v256{
-            hi:apply128!($a.hi, $b.hi, $fun),
-            lo:apply128!($a.lo, $b.lo, $fun),
-        }
-    );
-}
-macro_rules! op128 {
-    ($a: expr, $b : expr, $fun : expr) => (
-        v128{x3:$a.x3.$fun($b.x3),
-              x2:$a.x2.$fun($b.x2),
-              x1:$a.x1.$fun($b.x1),
-              x0:$a.x0.$fun($b.x0),
-        }
-    );
-}
-macro_rules! op256 {
-    ($a: expr, $b : expr, $fun : expr) => (
-        v256{
-            hi:op128!($a.hi, $b.hi),
-            lo:op128!($a.lo, $b.lo),
+            hi:add128!($a.hi, $b.hi),
+            lo:add128!($a.lo, $b.lo),
         }
     );
 }
@@ -197,23 +163,17 @@ macro_rules! shuf128 {
     }
 }
 
-fn addf(a: super::util::floatX, b:super::util::floatX) -> super::util::floatX{
-    a + b
-}
-fn addi(a: i32, b:i32) -> i32{
-    a + b
-}
 
 fn sum8(x : v256i) -> i32 {
     // hiQuad = ( x7, x6, x5, x4 )
     let hiQuad = x.hi;
     // loQuad = ( x3, x2, x1, x0 )
     let loQuad = x.lo;
-    let sumQuad = apply128i!(hiQuad, loQuad, addi);
+    let sumQuad = add128i!(hiQuad, loQuad);
     let shuf = shuf128i!(sumQuad, 1,0,3,2);
-    let sumPair = apply128i!(sumQuad, shuf, addi);
+    let sumPair = add128i!(sumQuad, shuf);
     let sum23 = shuf128i!(sumPair, 1,0,3,2);
-    let finalSum = apply128i!(sum23, sumPair, addi);
+    let finalSum = add128i!(sum23, sumPair);
     finalSum.x0
 }
 
