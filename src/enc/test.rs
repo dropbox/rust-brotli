@@ -69,7 +69,7 @@ fn oneshot_compress(input: &[u8],
   let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data,
                                                                          bzero);
   let mut mf64 = CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
-  let mut mfv = CallocatedFreelist2048::<Mem256f>::new_allocator(stack_fv_buffer.data, bzero);
+  let mfv = CallocatedFreelist2048::<Mem256f>::new_allocator(stack_fv_buffer.data, bzero);
   let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data,
                                                                             bzero);
   let mut mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data,
@@ -85,7 +85,8 @@ fn oneshot_compress(input: &[u8],
                                                stack_u16_allocator,
                                                stack_i32_allocator,
                                                stack_u32_allocator,
-                                               stack_mc_allocator);
+                                               stack_mc_allocator,
+                                               mfv);
   let mut next_in_offset: usize = 0;
   let mut next_out_offset: usize = 0;
   {
@@ -117,7 +118,6 @@ fn oneshot_compress(input: &[u8],
       }
       let result = BrotliEncoderCompressStream(s,
                                                &mut mf64,
-                                               &mut mfv,
                                                &mut mhl,
                                                &mut mhc,
                                                &mut mhd,

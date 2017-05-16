@@ -213,7 +213,7 @@ pub fn BrotliCompressCustomIo<ErrType,
    mu32: AllocU32,
    mc: AllocCommand,
    mut mf64: AllocF64,
-   mut mfv: AllocFV,
+   mfv: AllocFV,
    mut mhl: AllocHL,
    mut mhc: AllocHC,
    mut mhd: AllocHD,
@@ -225,7 +225,7 @@ pub fn BrotliCompressCustomIo<ErrType,
   where InputType: CustomRead<ErrType>,
         OutputType: CustomWrite<ErrType>
 {
-  let mut s_orig = BrotliEncoderCreateInstance(mu8, mu16, mi32, mu32, mc);
+  let mut s_orig = BrotliEncoderCreateInstance(mu8, mu16, mi32, mu32, mc, mfv);
   s_orig.params = params.clone();
   let mut next_in_offset: usize = 0;  
   let mut next_out_offset: usize = 0;
@@ -263,7 +263,7 @@ pub fn BrotliCompressCustomIo<ErrType,
               op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
           }
           let result = BrotliEncoderCompressStream(s,
-                                                   &mut mf64, &mut mfv, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht,
+                                                   &mut mf64, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht,
                                                    op,
                                                    &mut available_in,
                                                    input_buffer,
