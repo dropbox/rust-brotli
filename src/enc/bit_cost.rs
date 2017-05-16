@@ -65,6 +65,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
   let data_size: usize = (*histogram).slice().len();
   let mut count: i32 = 0i32;
   let mut s: [usize; 5] = [0; 5];
+
   let mut bits: super::util::floatX = 0.0 as super::util::floatX;
   let mut i: usize;
   if (*histogram).total_count() == 0usize {
@@ -139,6 +140,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     let mut max_depth: usize = 1usize;
     let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
+    let mut _nnz_data = HistogramType::make_nnz_storage();
     let log2total: super::util::floatX = FastLog2((*histogram).total_count() as u64);
     i = 0usize;
     while i < data_size {

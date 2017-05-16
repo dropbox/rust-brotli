@@ -20,6 +20,38 @@ impl Mem256f {
                  data.lo.x0])
     }
 }
+
+
+
+
+
+
+
+
+
+#[derive(Clone, Debug, Copy)]
+pub struct Mem256i(pub [i32;8]);
+
+impl Default for Mem256i {
+    fn default() -> Mem256i {
+        Mem256i([0; 8])
+    }
+}
+
+impl Mem256i {
+    pub fn new(data: v256i) -> Mem256i {
+        Mem256i([data.hi.x3,
+                 data.hi.x2,
+                 data.hi.x1,
+                 data.hi.x0,
+                 data.lo.x3,
+                 data.lo.x2,
+                 data.lo.x1,
+                 data.lo.x0])
+    }
+}
+
+
 pub struct v128i {
     pub x3: i32,
     pub x2: i32,
@@ -30,6 +62,18 @@ pub struct v128i {
 pub struct v256i {
     pub hi: v128i,
     pub lo: v128i,    
+}
+impl v256i {
+    pub fn new(data: &Mem256i) -> v256i {
+        v256i{hi:v128i{x3:data.0[0],
+                            x2:data.0[1],
+                            x1:data.0[2],
+                            x0:data.0[3]},
+                    lo:v128i{x3:data.0[4],
+                            x2:data.0[5],
+                            x1:data.0[6],
+                            x0:data.0[7]}}
+    }
 }
 
 pub struct v128 {

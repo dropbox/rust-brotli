@@ -5,6 +5,7 @@ use super::command::{Command, CommandCopyLen, CommandDistanceContext};
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::vectorization::{Mem256i};
 use core;
 use core::cmp::min;
 static kBrotliMinWindowBits: i32 = 10i32;
@@ -85,6 +86,8 @@ impl Default for HistogramDistance {
 }
 
 pub trait CostAccessors {
+  type i32vec : Sized + SliceWrapper<Mem256i>+SliceWrapperMut<Mem256i>;
+  fn make_nnz_storage() -> Self::i32vec;
   fn total_count(&self) -> usize;
   fn bit_cost(&self) -> super::util::floatX;
   fn set_bit_cost(&mut self, cost: super::util::floatX);
@@ -100,7 +103,63 @@ impl SliceWrapperMut<u32> for HistogramLiteral {
     return &mut self.data_[..];
   }
 }
+pub struct Array264i([Mem256i;33]);
+impl SliceWrapperMut<Mem256i> for Array264i {
+    fn slice_mut(&mut self) -> &mut [Mem256i] {
+        return &mut self.0[..]
+    }
+}
+
+impl SliceWrapper<Mem256i> for Array264i {
+    fn slice(&self) -> & [Mem256i] {
+        return &self.0[..]
+    }
+}
+impl Default for Array264i {
+    fn default() -> Array264i {
+        return Array264i([Mem256i::default().clone();33]);
+    }
+}
+pub struct Array528i([Mem256i;66]);
+impl SliceWrapperMut<Mem256i> for Array528i {
+    fn slice_mut(&mut self) -> &mut [Mem256i] {
+        return &mut self.0[..]
+    }
+}
+impl SliceWrapper<Mem256i> for Array528i {
+    fn slice(&self) -> & [Mem256i] {
+        return &self.0[..]
+    }
+}
+impl Default for Array528i {
+    fn default() -> Array528i {
+        return Array528i([Mem256i::default();66]);
+    }
+}
+
+pub struct Array712i([Mem256i;89]);
+impl SliceWrapperMut<Mem256i> for Array712i {
+    fn slice_mut(&mut self) -> &mut [Mem256i] {
+        return &mut self.0[..]
+    }
+}
+impl SliceWrapper<Mem256i> for Array712i {
+    fn slice(&self) -> & [Mem256i] {
+        return &self.0[..]
+    }
+}
+impl Default for Array712i {
+    fn default() -> Array712i {
+        return Array712i([Mem256i::default();89]);
+    }
+}
+
+
 impl CostAccessors for HistogramLiteral {
+  type i32vec = Array264i;
+  fn make_nnz_storage() -> Array264i {
+      return Array264i::default();
+  }
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
@@ -127,6 +186,10 @@ impl SliceWrapperMut<u32> for HistogramCommand {
 }
 
 impl CostAccessors for HistogramCommand {
+  type i32vec = Array712i;
+  fn make_nnz_storage() -> Array712i {
+      return Array712i::default();
+  }
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
@@ -152,6 +215,11 @@ impl SliceWrapperMut<u32> for HistogramDistance {
   }
 }
 impl CostAccessors for HistogramDistance {
+  type i32vec = Array528i;
+  fn make_nnz_storage() -> Array528i {
+      return Array528i::default();
+  }
+
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
