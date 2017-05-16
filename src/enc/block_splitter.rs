@@ -45,27 +45,55 @@ fn update_cost_and_signal(num_histograms32: u32,
                           block_switch_cost: super::util::floatX,
                           mut cost: &mut [Mem256f],
                           mut switch_signal: &mut [u8]) {
+    if (false) { // scalar mode
+        for k in 0.. ((num_histograms32 as usize + 7)>> 3 << 3) {
+            cost[k>>3].0[k&7] -= min_cost;
+            if (cost[k>>3].0[k&7] >= block_switch_cost) {
+                let mask = ((1 as u8) << (k & 7)) as u8;
+                cost[k>>3].0[k&7] = block_switch_cost;
+                switch_signal[ix + (k >> 3)] |= mask;
+            }
+        }
+        return;
+    }
+    if (false) { // scalar mode
+
+        for k in 0.. ((num_histograms32 as usize + 7)>> 3 << 3) {
+            cost[k>>3].0[k&7] -= min_cost;
+            let cmpge = if (cost[k>>3].0[k&7] >= block_switch_cost) { 0xff }else{0};
+            let mask = ((1 as u8) << (k & 7)) as u8;
+            let bits = cmpge & mask;
+            cost[k>>3].0[k&7] = cost[k>>3].0[k&7].min(block_switch_cost);
+            switch_signal[ix + (k >> 3)] |= bits;
+            //if (((k + 1)>> 3) != (k >>3)) {
+            //    println_stderr!("{:} ss {:} c {:?}", k, switch_signal[ix + (k >> 3)],cost[k>>3]);
+            //}
+        }
+        return;
+    }
     let ymm_min_cost = bcast256!(min_cost);
-    let round_num_histograms = (((num_histograms32 as usize) + 7) >> 3) << 3;
     let ymm_block_switch_cost = bcast256!(block_switch_cost);
-    let ymm_and_mask = v256i{hi:v128i{x3:1<<7,
-                                      x2:1<<6,
-                                      x1:1<<5,
-                                      x0:1<<4},
-                             lo:v128i{x3:1<<3,
-                                      x2:1<<2,
-                                      x1:1<<1,
-                                      x0:1<<0}};
+    let ymm_and_mask = v256i{hi:v128i{x3:1<<0,
+                                      x2:1<<1,
+                                      x1:1<<2,
+                                      x0:1<<3},
+                             lo:v128i{x3:1<<4,
+                                      x2:1<<5,
+                                      x1:1<<6,
+                                      x0:1<<7}};
     
-    for (index, cost_it) in cost.iter_mut().enumerate() {
+    for (index, cost_it) in cost[..((num_histograms32 as usize + 7)>> 3)].iter_mut().enumerate() {
         let mut ymm_cost = v256::new(cost_it);
         let costk_minus_min_cost = sub256!(ymm_cost, ymm_min_cost);
         let ymm_cmpge = cmpge256!(costk_minus_min_cost, ymm_block_switch_cost);
         let ymm_bits = and256i!(ymm_cmpge, ymm_and_mask);
-        let result = super::vectorization::sum8(ymm_bits) as u8;
-        switch_signal[ix + index] |= result;
+        let result = ymm_bits.hi.x3 +ymm_bits.hi.x2 +ymm_bits.hi.x1 +ymm_bits.hi.x0
+            + ymm_bits.lo.x3 +ymm_bits.lo.x2 +ymm_bits.lo.x1 +ymm_bits.lo.x0;
+        //super::vectorization::sum8(ymm_bits) as u8;
+        switch_signal[ix + index] |= result as u8;
         ymm_cost = min256!(costk_minus_min_cost, ymm_block_switch_cost);
         *cost_it = Mem256f::new(ymm_cost);
+        //println_stderr!("{:} ss {:} c {:?}", (index << 3) + 7, switch_signal[ix + index],*cost_it);
     }
 }
 fn CountLiterals(cmds: &[Command], num_commands: usize) -> usize {
@@ -282,11 +310,10 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   for item in switch_signal[..(length * bitmaplen)].iter_mut() {
     *item = 0;
   }
-  i = 0usize;
   for (byte_ix, data_byte_ix) in data[..length].iter().enumerate() {
     {
       let ix: usize = byte_ix.wrapping_mul(bitmaplen);
-      let insert_cost_ix: usize = u64::from(data[(byte_ix as (usize))].clone())
+      let insert_cost_ix: usize = u64::from(data_byte_ix.clone())
         .wrapping_mul(num_histograms as u64) as usize;
       let mut min_cost: super::util::floatX = 1e38 as super::util::floatX;
       let mut block_switch_cost: super::util::floatX = block_switch_bitcost;

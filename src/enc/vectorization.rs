@@ -1,5 +1,5 @@
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Mem256f(pub [super::util::floatX;8]);
 
 impl Default for Mem256f {
@@ -81,7 +81,7 @@ macro_rules! vind{
         $inp.x7
     );
 }
-use core::ops::Add;
+
 macro_rules! add128i {
     ($a: expr, $b : expr) => (
         v128i{x3:$a.x3.wrapping_add($b.x3),
@@ -200,8 +200,8 @@ macro_rules! and128i {
 macro_rules! and256i {
     ($a: expr, $b : expr) => (
         v256i{
-            hi:add128i!($a.hi, $b.hi),
-            lo:add128i!($a.lo, $b.lo),
+            hi:and128i!($a.hi, $b.hi),
+            lo:and128i!($a.lo, $b.lo),
         }
     );
 }
@@ -245,7 +245,7 @@ macro_rules! max256 {
     );
 }
 
-macro_rules! min128 { // should be able to use _mm_min_ps
+macro_rules! miny128 { // should be able to use _mm_min_ps
 ($a: expr, $b : expr) => (
         // if src1 == 0 and src2 == 0 return src2 else if src1 or src2 is nan, return src2,
         // if src1 > src2 return src1 else return src2
@@ -253,6 +253,30 @@ macro_rules! min128 { // should be able to use _mm_min_ps
              x2:if $a.x2 < $b.x2 && !($a.x2 == 0.0 as super::util::floatX && $b.x2 == 0.0 as super::util::floatX) {$a.x2} else {$b.x2},
              x1:if $a.x1 < $b.x1 && !($a.x1 == 0.0 as super::util::floatX && $b.x1 == 0.0 as super::util::floatX) {$a.x1} else {$b.x1},
              x0:if $a.x0 < $b.x0 && !($a.x0 == 0.0 as super::util::floatX && $b.x0 == 0.0 as super::util::floatX) {$a.x0} else {$b.x0},
+        }
+    );
+}
+
+macro_rules! min128 { // should be able to use _mm_min_ps
+($a: expr, $b : expr) => (
+        // if src1 == 0 and src2 == 0 return src2 else if src1 or src2 is nan, return src2,
+        // if src1 > src2 return src1 else return src2
+        v128{x3:if $a.x3 < $b.x3 {$a.x3} else {$b.x3},
+             x2:if $a.x2 < $b.x2 {$a.x2} else {$b.x2},
+             x1:if $a.x1 < $b.x1 {$a.x1} else {$b.x1},
+             x0:if $a.x0 < $b.x0 {$a.x0} else {$b.x0},
+        }
+    );
+}
+
+macro_rules! minx128 { // should be able to use _mm_min_ps
+($a: expr, $b : expr) => (
+        // if src1 == 0 and src2 == 0 return src2 else if src1 or src2 is nan, return src2,
+        // if src1 > src2 return src1 else return src2
+    v128{x3:$a.x3.min($b.x3),
+         x2:$a.x2.min($b.x2),
+         x1:$a.x1.min($b.x1),
+         x0:$a.x0.min($b.x0)
         }
     );
 }
