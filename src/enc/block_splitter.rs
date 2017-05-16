@@ -63,7 +63,9 @@ fn update_cost_and_signal(num_histograms32: u32,
             let cmpge = if (cost[k>>3].0[k&7] >= block_switch_cost) { 0xff }else{0};
             let mask = ((1 as u8) << (k & 7)) as u8;
             let bits = cmpge & mask;
-            cost[k>>3].0[k&7] = cost[k>>3].0[k&7].min(block_switch_cost);
+            if block_switch_cost < cost[k>>3].0[k&7] {
+                cost[k>>3].0[k&7] = block_switch_cost;
+            }
             switch_signal[ix + (k >> 3)] |= bits;
             //if (((k + 1)>> 3) != (k >>3)) {
             //    println_stderr!("{:} ss {:} c {:?}", k, switch_signal[ix + (k >> 3)],cost[k>>3]);
