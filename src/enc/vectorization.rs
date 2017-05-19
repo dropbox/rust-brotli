@@ -1,4 +1,4 @@
-
+use core;
 #[derive(Clone, Debug)]
 pub struct Mem256f(pub [super::util::floatX;8]);
 
@@ -64,6 +64,16 @@ pub struct v256i {
     pub lo: v128i,    
 }
 impl v256i {
+    pub fn set1(f : i32) -> v256i{
+        v256i{hi:v128i{x3:f,
+                            x2:f,
+                            x1:f,
+                            x0:f},
+                    lo:v128i{x3:f,
+                            x2:f,
+                            x1:f,
+                            x0:f}}      
+    }
     pub fn new(data: &Mem256i) -> v256i {
         v256i{hi:v128i{x3:data.0[0],
                             x2:data.0[1],
@@ -82,12 +92,75 @@ pub struct v128 {
     pub x1: super::util::floatX,
     pub x0: super::util::floatX,
 }
-
+impl core::convert::From<v128> for v128i {
+  fn from(a : v128) -> Self {
+     v128i{
+        x3:a.x3 as i32,
+        x2:a.x2 as i32,
+        x1:a.x1 as i32,
+        x0:a.x0 as i32
+     }
+  }
+}
+impl core::convert::From<v128i> for v128 {
+  fn from(a : v128i) -> Self {
+     v128{
+        x3:a.x3 as super::util::floatX,
+        x2:a.x2 as super::util::floatX,
+        x1:a.x1 as super::util::floatX,
+        x0:a.x0 as super::util::floatX,
+     }
+  }
+}
 pub struct v256 {
     pub hi: v128,
     pub lo: v128,    
 }
 impl v256 {
+    pub fn set1(f : super::util::floatX) -> v256{
+        v256{hi:v128{x3:f,
+                            x2:f,
+                            x1:f,
+                            x0:f},
+                    lo:v128{x3:f,
+                            x2:f,
+                            x1:f,
+                            x0:f}}      
+    }
+    pub fn setr(f0 : super::util::floatX,
+    f1 : super::util::floatX,
+    f2 : super::util::floatX,
+    f3 : super::util::floatX,
+    f4 : super::util::floatX,
+    f5 : super::util::floatX,
+    f6 : super::util::floatX,
+    f7 : super::util::floatX) -> v256 {
+        v256{hi:v128{x3:f7,
+                            x2:f6,
+                            x1:f5,
+                            x0:f4},
+                    lo:v128{x3:f3,
+                            x2:f2,
+                            x1:f1,
+                            x0:f0}}
+    }
+    pub fn set(f7 : super::util::floatX,
+    f6 : super::util::floatX,
+    f5 : super::util::floatX,
+    f4 : super::util::floatX,
+    f3 : super::util::floatX,
+    f2 : super::util::floatX,
+    f1 : super::util::floatX,
+    f0 : super::util::floatX) -> v256 {
+        v256{hi:v128{x3:f7,
+                            x2:f6,
+                            x1:f5,
+                            x0:f4},
+                    lo:v128{x3:f3,
+                            x2:f2,
+                            x1:f1,
+                            x0:f0}}
+    }
     pub fn new(data: &Mem256f) -> v256 {
         v256{hi:v128{x3:data.0[0],
                             x2:data.0[1],
@@ -99,6 +172,20 @@ impl v256 {
                             x0:data.0[7]}}
     }
 }
+impl core::convert::From<v256> for v256i {
+  fn from(a : v256) -> Self {
+     v256i{ lo:v128i::from(a.lo),
+            hi:v128i::from(a.hi)}
+  }
+}
+
+impl core::convert::From<v256i> for v256 {
+  fn from(a : v256i) -> Self {
+     v256{ lo:v128::from(a.lo),
+           hi:v128::from(a.hi)}
+  }
+}
+
 macro_rules! vind{
     (($inp:expr)[0]) => (
         $inp.x0
@@ -144,11 +231,28 @@ macro_rules! sub128i {
         }
     );
 }
+macro_rules! mul128i {
+    ($a: expr, $b : expr) => (
+        v128i{x3:$a.x3.wrapping_mul($b.x3),
+              x2:$a.x2.wrapping_mul($b.x2),
+              x1:$a.x1.wrapping_mul($b.x1),
+              x0:$a.x0.wrapping_mul($b.x0),
+        }
+    );
+}
 macro_rules! add256i {
     ($a: expr, $b : expr) => (
         v256i{
             hi:add128i!($a.hi, $b.hi),
             lo:add128i!($a.lo, $b.lo),
+        }
+    );
+}
+macro_rules! mul256i {
+    ($a: expr, $b : expr) => (
+        v256i{
+            hi:mul128i!($a.hi, $b.hi),
+            lo:mul128i!($a.lo, $b.lo),
         }
     );
 }
@@ -223,11 +327,71 @@ macro_rules! add128 {
         }
     );
 }
+macro_rules! mul128 {
+    ($a: expr, $b : expr) => (
+        v128{x3:$a.x3 * $b.x3,
+              x2:$a.x2 * $b.x2,
+              x1:$a.x1 * $b.x1,
+              x0:$a.x0 * $b.x0,
+        }
+    );
+}
+
+macro_rules! logtwo128i {
+    ($a: expr) => (
+        v128{x3:FastLog2($a.x3 as u64),
+              x2:FastLog2($a.x2 as u64),
+              x1:FastLog2($a.x1 as u64),
+              x0:FastLog2($a.x0 as u64),
+        }
+    );
+}
+
+
+macro_rules! powtwo128 {
+    ($a: expr, $b : expr) => (
+        v128{x3:FastPow2($a.x3),
+              x2:FastPow2($a.x2),
+              x1:FastPow2($a.x1),
+              x0:FastPow2($a.x0),
+        }
+    );
+}
+
 macro_rules! add256 {
     ($a: expr, $b : expr) => (
         v256{
             hi:add128!($a.hi, $b.hi),
             lo:add128!($a.lo, $b.lo),
+        }
+    );
+}
+
+macro_rules! mul256 {
+    ($a: expr, $b : expr) => (
+        v256{
+            hi:mul128!($a.hi, $b.hi),
+            lo:mul128!($a.lo, $b.lo),
+        }
+    );
+}
+
+
+
+macro_rules! powtwo256 {
+    ($a: expr) => (
+        v256{
+            hi:powtwo128!($a.hi),
+            lo:powtwo128!($a.lo),
+        }
+    );
+}
+
+macro_rules! logtwo256i {
+    ($a: expr) => (
+        v256{
+            hi:logtwo128i!($a.hi),
+            lo:logtwo128i!($a.lo),
         }
     );
 }
@@ -358,6 +522,48 @@ macro_rules! cmpge256 {
         }
     );
 }
+
+macro_rules! cmpgt128 {
+    ($a: expr, $b : expr) => (
+        v128i{x3:-(($a.x3 > $b.x3) as i32),
+              x2:-(($a.x2 > $b.x2) as i32),
+              x1:-(($a.x1 > $b.x1) as i32),
+              x0:-(($a.x0 > $b.x0) as i32),
+        }
+    );
+}
+
+macro_rules! cmpgt256 {
+    ($a: expr, $b : expr) => (
+        v256i{
+            hi:cmpgt128!($a.hi, $b.hi),
+            lo:cmpgt128!($a.lo, $b.lo),
+        }
+    );
+}
+
+
+
+macro_rules! cmpgt128and1 {
+    ($a: expr, $b : expr) => (
+        v128i{x3: ($a.x3 > $b.x3) as i32,
+              x2: ($a.x2 > $b.x2) as i32,
+              x1: ($a.x1 > $b.x1) as i32,
+              x0: ($a.x0 > $b.x0) as i32,
+        }
+    );
+}
+
+macro_rules! cmpgt256and1 {
+    ($a: expr, $b : expr) => (
+        v256i{
+            hi:cmpgt128and1!($a.hi, $b.hi),
+            lo:cmpgt128and1!($a.lo, $b.lo),
+        }
+    );
+}
+
+
 macro_rules! bcast256 {
     ($inp: expr) => {
         v256{lo:v128{x3:$inp,
@@ -393,8 +599,14 @@ macro_rules! shuf128 {
     }
 }
 
-
-pub fn sum8(x : v256i) -> i32 {
+pub fn sum8(x : v256) -> super::util::floatX {
+    return x.hi.x3 + x.hi.x2 + x.hi.x1 + x.hi.x0 +
+        x.lo.x3 + x.lo.x2 + x.lo.x1 + x.lo.x0;
+}
+pub fn sum8i(x : v256i) -> i32 {
+    return x.hi.x3 + x.hi.x2 + x.hi.x1 + x.hi.x0 +
+        x.lo.x3 + x.lo.x2 + x.lo.x1 + x.lo.x0;
+/*
     // hiQuad = ( x7, x6, x5, x4 )
     let hiQuad = x.hi;
     // loQuad = ( x3, x2, x1, x0 )
@@ -405,5 +617,6 @@ pub fn sum8(x : v256i) -> i32 {
     let sum23 = shuf128i!(sumPair, 1,0,3,2);
     let finalSum = add128i!(sum23, sumPair);
     finalSum.x0
+    */
 }
 

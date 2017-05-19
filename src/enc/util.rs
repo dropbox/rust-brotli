@@ -293,6 +293,34 @@ pub fn FastLog2(v: u64) -> super::util::floatX {
   }
   return (v as super::util::floatX).log2();
 }
+
+#[cfg(not(feature="no-stdlib"))]
+pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
+  return (2 as super::util::floatX).powf(v);
+}
+
+
+#[cfg(feature="no-stdlib")]
+pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
+   assert!(v >= 0);
+   let round_down = v as i32;
+   let remainder = v - round_down as super::util::floatX;
+   let mut x = 1;
+   // (1 + (x/n) * ln2) ^ n 
+   // let n = 8
+   x += remainder * (0.693147180559945309417232121458 / 256.0) as super::util::floatX;
+   x *= x;
+   x *= x;
+   x *= x;
+   x *= x;
+   x *= x;
+   x *= x;
+   x *= x;
+   x *= x;
+   return (1 << round_down) as super::util::floatX * x;
+}
+
+
 #[cfg(feature="no-stdlib")]
 pub fn FastLog2(mut v: u64) -> super::util::floatX {
   if v < kLog2Table.len() as u64 {
