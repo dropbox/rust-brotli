@@ -1,4 +1,7 @@
+#![allow(unknown_lints)]
+#![allow(unused_macros)]
 use core;
+
 #[derive(Clone, Debug)]
 pub struct Mem256f(pub [super::util::floatX;8]);
 

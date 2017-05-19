@@ -302,10 +302,10 @@ pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
 
 #[cfg(feature="no-stdlib")]
 pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
-   assert!(v >= 0);
+   assert!(v >= 0 as super::util::floatX);
    let round_down = v as i32;
    let remainder = v - round_down as super::util::floatX;
-   let mut x = 1;
+   let mut x = 1 as super::util::floatX;
    // (1 + (x/n) * ln2) ^ n 
    // let n = 8
    x += remainder * (0.693147180559945309417232121458 / 256.0) as super::util::floatX;
