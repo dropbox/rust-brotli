@@ -75,14 +75,14 @@ fn update_cost_and_signal(num_histograms32: u32,
     }
     let ymm_min_cost = bcast256!(min_cost);
     let ymm_block_switch_cost = bcast256!(block_switch_cost);
-    let ymm_and_mask = v256i{hi:v128i{x3:1<<0,
-                                      x2:1<<1,
-                                      x1:1<<2,
-                                      x0:1<<3},
-                             lo:v128i{x3:1<<4,
-                                      x2:1<<5,
-                                      x1:1<<6,
-                                      x0:1<<7}};
+    let ymm_and_mask = v256i::setr(1<<0,
+                                   1<<1,
+                                   1<<2,
+                                   1<<3,
+                                   1<<4,
+                                   1<<5,
+                                   1<<6,
+                                   1<<7);
     
     for (index, cost_it) in cost[..((num_histograms32 as usize + 7)>> 3)].iter_mut().enumerate() {
         let mut ymm_cost = v256::new(cost_it);

@@ -13,14 +13,14 @@ impl Default for Mem256f {
 
 impl Mem256f {
     pub fn new(data: v256) -> Mem256f {
-        Mem256f([data.hi.x3,
-                 data.hi.x2,
-                 data.hi.x1,
-                 data.hi.x0,
-                 data.lo.x3,
-                 data.lo.x2,
+        Mem256f([data.lo.x0,
                  data.lo.x1,
-                 data.lo.x0])
+                 data.lo.x2,
+                 data.lo.x3,
+                 data.hi.x0,
+                 data.hi.x1,
+                 data.hi.x2,
+                 data.hi.x3])
     }
 }
 
@@ -43,14 +43,14 @@ impl Default for Mem256i {
 
 impl Mem256i {
     pub fn new(data: v256i) -> Mem256i {
-        Mem256i([data.hi.x3,
-                 data.hi.x2,
-                 data.hi.x1,
-                 data.hi.x0,
-                 data.lo.x3,
-                 data.lo.x2,
+        Mem256i([data.lo.x0,
                  data.lo.x1,
-                 data.lo.x0])
+                 data.lo.x2,
+                 data.lo.x3,
+                 data.hi.x0,
+                 data.hi.x1,
+                 data.hi.x2,
+                 data.hi.x3])
     }
 }
 
@@ -67,6 +67,41 @@ pub struct v256i {
     pub lo: v128i,    
 }
 impl v256i {
+    pub fn setr(f0 : i32,
+    f1 : i32,
+    f2 : i32,
+    f3 : i32,
+    f4 : i32,
+    f5 : i32,
+    f6 : i32,
+    f7 : i32) -> v256i {
+        v256i{hi:v128i{x3:f7,
+                            x2:f6,
+                            x1:f5,
+                            x0:f4},
+                    lo:v128i{x3:f3,
+                            x2:f2,
+                            x1:f1,
+                            x0:f0}}
+    }
+    pub fn set(f7 : i32,
+    f6 : i32,
+    f5 : i32,
+    f4 : i32,
+    f3 : i32,
+    f2 : i32,
+    f1 : i32,
+    f0 : i32) -> v256i {
+        v256i{hi:v128i{x3:f7,
+                            x2:f6,
+                            x1:f5,
+                            x0:f4},
+                    lo:v128i{x3:f3,
+                            x2:f2,
+                            x1:f1,
+                            x0:f0}}
+    }
+
     pub fn set1(f : i32) -> v256i{
         v256i{hi:v128i{x3:f,
                             x2:f,
@@ -78,14 +113,14 @@ impl v256i {
                             x0:f}}      
     }
     pub fn new(data: &Mem256i) -> v256i {
-        v256i{hi:v128i{x3:data.0[0],
-                            x2:data.0[1],
-                            x1:data.0[2],
-                            x0:data.0[3]},
-                    lo:v128i{x3:data.0[4],
-                            x2:data.0[5],
-                            x1:data.0[6],
-                            x0:data.0[7]}}
+        v256i{lo:v128i{x0:data.0[0],
+                            x1:data.0[1],
+                            x2:data.0[2],
+                            x3:data.0[3]},
+                    hi:v128i{x0:data.0[4],
+                            x1:data.0[5],
+                            x2:data.0[6],
+                            x3:data.0[7]}}
     }
 }
 
@@ -130,7 +165,7 @@ impl v256 {
                             x1:f,
                             x0:f}}      
     }
-    pub fn setr(f0 : super::util::floatX,
+    pub fn set(f0 : super::util::floatX,
     f1 : super::util::floatX,
     f2 : super::util::floatX,
     f3 : super::util::floatX,
@@ -147,7 +182,7 @@ impl v256 {
                             x1:f1,
                             x0:f0}}
     }
-    pub fn set(f7 : super::util::floatX,
+    pub fn setr(f7 : super::util::floatX,
     f6 : super::util::floatX,
     f5 : super::util::floatX,
     f4 : super::util::floatX,
@@ -165,14 +200,14 @@ impl v256 {
                             x0:f0}}
     }
     pub fn new(data: &Mem256f) -> v256 {
-        v256{hi:v128{x3:data.0[0],
-                            x2:data.0[1],
-                            x1:data.0[2],
-                            x0:data.0[3]},
-                    lo:v128{x3:data.0[4],
-                            x2:data.0[5],
-                            x1:data.0[6],
-                            x0:data.0[7]}}
+        v256{lo:v128{x0:data.0[0],
+                            x1:data.0[1],
+                            x2:data.0[2],
+                            x3:data.0[3]},
+                    hi:v128{x0:data.0[4],
+                            x1:data.0[5],
+                            x2:data.0[6],
+                            x3:data.0[7]}}
     }
 }
 impl core::convert::From<v256> for v256i {
@@ -293,7 +328,7 @@ macro_rules! bcast128i {
     };
 }
 macro_rules! shuf128i {
-    ($inp: expr, $i3 :tt, $i2 : tt, $i1 : tt, $i0: tt) => {
+    ($inp: expr, $i0 :tt, $i1 : tt, $i2 : tt, $i3: tt) => {
         v128i{x3:vind!(($inp)[$i3]),
               x2:vind!(($inp)[$i2]),
               x1:vind!(($inp)[$i1]),
@@ -593,7 +628,7 @@ macro_rules! bcast128 {
     };
 }
 macro_rules! shuf128 {
-    ($inp: expr, $i3 :tt, $i2 : tt, $i1 : tt, $i0: tt) => {
+    ($inp: expr, $i0 :tt, $i1 : tt, $i2 : tt, $i3: tt) => {
         v128{x3:vind!(($inp)[$i3]),
               x2:vind!(($inp)[$i2]),
               x1:vind!(($inp)[$i1]),
