@@ -269,12 +269,47 @@ macro_rules! sub128i {
         }
     );
 }
+
+macro_rules! max128i {
+    ($a: expr, $b : expr) => (
+        v128i{x3:if ($a.x3 > $b.x3) {$a.x3} else {$b.x3},
+              x2:if ($a.x2 > $b.x2) {$a.x2} else {$b.x2},
+              x1:if ($a.x1 > $b.x1) {$a.x1} else {$b.x1},
+              x0:if ($a.x0 > $b.x0) {$a.x0} else {$b.x0},
+        }
+    );
+}
+macro_rules! min128i {
+    ($a: expr, $b : expr) => (
+        v128i{x3:if ($a.x3 < $b.x3) {$a.x3} else {$b.x3},
+              x2:if ($a.x2 < $b.x2) {$a.x2} else {$b.x2},
+              x1:if ($a.x1 < $b.x1) {$a.x1} else {$b.x1},
+              x0:if ($a.x0 < $b.x0) {$a.x0} else {$b.x0},
+        }
+    );
+}
 macro_rules! mul128i {
     ($a: expr, $b : expr) => (
         v128i{x3:$a.x3.wrapping_mul($b.x3),
               x2:$a.x2.wrapping_mul($b.x2),
               x1:$a.x1.wrapping_mul($b.x1),
               x0:$a.x0.wrapping_mul($b.x0),
+        }
+    );
+}
+macro_rules! max256i {
+    ($a: expr, $b : expr) => (
+        v256i{
+            hi:max128i!($a.hi, $b.hi),
+            lo:max128i!($a.lo, $b.lo),
+        }
+    );
+}
+macro_rules! min256i {
+    ($a: expr, $b : expr) => (
+        v256i{
+            hi:min128i!($a.hi, $b.hi),
+            lo:min128i!($a.lo, $b.lo),
         }
     );
 }

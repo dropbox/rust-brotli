@@ -3,7 +3,7 @@ use core;
 use super::histogram::CostAccessors;
 use super::super::alloc::SliceWrapper;
 
-use super::util::{brotli_max_uint32_t, FastLog2, floatX};
+use super::util::{brotli_max_uint32_t, FastLog2, floatX, kLog2Table};
 
 use super::vectorization::{v256,v128,v256i,v128i, Mem256i, sum8};
 
@@ -98,20 +98,71 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       return bits;
     }
     if (true) {
-      let mut max_depth : usize = 1;
+      let ff = v256i::set1(0xff);
+      let fifteen = v256i::set1(0xf);
+        let mut ymm_max_depth = v256i::set1(1);
+        let ymm_log2total = v256::set1(log2total);
+        let mut ymm_bits = v256::set1(0.0 as super::util::floatX);
       for nnz_data_vec in nnz_data.slice()[..(nnz >> 3)].iter() {
-         for element in nnz_data_vec.0.iter() {
-            // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
-            //                            = log2(total_count) - log2(count(symbol))
-            let log2p = log2total - FastLog2(*element as u64);
-            // Approximate the bit depth by round(-log2(P(symbol)))
-            let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
-            bits += *element as super::util::floatX * log2p;
-            if (depth as usize > max_depth) {
-               max_depth = depth as usize;
-            }
-            depth_histo[depth as usize] += 1;
-         }
+          let elements = v256i::new(nnz_data_vec);
+          let elements256 = and256i!(elements, ff);
+          let log2elements = v256{
+              lo:v128{x0:kLog2Table[elements256.lo.x0 as usize],
+                      x1:kLog2Table[elements256.lo.x1 as usize],
+                      x2:kLog2Table[elements256.lo.x2 as usize],
+                      x3:kLog2Table[elements256.lo.x3 as usize]},
+              hi:v128{x0:kLog2Table[elements256.hi.x0 as usize],
+                      x1:kLog2Table[elements256.hi.x1 as usize],
+                      x2:kLog2Table[elements256.hi.x2 as usize],
+                      x3:kLog2Table[elements256.hi.x3 as usize]}};
+          let log2p = sub256!(ymm_log2total, log2elements);
+          let elementsf = v256::from(elements);
+          let cur_bit = mul256!(elementsf, log2p);
+          let log2pi = v256i::from(log2p);
+          let depth = min256i!(log2pi, fifteen);
+          ymm_bits = add256!(ymm_bits, cur_bit);
+          ymm_max_depth = max256i!(depth, ymm_max_depth);
+          depth_histo[depth.lo.x0 as usize] += 1;
+          depth_histo[depth.lo.x1 as usize] += 1;
+          depth_histo[depth.lo.x2 as usize] += 1;
+          depth_histo[depth.lo.x3 as usize] += 1;
+          depth_histo[depth.hi.x0 as usize] += 1;
+          depth_histo[depth.hi.x1 as usize] += 1;
+          depth_histo[depth.hi.x2 as usize] += 1;
+          depth_histo[depth.hi.x3 as usize] += 1;
+      }
+        bits += ymm_bits.lo.x0 +
+            ymm_bits.lo.x1 +
+            ymm_bits.lo.x2 +
+            ymm_bits.lo.x3 +
+            ymm_bits.hi.x0 +
+            ymm_bits.hi.x1 +
+            ymm_bits.hi.x2 +
+            ymm_bits.hi.x3;
+      let mut max_depth : i32 = 1;
+      if (ymm_max_depth.lo.x0 > max_depth){
+          max_depth = ymm_max_depth.lo.x0;
+      }
+      if (ymm_max_depth.lo.x1 > max_depth){
+          max_depth = ymm_max_depth.lo.x1;
+      }
+      if (ymm_max_depth.lo.x2 > max_depth){
+          max_depth = ymm_max_depth.lo.x2;
+      }
+      if (ymm_max_depth.lo.x3 > max_depth){
+          max_depth = ymm_max_depth.lo.x3;
+      }
+      if (ymm_max_depth.hi.x0 > max_depth){
+          max_depth = ymm_max_depth.hi.x0;
+      }
+      if (ymm_max_depth.hi.x1 > max_depth){
+          max_depth = ymm_max_depth.hi.x1;
+      }
+      if (ymm_max_depth.hi.x2 > max_depth){
+          max_depth = ymm_max_depth.hi.x2;
+      }
+      if (ymm_max_depth.hi.x3 > max_depth){
+          max_depth = ymm_max_depth.hi.x3;
       }
       for i in ((nnz >> 3)<<3)..nnz {
           let last_vec = nnz_data.slice()[(nnz >> 3)];
@@ -120,8 +171,8 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
           // Approximate the bit depth by round(-log2(P(symbol)))
           let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
           bits += element as super::util::floatX * log2p;
-          if (depth as usize > max_depth) {
-             max_depth = depth as usize;
+          if (depth as i32 > max_depth) {
+             max_depth = depth as i32;
           }
           depth_histo[depth as usize] += 1;          
       }
