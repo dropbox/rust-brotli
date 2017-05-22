@@ -59,7 +59,7 @@ pub fn BitsEntropy(population: &[u32], size: usize) -> super::util::floatX {
 
 const BROTLI_REPEAT_ZERO_CODE_LENGTH: usize = 17;
 const BROTLI_CODE_LENGTH_CODES: usize = BROTLI_REPEAT_ZERO_CODE_LENGTH + 1;
-
+/*
 use std::io::{self, Error, ErrorKind, Read, Write};
 
 macro_rules! println_stderr(
@@ -67,14 +67,14 @@ macro_rules! println_stderr(
         writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
     } }
 );
-
+*/
 fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_LENGTH_CODES],
                    nnz_data: &T,
                    nnz: usize,
                    total_count: super::util::floatX,
                    log2total: super::util::floatX) -> super::util::floatX {
     let mut bits : super::util::floatX = 0.0 as super::util::floatX;
-    if (true) {
+    if (false) {
       let mut max_depth : usize = 1;
       for i in 0..nnz {
           // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
@@ -94,7 +94,42 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       bits += (18 + 2 * max_depth) as super::util::floatX;
       // Add the entropy of the code length code histogram.
       bits += BitsEntropy(depth_histo, BROTLI_CODE_LENGTH_CODES);
-      println_stderr!("{:?} {:?}", &depth_histo[..], bits);
+      //println_stderr!("{:?} {:?}", &depth_histo[..], bits);
+      return bits;
+    }
+    if (true) {
+      let mut max_depth : usize = 1;
+      for nnz_data_vec in nnz_data.slice()[..(nnz >> 3)].iter() {
+         for element in nnz_data_vec.0.iter() {
+            // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
+            //                            = log2(total_count) - log2(count(symbol))
+            let log2p = log2total - FastLog2(*element as u64);
+            // Approximate the bit depth by round(-log2(P(symbol)))
+            let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
+            bits += *element as super::util::floatX * log2p;
+            if (depth as usize > max_depth) {
+               max_depth = depth as usize;
+            }
+            depth_histo[depth as usize] += 1;
+         }
+      }
+      for i in ((nnz >> 3)<<3)..nnz {
+          let last_vec = nnz_data.slice()[(nnz >> 3)];
+          let element = last_vec.0[i&7];
+          let log2p = log2total - FastLog2(element as u64);
+          // Approximate the bit depth by round(-log2(P(symbol)))
+          let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
+          bits += element as super::util::floatX * log2p;
+          if (depth as usize > max_depth) {
+             max_depth = depth as usize;
+          }
+          depth_histo[depth as usize] += 1;          
+      }
+      // Add the estimated encoding cost of the code length code histogram.
+      bits += (18 + 2 * max_depth) as super::util::floatX;
+      // Add the entropy of the code length code histogram.
+      bits += BitsEntropy(depth_histo, BROTLI_CODE_LENGTH_CODES);
+      //println_stderr!("{:?} {:?}", &depth_histo[..], bits);
       return bits;
     }
   let pow2l = v256::setr(
@@ -176,7 +211,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
   bits += (18 + 2 * max_depth) as super::util::floatX;
   // Add the entropy of the code length code histogram.
   bits += BitsEntropy(depth_histo, BROTLI_CODE_LENGTH_CODES);
-      println_stderr!("{:?} {:?}", depth_histo, bits);
+  //println_stderr!("{:?} {:?}", depth_histo, bits);
   return bits;
 }
 use alloc::SliceWrapperMut;

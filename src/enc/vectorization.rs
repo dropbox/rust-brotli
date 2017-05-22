@@ -56,10 +56,10 @@ impl Mem256i {
 
 
 pub struct v128i {
-    pub x3: i32,
-    pub x2: i32,
-    pub x1: i32,
     pub x0: i32,
+    pub x1: i32,
+    pub x2: i32,
+    pub x3: i32,
 }
 
 pub struct v256i {
@@ -165,7 +165,7 @@ impl v256 {
                             x1:f,
                             x0:f}}      
     }
-    pub fn set(f0 : super::util::floatX,
+    pub fn setr(f0 : super::util::floatX,
     f1 : super::util::floatX,
     f2 : super::util::floatX,
     f3 : super::util::floatX,
@@ -182,7 +182,7 @@ impl v256 {
                             x1:f1,
                             x0:f0}}
     }
-    pub fn setr(f7 : super::util::floatX,
+    pub fn set(f7 : super::util::floatX,
     f6 : super::util::floatX,
     f5 : super::util::floatX,
     f4 : super::util::floatX,
