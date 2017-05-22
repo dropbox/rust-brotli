@@ -297,7 +297,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
            (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as super::util::floatX -
            histomax as super::util::floatX;
   }
-  {
+  if (false) { // vectorization failed
     let mut nnz: usize = 0;
     let mut depth_histo: [u32; 18] = [0u32; 18];
     let mut nnz_data = HistogramType::make_nnz_storage();
@@ -338,6 +338,65 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
       }
     }
     bits += CostComputation(&mut depth_histo, &nnz_data, nnz, total_count, log2total);
+  } else {
+          let mut max_depth: usize = 1usize;
+    let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+                                      0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
+    let log2total: super::util::floatX = FastLog2((*histogram).total_count() as u64);
+    i = 0usize;
+    while i < data_size {
+      if (*histogram).slice()[i] > 0u32 {
+        let log2p: super::util::floatX = log2total - FastLog2((*histogram).slice()[i] as (u64));
+        let mut depth: usize = (log2p + 0.5 as super::util::floatX) as (usize);
+        bits = bits + (*histogram).slice()[i] as super::util::floatX * log2p;
+        if depth > 15usize {
+          depth = 15usize;
+        }
+        if depth > max_depth {
+          max_depth = depth;
+        }
+        {
+          let _rhs = 1;
+          let _lhs = &mut depth_histo[depth];
+          *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+        }
+        i = i.wrapping_add(1 as (usize));
+      } else {
+        let mut reps: u32 = 1u32;
+        let mut k: usize;
+        k = i.wrapping_add(1usize);
+        while k < data_size && ((*histogram).slice()[k] == 0u32) {
+          {
+            reps = reps.wrapping_add(1 as (u32));
+          }
+          k = k.wrapping_add(1 as (usize));
+        }
+        i = i.wrapping_add(reps as (usize));
+        if i == data_size {
+          {
+            break;
+          }
+        }
+        if reps < 3u32 {
+          let _rhs = reps;
+          let _lhs = &mut depth_histo[0usize];
+          *_lhs = (*_lhs).wrapping_add(_rhs);
+        } else {
+          reps = reps.wrapping_sub(2u32);
+          while reps > 0u32 {
+            {
+              let _rhs = 1;
+              let _lhs = &mut depth_histo[17usize];
+              *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+            }
+            bits = bits + 3i32 as super::util::floatX;
+            reps = reps >> 3i32;
+          }
+        }
+      }
+    }
+    bits = bits + (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as super::util::floatX;
+    bits = bits + BitsEntropy(&depth_histo[..], 18usize);
   }
   bits
 }
