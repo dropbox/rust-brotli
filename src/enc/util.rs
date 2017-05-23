@@ -286,19 +286,15 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9886846867721664f32,
                                  7.9943534368588578f32];
 
-#[cfg(not(feature="no-stdlib"))]
 #[inline(always)]
 pub fn FastLog2(v: u64) -> floatX {
-    (v as floatX).log2() // this tends to be faster than the bsr for some reason
+  if v >= 256 {
+      return FastLog2u64(v);
+  }
+  kLog2Table[v as usize]
 }
 
-#[cfg(feature="no-stdlib")]
-#[inline(always)]
-pub fn FastLog2(v: u64) -> floatX {
-    FastLog2u64(v)
-}
-
-#[inline(always)]
+#[inline]
 pub fn FastLog2u64(v: u64) -> floatX {
   let bsr_8 = 56i8 - v.leading_zeros() as i8;
   let offset = bsr_8 & -((bsr_8 >= 0) as i8);

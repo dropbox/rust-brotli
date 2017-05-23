@@ -61,23 +61,9 @@ pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
   outp[..8].clone_from_slice(&p[..]);
 }
 
-fn unopt_ctzll(mut val: u64) -> u8 {
-  let mut cnt: u8 = 0i32 as (u8);
-  'loop1: loop {
-    if val & 1 == 0 {
-      val = val >> 1;
-      cnt = (cnt as (i32) + 1) as (u8);
-      continue 'loop1;
-    } else {
-      break 'loop1;
-    }
-  }
-  cnt
-}
-
 pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
-  let mut limit2: usize = (limit >> 3i32).wrapping_add(1usize);
+  let mut limit2: usize = (limit >> 3) + 1;
   while {
           limit2 = limit2.wrapping_sub(1 as (usize));
           limit2
@@ -92,12 +78,12 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
     } else {
       let x: u64 = s2_as_64 ^
                    s1_as_64;
-      let matching_bits: usize = unopt_ctzll(x) as (usize);
+      let matching_bits: usize = x.trailing_zeros() as (usize);
       matched = matched.wrapping_add(matching_bits >> 3i32) as u32 as usize;
       return matched;
     }
   }
-  limit = (limit & 7usize).wrapping_add(1usize);
+  limit = (limit & 7usize) + 1;
   while {
           limit = limit.wrapping_sub(1 as (usize));
           limit
@@ -111,6 +97,14 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
     }
   }
   matched
+}
+pub fn slowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+  for (index, it) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
+      if it.0 != it.1 {
+          return index;
+      }
+  }
+  return limit;
 }
 
 pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_length: usize) -> i32 {
