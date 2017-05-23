@@ -285,7 +285,16 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9829935746943104f32,
                                  7.9886846867721664f32,
                                  7.9943534368588578f32];
+#[cfg(not(feature="no-stdlib"))]
+#[inline(always)]
+pub fn FastLog2(v: u64) -> floatX {
+    if v < 256 {
+        return kLog2Table[v as usize];
+    }
+    (v as f32).log2() as floatX
+}
 
+#[cfg(feature="no-stdlib")]
 #[inline(always)]
 pub fn FastLog2(v: u64) -> floatX {
   if v >= 256 {

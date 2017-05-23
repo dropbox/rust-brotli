@@ -28,20 +28,22 @@ pub static kBrotliEncDictionary: BrotliDictionary = BrotliDictionary {
   data: &kBrotliDictionary,
 };
 
+#[inline(always)]
 pub fn BrotliGetDictionary() -> &'static BrotliDictionary {
   return &kBrotliEncDictionary;
 }
+#[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD32(sl: &[u8]) -> u32 {
   let mut p = [0u8;4];
   p[..].clone_from_slice(&sl[..4]);
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
 }
-
+#[inline(always)]
 pub fn Hash(data: &[u8]) -> u32 {
   let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kDictHashMul32);
   h >> 32i32 - kDictNumBits
 }
-
+#[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD64(sl: &[u8]) -> u64 {
   let mut p = [0u8;8];
   p[..].clone_from_slice(&sl[..8]);
@@ -49,6 +51,7 @@ pub fn BROTLI_UNALIGNED_LOAD64(sl: &[u8]) -> u64 {
          ((p[3] as u64) << 24) | ((p[4] as u64) << 32) | ((p[5] as u64) << 40) |
          ((p[6] as u64) << 48) | ((p[7] as u64) << 56);
 }
+#[inline(always)]
 pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
   let p = [(v & 0xff) as u8,
        ((v >> 8) & 0xff) as u8,
@@ -60,20 +63,45 @@ pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
        ((v >> 56) & 0xff) as u8];
   outp[..8].clone_from_slice(&p[..]);
 }
-
-pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
+pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
+  const vec_len :usize = 128usize;
+  while limit >= vec_len {
+      let (s1_start, rest1) = s1.split_at(vec_len);
+      s1 = rest1;
+      let (s2_start, rest2) = s2.split_at(vec_len);
+      s2 = rest2;
+      limit -= vec_len;
+      let mut s1_lo = [0u8;vec_len];
+      s1_lo[..].clone_from_slice(s1_start);
+      let mut s2_lo = [0u8;vec_len];
+      s2_lo[..].clone_from_slice(s2_start);
+      for index in 0..(vec_len >> 3) {
+          let s2_as_64 = BROTLI_UNALIGNED_LOAD64(&s2_lo[(index << 3)..((index + 1) << 3)]);
+          let s1_as_64 = BROTLI_UNALIGNED_LOAD64(&s1_lo[(index << 3)..((index + 1) << 3)]);
+          if s2_as_64 == s1_as_64 {
+              matched = matched.wrapping_add(8usize) as u32 as usize;
+          } else {
+              let x: u64 = s2_as_64 ^
+                  s1_as_64;
+              let matching_bits: usize = x.trailing_zeros() as (usize);
+              matched = matched.wrapping_add(matching_bits >> 3i32) as u32 as usize;
+              return matched;
+          }
+      }
+  }
   let mut limit2: usize = (limit >> 3) + 1;
   while {
           limit2 = limit2.wrapping_sub(1 as (usize));
           limit2
         } != 0 {
-    let (_, s1_matched) = s1.split_at(matched);
+    let (s1_8, s1_rest) = s1.split_at(8);
     let (s2_8, s2_rest) = s2.split_at(8);
+    s2 = s2_rest;
+    s1 = s1_rest;
     let s2_as_64 = BROTLI_UNALIGNED_LOAD64(s2_8);
-    let s1_as_64 = BROTLI_UNALIGNED_LOAD64(s1_matched);
+    let s1_as_64 = BROTLI_UNALIGNED_LOAD64(s1_8);
     if s2_as_64 == s1_as_64 {
-      s2 = s2_rest;
       matched = matched.wrapping_add(8usize) as u32 as usize;
     } else {
       let x: u64 = s2_as_64 ^
@@ -88,8 +116,10 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], mut s2: &[u8], mut limit: usize) -> u
           limit = limit.wrapping_sub(1 as (usize));
           limit
         } != 0 {
+    let (s1_0, s1_rest) = s1.split_at(1);
     let (s2_0, s2_rest) = s2.split_at(1);
-    if s1[(matched as (usize))] as (i32) == s2_0[0] as (i32) {
+    if s1_0[0] as (i32) == s2_0[0] as (i32) {
+      s1 = s1_rest;
       s2 = s2_rest;
       matched = matched.wrapping_add(1 as (usize)) as u32 as usize;
     } else {
