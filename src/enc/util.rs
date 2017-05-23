@@ -297,10 +297,10 @@ pub fn FastLog2(v: u64) -> floatX {
 #[cfg(feature="no-stdlib")]
 #[inline(always)]
 pub fn FastLog2(v: u64) -> floatX {
-  if v >= 256 {
-      return FastLog2u64(v);
+  if v < 256 {
+    return kLog2Table[v as usize] as floatX;
   }
-  kLog2Table[v as usize]
+  FastLog2u64(v)
 }
 
 #[inline]
