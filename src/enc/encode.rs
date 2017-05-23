@@ -989,21 +989,6 @@ fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
   }
 }
 
-macro_rules! InitializeHX{
-    ($name:ident, $subexpr:expr, $subtype:ty) => {
-        fn $name<AllocU32:alloc::Allocator<u32>>(params : &BrotliEncoderParams) -> BasicHasher<$subtype> {
-            BasicHasher {
-                GetHasherCommon:Struct1{
-                    params:params.hasher,
-                    is_prepared_:0,
-                    dict_num_lookups:0,
-                    dict_num_matches:0,
-                },
-                buckets_:(subexpr),
-            }
-        }
-    };
-}
 fn InitializeH2<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H2Sub<AllocU32>> {
     BasicHasher {
         GetHasherCommon:Struct1{
