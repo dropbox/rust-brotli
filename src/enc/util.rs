@@ -286,12 +286,26 @@ static kLog2Table: [f32; 256] = [0.0000000000000000f32,
                                  7.9886846867721664f32,
                                  7.9943534368588578f32];
 
-#[cfg(not(feature="no-stdlib"))]
-pub fn FastLog2(v: u64) -> super::util::floatX {
-  if v < kLog2Table.len() as u64 {
-    return kLog2Table[v as usize] as (super::util::floatX);
-  }
-  return (v as super::util::floatX).log2();
+pub fn FastLog2(v: u64) -> floatX {
+    return FastLog2u64(v)
+}
+
+pub fn FastLog2u64(v: u64) -> floatX {
+  let bsr_8 = 56i8 - v.leading_zeros() as i8;
+  let offset = bsr_8 & -((bsr_8 >= 0) as i8);
+  offset as floatX + kLog2Table[(v >> offset) as u8 as usize] as (floatX)
+}
+
+pub fn FastLog2u32(v: u32) -> floatX {
+  let bsr_8 = 24i8 - v.leading_zeros() as i8;
+  let offset = bsr_8 & -((bsr_8 >= 0) as i8);
+  offset as floatX + kLog2Table[(v >> offset) as u8 as usize] as (floatX)
+}
+
+pub fn FastLog2u16(v: u16) -> floatX {
+  let bsr_8 = 8i8 - v.leading_zeros() as i8;
+  let offset = (bsr_8 & -((bsr_8 >= 0) as i8));
+  offset as floatX + kLog2Table[(v >> offset) as u8 as usize] as (floatX)
 }
 
 #[cfg(not(feature="no-stdlib"))]
@@ -320,31 +334,69 @@ pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
    return (1 << round_down) as super::util::floatX * x;
 }
 
+pub fn Log2FloorNonZero(v: u64) -> u32 {
+  (63u32 ^ v.leading_zeros()) as u32
+}
+mod test {
+  fn baseline_log2_floor_non_zero(mut n:u64) -> u32 {
+    let mut result: u32 = 0u32;
+    while {
+        n = n >> 1i32;
+        n
+    } != 0 {
+      result = result.wrapping_add(1 as (u32));
+    }
+    result
+  }
 
-#[cfg(feature="no-stdlib")]
-pub fn FastLog2(mut v: u64) -> super::util::floatX {
-  if v < kLog2Table.len() as u64 {
-    kLog2Table[v as usize] as (super::util::floatX)
-  } else {
-    // approximate here
-    let mut count: super::util::floatX = 0.0 as super::util::floatX;
-    loop {
-      v /= 2;
-      count += 1.0 as super::util::floatX;
-      if v < kLog2Table.len() as u64 {
-        return kLog2Table[v as usize] as (super::util::floatX) + count;
+  #[test]
+  fn log2floor_non_zero_works(){
+    let examples = [4u64, 254u64, 256u64,
+                  1428u64, 25412509u64, 21350891256u64,
+                  65536u64, 1258912591u64, 60968101u64,
+                  1u64, 12589125190825u64, 105912059215091u64,
+                  0u64];
+    for example in examples.iter() {
+      let fast_version = super::Log2FloorNonZero(*example);
+      let baseline_version = baseline_log2_floor_non_zero(*example);
+      if *example != 0 { // make sure we don't panic when computing...but don't care about result
+        assert_eq!(fast_version,
+                 baseline_version);
       }
     }
   }
+pub fn approx_eq(a : f64, b: f64, tol: f64) {
+    let mut t0 = a - b;
+    let mut t1 = b - a;
+    if t0 < 0.0 {
+       t0 = -t0;
+    }
+    if t1 < 0.0 {
+       t1 = -t1;
+    }
+    if (!(t1 < tol)) {
+       assert_eq!(a, b);
+    }
+    if (!(t0 < tol)) {
+       assert_eq!(a, b);
+    }
 }
-
-pub fn Log2FloorNonZero(mut n: u64) -> u32 {
-  let mut result: u32 = 0u32;
-  while {
-          n = n >> 1i32;
-          n
-        } != 0 {
-    result = result.wrapping_add(1 as (u32));
+  #[test]
+  fn fast_log2_works(){
+    let examples = [4u64, 254u64, 256u64,
+                  1428u64, 25412509u64, 21350891256u64,
+                  65536u64, 1258912591u64, 60968101u64,
+                  1u64, 12589125190825u64, 105912059215091u64,
+                  0u64];
+    let tol = [0.00001, 0.0001, 0.0001, 0.005, 0.007, 0.008, 0.01, 0.01, 0.01, 0.000001, 0.01, 0.01, 0.0001];
+    for (index, example) in examples.iter().enumerate() {
+      let fast_version = super::FastLog2(*example);
+      if *example != 0 { // make sure we don't panic when computing...but don't care about result
+        let baseline_version = (*example as f64).log2();
+        approx_eq(fast_version as f64, baseline_version, tol[index]);
+      } else {
+        assert_eq!(fast_version as f64, 0.0 as f64);
+      }
+    }
   }
-  result
 }
