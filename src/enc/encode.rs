@@ -4,6 +4,7 @@ use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionH
                                  H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 
+use super::vectorization::Mem256f;
 use super::bit_cost::{BitsEntropy, ShannonEntropy};
 #[allow(unused_imports)]
 use super::block_split::BlockSplit;
@@ -67,7 +68,7 @@ use core;
 
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 
-static kMinUTF8Ratio: f64 = 0.75f64;
+static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum BrotliEncoderParameter {
@@ -242,7 +243,7 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
   }
   0i32
 }
-fn BrotliEncoderInitParams() -> BrotliEncoderParams {
+pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
   return BrotliEncoderParams {
            mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
            quality: 9,
@@ -944,43 +945,43 @@ fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
 
 fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
   let mut hparams = &mut params.hasher;
-  if (*params).quality > 9i32 {
-    (*hparams).type_ = 10i32;
-  } else if (*params).quality == 4i32 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
+  if (*params).quality > 10 { // we are using quality 10 as a proxy for "9.5"
+    (*hparams).type_ = 10;
+  } else if (*params).quality == 4 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
     (*hparams).type_ = 54i32;
-  } else if (*params).quality < 5i32 {
+  } else if (*params).quality < 5 {
     (*hparams).type_ = (*params).quality;
-  } else if (*params).lgwin <= 16i32 {
-    (*hparams).type_ = if (*params).quality < 7i32 {
+  } else if (*params).lgwin <= 16 {
+    (*hparams).type_ = if (*params).quality < 7 {
       40i32
-    } else if (*params).quality < 9i32 {
+    } else if (*params).quality < 9 {
       41i32
     } else {
       42i32
     };
   } else if (*params).size_hint >= (1i32 << 20i32) as (usize) && ((*params).lgwin >= 19i32) {
     (*hparams).type_ = 6i32;
-    (*hparams).block_bits = (*params).quality - 1i32;
+    (*hparams).block_bits = (*params).quality - 1;
     (*hparams).bucket_bits = 15i32;
     (*hparams).hash_len = 5i32;
-    (*hparams).num_last_distances_to_check = if (*params).quality < 7i32 {
+    (*hparams).num_last_distances_to_check = if (*params).quality < 7 {
       4i32
-    } else if (*params).quality < 9i32 {
+    } else if (*params).quality < 9 {
       10i32
     } else {
       16i32
     };
   } else {
     (*hparams).type_ = 5i32;
-    (*hparams).block_bits = (*params).quality - 1i32;
-    (*hparams).bucket_bits = if (*params).quality < 7i32 {
+    (*hparams).block_bits = (*params).quality - 1;
+    (*hparams).bucket_bits = if (*params).quality < 7 {
       14i32
     } else {
       15i32
     };
-    (*hparams).num_last_distances_to_check = if (*params).quality < 7i32 {
+    (*hparams).num_last_distances_to_check = if (*params).quality < 7 {
       4i32
-    } else if (*params).quality < 9i32 {
+    } else if (*params).quality < 9 {
       10i32
     } else {
       16i32
@@ -1341,7 +1342,7 @@ fn ShouldCompress(data: &[u8],
                   num_commands: usize)
                   -> i32 {
   if num_commands < (bytes >> 8i32).wrapping_add(2usize) {
-    if num_literals as (f64) > 0.99f64 * bytes as (f64) {
+    if num_literals as (super::util::floatX) > 0.99 as super::util::floatX * bytes as (super::util::floatX) {
       let mut literal_histo: [u32; 256] =
         [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
          0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
@@ -1362,8 +1363,8 @@ fn ShouldCompress(data: &[u8],
          0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
          0u32];
       static kSampleRate: u32 = 13u32;
-      static kMinEntropy: f64 = 7.92f64;
-      let bit_cost_threshold: f64 = bytes as (f64) * kMinEntropy / kSampleRate as (f64);
+      static kMinEntropy: super::util::floatX = 7.92 as super::util::floatX;
+      let bit_cost_threshold: super::util::floatX = bytes as (super::util::floatX) * kMinEntropy / kSampleRate as (super::util::floatX);
       let t: usize = bytes.wrapping_add(kSampleRate as (usize))
         .wrapping_sub(1usize)
         .wrapping_div(kSampleRate as (usize));
@@ -1796,7 +1797,8 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
                              AllocU16: alloc::Allocator<u16>,
                              AllocU32: alloc::Allocator<u32>,
                              AllocI32: alloc::Allocator<i32>,
-                             AllocF64: alloc::Allocator<f64>,
+                             AllocF64: alloc::Allocator<super::util::floatX>,
+                             AllocFV: alloc::Allocator<Mem256f>,
                              AllocHL: alloc::Allocator<HistogramLiteral>,
                              AllocHC: alloc::Allocator<HistogramCommand>,
                              AllocHD: alloc::Allocator<HistogramDistance>,
@@ -1815,6 +1817,7 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
     mut mi32: &mut AllocI32,
     mut mc: &mut AllocCommand,
     mut mf64: &mut AllocF64,
+    mut mfv: &mut AllocFV,
     mut mhl: &mut AllocHL,
     mut mhc: &mut AllocHC,
     mut mhd: &mut AllocHD,
@@ -1885,7 +1888,7 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
                                 BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
                                 input_size as (u32));
         result = BrotliEncoderCompressStream(s,
-                                             mf64, mhl, mhc, mhd, mhp, mct, mht,
+                                             mf64, mfv, mhl, mhc, mhd, mhp, mct, mht,
                                            BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
                                            &mut available_in,
                                            &mut next_in_array,
@@ -2162,7 +2165,7 @@ fn ChooseContextMap(quality: i32,
   let total: usize;
   let mut i: usize;
   let mut dummy: usize = 0;
-  let mut entropy: [f64; 4] = [0.0f64;4];
+  let mut entropy: [super::util::floatX; 4] = [0.0 as super::util::floatX;4];
   i = 0usize;
   while i < 9usize {
     {
@@ -2184,7 +2187,7 @@ fn ChooseContextMap(quality: i32,
                     ShannonEntropy(&two_prefix_histo[3i32 as (usize)..],
                                    3usize,
                                    &mut dummy);
-  entropy[3usize] = 0i32 as (f64);
+  entropy[3usize] = 0i32 as (super::util::floatX);
   i = 0usize;
   while i < 3usize {
     {
@@ -2200,7 +2203,7 @@ fn ChooseContextMap(quality: i32,
     .wrapping_add(monogram_histo[1usize])
     .wrapping_add(monogram_histo[2usize]) as (usize);
   0i32;
-  entropy[0usize] = 1.0f64 / total as (f64);
+  entropy[0usize] = 1.0 as super::util::floatX / total as (super::util::floatX);
   {
     let _rhs = entropy[0usize];
     let _lhs = &mut entropy[1usize];
@@ -2217,11 +2220,11 @@ fn ChooseContextMap(quality: i32,
     *_lhs = *_lhs * _rhs;
   }
   if quality < 7i32 {
-    entropy[3usize] = entropy[1usize] * 10i32 as (f64);
+    entropy[3usize] = entropy[1usize] * 10i32 as (super::util::floatX);
   }
-  if entropy[1usize] - entropy[2usize] < 0.2f64 && (entropy[1usize] - entropy[3usize] < 0.2f64) {
+  if entropy[1usize] - entropy[2usize] < 0.2 as super::util::floatX && (entropy[1usize] - entropy[3usize] < 0.2 as super::util::floatX) {
     *num_literal_contexts = 1usize;
-  } else if entropy[2usize] - entropy[3usize] < 0.02f64 {
+  } else if entropy[2usize] - entropy[3usize] < 0.02 as super::util::floatX {
     *num_literal_contexts = 2usize;
     *literal_context_map = &kStaticContextMapSimpleUTF8[..];
   } else {
@@ -2268,7 +2271,7 @@ fn ShouldUseComplexStaticContextMap(input: &[u8],
     let mut combined_histo:[u32; 32] = [0;32];
     let mut context_histo:[[u32;32]; 13] = [[0;32];13];
     let mut total = 0u32;
-    let mut entropy = [0.0f64;3];
+    let mut entropy = [0.0 as super::util::floatX;3];
     let mut dummy = 0usize;
     while start_pos + 64 <= end_pos {
       let stride_end_pos = start_pos + 64;
@@ -2290,12 +2293,12 @@ fn ShouldUseComplexStaticContextMap(input: &[u8],
       start_pos += 4096;
     }
     entropy[1] = ShannonEntropy(&combined_histo[..], 32, &mut dummy);
-    entropy[2] = 0.0f64;
+    entropy[2] = 0.0 as super::util::floatX;
     for i in 0..13 {
       assert!(i < 13);
       entropy[2] += ShannonEntropy(&context_histo[i][..], 32, &mut dummy);
     }
-    entropy[0] = 1.0 / (total as f64);
+    entropy[0] = (1.0 as super::util::floatX) / (total as super::util::floatX);
     entropy[1] *= entropy[0];
     entropy[2] *= entropy[0];
     /* The triggering heuristics below were tuned by compressing the individual
@@ -2365,7 +2368,8 @@ fn DecideOverLiteralContextModeling(input: &[u8],
 fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                           AllocU16: alloc::Allocator<u16>,
                           AllocU32: alloc::Allocator<u32>,
-                          AllocF64: alloc::Allocator<f64>,
+                          AllocF64: alloc::Allocator<super::util::floatX>,
+                          AllocFV: alloc::Allocator<Mem256f>,
                           AllocHL: alloc::Allocator<HistogramLiteral>,
                           AllocHC: alloc::Allocator<HistogramCommand>,
                           AllocHD: alloc::Allocator<HistogramDistance>,
@@ -2376,6 +2380,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              mut m16: &mut AllocU16,
              mut m32: &mut AllocU32,
              mut mf64: &mut AllocF64,
+             mut mfv: &mut AllocFV,
              mut mhl: &mut AllocHL,
              mut mhc: &mut AllocHC,
              mut mhd: &mut AllocHD,
@@ -2499,7 +2504,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                             kMinUTF8Ratio) == 0 {
         literal_context_mode = ContextType::CONTEXT_SIGNED;
       }
-      BrotliBuildMetaBlock(m8, m16, m32, mf64, mhl, mhc, mhd, mhp, mct,
+      BrotliBuildMetaBlock(m8, m16, m32, mf64, mfv, mhl, mhc, mhd, mhp, mct,
                            data,
                            wrapped_last_flush_pos as (usize),
                            mask,
@@ -2555,8 +2560,8 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
               AllocU16: alloc::Allocator<u16>,
               AllocU32: alloc::Allocator<u32>,
               AllocI32: alloc::Allocator<i32>,
-              
-              AllocF64: alloc::Allocator<f64>,
+              AllocF64: alloc::Allocator<super::util::floatX>,
+              AllocFV: alloc::Allocator<Mem256f>,
               AllocHL: alloc::Allocator<HistogramLiteral>,
               AllocHC: alloc::Allocator<HistogramCommand>,
               AllocHD: alloc::Allocator<HistogramDistance>,
@@ -2566,6 +2571,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
               AllocHT:alloc::Allocator<HuffmanTree>>(
     mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     mut mf64: &mut AllocF64,
+    mut mfv: &mut AllocFV,
     mut mhl: &mut AllocHL,
     mut mhc: &mut AllocHC,
     mut mhd: &mut AllocHD,
@@ -2673,7 +2679,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                               bytes as (usize),
                               is_last);
 
-  if (*s).params.quality == 10i32 {
+  if false { // we are remapping 10 as quality=9.5 since Zopfli doesn't seem to offer much benefits here
     panic!(r####"
     BrotliCreateZopfliBackwardReferences(m,
                                          dictionary,
@@ -2764,7 +2770,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                      (2u32).wrapping_mul(metablock_size).wrapping_add(502u32) as (usize));
     let mut storage_ix: usize = (*s).last_byte_bits_ as (usize);
     (*s).storage_.slice_mut()[(0usize)] = (*s).last_byte_;
-    WriteMetaBlockInternal(&mut (*s).m8, &mut (*s).m16, &mut (*s).m32, mf64, mhl, mhc, mhd, mhp, mct, mht,
+    WriteMetaBlockInternal(&mut (*s).m8, &mut (*s).m16, &mut (*s).m32, mf64, mfv, mhl, mhc, mhd, mhp, mct, mht,
                            &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                            mask as (usize),
                            (*s).last_flush_pos_,
@@ -2847,8 +2853,8 @@ fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
               AllocU16: alloc::Allocator<u16>,
               AllocU32: alloc::Allocator<u32>,
               AllocI32: alloc::Allocator<i32>,
-              
-              AllocF64: alloc::Allocator<f64>,
+              AllocF64: alloc::Allocator<super::util::floatX>,
+              AllocFV: alloc::Allocator<Mem256f>,                                 
               AllocHL: alloc::Allocator<HistogramLiteral>,
               AllocHC: alloc::Allocator<HistogramCommand>,
               AllocHD: alloc::Allocator<HistogramDistance>,
@@ -2858,6 +2864,7 @@ fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
               AllocHT:alloc::Allocator<HuffmanTree>>(
     mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     mut mf64: &mut AllocF64,
+    mut mfv: &mut AllocFV,
     mut mhl: &mut AllocHL,
     mut mhc: &mut AllocHC,
     mut mhd: &mut AllocHD,
@@ -2899,7 +2906,7 @@ fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
     if (*s).input_pos_ != (*s).last_flush_pos_ {
       let mut avail_out : usize = (*s).available_out_;
       let result: i32 =
-            EncodeData(s, mf64, mhl, mhc, mhd, mhp, mct, mht, 0i32, 1i32, &mut avail_out);
+            EncodeData(s, mf64, mfv, mhl, mhc, mhd, mhp, mct, mht, 0i32, 1i32, &mut avail_out);
       (*s).available_out_ = avail_out;
       if result == 0 {
         return 0i32;
@@ -3157,8 +3164,8 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
                                    AllocU16: alloc::Allocator<u16>,
                                    AllocU32: alloc::Allocator<u32>,
                                    AllocI32: alloc::Allocator<i32>,
-                                   
-                                   AllocF64: alloc::Allocator<f64>,
+                                   AllocF64: alloc::Allocator<super::util::floatX>,
+                                   AllocFV: alloc::Allocator<Mem256f>,
                                    AllocHL: alloc::Allocator<HistogramLiteral>,
                                    AllocHC: alloc::Allocator<HistogramCommand>,
                                    AllocHD: alloc::Allocator<HistogramDistance>,
@@ -3168,6 +3175,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
                                    AllocHT:alloc::Allocator<HuffmanTree>>(
     mut s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     mut mf64: &mut AllocF64,
+    mut mfv: &mut AllocFV,
     mut mhl: &mut AllocHL,
     mut mhc: &mut AllocHC,
     mut mhd: &mut AllocHD,
@@ -3196,7 +3204,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
   }
   if op as (i32) == BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA as (i32) {
     UpdateSizeHint(s, 0usize);
-    return ProcessMetadata(s, mf64, mhl, mhc, mhd, mhp, mct, mht, available_in, next_in_array, next_in_offset, available_out, next_out_array, next_out_offset, total_out);
+    return ProcessMetadata(s, mf64, mfv, mhl, mhc, mhd, mhp, mct, mht, available_in, next_in_array, next_in_offset, available_out, next_out_array, next_out_offset, total_out);
   }
   if (*s).stream_state_ as (i32) ==
      BrotliEncoderStreamState::BROTLI_STREAM_METADATA_HEAD as (i32) ||
@@ -3260,7 +3268,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
         UpdateSizeHint(s, *available_in);
         let mut avail_out = (*s).available_out_;
         result = EncodeData(s,
-                            mf64, mhl, mhc, mhd, mhp, mct, mht, 
+                            mf64, mfv, mhl, mhc, mhd, mhp, mct, mht, 
                             is_last,
                             force_flush,
                             &mut avail_out);
@@ -3379,7 +3387,8 @@ pub fn BrotliEncoderWriteData<'a, AllocU8: alloc::Allocator<u8>,
               AllocU32: alloc::Allocator<u32>,
               AllocI32: alloc::Allocator<i32>,
               
-              AllocF64: alloc::Allocator<f64>,
+              AllocF64: alloc::Allocator<super::util::floatX>,
+              AllocFV: alloc::Allocator<Mem256f>,
               AllocHL: alloc::Allocator<HistogramLiteral>,
               AllocHC: alloc::Allocator<HistogramCommand>,
               AllocHD: alloc::Allocator<HistogramDistance>,
@@ -3388,6 +3397,7 @@ pub fn BrotliEncoderWriteData<'a, AllocU8: alloc::Allocator<u8>,
               AllocCommand: alloc::Allocator<Command>,
                               AllocHT:alloc::Allocator<HuffmanTree>>(mut s: &'a mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     mut mf64: &mut AllocF64,
+    mut mfv: &mut AllocFV,
     mut mhl: &mut AllocHL,
     mut mhc: &mut AllocHC,
     mut mhd: &mut AllocHD,
@@ -3400,7 +3410,7 @@ pub fn BrotliEncoderWriteData<'a, AllocU8: alloc::Allocator<u8>,
                               mut out_size: &mut usize,
                               mut output: &'a mut &'a mut [u8])
                               -> i32 {
-    let ret = EncodeData(s, mf64, mhl, mhc, mhd, mhp, mct, mht, is_last, force_flush, out_size);
+    let ret = EncodeData(s, mf64, mfv, mhl, mhc, mhd, mhp, mct, mht, is_last, force_flush, out_size);
     *output = (*s).storage_.slice_mut();
     ret
 }

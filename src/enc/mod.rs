@@ -1,16 +1,19 @@
+#[macro_use]
+pub mod vectorization;
+
 pub mod fast_log;
 pub mod command;
 pub mod block_split;
 pub mod brotli_bit_stream;
-pub mod cluster;
 pub mod constants;
 pub mod entropy_encode;
-pub mod utf8_util;
 pub mod static_dict;
 pub mod static_dict_lut;
 pub mod dictionary_hash;
-pub mod bit_cost;
 pub mod util;
+pub mod utf8_util;
+pub mod bit_cost;
+pub mod cluster;
 pub mod literal_cost;
 pub mod histogram;
 pub mod backward_references;
@@ -22,9 +25,11 @@ pub mod encode;
 pub mod reader;
 pub mod writer;
 mod test;
-
+pub use self::util::floatX;
+pub use self::backward_references::BrotliEncoderParams;
+pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-                   BrotliEncoderParameter, BrotliEncoderSetParameter,
+                   BrotliEncoderParameter,
                    BrotliEncoderOperation,
                    BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use self::cluster::{HistogramPair};
@@ -32,6 +37,7 @@ use self::histogram::{ContextType, HistogramLiteral, HistogramCommand, Histogram
 use self::command::{Command};
 use self::entropy_encode::{HuffmanTree};
 use brotli_decompressor::{CustomRead, CustomWrite};
+pub use self::vectorization::{v128,v128i,v256,v256i, Mem256f};
 
 #[cfg(not(feature="no-stdlib"))]
 use std::io::{Read,Write, Error, ErrorKind};
@@ -50,8 +56,7 @@ pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 #[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                                              w: &mut OutputType,
-                                             quality: u32,
-                                             lgwin: u32)
+                                             params: &BrotliEncoderParams)
                                                -> Result<usize, io::Error>
   where InputType: Read,
         OutputType: Write
@@ -62,8 +67,7 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             w,
                             &mut input_buffer[..],
                             &mut output_buffer[..],
-                            quality,
-                            lgwin,
+                            params,
                             HeapAlloc::<u8> { default_value: 0 },
                             HeapAlloc::<u16> { default_value: 0 },
                             HeapAlloc::<i32> { default_value: 0 },
@@ -71,7 +75,8 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             HeapAlloc::<Command> {
                                 default_value: Command::default(),
                             },
-                            HeapAlloc::<f64> { default_value: 0.0f64 },
+                            HeapAlloc::<floatX> { default_value: 0.0 as floatX },
+                            HeapAlloc::<Mem256f> { default_value: Mem256f::default() },
                             HeapAlloc::<HistogramLiteral>{
                                 default_value: HistogramLiteral::default(),
                             },
@@ -95,8 +100,7 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
 #[cfg(all(feature="unsafe",not(feature="no-stdlib")))]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                                              w: &mut OutputType,
-                                             quality:u32,
-                                             lgwin:u32)
+                                             params: &BrotliEncoderParams)
                                                -> Result<usize, io::Error>
   where InputType: Read,
         OutputType: Write
@@ -107,14 +111,14 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             w,
                             &mut input_buffer[..],
                             &mut output_buffer[..],
-                            quality,
-                            lgwin,
+                            params,
                             unsafe { HeapAllocUninitialized::<u8>::new() },
                             unsafe { HeapAllocUninitialized::<u16>::new() },
                             unsafe { HeapAllocUninitialized::<i32>::new() },
                             unsafe { HeapAllocUninitialized::<u32>::new() },
                             unsafe { HeapAllocUninitialized::<Command>::new() },
-                            unsafe { HeapAllocUninitialized::<f64>::new() },
+                            unsafe { HeapAllocUninitialized::<util::floatX>::new() },
+                            unsafe { HeapAllocUninitialized::<Mem256f>::new() },
                             unsafe { HeapAllocUninitialized::<HistogramLiteral>::new() },
                             unsafe { HeapAllocUninitialized::<HistogramCommand>::new() },
                             unsafe { HeapAllocUninitialized::<HistogramDistance>::new() },
@@ -131,7 +135,8 @@ pub fn BrotliCompressCustomAlloc<InputType,
                                  AllocI32: Allocator<i32>,
                                  AllocU32: Allocator<u32>,
                                  AllocCommand: Allocator<Command>,
-                                 AllocF64: Allocator<f64>,
+                                 AllocF64: Allocator<util::floatX>,
+                                 AllocFV: Allocator<Mem256f>,
                                  AllocHL: Allocator<HistogramLiteral>,
                                  AllocHC: Allocator<HistogramCommand>,
                                  AllocHD: Allocator<HistogramDistance>,
@@ -142,14 +147,14 @@ pub fn BrotliCompressCustomAlloc<InputType,
    mut w: &mut OutputType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
-   quality: u32,
-   lgwin: u32,
+   params: &BrotliEncoderParams,
    alloc_u8: AllocU8,
    alloc_u16: AllocU16,
    alloc_i32: AllocI32,
    alloc_u32: AllocU32,
    alloc_mc: AllocCommand,
    alloc_f64: AllocF64,
+   alloc_fv: AllocFV,
    alloc_hl: AllocHL,
    alloc_hc: AllocHC,
    alloc_hd: AllocHD,
@@ -164,14 +169,14 @@ pub fn BrotliCompressCustomAlloc<InputType,
                            &mut IoWriterWrapper::<OutputType>(w),
                            input_buffer,
                            output_buffer,
-                           quality,
-                           lgwin,
+                           params,
                            alloc_u8,
                            alloc_u16,
                            alloc_i32,
                            alloc_u32,
                            alloc_mc,
                            alloc_f64,
+                           alloc_fv,
                            alloc_hl,
                            alloc_hc,
                            alloc_hd,
@@ -189,7 +194,8 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocI32: Allocator<i32>,
                               AllocU32: Allocator<u32>,
                               AllocCommand: Allocator<Command>,
-                              AllocF64: Allocator<f64>,
+                              AllocF64: Allocator<util::floatX>,
+                              AllocFV: Allocator<Mem256f>,
                               AllocHL: Allocator<HistogramLiteral>,
                               AllocHC: Allocator<HistogramCommand>,
                               AllocHD: Allocator<HistogramDistance>,
@@ -200,14 +206,14 @@ pub fn BrotliCompressCustomIo<ErrType,
    mut w: &mut OutputType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
-   quality: u32,
-   lgwin: u32,
+   params: &BrotliEncoderParams,
    mu8: AllocU8,
    mu16: AllocU16,
    mi32: AllocI32,
    mu32: AllocU32,
    mc: AllocCommand,
    mut mf64: AllocF64,
+   mut mfv: AllocFV,
    mut mhl: AllocHL,
    mut mhc: AllocHC,
    mut mhd: AllocHD,
@@ -220,18 +226,13 @@ pub fn BrotliCompressCustomIo<ErrType,
         OutputType: CustomWrite<ErrType>
 {
   let mut s_orig = BrotliEncoderCreateInstance(mu8, mu16, mi32, mu32, mc);
+  s_orig.params = params.clone();
   let mut next_in_offset: usize = 0;  
   let mut next_out_offset: usize = 0;
   let mut total_out = Some(0usize);
   {
       let mut s = &mut s_orig;
       
-      BrotliEncoderSetParameter(s,
-                                BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
-                                quality as (u32));
-      BrotliEncoderSetParameter(s,
-                                BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
-                                lgwin as (u32));
       BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0 as (u32)); // gen, text, font
       //BrotliEncoderSetParameter(s,
       //                          BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
@@ -262,7 +263,7 @@ pub fn BrotliCompressCustomIo<ErrType,
               op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
           }
           let result = BrotliEncoderCompressStream(s,
-                                                   &mut mf64, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht,
+                                                   &mut mf64, &mut mfv, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht,
                                                    op,
                                                    &mut available_in,
                                                    input_buffer,

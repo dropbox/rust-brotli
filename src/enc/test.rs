@@ -2,6 +2,7 @@
 use core;
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
+use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderSetParameter,
                     BrotliEncoderDestroyInstance, BrotliEncoderIsFinished,
@@ -43,7 +44,9 @@ fn oneshot_compress(input: &[u8],
   let mut stack_u32_buffer =
     unsafe { define_allocator_memory_pool!(96, u32, [0; 32 * 1024 * 1024], calloc) };
   let mut stack_f64_buffer =
-    unsafe { define_allocator_memory_pool!(48, f64, [0; 128 * 1024], calloc) };
+    unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
+  let mut stack_fv_buffer =
+    unsafe { define_allocator_memory_pool!(48, Mem256f, [0; 128 * 1024], calloc) };
   let mut stack_hl_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramLiteral, [0; 128 * 1024], calloc) };
   let mut stack_hc_buffer =
@@ -65,7 +68,8 @@ fn oneshot_compress(input: &[u8],
                                                                          bzero);
   let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data,
                                                                          bzero);
-  let mut mf64 = CallocatedFreelist2048::<f64>::new_allocator(stack_f64_buffer.data, bzero);
+  let mut mf64 = CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
+  let mut mfv = CallocatedFreelist2048::<Mem256f>::new_allocator(stack_fv_buffer.data, bzero);
   let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data,
                                                                             bzero);
   let mut mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data,
@@ -113,6 +117,7 @@ fn oneshot_compress(input: &[u8],
       }
       let result = BrotliEncoderCompressStream(s,
                                                &mut mf64,
+                                               &mut mfv,
                                                &mut mhl,
                                                &mut mhc,
                                                &mut mhd,
@@ -256,7 +261,7 @@ fn test_roundtrip_64x() {
 }
 #[test]
 fn test_roundtrip_ukkonooa() {
-  test_roundtrip_file!("../bin/testdata/ukkonooa", 72, 9, 10, 3, 2);
+  test_roundtrip_file!("../bin/testdata/ukkonooa", 82, 9, 10, 3, 2);
 }
 #[test]
 fn test_roundtrip_backward65536() {
@@ -278,6 +283,11 @@ fn test_roundtrip_quickfox_repeated() {
 #[test]
 fn test_roundtrip_asyoulik() {
   test_roundtrip_file!("../bin/testdata/asyoulik.txt", 64384, 9, 15, 513, 511);
+}
+
+#[test]
+fn test_roundtrip_asyoulik9_5() {
+  test_roundtrip_file!("../bin/testdata/asyoulik.txt", 62384, 10, 15, 513, 511);
 }
 
 #[test]

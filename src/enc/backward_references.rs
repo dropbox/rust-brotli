@@ -42,7 +42,7 @@ pub struct BrotliHasherParams {
 }
 
 
-
+#[derive(Clone)]
 pub struct BrotliEncoderParams {
   pub mode: BrotliEncoderMode,
   pub quality: i32,
@@ -56,7 +56,7 @@ pub struct BrotliEncoderParams {
 
 
 fn LiteralSpreeLengthForSparseSearch(params: &BrotliEncoderParams) -> usize {
-  (if (*params).quality < 9i32 {
+  (if (*params).quality < 9 {
      64i32
    } else {
      512i32
@@ -1115,7 +1115,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
             distance: 0,
             score: 0,
           };
-          sr2.len = if (*params).quality < 5i32 {
+          sr2.len = if (*params).quality < 5 {
             brotli_min_size_t(sr.len.wrapping_sub(1usize), max_length)
           } else {
             0usize
@@ -1219,19 +1219,6 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
   *last_insert_len = insert_length;
   *num_commands = (*num_commands).wrapping_add(new_commands_count);
 }
-macro_rules! call_brotli_create_backward_references {
-    () => {
-        CreateBackwardReferences(dictionary, dictionary_hash, num_bytes, position,
-                                 ringbuffer, ringbuffer_mask,
-                                 params,
-                                 hasher,
-                                 dist_cache,
-                                 last_insert_len,
-                                 commands,
-                                 num_commands,
-                                 num_literals);
-    };
-}
 pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                       AllocU32: alloc::Allocator<u32>>
   (dictionary: &BrotliDictionary,
@@ -1263,7 +1250,6 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_commands,
                                num_literals)
     }
-    //     call_brotli_create_backward_references!(),
     &mut UnionHasher::H3(ref mut hasher) => {
       CreateBackwardReferences(dictionary,
                                &kStaticDictionaryHash[..],
@@ -1279,7 +1265,6 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_commands,
                                num_literals)
     }
-    //            call_brotli_create_backward_references!(),
     &mut UnionHasher::H4(ref mut hasher) => {
       CreateBackwardReferences(dictionary,
                                &kStaticDictionaryHash[..],
@@ -1295,7 +1280,6 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_commands,
                                num_literals)
     }
-    //            call_brotli_create_backward_references!(),
     &mut UnionHasher::H5(ref mut hasher) => {
       CreateBackwardReferences(dictionary,
                                &kStaticDictionaryHash[..],
@@ -1311,7 +1295,6 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_commands,
                                num_literals)
     }
-    //            call_brotli_create_backward_references!(),
     &mut UnionHasher::H6(ref mut hasher) => {
       CreateBackwardReferences(dictionary,
                                &kStaticDictionaryHash[..],
@@ -1327,7 +1310,6 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_commands,
                                num_literals)
     }
-    //            call_brotli_create_backward_references!(),
     &mut UnionHasher::H54(ref mut hasher) => {
       CreateBackwardReferences(dictionary,
                                &kStaticDictionaryHash[..],
@@ -1343,6 +1325,5 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_commands,
                                num_literals)
     }
-    //            call_brotli_create_backward_references!(),
   }
 }

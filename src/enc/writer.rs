@@ -1,4 +1,4 @@
-
+use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
 use super::command::Command;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
@@ -33,7 +33,8 @@ pub struct CompressorWriterCustomAlloc<W: Write,
                                        AllocI32: Allocator<i32>,
                                        AllocU32: Allocator<u32>,
                                        AllocCommand: Allocator<Command>,
-                                       AllocF64: Allocator<f64>,
+                                       AllocF64: Allocator<super::util::floatX>,
+                                       AllocFV: Allocator<Mem256f>,
                                        AllocHL: Allocator<HistogramLiteral>,
                                        AllocHC: Allocator<HistogramCommand>,
                                        AllocHD: Allocator<HistogramDistance>,
@@ -43,7 +44,7 @@ pub struct CompressorWriterCustomAlloc<W: Write,
     CompressorWriterCustomIo<io::Error,
                              IntoIoWriter<W>,
                              BufferType,
-                             AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand, AllocF64,
+                             AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand, AllocF64, AllocFV,
                              AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>);
 
 
@@ -55,7 +56,8 @@ impl<W: Write,
      AllocI32: Allocator<i32>,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<f64>,
+     AllocF64: Allocator<super::util::floatX>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -63,7 +65,7 @@ impl<W: Write,
      AllocCT: Allocator<ContextType>,
      AllocHT: Allocator<HuffmanTree>>
     CompressorWriterCustomAlloc<W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
-                                AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>
+                                AllocF64, AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>
     {
 
     pub fn new(w: W, buffer : BufferType,
@@ -73,6 +75,7 @@ impl<W: Write,
                alloc_u32 : AllocU32,
                alloc_c : AllocCommand,
                alloc_f64 : AllocF64,
+               alloc_fv : AllocFV,
                alloc_hl:AllocHL,
                alloc_hc:AllocHC,
                alloc_hd:AllocHD,
@@ -82,16 +85,16 @@ impl<W: Write,
                q: u32,
                lgwin: u32) -> Self {
         CompressorWriterCustomAlloc::<W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
-                                AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>(
+                                AllocF64,AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>(
           CompressorWriterCustomIo::<Error,
                                  IntoIoWriter<W>,
                                  BufferType,
                                  AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
-                                 AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>::new(
+                                 AllocF64,AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>::new(
               IntoIoWriter::<W>(w),
               buffer,
               alloc_u8, alloc_u16, alloc_i32, alloc_u32, alloc_c,
-              alloc_f64, alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct,alloc_ht,
+              alloc_f64, alloc_fv, alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct,alloc_ht,
               Error::new(ErrorKind::InvalidData,
                          "Invalid Data"),
               q, lgwin))
@@ -106,7 +109,8 @@ impl<W: Write,
      AllocI32: Allocator<i32>,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<f64>,
+     AllocF64: Allocator<super::util::floatX>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -114,7 +118,7 @@ impl<W: Write,
      AllocCT: Allocator<ContextType>,
      AllocHT: Allocator<HuffmanTree>>
     Write for CompressorWriterCustomAlloc<W, BufferType,
-                                         AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand, AllocF64,
+                                         AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand, AllocF64, AllocFV,
                                          AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
   	fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
        self.0.write(buf)
@@ -134,7 +138,8 @@ pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
                                      HeapAlloc<i32>,
                                      HeapAlloc<u32>,
                                      HeapAlloc<Command>,
-                                     HeapAlloc<f64>,
+                                     HeapAlloc<super::util::floatX>,
+                                     HeapAlloc<Mem256f>,
                                      HeapAlloc<HistogramLiteral>,
                                      HeapAlloc<HistogramCommand>,
                                      HeapAlloc<HistogramDistance>,
@@ -152,7 +157,8 @@ impl<W: Write> CompressorWriter<W> {
     let alloc_i32 = HeapAlloc::<i32> { default_value: 0 };
     let alloc_u32 = HeapAlloc::<u32> { default_value: 0 };
     let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };
-    let alloc_f64 = HeapAlloc::<f64> { default_value: 0.0f64 };
+    let alloc_f64 = HeapAlloc::<super::util::floatX> { default_value: 0.0 as super::util::floatX };
+    let alloc_fv = HeapAlloc::<Mem256f> { default_value: Mem256f::default() };
     let alloc_hl = HeapAlloc::<HistogramLiteral> { default_value: HistogramLiteral::default() };
     let alloc_hc = HeapAlloc::<HistogramCommand> { default_value: HistogramCommand::default() };
     let alloc_hd = HeapAlloc::<HistogramDistance> { default_value: HistogramDistance::default() };
@@ -167,6 +173,7 @@ impl<W: Write> CompressorWriter<W> {
                                                            alloc_u32,
                                                            alloc_c,
                                                            alloc_f64,
+                                                           alloc_fv,
                                                            alloc_hl,
                                                            alloc_hc,
                                                            alloc_hd,
@@ -188,7 +195,8 @@ pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
                                      HeapAllocUninitialized<i32>,
                                      HeapAllocUninitialized<u32>,
                                      HeapAllocUninitialized<Command>,
-                                     HeapAllocUninitialized<f64>,
+                                     HeapAllocUninitialized<super::util::floatX>,
+                                     HeapAllocUninitialized<Mem256f>,
                                      HeapAllocUninitialized<HistogramLiteral>,
                                      HeapAllocUninitialized<HistogramCommand>,
                                      HeapAllocUninitialized<HistogramDistance>,
@@ -206,7 +214,8 @@ impl<W: Write> CompressorWriter<W> {
     let alloc_i32 = unsafe { HeapAllocUninitialized::<i32>::new() };
     let alloc_u32 = unsafe { HeapAllocUninitialized::<u32>::new() };
     let alloc_c = unsafe { HeapAllocUninitialized::<Command>::new() };
-    let alloc_f64 = unsafe { HeapAllocUninitialized::<f64>::new() };
+    let alloc_f64 = unsafe { HeapAllocUninitialized::<super::util::floatX>::new() };
+    let alloc_fv = unsafe { HeapAllocUninitialized::<Mem256f>::new() };
     let alloc_hl = unsafe { HeapAllocUninitialized::<HistogramLiteral>::new() };
     let alloc_hc = unsafe { HeapAllocUninitialized::<HistogramCommand>::new() };
     let alloc_hd = unsafe { HeapAllocUninitialized::<HistogramDistance>::new() };
@@ -222,6 +231,7 @@ impl<W: Write> CompressorWriter<W> {
                                                            alloc_u32,
                                                            alloc_c,
                                                            alloc_f64,
+                                                           alloc_fv,
                                                            alloc_hl,
                                                            alloc_hc,
                                                            alloc_hd,
@@ -252,7 +262,8 @@ pub struct CompressorWriterCustomIo<ErrType,
                                     AllocI32: Allocator<i32>,
                                     AllocU32: Allocator<u32>,
                                     AllocCommand: Allocator<Command>,
-                                    AllocF64: Allocator<f64>,
+                                    AllocF64: Allocator<super::util::floatX>,
+                                    AllocFV: Allocator<Mem256f>,
                                     AllocHL: Allocator<HistogramLiteral>,
                                     AllocHC: Allocator<HistogramCommand>,
                                     AllocHD: Allocator<HistogramDistance>,
@@ -265,6 +276,7 @@ pub struct CompressorWriterCustomIo<ErrType,
   output: W,
   error_if_invalid_data: Option<ErrType>,
   alloc_f64: AllocF64,
+  alloc_fv: AllocFV,
   alloc_hl: AllocHL,
   alloc_hc: AllocHC,
   alloc_hd: AllocHD,
@@ -290,7 +302,8 @@ impl<ErrType,
      AllocI32: Allocator<i32>,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<f64>,
+     AllocF64: Allocator<super::util::floatX>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -298,7 +311,7 @@ impl<ErrType,
      AllocCT: Allocator<ContextType>,
      AllocHT: Allocator<HuffmanTree>>
 CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
-                         AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>
+                         AllocF64, AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT>
 {
 
     pub fn new(w: W, buffer : BufferType,
@@ -308,6 +321,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
                alloc_u32 : AllocU32,
                alloc_c : AllocCommand,
                alloc_f64 : AllocF64,
+               alloc_fv: AllocFV,
                alloc_hl:AllocHL,
                alloc_hc:AllocHC,
                alloc_hd:AllocHD,
@@ -327,6 +341,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
                                      alloc_u32,
                                      alloc_c),
             alloc_f64:alloc_f64,
+            alloc_fv:alloc_fv,
             alloc_hl:alloc_hl,
             alloc_hc:alloc_hc,
             alloc_hd:alloc_hd,
@@ -353,6 +368,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
             let ret = BrotliEncoderCompressStream(
                 &mut self.state,
                 &mut self.alloc_f64,
+                &mut self.alloc_fv,
                 &mut self.alloc_hl,
                 &mut self.alloc_hc,
                 &mut self.alloc_hd,
@@ -392,7 +408,8 @@ impl<ErrType,
      AllocI32: Allocator<i32>,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<f64>,
+     AllocF64: Allocator<super::util::floatX>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -400,7 +417,7 @@ impl<ErrType,
      AllocCT: Allocator<ContextType>,
      AllocHT: Allocator<HuffmanTree>> Drop for
 CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
-                         AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
+                         AllocF64, AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
     fn drop(&mut self) {
         match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
               Ok(_) => {},
@@ -417,7 +434,8 @@ impl<ErrType,
      AllocI32: Allocator<i32>,
      AllocU32: Allocator<u32>,
      AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<f64>,
+     AllocF64: Allocator<super::util::floatX>,
+     AllocFV: Allocator<Mem256f>,
      AllocHL: Allocator<HistogramLiteral>,
      AllocHC: Allocator<HistogramCommand>,
      AllocHD: Allocator<HistogramDistance>,
@@ -425,7 +443,7 @@ impl<ErrType,
      AllocCT: Allocator<ContextType>,
      AllocHT: Allocator<HuffmanTree>> CustomWrite<ErrType> for
 CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
-                         AllocF64, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
+                         AllocF64, AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
 	fn write(&mut self, buf: & [u8]) -> Result<usize, ErrType > {
         let mut avail_in = buf.len();
         let mut input_offset : usize = 0;
@@ -435,6 +453,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
             let ret = BrotliEncoderCompressStream(
                 &mut self.state,
                 &mut self.alloc_f64,
+                &mut self.alloc_fv,
                 &mut self.alloc_hl,
                 &mut self.alloc_hc,
                 &mut self.alloc_hd,

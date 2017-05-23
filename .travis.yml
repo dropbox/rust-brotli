@@ -12,4 +12,5 @@ script:
   - cargo test
   - cargo test --features=unsafe --release
   - cargo test --features=no-stdlib
+  - cargo test --features=float64
   - cargo test --release

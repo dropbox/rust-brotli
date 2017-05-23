@@ -257,9 +257,12 @@ fn test_roundtrip_64x() {
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  let q: u32 = 9;
-  let lgwin: u32 = 16;
-  match super::compress(&mut input, &mut compressed, 65536, q, lgwin) {
+  let q: i32 = 9;
+  let lgwin: i32 = 16;
+  let mut params = super::brotli::enc::BrotliEncoderInitParams();
+  params.quality = q;
+  params.lgwin = lgwin;
+  match super::compress(&mut input, &mut compressed, 65536, &params) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -275,11 +278,15 @@ fn test_roundtrip_64x() {
   assert_eq!(input.read_offset, in_buf.len());
 }
 
-fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
+fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) {
+  let mut params = super::brotli::enc::BrotliEncoderInitParams();
+  params.quality = q;
+  params.lgwin = lgwin;
+  params.size_hint = if in_buf.len() > 100000 { 2048 * 1024} else {in_buf.len()};
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  match super::compress(&mut input, &mut compressed, 4096, q, lgwin) {
+  match super::compress(&mut input, &mut compressed, 4096, &params) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -296,9 +303,10 @@ fn roundtrip_helper(in_buf: &[u8], q: u32, lgwin: u32) {
 }
 
 fn total_roundtrip_helper(data: &[u8]) {
-    for q in 0..9 {
-        roundtrip_helper(data, q as u32, (q + 13) as u32);
+    for q in 0..10 {
+        roundtrip_helper(data, q as i32, (q + 13) as i32);
     }
+    roundtrip_helper(data, 10, 23);
 }
 static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("testdata/random_then_unicode");
 #[test]
@@ -352,8 +360,8 @@ fn test_random_then_unicode_9() {
 }
 
 #[test]
-fn test_random_then_unicode_9_a() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 28);
+fn test_random_then_unicode_9_5() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28);
 }
 
 #[test]
