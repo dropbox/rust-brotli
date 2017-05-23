@@ -55,7 +55,7 @@ pub struct HeapAllocator<T: core::clone::Clone> {
   pub default_value: T,
 }
 
-#[cfg(not(feature="unsafe"))]
+//#[cfg(not(feature="unsafe"))]
 impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
   type AllocatedMemory = Rebox<T>;
   fn alloc_cell(self: &mut HeapAllocator<T>, len: usize) -> Rebox<T> {
@@ -65,7 +65,7 @@ impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
   }
   fn free_cell(self: &mut HeapAllocator<T>, _data: Rebox<T>) {}
 }
-
+/* FAILS test: compressor must fail to initialize data first
 #[cfg(feature="unsafe")]
 impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
   type AllocatedMemory = Rebox<T>;
@@ -79,7 +79,7 @@ impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
   }
   fn free_cell(self: &mut HeapAllocator<T>, _data: Rebox<T>) {}
 }
-
+*/
 
 #[allow(unused_imports)]
 use alloc_no_stdlib::{SliceWrapper, SliceWrapperMut, StackAllocator, AllocatedStackMemory,

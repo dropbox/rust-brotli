@@ -14,8 +14,6 @@ pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
-#[cfg(all(feature="unsafe",not(feature="no-stdlib")))]
-pub use alloc::HeapAllocUninitialized;
 #[cfg(not(feature="no-stdlib"))]
 use std::io;
 
@@ -126,7 +124,7 @@ impl<R: Read,
 }
 
 
-#[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
+#[cfg(not(any(feature="no-stdlib")))]
 pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
                                      <HeapAlloc<u8>
                                       as Allocator<u8>>::AllocatedMemory,
@@ -145,7 +143,7 @@ pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
                                      HeapAlloc<HuffmanTree>>);
 
 
-#[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
+#[cfg(not(any(feature="no-stdlib")))]
 impl<R: Read> CompressorReader<R> {
   pub fn new(r: R, buffer_size: usize, q: u32, lgwin: u32) -> Self {
     let mut alloc_u8 = HeapAlloc::<u8> { default_value: 0 };
@@ -182,63 +180,6 @@ impl<R: Read> CompressorReader<R> {
   }
 }
 
-
-#[cfg(all(feature="unsafe", not(feature="no-stdlib")))]
-pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
-                                     <HeapAllocUninitialized<u8>
-                                      as Allocator<u8>>::AllocatedMemory,
-                                     HeapAllocUninitialized<u8>,
-                                     HeapAllocUninitialized<u16>,
-                                     HeapAllocUninitialized<i32>,
-                                     HeapAllocUninitialized<u32>,
-                                     HeapAllocUninitialized<Command>,
-                                     HeapAllocUninitialized<super::util::floatX>,
-                                     HeapAllocUninitialized<Mem256f>,
-                                     HeapAllocUninitialized<HistogramLiteral>,
-                                     HeapAllocUninitialized<HistogramCommand>,
-                                     HeapAllocUninitialized<HistogramDistance>,
-                                     HeapAllocUninitialized<HistogramPair>,
-                                     HeapAllocUninitialized<ContextType>,
-                                     HeapAllocUninitialized<HuffmanTree>>);
-
-
-#[cfg(all(feature="unsafe", not(feature="no-stdlib")))]
-impl<R: Read> CompressorReader<R> {
-  pub fn new(r: R, buffer_size: usize, q: u32, lgwin:u32) -> Self {
-    let mut alloc_u8 = unsafe { HeapAllocUninitialized::<u8>::new() };
-    let buffer = alloc_u8.alloc_cell(buffer_size);
-    let alloc_u16 = unsafe { HeapAllocUninitialized::<u16>::new() };
-    let alloc_i32 = unsafe { HeapAllocUninitialized::<i32>::new() };
-    let alloc_u32 = unsafe { HeapAllocUninitialized::<u32>::new() };
-    let alloc_c = unsafe { HeapAllocUninitialized::<Command>::new() };
-    let alloc_f64 = unsafe { HeapAllocUninitialized::<super::util::floatX>::new() };
-    let alloc_fv = unsafe { HeapAllocUninitialized::<Mem256f>::new() };
-    let alloc_hl = unsafe { HeapAllocUninitialized::<HistogramLiteral>::new() };
-    let alloc_hc = unsafe { HeapAllocUninitialized::<HistogramCommand>::new() };
-    let alloc_hd = unsafe { HeapAllocUninitialized::<HistogramDistance>::new() };
-    let alloc_hp = unsafe { HeapAllocUninitialized::<HistogramPair>::new() };
-
-    let alloc_ct = unsafe { HeapAllocUninitialized::<ContextType>::new() };
-    let alloc_ht = unsafe { HeapAllocUninitialized::<HuffmanTree>::new() };
-    CompressorReader::<R>(CompressorReaderCustomAlloc::new(r,
-                                                           buffer,
-                                                           alloc_u8,
-                                                           alloc_u16,
-                                                           alloc_i32,
-                                                           alloc_u32,
-                                                           alloc_c,
-                                                           alloc_f64,
-                                                           alloc_fv,
-                                                           alloc_hl,
-                                                           alloc_hc,
-                                                           alloc_hd,
-                                                           alloc_hp,
-                                                           alloc_ct,
-                                                           alloc_ht,
-                                                           q,
-                                                           lgwin))
-  }
-}
 
 
 #[cfg(not(feature="no-stdlib"))]

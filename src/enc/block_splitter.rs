@@ -419,7 +419,6 @@ fn BuildBlockHistograms<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> 
   }
 }
 
-
 fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default+Clone,
                         AllocU8:alloc::Allocator<u8>,
                         AllocU32:alloc::Allocator<u32>,
@@ -460,9 +459,6 @@ mut split: &mut BlockSplit<AllocU8,AllocU32>) where u64: core::convert::From<Int
   let mut new_clusters: [u32; 64] = [0; 64];
   let mut symbols: [u32; 64] = [0; 64];
   let mut remap: [u32; 64] = [0; 64];
-  for item_mut in block_lengths.slice_mut()[..num_blocks].iter_mut() {
-    *item_mut = 0;
-  }
   {
     let mut block_idx: usize = 0usize;
     i = 0usize;

@@ -17,6 +17,7 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{brotli_min_size_t, brotli_max_size_t};
 use core;
 
+
 pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
                             AllocU16: alloc::Allocator<u16>,
                             AllocU32: alloc::Allocator<u32>,
@@ -83,14 +84,10 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
   }
   literal_histograms_size = (*mb).literal_split.num_types.wrapping_mul(literal_context_multiplier);
   literal_histograms = mhl.alloc_cell(literal_histograms_size);
-  ClearHistograms(literal_histograms.slice_mut(), literal_histograms_size);
   distance_histograms_size = (*mb).distance_split.num_types << 2i32;
   distance_histograms = mhd.alloc_cell(distance_histograms_size);
-  ClearHistograms(distance_histograms.slice_mut(), distance_histograms_size);
   (*mb).command_histograms_size = (*mb).command_split.num_types;
   (*mb).command_histograms = mhc.alloc_cell((*mb).command_histograms_size);
-  ClearHistograms((*mb).command_histograms.slice_mut(),
-                  (*mb).command_histograms_size);
   BrotliBuildHistogramsWithContext(cmds,
                                    num_commands,
                                    &mut (*mb).literal_split,

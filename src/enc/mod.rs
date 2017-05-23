@@ -45,15 +45,12 @@ use std::io::{Read,Write, Error, ErrorKind};
 use std::io;
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
-#[cfg(all(feature="unsafe",not(feature="no-stdlib")))]
-pub use alloc::HeapAllocUninitialized;
-
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
-#[cfg(not(any(feature="unsafe", feature="no-stdlib")))]
+#[cfg(not(any(feature="no-stdlib")))]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                                              w: &mut OutputType,
                                              params: &BrotliEncoderParams)
@@ -97,36 +94,6 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             })
 }
 
-#[cfg(all(feature="unsafe",not(feature="no-stdlib")))]
-pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
-                                             w: &mut OutputType,
-                                             params: &BrotliEncoderParams)
-                                               -> Result<usize, io::Error>
-  where InputType: Read,
-        OutputType: Write
-{
-  let mut input_buffer: [u8; 4096] = [0; 4096];
-  let mut output_buffer: [u8; 4096] = [0; 4096];
-  BrotliCompressCustomAlloc(r,
-                            w,
-                            &mut input_buffer[..],
-                            &mut output_buffer[..],
-                            params,
-                            unsafe { HeapAllocUninitialized::<u8>::new() },
-                            unsafe { HeapAllocUninitialized::<u16>::new() },
-                            unsafe { HeapAllocUninitialized::<i32>::new() },
-                            unsafe { HeapAllocUninitialized::<u32>::new() },
-                            unsafe { HeapAllocUninitialized::<Command>::new() },
-                            unsafe { HeapAllocUninitialized::<util::floatX>::new() },
-                            unsafe { HeapAllocUninitialized::<Mem256f>::new() },
-                            unsafe { HeapAllocUninitialized::<HistogramLiteral>::new() },
-                            unsafe { HeapAllocUninitialized::<HistogramCommand>::new() },
-                            unsafe { HeapAllocUninitialized::<HistogramDistance>::new() },
-                            unsafe { HeapAllocUninitialized::<HistogramPair>::new() },
-                            unsafe { HeapAllocUninitialized::<ContextType>::new() },
-                            unsafe { HeapAllocUninitialized::<HuffmanTree>::new() },
-  )
-}
 #[cfg(not(feature="no-stdlib"))]
 pub fn BrotliCompressCustomAlloc<InputType,
                                  OutputType,

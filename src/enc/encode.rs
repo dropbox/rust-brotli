@@ -1004,15 +1004,6 @@ macro_rules! InitializeHX{
         }
     };
 }
-#[cfg(feature="unsafe")]
-fn if_unsafe_bzero<T: core::convert::From<u8>>(t: &mut [T]) {
-  for item in t.iter_mut() {
-    *item = T::from(0u8);
-  }
-}
-
-#[cfg(not(feature="unsafe"))]
-fn if_unsafe_bzero<T>(_: &mut [T]) {}
 fn InitializeH2<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H2Sub<AllocU32>> {
     BasicHasher {
         GetHasherCommon:Struct1{
@@ -1064,10 +1055,8 @@ fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
    -> AdvHasher<H5Sub, AllocU16, AllocU32> {
   let block_size = 1u64 << params.hasher.block_bits;
   let bucket_size = 1u64 << params.hasher.bucket_bits;
-  let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
-  let mut num = m16.alloc_cell(bucket_size as usize);
-  if_unsafe_bzero(buckets.slice_mut());
-  if_unsafe_bzero(num.slice_mut());
+  let buckets = m32.alloc_cell((bucket_size * block_size) as usize);
+  let num = m16.alloc_cell(bucket_size as usize);
   AdvHasher {
     buckets: buckets,
     num: num,
@@ -1091,10 +1080,8 @@ fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
    -> AdvHasher<H6Sub, AllocU16, AllocU32> {
   let block_size = 1u64 << params.hasher.block_bits;
   let bucket_size = 1u64 << params.hasher.bucket_bits;
-  let mut buckets = m32.alloc_cell((bucket_size * block_size) as usize);
-  let mut num = m16.alloc_cell(bucket_size as usize);
-  if_unsafe_bzero(buckets.slice_mut());
-  if_unsafe_bzero(num.slice_mut());
+  let buckets = m32.alloc_cell((bucket_size * block_size) as usize);
+  let num = m16.alloc_cell(bucket_size as usize);
   AdvHasher {
     buckets: buckets,
     num: num,
