@@ -63,53 +63,65 @@ pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
        ((v >> 56) & 0xff) as u8];
   outp[..8].clone_from_slice(&p[..]);
 }
+
+macro_rules! sub_match {
+    ($s1 : expr, $s2 : expr, $limit : expr, $vec_len: expr, $matched : expr) => {
+        let (s1_start, rest1) = $s1.split_at($vec_len);
+        $s1 = rest1;
+        let (s2_start, rest2) = $s2.split_at($vec_len);
+        $s2 = rest2;
+        $limit -= $vec_len;
+        let mut s1_lo = [0u8;$vec_len];
+        s1_lo[..].clone_from_slice(s1_start);
+        let mut s2_lo = [0u8;$vec_len];
+        s2_lo[..].clone_from_slice(s2_start);
+        for index in 0..($vec_len >> 3) {
+            let s2_as_64 = BROTLI_UNALIGNED_LOAD64(&s2_lo[(index << 3)..((index + 1) << 3)]);
+            let s1_as_64 = BROTLI_UNALIGNED_LOAD64(&s1_lo[(index << 3)..((index + 1) << 3)]);
+            if s2_as_64 == s1_as_64 {
+                $matched = $matched.wrapping_add(8usize) as u32 as usize;
+            } else {
+                let x: u64 = s2_as_64 ^
+                    s1_as_64;
+                let matching_bits: usize = x.trailing_zeros() as (usize);
+                $matched = $matched.wrapping_add(matching_bits >> 3i32) as u32 as usize;
+                return $matched;
+            }
+        }
+    }
+}
 pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
-  const vec_len :usize = 128usize;
-  while limit >= vec_len {
-      let (s1_start, rest1) = s1.split_at(vec_len);
-      s1 = rest1;
-      let (s2_start, rest2) = s2.split_at(vec_len);
-      s2 = rest2;
-      limit -= vec_len;
-      let mut s1_lo = [0u8;vec_len];
-      s1_lo[..].clone_from_slice(s1_start);
-      let mut s2_lo = [0u8;vec_len];
-      s2_lo[..].clone_from_slice(s2_start);
-      for index in 0..(vec_len >> 3) {
-          let s2_as_64 = BROTLI_UNALIGNED_LOAD64(&s2_lo[(index << 3)..((index + 1) << 3)]);
-          let s1_as_64 = BROTLI_UNALIGNED_LOAD64(&s1_lo[(index << 3)..((index + 1) << 3)]);
-          if s2_as_64 == s1_as_64 {
-              matched = matched.wrapping_add(8usize) as u32 as usize;
-          } else {
-              let x: u64 = s2_as_64 ^
-                  s1_as_64;
-              let matching_bits: usize = x.trailing_zeros() as (usize);
-              matched = matched.wrapping_add(matching_bits >> 3i32) as u32 as usize;
-              return matched;
-          }
+  if limit >= 8 {
+      limit -= 8;
+      let s1_as_64 = BROTLI_UNALIGNED_LOAD64(&s1);
+      let s2_as_64 = BROTLI_UNALIGNED_LOAD64(&s2);
+      let _nop : &[u8];
+      let s1_split = s1.split_at(8);
+      s1 = s1_split.1;
+      let s2_split = s2.split_at(8);
+      s2 = s2_split.1;
+      if s2_as_64 == s1_as_64 {
+          matched = 8
+      } else {
+          let x: u64 = s2_as_64 ^ s1_as_64;
+          return x.trailing_zeros() as (usize) >> 3;
       }
   }
-  let mut limit2: usize = (limit >> 3) + 1;
-  while {
-          limit2 = limit2.wrapping_sub(1 as (usize));
-          limit2
-        } != 0 {
-    let (s1_8, s1_rest) = s1.split_at(8);
-    let (s2_8, s2_rest) = s2.split_at(8);
-    s2 = s2_rest;
-    s1 = s1_rest;
-    let s2_as_64 = BROTLI_UNALIGNED_LOAD64(s2_8);
-    let s1_as_64 = BROTLI_UNALIGNED_LOAD64(s1_8);
-    if s2_as_64 == s1_as_64 {
-      matched = matched.wrapping_add(8usize) as u32 as usize;
-    } else {
-      let x: u64 = s2_as_64 ^
-                   s1_as_64;
-      let matching_bits: usize = x.trailing_zeros() as (usize);
-      matched = matched.wrapping_add(matching_bits >> 3i32) as u32 as usize;
-      return matched;
-    }
+  if limit >= 16 {
+      sub_match!(s1, s2, limit, 16, matched);
+  }
+  if limit >= 32 {
+      sub_match!(s1, s2, limit, 32, matched);
+  }
+  if limit >= 64 {
+      sub_match!(s1, s2, limit, 64, matched);
+  }
+  while limit >= 128 {
+      sub_match!(s1, s2, limit, 128, matched);
+  }
+  while limit >= 8 {
+      sub_match!(s1, s2, limit, 8, matched);
   }
   limit = (limit & 7usize) + 1;
   while {
