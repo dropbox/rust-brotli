@@ -345,7 +345,6 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 fn main() {
   let mut do_compress = false;
   let mut params = brotli::enc::BrotliEncoderInitParams();
-  params.size_hint = 2048 * 1024;
   if env::args_os().len() > 1 {
     let mut first = true;
     let mut found_file = false;
