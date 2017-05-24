@@ -345,9 +345,10 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 fn main() {
   let mut do_compress = false;
   let mut params = brotli::enc::BrotliEncoderInitParams();
+  params.quality = 10; // default
+  let mut filenames = [std::string::String::new(), std::string::String::new()];
   if env::args_os().len() > 1 {
     let mut first = true;
-    let mut found_file = false;
     for argument in env::args() {
       if first {
         first = false;
@@ -356,51 +357,51 @@ fn main() {
       if argument == "-d" {
         continue;
       }
-      if argument == "-0" {
+      if argument == "-0" || argument == "-q0" {
         params.quality = 0;
         continue;
       }
-      if argument == "-1" {
+      if argument == "-1" || argument == "-q1" {
         params.quality = 1;
         continue;
       }
-      if argument == "-2" {
+      if argument == "-2" || argument == "-q2" {
         params.quality = 2;
         continue;
       }
-      if argument == "-3" {
+      if argument == "-3" || argument == "-q3" {
         params.quality = 3;
         continue;
       }
-      if argument == "-4" {
+      if argument == "-4" || argument == "-q4" {
         params.quality = 4;
         continue;
       }
-      if argument == "-5" {
+      if argument == "-5" || argument == "-q5" {
         params.quality = 5;
         continue;
       }
-      if argument == "-6" {
+      if argument == "-6" || argument == "-q6" {
         params.quality = 6;
         continue;
       }
-      if argument == "-7" {
+      if argument == "-7" || argument == "-q7" {
         params.quality = 7;
         continue;
       }
-      if argument == "-8" {
+      if argument == "-8" || argument == "-q8" {
         params.quality = 8;
         continue;
       }
-      if argument == "-9" {
+      if argument == "-9" || argument == "-q9" {
         params.quality = 9;
         continue;
       }
-      if argument == "-9.5" {
+      if argument == "-9.5" || argument == "-q9.5" {
         params.quality = 10;
         continue;
       }
-      if argument == "-10" {
+      if argument == "-10" || argument == "-q10" {
         params.quality = 10;
         println_stderr!("Quality 10 unimplemented; using more efficient quality 9.5");
         continue;
@@ -417,31 +418,53 @@ fn main() {
         do_compress = true;
         continue;
       }
-      let mut input = match File::open(&Path::new(&argument)) {
-        Err(why) => panic!("couldn't open {}: {:?}", argument, why),
+      if filenames[0] == "" {
+         filenames[0] = argument.clone();
+         continue;
+      }
+      if filenames[1] == "" {
+         filenames[1] = argument.clone();
+         continue;
+      }
+      panic!("Unknown Argument {:}", argument);
+   }
+   if filenames[0] != "" {
+      let mut input = match File::open(&Path::new(&filenames[0])) {
+        Err(why) => panic!("couldn't open {:}\n{:}", filenames[0], why),
         Ok(file) => file,
       };
-      found_file = true;
-      let oa = argument + ".original";
-      let mut output = match File::create(&Path::new(&oa)) {
-        Err(why) => panic!("couldn't open file for writing: {:} {:?}", oa, why),
-        Ok(file) => file,
-      };
-      if do_compress {
-        match compress(&mut input, &mut output, 65536, &params) {
-          Ok(_) => {}
-          Err(e) => panic!("Error {:?}", e),
+      if filenames[1] != "" {
+        let mut output = match File::create(&Path::new(&filenames[1])) {
+          Err(why) => panic!("couldn't open file for writing: {:}\n{:}", filenames[1], why),
+          Ok(file) => file,
+        };
+        if do_compress {
+          match compress(&mut input, &mut output, 65536, &params) {
+            Ok(_) => {}
+            Err(e) => panic!("Error {:?}", e),
+          }
+        } else {
+          match decompress(&mut input, &mut output, 65536) {
+            Ok(_) => {}
+            Err(e) => panic!("Error {:?}", e),
+          }
         }
+        drop(output);
       } else {
-        match decompress(&mut input, &mut output, 65536) {
-          Ok(_) => {}
-          Err(e) => panic!("Error {:?}", e),
+        if do_compress {
+          match compress(&mut input, &mut io::stdout(), 65536, &params) {
+            Ok(_) => {}
+            Err(e) => panic!("Error {:?}", e),
+          }
+        } else {
+          match decompress(&mut input, &mut io::stdout(), 65536) {
+            Ok(_) => {}
+            Err(e) => panic!("Error {:?}", e),
+          }
         }
       }
-      drop(output);
       drop(input);
-    }
-    if !found_file {
+    } else {
       if do_compress {
         match compress(&mut io::stdin(), &mut io::stdout(), 65536, &params) {
           Ok(_) => return,
