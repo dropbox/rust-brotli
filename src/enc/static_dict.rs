@@ -65,80 +65,160 @@ pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
 }
 
 macro_rules! sub_match {
-    ($s1 : expr, $s2 : expr, $limit : expr, $vec_len: expr, $matched : expr) => {
-        let (s1_start, rest1) = $s1.split_at($vec_len);
-        $s1 = rest1;
-        let (s2_start, rest2) = $s2.split_at($vec_len);
-        $s2 = rest2;
+    ($s1 : expr, $s2 : expr, $limit : expr, $matched : expr, $split_pair1 : expr, $split_pair2 : expr, $s1_lo : expr, $s2_lo : expr, $s1_as_64 : expr, $s2_as_64 : expr, $vec_len: expr) => {
+        $split_pair1 = $s1.split_at($vec_len);
+        $s1_lo[..$vec_len].clone_from_slice($split_pair1.0);
+        $s1 = $split_pair1.1;
+        $split_pair2 = $s2.split_at($vec_len);
+        $s2_lo[..$vec_len].clone_from_slice($split_pair2.0);
+        $s2 = $split_pair2.1;
         $limit -= $vec_len;
-        let mut s1_lo = [0u8;$vec_len];
-        s1_lo[..].clone_from_slice(s1_start);
-        let mut s2_lo = [0u8;$vec_len];
-        s2_lo[..].clone_from_slice(s2_start);
         for index in 0..($vec_len >> 3) {
-            let s2_as_64 = BROTLI_UNALIGNED_LOAD64(&s2_lo[(index << 3)..((index + 1) << 3)]);
-            let s1_as_64 = BROTLI_UNALIGNED_LOAD64(&s1_lo[(index << 3)..((index + 1) << 3)]);
-            if s2_as_64 == s1_as_64 {
+            $s1_as_64 = BROTLI_UNALIGNED_LOAD64(&$s1_lo[(index << 3)..((index + 1) << 3)]);
+            $s2_as_64 = BROTLI_UNALIGNED_LOAD64(&$s2_lo[(index << 3)..((index + 1) << 3)]);
+            if $s2_as_64 == $s1_as_64 {
                 $matched = $matched.wrapping_add(8usize) as u32 as usize;
             } else {
-                let x: u64 = s2_as_64 ^
-                    s1_as_64;
-                let matching_bits: usize = x.trailing_zeros() as (usize);
-                $matched = $matched.wrapping_add(matching_bits >> 3i32) as u32 as usize;
+                $matched = $matched.wrapping_add((($s2_as_64 ^ $s1_as_64).trailing_zeros() >> 3i32)
+                                                 as usize) as u32 as usize;
                 return $matched;
             }
         }
     }
 }
-pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
-  let mut matched: usize = 0usize;
-  if limit >= 8 {
-      limit -= 8;
-      let s1_as_64 = BROTLI_UNALIGNED_LOAD64(&s1);
-      let s2_as_64 = BROTLI_UNALIGNED_LOAD64(&s2);
-      let _nop : &[u8];
-      let s1_split = s1.split_at(8);
-      s1 = s1_split.1;
-      let s2_split = s2.split_at(8);
-      s2 = s2_split.1;
-      if s2_as_64 == s1_as_64 {
-          matched = 8
-      } else {
-          let x: u64 = s2_as_64 ^ s1_as_64;
-          return x.trailing_zeros() as (usize) >> 3;
-      }
-  }
-  if limit >= 16 {
-      sub_match!(s1, s2, limit, 16, matched);
-  }
-  if limit >= 32 {
-      sub_match!(s1, s2, limit, 32, matched);
-  }
-  if limit >= 64 {
-      sub_match!(s1, s2, limit, 64, matched);
-  }
-  while limit >= 128 {
-      sub_match!(s1, s2, limit, 128, matched);
-  }
-  while limit >= 8 {
-      sub_match!(s1, s2, limit, 8, matched);
-  }
-  limit = (limit & 7usize) + 1;
-  while {
-          limit = limit.wrapping_sub(1 as (usize));
-          limit
-        } != 0 {
-    let (s1_0, s1_rest) = s1.split_at(1);
-    let (s2_0, s2_rest) = s2.split_at(1);
-    if s1_0[0] as (i32) == s2_0[0] as (i32) {
-      s1 = s1_rest;
-      s2 = s2_rest;
-      matched = matched.wrapping_add(1 as (usize)) as u32 as usize;
-    } else {
-      return matched;
+
+macro_rules! sub_match8 {
+    ($s1 : expr, $s2 : expr, $limit : expr, $matched : expr, $s1_as_64 : expr, $s2_as_64 : expr) => {
+        $limit -= 8;
+        $s1_as_64 = BROTLI_UNALIGNED_LOAD64($s1);
+        $s1 = $s1.split_at(8).1;
+        $s2_as_64 = BROTLI_UNALIGNED_LOAD64($s2);
+        $s2 = $s2.split_at(8).1;
+        if $s2_as_64 == $s1_as_64 {
+            $matched = $matched.wrapping_add(8usize) as u32 as usize;
+        } else {
+            $matched = $matched.wrapping_add((($s2_as_64 ^ $s1_as_64).trailing_zeros() >> 3i32)
+                                             as usize) as u32 as usize;
+            return $matched;
+        }
+    }
+}
+
+// factor of 10 slower (example takes 158s, not 30, and for the 30 second run it took 15 of them)
+pub fn SlowerFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+  for index in 0..limit {
+    if s1[index] != s2[index] {
+      return index;
     }
   }
-  matched
+  return limit;
+}
+// factor of 5 slower (example takes 90 seconds)
+pub fn SlowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+  for (index, pair) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
+    if *pair.0 != *pair.1 {
+      return index;
+    }
+  }
+  return limit;
+}
+
+pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
+  let mut matched: usize = 0usize;
+  let mut s1_as_64 : u64;
+  let mut s2_as_64 : u64;
+  if limit >= 8 {
+      sub_match8!(s1, s2, limit, matched, s1_as_64, s2_as_64);
+      if limit >= 16 {
+          let mut split_pair1 : (&[u8], &[u8]);
+          let mut split_pair2 : (&[u8], &[u8]);
+          {
+              let mut s1_lo = [0u8; 16];
+              let mut s1_hi = [0u8; 16];
+              sub_match!(s1, s2, limit, matched, split_pair1, split_pair2, s1_lo, s1_hi, s1_as_64, s2_as_64, 16);
+          }
+          if limit >= 32 {
+              let mut s1_lo_a = [0u8; 128];
+              let mut s1_hi_a = [0u8; 128];
+              sub_match!(s1, s2, limit, matched, split_pair1, split_pair2, s1_lo_a, s1_hi_a, s1_as_64, s2_as_64, 32);
+              if limit >= 64 {
+                  sub_match!(s1, s2, limit, matched, split_pair1, split_pair2, s1_lo_a, s1_hi_a, s1_as_64, s2_as_64, 64);
+                  while limit >= 128 {
+                      sub_match!(s1, s2, limit, matched, split_pair1, split_pair2, s1_lo_a, s1_hi_a, s1_as_64, s2_as_64, 128);
+                  }
+              }
+          }
+      }
+      while limit >= 8 {
+          sub_match8!(s1, s2, limit, matched, s1_as_64, s2_as_64);
+      }
+  }
+  for index in 0..(limit & 7usize) {
+    if s1[index] != s2[index] {
+      return matched + index;
+    }
+  }
+  matched + (limit & 7usize) // made it through the loop
+}
+
+mod test {
+    fn construct_situation(seed : &[u8], mut output: &mut [u8], limit : usize, matchfor: usize) {
+        output[..].clone_from_slice(&seed[..]);
+        if matchfor >= limit {
+            return
+        }
+        output[matchfor] = output[matchfor].wrapping_add((matchfor as u8 % 253u8).wrapping_add(1));
+    }
+    #[test]
+    fn test_find_match_length() {
+        let mut a = [91u8;600000];
+        let mut b = [0u8;600000];
+        for i in 1..a.len() {
+            a[i] = (a[i - 1] % 19u8).wrapping_add(17u8);
+        }
+        construct_situation(&a[..], &mut b[..], a.len(), 0);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 0);
+        construct_situation(&a[..], &mut b[..], a.len(), 1);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 1);
+        construct_situation(&a[..], &mut b[..], a.len(), 10);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 10);
+        construct_situation(&a[..], &mut b[..], a.len(), 9);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 9);
+        construct_situation(&a[..], &mut b[..], a.len(), 7);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 7);
+        construct_situation(&a[..], &mut b[..], a.len(), 8);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 8);
+        construct_situation(&a[..], &mut b[..], a.len(), 48);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 48);
+        construct_situation(&a[..], &mut b[..], a.len(), 49);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 49);
+        construct_situation(&a[..], &mut b[..], a.len(), 63);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 63);
+        construct_situation(&a[..], &mut b[..], a.len(), 222);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 222);
+        construct_situation(&a[..], &mut b[..], a.len(), 1590);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 1590);
+        construct_situation(&a[..], &mut b[..], a.len(), 12590);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 12590);
+        construct_situation(&a[..], &mut b[..], a.len(), 52592);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 52592);
+        construct_situation(&a[..], &mut b[..], a.len(), 152592);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 152592);
+        construct_situation(&a[..], &mut b[..], a.len(), 252591);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 252591);
+        construct_situation(&a[..], &mut b[..], a.len(), 131072);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 131072);
+        construct_situation(&a[..], &mut b[..], a.len(), 131073);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 131073);
+        construct_situation(&a[..], &mut b[..], a.len(), 131072 + 64 + 32 + 16 + 8);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 131072 + 64 + 32 + 16 + 8);
+        construct_situation(&a[..], &mut b[..], a.len(), 272144 + 64 + 32 + 16 + 8 + 1);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 272144 + 64 + 32 + 16 + 8 + 1);
+        construct_situation(&a[..], &mut b[..], a.len(), 2*272144 + 64 + 32 + 16 + 8);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 2*272144 + 64 + 32 + 16 + 8);
+        construct_situation(&a[..], &mut b[..], a.len(), a.len());
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), a.len());
+    }
 }
 pub fn slowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
   for (index, it) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
