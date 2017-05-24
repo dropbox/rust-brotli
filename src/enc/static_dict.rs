@@ -35,7 +35,7 @@ pub fn BrotliGetDictionary() -> &'static BrotliDictionary {
 #[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD32(sl: &[u8]) -> u32 {
   let mut p = [0u8;4];
-  p[..].clone_from_slice(&sl[..4]);
+  p[..].clone_from_slice(&sl.split_at(4).0);
   return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
 }
 #[inline(always)]
@@ -46,7 +46,7 @@ pub fn Hash(data: &[u8]) -> u32 {
 #[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD64(sl: &[u8]) -> u64 {
   let mut p = [0u8;8];
-  p[..].clone_from_slice(&sl[..8]);
+  p[..].clone_from_slice(sl.split_at(8).0);
   return (p[0] as u64) | ((p[1] as u64) << 8) | ((p[2] as u64) << 16) |
          ((p[3] as u64) << 24) | ((p[4] as u64) << 32) | ((p[5] as u64) << 40) |
          ((p[6] as u64) << 48) | ((p[7] as u64) << 56);
@@ -61,7 +61,7 @@ pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
        ((v >> 40) & 0xff) as u8,
        ((v >> 48) & 0xff) as u8,
        ((v >> 56) & 0xff) as u8];
-  outp[..8].clone_from_slice(&p[..]);
+  outp.split_at_mut(8).0.clone_from_slice(&p[..]);
 }
 
 macro_rules! sub_match {
@@ -235,7 +235,7 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
   } else {
     let offset: usize = ((*dictionary).offsets_by_length[w.len as (usize)] as (usize))
       .wrapping_add((w.len as (usize)).wrapping_mul(w.idx as (usize)));
-    let dict = &(*dictionary).data[offset..];
+    let dict = &(*dictionary).data.split_at(offset).1;
     if w.transform as (i32) == 0i32 {
       if !!(FindMatchLengthWithLimit(dict, data, w.len as (usize)) == w.len as (usize)) {
         1i32
@@ -246,8 +246,8 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
       if !!(dict[(0usize)] as (i32) >= b'a' as (i32) &&
             (dict[(0usize)] as (i32) <= b'z' as (i32)) &&
             (dict[(0usize)] as (i32) ^ 32i32 == data[(0usize)] as (i32)) &&
-            (FindMatchLengthWithLimit(&dict[(1usize)..],
-                                      &data[(1usize)..],
+            (FindMatchLengthWithLimit(&dict.split_at(1).1,
+                                      &data.split_at(1).1,
                                       (w.len as (u32)).wrapping_sub(1u32) as (usize)) ==
              (w.len as (u32)).wrapping_sub(1u32) as (usize))) {
         1i32
@@ -296,7 +296,7 @@ fn DictMatchLength(dictionary: &BrotliDictionary,
                    -> usize {
   let offset: usize = ((*dictionary).offsets_by_length[len] as (usize))
     .wrapping_add(len.wrapping_mul(id));
-  FindMatchLengthWithLimit(&(*dictionary).data[offset..],
+  FindMatchLengthWithLimit(&(*dictionary).data.split_at(offset).1,
                            data,
                            brotli_min_size_t(len, maxlen))
 }
@@ -375,7 +375,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
             continue;
           }
         }
-        s = &data[(l as (usize))..];
+        s = &data.split_at(l as (usize)).1;
         if s[(0usize)] as (i32) == b' ' as (i32) {
           AddMatch(id.wrapping_add(n), l.wrapping_add(1usize), l, matches);
           if s[(1usize)] as (i32) == b'a' as (i32) {
@@ -703,7 +703,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
             continue;
           }
         }
-        s = &data[(l as (usize))..];
+        s = &data.split_at(l as (usize)).1;
         if s[(0usize)] as (i32) == b' ' as (i32) {
           AddMatch(id.wrapping_add((if is_all_caps != 0 { 68i32 } else { 4i32 } as (usize))
                                      .wrapping_mul(n)),
@@ -786,7 +786,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
     } else {
       0i32
     };
-    let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[(1usize)..]) as (usize)] as (usize);
+    let mut offset: usize = kStaticDictionaryBuckets[Hash(&data.split_at(1).1) as (usize)] as (usize);
     let mut end: i32 = (offset == 0) as (i32);
     while end == 0 {
       let mut w: DictWord = kStaticDictionaryWords[{
@@ -803,7 +803,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
         let s: &[u8];
         if IsMatch(dictionary,
                    w,
-                   &data[(1usize)..],
+                   &data.split_at(1).1,
                    max_length.wrapping_sub(1usize)) == 0 {
           {
             continue;
@@ -820,7 +820,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
             continue;
           }
         }
-        s = &data[(l.wrapping_add(1usize) as (usize))..];
+        s = &data.split_at(l.wrapping_add(1usize) as (usize)).1;
         if s[(0usize)] as (i32) == b' ' as (i32) {
           AddMatch(id.wrapping_add((if is_space != 0 { 2i32 } else { 77i32 } as (usize))
                                      .wrapping_mul(n)),
@@ -879,7 +879,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
         let s: &[u8];
         if IsMatch(dictionary,
                    w,
-                   &data[(1usize)..],
+                   &data.split_at(1).1,
                    max_length.wrapping_sub(1usize)) == 0 {
           {
             continue;
@@ -896,7 +896,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
             continue;
           }
         }
-        s = &data[(l.wrapping_add(1usize) as (usize))..];
+        s = &data.split_at(1).1;
         if s[(0usize)] as (i32) == b' ' as (i32) {
           AddMatch(id.wrapping_add((if is_all_caps != 0 { 83i32 } else { 15i32 } as (usize))
                                      .wrapping_mul(n)),
@@ -953,7 +953,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
        (data[(0usize)] as (i32) == b'e' as (i32) || data[(0usize)] as (i32) == b's' as (i32) ||
         data[(0usize)] as (i32) == b',' as (i32)) ||
        data[(0usize)] as (i32) == 0xc2i32 && (data[(1usize)] as (i32) == 0xa0i32) {
-      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[(2usize)..]) as (usize)] as
+      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data.split_at(2).1) as (usize)] as
                               (usize);
       let mut end: i32 = (offset == 0) as (i32);
       while end == 0 {
@@ -970,7 +970,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
         if w.transform as (i32) == 0i32 &&
            (IsMatch(dictionary,
                     w,
-                    &data[(2usize)..],
+                    &data.split_at(2).1,
                     max_length.wrapping_sub(2usize)) != 0) {
           if data[(0usize)] as (i32) == 0xc2i32 {
             AddMatch(id.wrapping_add((102usize).wrapping_mul(n)),
@@ -1006,7 +1006,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
        (data[(2usize)] as (i32) == b'o' as (i32)) &&
        (data[(3usize)] as (i32) == b'm' as (i32)) &&
        (data[(4usize)] as (i32) == b'/' as (i32)) {
-      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data[(5usize)..]) as (usize)] as
+      let mut offset: usize = kStaticDictionaryBuckets[Hash(&data.split_at(5).1) as (usize)] as
                               (usize);
       let mut end: i32 = (offset == 0) as (i32);
       while end == 0 {
@@ -1023,7 +1023,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
         if w.transform as (i32) == 0i32 &&
            (IsMatch(dictionary,
                     w,
-                    &data[(5usize)..],
+                    &data.split_at(5).1,
                     max_length.wrapping_sub(5usize)) != 0) {
           AddMatch(id.wrapping_add((if data[(0usize)] as (i32) == b' ' as (i32) {
                                       41i32
@@ -1036,7 +1036,7 @@ fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
                    matches);
           has_found_match = 1i32;
           if l.wrapping_add(5usize) < max_length {
-            let s: &[u8] = &data[(l.wrapping_add(5usize) as (usize))..];
+            let s: &[u8] = &data.split_at(l.wrapping_add(5usize) as (usize)).1;
             if data[(0usize)] as (i32) == b' ' as (i32) {
               if l.wrapping_add(8usize) < max_length && (s[(0usize)] as (i32) == b' ' as (i32)) &&
                  (s[(1usize)] as (i32) == b'o' as (i32)) &&
