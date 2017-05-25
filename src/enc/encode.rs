@@ -982,7 +982,7 @@ fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
     };
   } else if (*params).size_hint >= (1i32 << 20i32) as (usize) && ((*params).lgwin >= 19i32) {
     (*hparams).type_ = 6i32;
-    (*hparams).block_bits = (*params).quality - 1;
+    (*hparams).block_bits = core::cmp::min((*params).quality - 1, 9);
     (*hparams).bucket_bits = 15i32;
     (*hparams).hash_len = 5i32;
     (*hparams).num_last_distances_to_check = if (*params).quality < 7 {
@@ -994,7 +994,7 @@ fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
     };
   } else {
     (*hparams).type_ = 5i32;
-    (*hparams).block_bits = (*params).quality - 1;
+    (*hparams).block_bits = core::cmp::min((*params).quality - 1, 9);
     (*hparams).bucket_bits = if (*params).quality < 7 {
       14i32
     } else {

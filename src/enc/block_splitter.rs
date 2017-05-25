@@ -831,7 +831,7 @@ mut split: &mut BlockSplit<AllocU8, AllocU32>) where u64: core::convert::From<In
     let mut cost = mfv.alloc_cell(((num_histograms + 7) >> 3));
     let mut switch_signal = m8.alloc_cell(length.wrapping_mul(bitmaplen));
     let mut new_id = m16.alloc_cell(num_histograms);
-    let iters: usize = (if (*params).quality < 11 {
+    let iters: usize = (if (*params).quality <= 11 {
                           3i32
                         } else {
                           10i32

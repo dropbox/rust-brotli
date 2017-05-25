@@ -365,6 +365,11 @@ fn test_random_then_unicode_9_5() {
 }
 
 #[test]
+fn test_random_then_unicode_9_5x() {
+    roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22);
+}
+
+#[test]
 fn test_roundtrip_quickfox_repeated() {
   total_roundtrip_helper(include_bytes!("testdata/quickfox_repeated"));
 }

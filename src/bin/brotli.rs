@@ -401,6 +401,10 @@ fn main() {
         params.quality = 10;
         continue;
       }
+      if argument == "-9.5x" || argument == "-q9.5x" {
+        params.quality = 11;
+        continue;
+      }
       if argument == "-10" || argument == "-q10" {
         params.quality = 10;
         println_stderr!("Quality 10 unimplemented; using more efficient quality 9.5");
@@ -408,7 +412,11 @@ fn main() {
       }
       if argument == "-11" || argument == "-q11" {
         params.quality = 11;
-        println_stderr!("Quality 11 unimplemented; using more efficient quality 9.5 with special hasher");
+        println_stderr!("Quality 11 unimplemented; using more efficient quality 9.5x with special hasher");
+        continue;
+      }
+      if argument == "-12" || argument == "-q12" {
+        params.quality = 12;
         continue;
       }
       if argument.starts_with("-w") {
@@ -422,6 +430,10 @@ fn main() {
       if argument == "-c" {
         do_compress = true;
         continue;
+      }
+      if argument == "-h" || argument == "-help" || argument == "--help" {
+        println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q12 or q[0-9] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n");
+        return;
       }
       if filenames[0] == "" {
          filenames[0] = argument.clone();
