@@ -907,6 +907,10 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
    mut insert_and_copy_split: &mut BlockSplit<AllocU8, AllocU32>,
    mut dist_split: &mut BlockSplit<AllocU8, AllocU32>) {
   {
+      /*for (i, cmd) in cmds[..num_commands].iter().enumerate() {
+          println_stderr!("C {:} {:} {:} {:} {:} {:}",
+                          i, cmd.insert_len_, cmd.copy_len_, cmd.dist_extra_, cmd.cmd_prefix_, cmd.dist_prefix_);
+      }*/
     let literals_count: usize = CountLiterals(cmds, num_commands);
     let mut literals = m8.alloc_cell(literals_count);
     CopyLiteralsToByteArray(cmds, num_commands, data, pos, mask, literals.slice_mut());
