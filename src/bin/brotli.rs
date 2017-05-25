@@ -406,6 +406,11 @@ fn main() {
         println_stderr!("Quality 10 unimplemented; using more efficient quality 9.5");
         continue;
       }
+      if argument == "-11" || argument == "-q11" {
+        params.quality = 11;
+        println_stderr!("Quality 11 unimplemented; using more efficient quality 9.5 with special hasher");
+        continue;
+      }
       if argument.starts_with("-w") {
           params.lgwin = argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap();
           continue;

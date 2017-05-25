@@ -962,7 +962,7 @@ fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
 
 fn ChooseHasher(mut params: &mut BrotliEncoderParams) {
   let mut hparams = &mut params.hasher;
-  if (*params).quality >= 10 { // we are using quality 10 as a proxy for "9.5"
+  if (*params).quality == 10 { // we are using quality 10 as a proxy for "9.5"
       (*hparams).type_ = 9;
       (*hparams).num_last_distances_to_check = H9_NUM_LAST_DISTANCES_TO_CHECK as i32;
       (*hparams).block_bits = H9_BLOCK_BITS as i32;
@@ -2708,7 +2708,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                          &mut *(*s).commands_[((*s).num_commands_ as (usize))..],
                                          &mut (*s).num_commands_,
                                          &mut (*s).num_literals_);"####);
-  } else if (*s).params.quality == 11i32 {
+  } else if false && (*s).params.quality == 11i32 {
     panic!(r####"BrotliCreateHqZopfliBackwardReferences(m,
                                            dictionary,
                                            bytes as (usize),
