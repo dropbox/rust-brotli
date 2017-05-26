@@ -708,6 +708,10 @@ impl<AllocU16: alloc::Allocator<u16>,
 }
 
 pub trait AdvHashSpecialization {
+  fn bucket_size(&self) -> u64;
+  fn block_size(&self) -> u64;
+  fn hash_shift(&self) -> i32;
+  fn block_mask(&self) -> u32;
   fn get_hash_mask(&self) -> u64;
   fn set_hash_mask(&mut self, params_hash_len: i32);
   fn get_k_hash_mul(&self) -> u64;
@@ -721,16 +725,29 @@ pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized,
                      AllocU32: alloc::Allocator<u32>>
 {
   pub GetHasherCommon: Struct1,
-  pub bucket_size_: u64,
-  pub block_size_: u64,
   pub specialization: Specialization, // contains hash_mask_
-  pub hash_shift_: i32,
-  pub block_mask_: u32,
   pub num: AllocU16::AllocatedMemory,
   pub buckets: AllocU32::AllocatedMemory,
 }
-pub struct H5Sub {}
+pub struct H5Sub {
+  pub bucket_size_: u64,
+  pub block_size_: u64,
+  pub hash_shift_: i32,
+  pub block_mask_: u32,
+}
 impl AdvHashSpecialization for H5Sub {
+  fn bucket_size(&self) -> u64 {
+    return self.bucket_size_;
+  }
+  fn block_size(&self) -> u64 {
+    return self.block_size_;
+  }
+  fn hash_shift(&self) -> i32 {
+    return self.hash_shift_;
+  }
+  fn block_mask(&self) -> u32 {
+    return self.block_mask_;
+  }
   fn get_hash_mask(&self) -> u64 {
     //return 0xffffffffffffffffu64;
     return 0xffffffffu64; // make it 32 bit
@@ -751,11 +768,100 @@ impl AdvHashSpecialization for H5Sub {
   }
 }
 
-pub struct H6Sub {
-  pub hash_mask: u64,
+impl AdvHashSpecialization for H5Default {
+  fn bucket_size(&self) -> u64 {
+    return 1<<15;
+  }
+  fn hash_shift(&self) -> i32 {
+    return 32 - 15;
+  }
+  fn block_size(&self) -> u64 {
+    return 1<<9;
+  }
+  fn block_mask(&self) -> u32 {
+    return (1<<9) - 1;
+  }
+  fn get_hash_mask(&self) -> u64 {
+    return 0xffffffffu64; // make it 32 bit
+  }
+  fn get_k_hash_mul(&self) -> u64 {
+    return kHashMul32 as u64;
+  }
+  fn load_and_mix_word(&self, data: &[u8]) -> u64 {
+    return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
+  }
+  #[allow(unused_variables)]
+  fn set_hash_mask(&mut self, params_hash_len: i32) {}
+  fn HashTypeLength(&self) -> usize {
+    4
+  }
+  fn StoreLookahead(&self) -> usize {
+    4
+  }
 }
 
+pub struct H6Sub {
+  pub hash_mask: u64,
+  pub bucket_size_: u64,
+  pub block_size_: u64,
+  pub hash_shift_: i32,
+  pub block_mask_: u32,
+}
+
+pub struct H6Default {
+  pub hash_mask: u64,
+}
+pub struct H5Default {
+}
+
+
 impl AdvHashSpecialization for H6Sub {
+  fn bucket_size(&self) -> u64 {
+    return self.bucket_size_;
+  }
+  fn block_size(&self) -> u64 {
+    return self.block_size_;
+  }
+  fn hash_shift(&self) -> i32 {
+    return self.hash_shift_;
+  }
+  fn block_mask(&self) -> u32 {
+    return self.block_mask_;
+  }
+  fn get_hash_mask(&self) -> u64 {
+    self.hash_mask
+  }
+  fn set_hash_mask(&mut self, params_hash_len: i32) {
+    self.hash_mask = !(0u32 as (u64)) >> 64i32 - 8i32 * params_hash_len;
+  }
+  fn get_k_hash_mul(&self) -> u64 {
+    kHashMul64Long
+  }
+  fn load_and_mix_word(&self, data: &[u8]) -> u64 {
+    return (BROTLI_UNALIGNED_LOAD64(data) & self.get_hash_mask())
+             .wrapping_mul(self.get_k_hash_mul());
+  }
+  fn HashTypeLength(&self) -> usize {
+    8
+  }
+  fn StoreLookahead(&self) -> usize {
+    8
+  }
+}
+
+impl AdvHashSpecialization for H6Default {
+  fn bucket_size(&self) -> u64 {
+    return 1 << 15;
+  }
+  fn hash_shift(&self) -> i32 {
+    return 64i32 - 15;
+  }
+  fn block_size(&self) -> u64 {
+    return 1 << 9;
+  }
+  fn block_mask(&self) -> u32 {
+    return (1 << 9) - 1;
+  }
   fn get_hash_mask(&self) -> u64 {
     self.hash_mask
   }
@@ -803,14 +909,14 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
       if self.GetHasherCommon.is_prepared_ != 0 {
           return HowPrepared::ALREADY_PREPARED;
       }
-      let partial_prepare_threshold = self.bucket_size_ as usize >> 6;
+      let partial_prepare_threshold = self.specialization.bucket_size() as usize >> 6;
       if one_shot && input_size <= partial_prepare_threshold {
         for i in 0..input_size {
           let key = self.HashBytes(&data[i..]);
           self.num.slice_mut()[key] = 0;
         }
       } else {
-        for item in self.num.slice_mut()[..(self.bucket_size_ as usize)].iter_mut() {
+        for item in self.num.slice_mut()[..(self.specialization.bucket_size() as usize)].iter_mut() {
           *item =0;
         }
       }
@@ -828,14 +934,14 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
      self.specialization.StoreLookahead()
   }
   fn HashBytes(&self, data: &[u8]) -> usize {
-    let shift = self.hash_shift_;
+    let shift = self.specialization.hash_shift();
     let h: u64 = self.specialization.load_and_mix_word(data);
     (h >> shift) as (u32) as usize
   }
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
     let (_, data_window) = data.split_at((ix & mask) as (usize));
     let key: u32 = self.HashBytes(data_window) as u32;
-    let minor_ix: usize = (self.num.slice()[(key as (usize))] as (u32) & (*self).block_mask_) as (usize);
+    let minor_ix: usize = (self.num.slice()[(key as (usize))] as (u32) & (*self).specialization.block_mask()) as (usize);
     let offset: usize = minor_ix.wrapping_add((key << (self.GetHasherCommon).params.block_bits) as
                                               (usize));
     self.buckets.slice_mut()[offset] = ix as (u32);
@@ -930,8 +1036,8 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
             assert_eq!(key2, key3 + 1);
         }
       let mut bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
-      let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).block_size_ {
-        (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).block_size_) as usize
+      let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).specialization.block_size() {
+        (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).specialization.block_size()) as usize
       } else {
         0u32 as (usize)
       };
@@ -940,7 +1046,7 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
         let mut prev_ix: usize = bucket[(({
             i = i.wrapping_sub(1 as (usize));
             i
-          } & (*self).block_mask_ as (usize)) as (usize))] as (usize);
+          } & (*self).specialization.block_mask() as (usize)) as (usize))] as (usize);
         let backward: usize = cur_ix.wrapping_sub(prev_ix);
         if backward > max_backward {
           {
@@ -974,7 +1080,7 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
           }
         }
       }
-      bucket[((self.num.slice()[(key as (usize))] as (u32) & (self).block_mask_) as (usize))] = cur_ix as (u32);
+      bucket[((self.num.slice()[(key as (usize))] as (u32) & (self).specialization.block_mask()) as (usize))] = cur_ix as (u32);
       {
         let _rhs = 1;
         let _lhs = &mut self.num.slice_mut()[(key as (usize))];
@@ -1177,7 +1283,9 @@ pub enum UnionHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator
   H4(BasicHasher<H4Sub<AllocU32>>),
   H54(BasicHasher<H54Sub<AllocU32>>),
   H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
+  H5D(AdvHasher<H5Default, AllocU16, AllocU32>),
   H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
+  H6D(AdvHasher<H6Default, AllocU16, AllocU32>),
   H9(H9<AllocU16, AllocU32>),
 }
 macro_rules! match_all_hashers_mut {
@@ -1187,7 +1295,9 @@ macro_rules! match_all_hashers_mut {
      &mut UnionHasher::H3(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H4(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H5(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H5D(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H6(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H6D(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H54(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H9(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::Uninit => panic!("UNINTIALIZED"),
@@ -1201,7 +1311,9 @@ macro_rules! match_all_hashers {
      &UnionHasher::H3(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H4(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H5(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H5D(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H6(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H6D(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H54(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H9(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::Uninit => panic!("UNINTIALIZED"),
@@ -1536,6 +1648,36 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_literals)
     }
     &mut UnionHasher::H6(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    &mut UnionHasher::H6D(ref mut hasher) => {
+      CreateBackwardReferences(dictionary,
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    &mut UnionHasher::H5D(ref mut hasher) => {
       CreateBackwardReferences(dictionary,
                                &kStaticDictionaryHash[..],
                                num_bytes,

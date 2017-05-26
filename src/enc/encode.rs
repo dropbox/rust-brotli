@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
-                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher, H9,
+                                 H3Sub, H4Sub, H5Sub, H6Sub, H5Default, H6Default, H54Sub, H9,
+                                 AdvHasher, BasicHasher, AdvHashSpecialization,
                                  H9_BUCKET_BITS, H9_BLOCK_SIZE, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 
@@ -359,6 +360,10 @@ mut m16: &mut AllocU16, mut m32:&mut AllocU32, mut handle: &mut UnionHasher<Allo
       m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
     }
     &mut UnionHasher::H6(ref mut hasher) => {
+      m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+    }
+    &mut UnionHasher::H6D(ref mut hasher) => {
       m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
       m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
     }
@@ -1089,13 +1094,35 @@ fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
       dict_num_lookups: 0,
       dict_num_matches: 0,
     },
-    specialization: H5Sub {},
-    hash_shift_: 32i32 - params.hasher.bucket_bits,
-    bucket_size_: bucket_size,
-    block_size_: block_size,
-    block_mask_: block_size.wrapping_sub(1u64) as (u32),
+    specialization: H5Sub {
+      hash_shift_: 32i32 - params.hasher.bucket_bits,
+      bucket_size_: bucket_size,
+      block_size_: block_size,
+      block_mask_: block_size.wrapping_sub(1u64) as (u32),
+    },
   }
 }
+fn InitializeH5D<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   params: &BrotliEncoderParams)
+   -> AdvHasher<H5Default, AllocU16, AllocU32> {
+  let h5_default = H5Default {};
+  let buckets = m32.alloc_cell((h5_default.bucket_size() * h5_default.block_size()) as usize);
+  let num = m16.alloc_cell(h5_default.bucket_size() as usize);
+  AdvHasher {
+    buckets: buckets,
+    num: num,
+    GetHasherCommon: Struct1 {
+      params: params.hasher,
+      is_prepared_: 1,
+      dict_num_lookups: 0,
+      dict_num_matches: 0,
+    },
+    specialization: h5_default,
+  }
+}
+
 fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
   (mut m16: &mut AllocU16,
    mut m32: &mut AllocU32,
@@ -1110,17 +1137,40 @@ fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
     num: num,
     GetHasherCommon: Struct1 {
       params: params.hasher,
-      is_prepared_: 0,
+      is_prepared_: 1,
       dict_num_lookups: 0,
       dict_num_matches: 0,
     },
-    hash_shift_: 64i32 - params.hasher.bucket_bits,
     specialization: H6Sub {
       hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
+      hash_shift_: 64i32 - params.hasher.bucket_bits,
+      bucket_size_: 1u64 << params.hasher.bucket_bits,
+      block_size_: block_size,
+      block_mask_: block_size.wrapping_sub(1u64) as (u32),
     },
-    bucket_size_: 1u64 << params.hasher.bucket_bits,
-    block_size_: block_size,
-    block_mask_: block_size.wrapping_sub(1u64) as (u32),
+  }
+}
+
+fn InitializeH6D<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+  (mut m16: &mut AllocU16,
+   mut m32: &mut AllocU32,
+   params: &BrotliEncoderParams)
+   -> AdvHasher<H6Default, AllocU16, AllocU32> {
+  let h6_default = H6Default {
+    hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
+  };
+  let buckets = m32.alloc_cell((h6_default.bucket_size() * h6_default.block_size()) as usize);
+  let num = m16.alloc_cell(h6_default.bucket_size() as usize);
+  AdvHasher {
+    buckets: buckets,
+    num: num,
+    GetHasherCommon: Struct1 {
+      params: params.hasher,
+      is_prepared_: 1,
+      dict_num_lookups: 0,
+      dict_num_matches: 0,
+    },
+    specialization: h6_default,
   }
 }
 
@@ -1129,7 +1179,7 @@ fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<
    mut m32: &mut AllocU32,
    params: &BrotliEncoderParams)
    -> UnionHasher<AllocU16, AllocU32> {
-  let hasher_type: i32 = params.hasher.type_;
+      let hasher_type: i32 = params.hasher.type_;
   if hasher_type == 2i32 {
     return UnionHasher::H2(InitializeH2(m32, params));
   }
@@ -1140,10 +1190,16 @@ fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<
     return UnionHasher::H4(InitializeH4(m32, params));
   }
   if hasher_type == 5i32 {
-    return UnionHasher::H5(InitializeH5(m16, m32, params));
-  }
-  if hasher_type == 6i32 {
-    return UnionHasher::H6(InitializeH6(m16, m32, params));
+      let h5_default = H5Default {
+      };
+      if h5_default.block_size() == (1u64 << params.hasher.block_bits) &&
+          h5_default.bucket_size() == (1u64 << params.hasher.bucket_bits) {
+              panic!("RAWKIN");
+              return UnionHasher::H5D(InitializeH5D(m16, m32, params))
+          } else {
+panic!(h5_default.block_size());
+          }
+      return UnionHasher::H5(InitializeH5(m16, m32, params));
   }
   if hasher_type == 9i32 {
     return UnionHasher::H9(InitializeH9(m16, m32, params));
@@ -1162,11 +1218,15 @@ fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<
   if hasher_type == 54i32 {
     return UnionHasher::H54(InitializeH54(m32, params));
   }
-  /*
-    if hasher_type == 10i32 {
-      return InitializeH10(params);
-  }*/
   // since we don't support all of these, fall back to something sane
+  // hasher_type == 6i32 || true { // default: fall through
+  let h6_default = H6Default {
+      hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
+  };
+  if h6_default.block_size() == (1u64 << params.hasher.block_bits) &&
+     h6_default.bucket_size() == (1u64 << params.hasher.bucket_bits) {
+    return UnionHasher::H6D(InitializeH6D(m16, m32, params))
+  }
   return UnionHasher::H6(InitializeH6(m16, m32, params));
       
 //  return UnionHasher::Uninit;
@@ -1234,7 +1294,9 @@ fn HasherPrependCustomDictionary<AllocU16: alloc::Allocator<u16>, AllocU32: allo
     &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H4(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H5(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H5D(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H6(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H6D(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H9(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H54(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::Uninit => panic!("Uninitialized"),
