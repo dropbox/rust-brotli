@@ -1014,7 +1014,7 @@ fn InitializeH2<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params :
     BasicHasher {
         GetHasherCommon:Struct1{
             params:params.hasher,
-            is_prepared_:0,
+            is_prepared_:1,
             dict_num_lookups:0,
             dict_num_matches:0,
         },
@@ -1025,7 +1025,7 @@ fn InitializeH3<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params :
     BasicHasher {
         GetHasherCommon:Struct1{
             params:params.hasher,
-            is_prepared_:0,
+            is_prepared_:1,
             dict_num_lookups:0,
             dict_num_matches:0,
         },
@@ -1036,7 +1036,7 @@ fn InitializeH4<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params :
     BasicHasher {
         GetHasherCommon:Struct1{
             params:params.hasher,
-            is_prepared_:0,
+            is_prepared_:1,
             dict_num_lookups:0,
             dict_num_matches:0,
         },
@@ -1047,7 +1047,7 @@ fn InitializeH54<AllocU32:alloc::Allocator<u32>>(mut m32: &mut AllocU32, params 
     BasicHasher {
         GetHasherCommon:Struct1{
             params:params.hasher,
-            is_prepared_:0,
+            is_prepared_:1,
             dict_num_lookups:0,
             dict_num_matches:0,
         },
@@ -1085,7 +1085,7 @@ fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
     num: num,
     GetHasherCommon: Struct1 {
       params: params.hasher,
-      is_prepared_: 0,
+      is_prepared_: 1,
       dict_num_lookups: 0,
       dict_num_matches: 0,
     },
@@ -1110,7 +1110,7 @@ fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
     num: num,
     GetHasherCommon: Struct1 {
       params: params.hasher,
-      is_prepared_: 0,
+      is_prepared_: 1,
       dict_num_lookups: 0,
       dict_num_matches: 0,
     },
