@@ -97,9 +97,11 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       //println_stderr!("{:?} {:?}", &depth_histo[..], bits);
       return bits;
     }
+    let rem = nnz & 7;
+    let nnz_srl_3 = nnz >> 3;
     if (true) {
       let mut max_depth : usize = 1;
-      for nnz_data_vec in nnz_data.slice()[..(nnz >> 3)].iter() {
+      for nnz_data_vec in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
          for element in nnz_data_vec.0.iter() {
             // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
             //                            = log2(total_count) - log2(count(symbol))
@@ -113,8 +115,9 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
             depth_histo[depth as usize] += 1;
          }
       }
-      for i in ((nnz >> 3)<<3)..nnz {
-          let last_vec = nnz_data.slice()[(nnz >> 3)];
+      if rem != 0 {
+        let last_vec = nnz_data.slice()[nnz_srl_3];
+        for i in 0..rem {
           let element = last_vec.0[i&7];
           let log2p = log2total - FastLog2(element as u64);
           // Approximate the bit depth by round(-log2(P(symbol)))
@@ -124,6 +127,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
              max_depth = depth as usize;
           }
           depth_histo[depth as usize] += 1;          
+        }
       }
       // Add the estimated encoding cost of the code length code histogram.
       bits += (18 + 2 * max_depth) as super::util::floatX;
@@ -155,7 +159,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
   let search_depthh = v256i::from(mul256!(pow2h, ymm_tc));
   let mut suml = v256i::set1(0);
   let mut sumh = v256i::set1(0);
-  for nnz_data_vec in nnz_data.slice()[..(nnz>>3)].iter() {
+  for nnz_data_vec in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
       for sub_data_item in nnz_data_vec.0.iter() {
           let count = v256i::set1(*sub_data_item);
           let cmpl = cmpgt256and1!(count, search_depthl);
@@ -164,14 +168,15 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
           sumh = add256i!(sumh, cmph);
       }
   }
-  let last_element = (nnz>>3);
-  for sub_index in (last_element<<3)..nnz {
-      let nnz_data_vec = nnz_data.slice()[last_element];
-      let count = v256i::set1(nnz_data_vec.0[sub_index & 7]);
+  if rem != 0 {
+    let last_element = nnz_data.slice()[nnz>>3];
+    for sub_index in 0..rem {
+      let count = v256i::set1(last_element.0[sub_index & 7]);
       let cmpl = cmpgt256and1!(count, search_depthl);
       let cmph = cmpgt256and1!(count, search_depthh);
       suml = add256i!(suml, cmpl);
       sumh = add256i!(sumh, cmph);
+    }
   }
     let mut max_depth : usize = 1;
   // Deal with depth_histo and max_depth
@@ -192,7 +197,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
   }
   let ymm_log2total = v256::set1(log2total);
   let mut bits_cumulative = v256::set1(0.0 as floatX);
-  for nnz_data_item in nnz_data.slice()[..(nnz >> 3)].iter() {
+  for nnz_data_item in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
       let counts = v256::from(v256i::new(nnz_data_item));
       let log_counts = logtwo256i!(counts);
       let log2p = sub256!(ymm_log2total, log_counts);
@@ -200,11 +205,13 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       bits_cumulative = add256!(bits_cumulative, tmp);
   }
   bits += sum8(bits_cumulative);
-  for i in ((nnz >> 3)<<3)..nnz {
-      let last_vec = nnz_data.slice()[(nnz >> 3)];
-      let last_item = last_vec.0[i&3];
+  if rem != 0 {
+    let last_vec = nnz_data.slice()[nnz_srl_3];
+    for i in 0..rem {
+      let last_item = last_vec.0[i];
       let log2p = log2total - FastLog2(last_item as u64);
       bits += last_item as super::util::floatX * log2p;
+    }
   }
 
   // Add the estimated encoding cost of the code length code histogram.
@@ -339,7 +346,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     }
     bits += CostComputation(&mut depth_histo, &nnz_data, nnz, total_count, log2total);
   } else {
-          let mut max_depth: usize = 1usize;
+    let mut max_depth: usize = 1usize;
     let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
     let log2total: super::util::floatX = FastLog2((*histogram).total_count() as u64);
