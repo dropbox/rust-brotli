@@ -22,7 +22,7 @@ use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffman
 use super::cluster::{HistogramPair};
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::static_dict::{BrotliGetDictionary};
-use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, Context};
+use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, Context, CostAccessors};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::utf8_util::BrotliIsMostlyUTF8;
@@ -194,6 +194,9 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub stream_state_: BrotliEncoderStreamState,
   pub is_last_block_emitted_: i32,
   pub is_initialized_: i32,
+  pub literal_scratch_space: <HistogramLiteral as CostAccessors>::i32vec,
+  pub command_scratch_space: <HistogramCommand as CostAccessors>::i32vec,
+  pub distance_scratch_space: <HistogramDistance as CostAccessors>::i32vec,
 }
 
 
@@ -331,6 +334,9 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     remaining_metadata_bytes_: 0,
     small_table_: [0; 1024],
     tiny_buf_: [0; 16],
+    literal_scratch_space: HistogramLiteral::make_nnz_storage(),
+    command_scratch_space: HistogramCommand::make_nnz_storage(),
+    distance_scratch_space: HistogramDistance::make_nnz_storage(),
   }
 }
 
@@ -1635,6 +1641,9 @@ fn BrotliCompressBufferQuality10(mut lgwin: i32,
                            commands,
                            num_commands,
                            literal_context_mode,
+                           lit_scratch_space,
+                           cmd_scratch_space,
+                           dst_scratch_space,
                            &mut mb);
       if !(0i32 == 0) {
         BrotliWipeOutMemoryManager(m);
@@ -2407,6 +2416,9 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              bytes: usize,
              is_last: i32,
              params: &BrotliEncoderParams,
+             lit_scratch_space: &mut <HistogramLiteral as CostAccessors>::i32vec,
+             cmd_scratch_space: &mut <HistogramCommand as CostAccessors>::i32vec,
+             dst_scratch_space: &mut <HistogramDistance as CostAccessors>::i32vec,
              prev_byte: u8,
              prev_byte2: u8,
              num_literals: usize,
@@ -2528,6 +2540,9 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                            commands,
                            num_commands,
                            literal_context_mode,
+                           lit_scratch_space,
+                           cmd_scratch_space,
+                           dst_scratch_space,
                            &mut mb);
     }
     if (*params).quality >= 4i32 {
@@ -2791,6 +2806,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                            metablock_size as (usize),
                            is_last,
                            &mut (*s).params,
+                           &mut (*s).literal_scratch_space,
+                           &mut (*s).command_scratch_space,
+                           &mut (*s).distance_scratch_space,
                            (*s).prev_byte_,
                            (*s).prev_byte2_,
                            (*s).num_literals_,

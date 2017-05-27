@@ -224,7 +224,8 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
 use alloc::SliceWrapperMut;
 
 pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
-    histogram : &HistogramType
+    histogram : &HistogramType,
+    nnz_data : &mut HistogramType::i32vec
 ) -> super::util::floatX{
   static kOneSymbolHistogramCost: super::util::floatX = 12i32 as super::util::floatX;
   static kTwoSymbolHistogramCost: super::util::floatX = 20i32 as super::util::floatX;
@@ -307,7 +308,6 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
   if (false) { // vectorization failed
     let mut nnz: usize = 0;
     let mut depth_histo: [u32; 18] = [0u32; 18];
-    let mut nnz_data = HistogramType::make_nnz_storage();
     let total_count = (*histogram).total_count() as super::util::floatX;
     let log2total = FastLog2((*histogram).total_count() as u64);
     i = 0usize;
@@ -344,7 +344,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
         }
       }
     }
-    bits += CostComputation(&mut depth_histo, &nnz_data, nnz, total_count, log2total);
+    bits += CostComputation(&mut depth_histo, nnz_data, nnz, total_count, log2total);
   } else {
     let mut max_depth: usize = 1usize;
     let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
