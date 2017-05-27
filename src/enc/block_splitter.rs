@@ -250,6 +250,7 @@ fn BitCost(count: usize) -> super::util::floatX {
     FastLog2(count as u64)
   }
 }
+
 fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
               IntegerType: Sized + Clone>
   (data: &[IntegerType],
@@ -319,13 +320,43 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
         .wrapping_mul(num_histograms as u64) as usize;
       let mut min_cost: super::util::floatX = 1e38 as super::util::floatX;
       let mut block_switch_cost: super::util::floatX = block_switch_bitcost;
-      for (k, insert_cost_iter) in insert_cost[insert_cost_ix..(insert_cost_ix + num_histograms)].iter().enumerate() {
+      if false { // nonvectorized version: same code below
+        for (k, insert_cost_iter) in insert_cost[insert_cost_ix..(insert_cost_ix + num_histograms)].iter().enumerate() {
           let cost_iter = &mut cost[(k >> 3)].0[k&7];
           *cost_iter += *insert_cost_iter;
           if *cost_iter < min_cost {
               min_cost = *cost_iter;
               block_id[byte_ix] = k as u8;
           }
+        }
+      } else {
+        // main (vectorized) loop
+        let insert_cost_slice = insert_cost.split_at(insert_cost_ix).1;
+        for (v_index, cost_iter) in cost.split_at_mut(num_histograms >> 3).0.iter_mut().enumerate() {
+          let base_index = v_index << 3;
+          let mut local_insert_cost = [0.0 as super::util::floatX; 8];
+          local_insert_cost.clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
+          for sub_index in 0..8 {
+            (*cost_iter).0[sub_index] += local_insert_cost[sub_index];
+            let final_cost = (*cost_iter).0[sub_index];
+            if final_cost < min_cost {
+              min_cost = final_cost;
+              block_id[byte_ix] = (base_index + sub_index) as u8;
+            }
+          }
+        }
+        let vectorized_offset = ((num_histograms>>3)<<3);
+        let mut k = vectorized_offset;
+        //remainder loop for
+        for insert_cost_iter in insert_cost.split_at(insert_cost_ix + vectorized_offset).1.split_at(num_histograms&7).0.iter() {
+          let cost_iter = &mut cost[(k >> 3)].0[k&7];
+          *cost_iter += *insert_cost_iter;
+          if *cost_iter < min_cost {
+            min_cost = *cost_iter;
+            block_id[byte_ix] = k as u8;
+          }
+          k += 1;
+        }
       }
       if byte_ix < 2000usize {
         block_switch_cost = block_switch_cost *

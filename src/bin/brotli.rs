@@ -90,7 +90,7 @@ use std::env;
 
 use std::fs::File;
 
-use std::io::{self, Error, ErrorKind, Read, Write};
+use std::io::{self, Error, ErrorKind, Read, Write, Seek, SeekFrom};
 
 macro_rules! println_stderr(
     ($($val:tt)*) => { {
@@ -347,6 +347,7 @@ fn main() {
   let mut params = brotli::enc::BrotliEncoderInitParams();
   params.quality = 10; // default
   let mut filenames = [std::string::String::new(), std::string::String::new()];
+  let mut num_benchmarks = 1;
   if env::args_os().len() > 1 {
     let mut first = true;
     for argument in env::args() {
@@ -427,6 +428,10 @@ fn main() {
           params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<usize>().unwrap();
           continue;
       }
+      if argument.starts_with("-b") {
+          num_benchmarks = argument.trim_matches('-').trim_matches('b').parse::<usize>().unwrap();
+          continue;
+      }
       if argument == "-c" {
         do_compress = true;
         continue;
@@ -455,19 +460,26 @@ fn main() {
           Err(why) => panic!("couldn't open file for writing: {:}\n{:}", filenames[1], why),
           Ok(file) => file,
         };
-        if do_compress {
-          match compress(&mut input, &mut output, 65536, &params) {
-            Ok(_) => {}
-            Err(e) => panic!("Error {:?}", e),
+        for i in 0..num_benchmarks {
+          if do_compress {
+            match compress(&mut input, &mut output, 65536, &params) {
+                Ok(_) => {}
+                Err(e) => panic!("Error {:?}", e),
+            }
+          } else {
+            match decompress(&mut input, &mut output, 65536) {
+              Ok(_) => {}
+              Err(e) => panic!("Error {:?}", e),
+            }
           }
-        } else {
-          match decompress(&mut input, &mut output, 65536) {
-            Ok(_) => {}
-            Err(e) => panic!("Error {:?}", e),
+          if i + 1 != num_benchmarks {
+              input.seek(SeekFrom::Start(0)).unwrap();
+              output.seek(SeekFrom::Start(0)).unwrap();
           }
         }
         drop(output);
       } else {
+        assert_eq!(num_benchmarks, 1);
         if do_compress {
           match compress(&mut input, &mut io::stdout(), 65536, &params) {
             Ok(_) => {}
@@ -481,7 +493,8 @@ fn main() {
         }
       }
       drop(input);
-    } else {
+   } else {
+      assert_eq!(num_benchmarks, 1);
       if do_compress {
         match compress(&mut io::stdin(), &mut io::stdout(), 65536, &params) {
           Ok(_) => return,
@@ -495,6 +508,7 @@ fn main() {
       }
     }
   } else {
+    assert_eq!(num_benchmarks, 1);
     match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
       Ok(_) => return,
       Err(e) => panic!("Error {:?}", e),

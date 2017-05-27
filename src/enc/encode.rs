@@ -1066,6 +1066,7 @@ fn InitializeH9<AllocU16:alloc::Allocator<u16>,
             dict_num_lookups:0,
             dict_num_matches:0,
         },
+        local_bucket:[0u32;H9_BLOCK_SIZE],
         num_:m16.alloc_cell(1<<H9_BUCKET_BITS),
         buckets_:m32.alloc_cell(H9_BLOCK_SIZE<<H9_BUCKET_BITS),
     }
