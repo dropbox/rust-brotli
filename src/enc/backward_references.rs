@@ -460,7 +460,6 @@ pub struct H9<AllocU16: alloc::Allocator<u16>,
     pub num_:AllocU16::AllocatedMemory,//[u16;1 << H9_BUCKET_BITS],
     pub buckets_:AllocU32::AllocatedMemory,//[u32; H9_BLOCK_SIZE << H9_BUCKET_BITS],
     pub dict_search_stats_:Struct1,
-    pub local_bucket:[u32;H9_BLOCK_SIZE],
 }
 
 fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
@@ -507,13 +506,6 @@ const kDistanceCacheOffset : [i8;16]= [
 
 const BROTLI_LITERAL_BYTE_SCORE: usize = 540;
 const BROTLI_DISTANCE_BIT_PENALTY: usize = 120;
-use std::io::{self, Error, ErrorKind, Read, Write, Seek, SeekFrom};
-
-macro_rules! println_stderr(
-    ($($val:tt)*) => { {
-        writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
-    } }
-);
 
 
 // Score must be positive after applying maximal penalty.
@@ -622,28 +614,27 @@ impl<AllocU16: alloc::Allocator<u16>,
                 }
             }
         }
-        {
+        if max_length >= 4 && cur_ix_masked.wrapping_add(best_len) <= ring_buffer_mask {
             let key = self.HashBytes(&data.split_at(cur_ix_masked).1);
             let mut bucket = &mut self.buckets_.slice_mut().split_at_mut(key << H9_BLOCK_BITS).1.split_at_mut(H9_BLOCK_SIZE).0;
             assert!(bucket.len() > H9_BLOCK_MASK);
-            self.local_bucket.clone_from_slice(bucket);
-            let local_bucket = &self.local_bucket;
+            assert_eq!(bucket.len(), H9_BLOCK_MASK + 1);
             let mut self_num_key = &mut self.num_.slice_mut()[key];
             let down = if *self_num_key > H9_BLOCK_SIZE as u16 {
                 (*self_num_key as usize) - H9_BLOCK_SIZE
             } else {0usize};
             let mut i: usize = *self_num_key as usize;
+            let mut prev_best_val = data[cur_ix_masked.wrapping_add(best_len)];
             while i > down {
                 i -= 1;
-                let mut prev_ix = local_bucket[i & H9_BLOCK_MASK] as usize;
+                let mut prev_ix = bucket[i & H9_BLOCK_MASK] as usize;
                 let backward = cur_ix.wrapping_sub(prev_ix) as usize;
                 if (backward > max_backward) {
                     break;
                 }
                 prev_ix &= ring_buffer_mask;
-                if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask ||
-                    prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
-                    data[cur_ix_masked.wrapping_add(best_len) as usize] != data[prev_ix.wrapping_add(best_len) as usize]) {
+                if (prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
+                    prev_best_val != data[prev_ix.wrapping_add(best_len) as usize]) {
                     continue;
                 }
                 {
@@ -662,6 +653,10 @@ impl<AllocU16: alloc::Allocator<u16>,
                             out.distance = backward;
                             out.score = best_score;
                             is_match_found = 1;
+                            if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask {
+                                break
+                            }
+                            prev_best_val = data[cur_ix_masked.wrapping_add(best_len) as usize];
                         }
                     }
                 }
