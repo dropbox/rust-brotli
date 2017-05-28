@@ -3,7 +3,7 @@ use core;
 use super::histogram::CostAccessors;
 use super::super::alloc::SliceWrapper;
 
-use super::util::{brotli_max_uint32_t, FastLog2, floatX};
+use super::util::{brotli_max_uint32_t, FastLog2, floatX, FastLog2u16};
 
 use super::vectorization::{v256,v128,v256i,v128i, Mem256i, sum8};
 
@@ -22,7 +22,7 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> super::util::floatX {
   let mut sum: usize = 0usize;
   let mut retval: super::util::floatX = 0i32 as super::util::floatX;
-  population = &population[..(size as usize)];
+  population = population.split_at(size as usize).0;
   let mut p: usize;
   let mut odd_number_of_elements_left: i32 = 0i32;
   if size & 1usize != 0 {
@@ -31,13 +31,13 @@ pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize
   while population.len() != 0 {
     if odd_number_of_elements_left == 0 {
       p = population[0] as usize;
-      population = &population[1..];
+      population = population.split_at(1).1;
       sum = sum.wrapping_add(p);
-      retval = retval - p as super::util::floatX * FastLog2(p as u64);
+      retval = retval - p as super::util::floatX * FastLog2u16(p as u16);
     }
     odd_number_of_elements_left = 0i32;
     p = population[0] as usize;
-    population = &population[1..];
+    population = population.split_at(1).1;
     sum = sum.wrapping_add(p);
     retval = retval - p as super::util::floatX * FastLog2(p as u64);
   }
@@ -107,7 +107,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
             // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
              //                            = log2(total_count) - log2(count(symbol))
             let ele = nnz_data_vec.0[i];
-            let log2p = log2total - FastLog2(ele as u64);
+            let log2p = log2total - FastLog2u16(ele as u16);
             // Approximate the bit depth by round(-log2(P(symbol)))
             let depth = core::cmp::min((log2p + 0.5) as i32, 15) as i32;
             bits += ele as super::util::floatX * log2p;
@@ -126,7 +126,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
         let last_vec = nnz_data.slice()[nnz_srl_3];
         for i in 0..rem { // remainder won't have last element for sure
           let element = last_vec.0[i];
-          let log2p = log2total - FastLog2(element as u64);
+          let log2p = log2total - FastLog2u16(element as u16);
           // Approximate the bit depth by round(-log2(P(symbol)))
           let depth = core::cmp::min((log2p + 0.5) as i32, 15);
           bits += element as super::util::floatX * log2p;
@@ -214,7 +214,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
     let last_vec = nnz_data.slice()[nnz_srl_3];
     for i in 0..rem {
       let last_item = last_vec.0[i];
-      let log2p = log2total - FastLog2(last_item as u64);
+      let log2p = log2total - FastLog2u16(last_item as u16);
       bits += last_item as super::util::floatX * log2p;
     }
   }
@@ -354,7 +354,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     let mut max_depth: usize = 1usize;
     let mut depth_histo: [u32; 18] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
                                       0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
-    let log2total: super::util::floatX = FastLog2((*histogram).total_count() as u64);
+    let log2total: super::util::floatX = FastLog2u16((*histogram).total_count() as u16);
     let mut reps : u32 = 0;
     for histo in histogram.slice()[..data_size].iter() {
         if *histo != 0 {
@@ -371,7 +371,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
                 }
                 reps = 0;
             }
-            let log2p: super::util::floatX = log2total - FastLog2(*histo as (u64));
+            let log2p: super::util::floatX = log2total - FastLog2u16(*histo as (u16));
             let mut depth: usize = (log2p + 0.5 as super::util::floatX) as (usize);
             bits = bits + *histo as super::util::floatX * log2p;
             depth = core::cmp::min(depth, 15);
