@@ -155,7 +155,8 @@ impl Default for Array712i {
 }
 
 
-pub struct EmptyIVec();
+pub struct EmptyIVec{}
+
 impl SliceWrapperMut<Mem256i> for EmptyIVec {
     fn slice_mut(&mut self) -> &mut [Mem256i] {
         return &mut []
@@ -169,7 +170,7 @@ impl SliceWrapper<Mem256i> for EmptyIVec {
 
 impl Default for EmptyIVec {
     fn default() -> EmptyIVec {
-        return EmptyIVec();
+        return EmptyIVec{};
     }
 }
 
