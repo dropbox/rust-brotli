@@ -315,8 +315,6 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   for item in switch_signal[..(length * bitmaplen)].iter_mut() {
     *item = 0;
   }
-  let mut index_vec = v256i::setr(0,1,2,3,4,5,6,7);
-    let eight_vec = v256i::set1(8);
   for (byte_ix, data_byte_ix) in data[..length].iter().enumerate() {
     {
       let ix: usize = byte_ix.wrapping_mul(bitmaplen);
@@ -335,61 +333,20 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
           }
         }
       } else {
-          // main (vectorized) loop
-        let mut min_cost_vec = v256::set1(min_cost as super::util::floatX);
-        let mut block_id_vec = v256i::set1(*block_id_ptr as i32);
+        // main (vectorized) loop
         let insert_cost_slice = insert_cost.split_at(insert_cost_ix).1;
         for (v_index, cost_iter) in cost.split_at_mut(num_histograms >> 3).0.iter_mut().enumerate() {
           let base_index = v_index << 3;
-          let mut local_insert_cost = Mem256f::default();
-          local_insert_cost.0.clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
-          let mut local_insert_cost_vec = v256::new(local_insert_cost);
-          let mut cost_iter_vec = v256::new(*cost_iter);
-          cost_iter_vec = add256!(local_insert_cost_vec, cost_iter_vec);
-          *cost_iter = Mem256f::new(cost_iter_vec);
-          let gt_mask = cmpgt256!(min_cost_vec, cost_iter_vec);
-          let one = v256i::set1(1);
-          let opposite_mask_partial = add256i!(gt_mask, one);
-          let opposite_mask = negate256i!(opposite_mask_partial);
-          block_id_vec = and256i!(block_id_vec, opposite_mask);
-          let tmp_block_id = and256i!(index_vec, gt_mask);
-          block_id_vec = or256i!(tmp_block_id, block_id_vec);
-          min_cost_vec = and256i!(min_cost_vec, opposite_mask);
-          let tmp_min_cost_vec = and256i!(min_cost_vec, gt_mask);
-          min_cost_vec = or256i!(tmp_min_cost_vec, min_cost_vec);
-          index_vec = add256i!(index_vec, eight_vec);
-        }
-        if min_cost_vec.lo.x0 < min_cost {
-            min_cost = min_cost_vec.lo.x0;
-            *block_id_ptr = block_id_vec.lo.x0 as u8;
-        }
-        if min_cost_vec.lo.x1 < min_cost {
-            min_cost = min_cost_vec.lo.x1;
-            *block_id_ptr = block_id_vec.lo.x1 as u8;
-        }
-        if min_cost_vec.lo.x2 < min_cost {
-            min_cost = min_cost_vec.lo.x2;
-            *block_id_ptr = block_id_vec.lo.x2 as u8;
-        }
-        if min_cost_vec.lo.x3 < min_cost {
-            min_cost = min_cost_vec.lo.x3;
-            *block_id_ptr = block_id_vec.lo.x3 as u8;
-        }
-        if min_cost_vec.hi.x0 < min_cost {
-            min_cost = min_cost_vec.hi.x0;
-            *block_id_ptr = block_id_vec.hi.x0 as u8;
-        }
-        if min_cost_vec.hi.x1 < min_cost {
-            min_cost = min_cost_vec.hi.x1;
-            *block_id_ptr = block_id_vec.hi.x1 as u8;
-        }
-        if min_cost_vec.hi.x2 < min_cost {
-            min_cost = min_cost_vec.hi.x2;
-            *block_id_ptr = block_id_vec.hi.x2 as u8;
-        }
-        if min_cost_vec.hi.x3 < min_cost {
-            min_cost = min_cost_vec.hi.x3;
-            *block_id_ptr = block_id_vec.hi.x3 as u8;
+          let mut local_insert_cost = [0.0 as super::util::floatX; 8];
+          local_insert_cost.clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
+          for sub_index in 0..8 {
+            (*cost_iter).0[sub_index] += local_insert_cost[sub_index];
+            let final_cost = (*cost_iter).0[sub_index];
+            if final_cost < min_cost {
+              min_cost = final_cost;
+              *block_id_ptr = (base_index + sub_index) as u8;
+            }
+          }
         }
         let vectorized_offset = ((num_histograms>>3)<<3);
         let mut k = vectorized_offset;
