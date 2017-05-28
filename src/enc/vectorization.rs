@@ -385,6 +385,15 @@ macro_rules! logtwo128i {
     );
 }
 
+macro_rules! negate128i {
+    ($a: expr) => (
+        v128i{x3:-$a.x3,
+             x2:-$a.x2,
+             x1:-$a.x1,
+             x0:-$a.x0}
+    );
+}
+
 
 macro_rules! powtwo128 {
     ($a: expr, $b : expr) => (
@@ -425,6 +434,15 @@ macro_rules! powtwo256 {
     );
 }
 
+macro_rules! negate256i {
+    ($a: expr) => (
+        v256i{
+            hi:negate128i!($a.hi),
+            lo:negate128i!($a.lo),
+        }
+    );
+}
+
 macro_rules! logtwo256i {
     ($a: expr) => (
         v256{
@@ -443,11 +461,67 @@ macro_rules! and128i {
         }
     );
 }
+macro_rules! or128i {
+    ($a: expr, $b : expr) => (
+        v128i{x3:$a.x3 | $b.x3,
+              x2:$a.x2 | $b.x2,
+              x1:$a.x1 | $b.x1,
+              x0:$a.x0 | $b.x0,
+        }
+    );
+}
+
+
+
+macro_rules! and128fi {
+    ($a: expr, $b : expr) => (
+        v128{x3:if $b.x3 != 0 {$a.x3}else{0.0},
+              x2:if $b.x2 != 0 {$a.x2}else{0.0},
+              x1:if $b.x1 != 0 {$a.x1}else{0.0},
+              x0:if $b.x0 != 0 {$a.x0}else{0.0},
+        }
+    );
+}
+macro_rules! or128f {
+    ($a: expr, $b : expr) => (
+        v128{x3:if $a.x3 == 0.0 {$b.x3} else{a.x3},
+              x2:if $a.x2 == 0.0 {$b.x2} else{a.x2},
+              x1:if $a.x1 == 0.0 {$b.x1} else{a.x1},
+              x0:if $a.x0 == 0.0 {$b.x0} else{a.x0},
+        }
+    );
+}
+
 macro_rules! and256i {
     ($a: expr, $b : expr) => (
         v256i{
             hi:and128i!($a.hi, $b.hi),
             lo:and128i!($a.lo, $b.lo),
+        }
+    );
+}
+macro_rules! or256i {
+    ($a: expr, $b : expr) => (
+        v256i{
+            hi:or128i!($a.hi, $b.hi),
+            lo:or128i!($a.lo, $b.lo),
+        }
+    );
+}
+
+macro_rules! and256fi {
+    ($a: expr, $b : expr) => (
+        v256{
+            hi:and128fi!($a.hi, $b.hi),
+            lo:and128fi!($a.lo, $b.lo),
+        }
+    );
+}
+macro_rules! or256f {
+    ($a: expr, $b : expr) => (
+        v256{
+            hi:or128f!($a.hi, $b.hi),
+            lo:or128f!($a.lo, $b.lo),
         }
     );
 }

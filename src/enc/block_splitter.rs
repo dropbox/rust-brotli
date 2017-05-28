@@ -38,7 +38,7 @@ static kMinLengthForBlockSplitting: usize = 128usize;
 static kIterMulForRefining: usize = 2usize;
 
 static kMinItersForRefining: usize = 100usize;
-
+#[inline(never)]
 fn update_cost_and_signal(num_histograms32: u32,
                           ix: usize,
                           min_cost: super::util::floatX,
@@ -165,7 +165,7 @@ fn MyRand(mut seed: &mut u32) -> u32 {
 }
 
 
-
+#[inline(never)]
 fn InitialEntropyCodes<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
                        IntegerType: Sized + Clone>
   (data: &[IntegerType],
@@ -216,6 +216,7 @@ fn RandomSample<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAc
   HistogramAddVector(sample, &data[(pos as (usize))..], stride);
 }
 
+#[inline(never)]
 fn RefineEntropyCodes<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default, IntegerType:Sized+Clone>(data: &[IntegerType],
                              length: usize,
                              stride: usize,
@@ -250,7 +251,7 @@ fn BitCost(count: usize) -> super::util::floatX {
     FastLog2(count as u64)
   }
 }
-
+#[inline(never)]
 fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
               IntegerType: Sized + Clone>
   (data: &[IntegerType],
@@ -301,8 +302,9 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
     j = 0usize;
     while j < num_histograms {
       {
+        // do not use Log2u16 here: the memory access patterns will blow out your cache
         insert_cost[(i.wrapping_mul(num_histograms).wrapping_add(j) as (usize))] =
-          insert_cost[(j as (usize))] - BitCost((histograms[(j as (usize))]).slice()[i] as (usize));
+              insert_cost[(j as (usize))] - BitCost((histograms[(j as (usize))]).slice()[i] as (usize));
       }
       j = j.wrapping_add(1 as (usize));
     }
@@ -313,9 +315,12 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   for item in switch_signal[..(length * bitmaplen)].iter_mut() {
     *item = 0;
   }
+  let mut index_vec = v256i::setr(0,1,2,3,4,5,6,7);
+    let eight_vec = v256i::set1(8);
   for (byte_ix, data_byte_ix) in data[..length].iter().enumerate() {
     {
       let ix: usize = byte_ix.wrapping_mul(bitmaplen);
+      let block_id_ptr = &mut block_id[byte_ix];
       let insert_cost_ix: usize = u64::from(data_byte_ix.clone())
         .wrapping_mul(num_histograms as u64) as usize;
       let mut min_cost: super::util::floatX = 1e38 as super::util::floatX;
@@ -326,24 +331,65 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
           *cost_iter += *insert_cost_iter;
           if *cost_iter < min_cost {
               min_cost = *cost_iter;
-              block_id[byte_ix] = k as u8;
+              *block_id_ptr = k as u8;
           }
         }
       } else {
-        // main (vectorized) loop
+          // main (vectorized) loop
+        let mut min_cost_vec = v256::set1(min_cost as super::util::floatX);
+        let mut block_id_vec = v256i::set1(*block_id_ptr as i32);
         let insert_cost_slice = insert_cost.split_at(insert_cost_ix).1;
         for (v_index, cost_iter) in cost.split_at_mut(num_histograms >> 3).0.iter_mut().enumerate() {
           let base_index = v_index << 3;
-          let mut local_insert_cost = [0.0 as super::util::floatX; 8];
-          local_insert_cost.clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
-          for sub_index in 0..8 {
-            (*cost_iter).0[sub_index] += local_insert_cost[sub_index];
-            let final_cost = (*cost_iter).0[sub_index];
-            if final_cost < min_cost {
-              min_cost = final_cost;
-              block_id[byte_ix] = (base_index + sub_index) as u8;
-            }
-          }
+          let mut local_insert_cost = Mem256f::default();
+          local_insert_cost.0.clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
+          let mut local_insert_cost_vec = v256::new(local_insert_cost);
+          let mut cost_iter_vec = v256::new(*cost_iter);
+          cost_iter_vec = add256!(local_insert_cost_vec, cost_iter_vec);
+          *cost_iter = Mem256f::new(cost_iter_vec);
+          let gt_mask = cmpgt256!(min_cost_vec, cost_iter_vec);
+          let one = v256i::set1(1);
+          let opposite_mask_partial = add256i!(gt_mask, one);
+          let opposite_mask = negate256i!(opposite_mask_partial);
+          block_id_vec = and256i!(block_id_vec, opposite_mask);
+          let tmp_block_id = and256i!(index_vec, gt_mask);
+          block_id_vec = or256i!(tmp_block_id, block_id_vec);
+          min_cost_vec = and256i!(min_cost_vec, opposite_mask);
+          let tmp_min_cost_vec = and256i!(min_cost_vec, gt_mask);
+          min_cost_vec = or256i!(tmp_min_cost_vec, min_cost_vec);
+          index_vec = add256i!(index_vec, eight_vec);
+        }
+        if min_cost_vec.lo.x0 < min_cost {
+            min_cost = min_cost_vec.lo.x0;
+            *block_id_ptr = block_id_vec.lo.x0 as u8;
+        }
+        if min_cost_vec.lo.x1 < min_cost {
+            min_cost = min_cost_vec.lo.x1;
+            *block_id_ptr = block_id_vec.lo.x1 as u8;
+        }
+        if min_cost_vec.lo.x2 < min_cost {
+            min_cost = min_cost_vec.lo.x2;
+            *block_id_ptr = block_id_vec.lo.x2 as u8;
+        }
+        if min_cost_vec.lo.x3 < min_cost {
+            min_cost = min_cost_vec.lo.x3;
+            *block_id_ptr = block_id_vec.lo.x3 as u8;
+        }
+        if min_cost_vec.hi.x0 < min_cost {
+            min_cost = min_cost_vec.hi.x0;
+            *block_id_ptr = block_id_vec.hi.x0 as u8;
+        }
+        if min_cost_vec.hi.x1 < min_cost {
+            min_cost = min_cost_vec.hi.x1;
+            *block_id_ptr = block_id_vec.hi.x1 as u8;
+        }
+        if min_cost_vec.hi.x2 < min_cost {
+            min_cost = min_cost_vec.hi.x2;
+            *block_id_ptr = block_id_vec.hi.x2 as u8;
+        }
+        if min_cost_vec.hi.x3 < min_cost {
+            min_cost = min_cost_vec.hi.x3;
+            *block_id_ptr = block_id_vec.hi.x3 as u8;
         }
         let vectorized_offset = ((num_histograms>>3)<<3);
         let mut k = vectorized_offset;
@@ -353,7 +399,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
           *cost_iter += *insert_cost_iter;
           if *cost_iter < min_cost {
             min_cost = *cost_iter;
-            block_id[byte_ix] = k as u8;
+            *block_id_ptr = k as u8;
           }
           k += 1;
         }
@@ -386,7 +432,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   }
   num_blocks
 }
-
+#[inline(never)]
 fn RemapBlockIds(mut block_ids: &mut [u8],
                  length: usize,
                  mut new_id: &mut [u16],
@@ -428,7 +474,7 @@ fn RemapBlockIds(mut block_ids: &mut [u8],
   next_id as (usize)
 }
 
-
+#[inline(never)]
 fn BuildBlockHistograms<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
                         IntegerType: Sized + Clone>
   (data: &[IntegerType],
@@ -450,6 +496,7 @@ fn BuildBlockHistograms<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> 
   }
 }
 
+#[inline(never)]
 fn ClusterBlocks<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default+Clone,
                         AllocU8:alloc::Allocator<u8>,
                         AllocU32:alloc::Allocator<u32>,
@@ -776,7 +823,7 @@ where u64: core::convert::From<IntegerType> {
   m32.free_cell(block_lengths);
   m32.free_cell(histogram_symbols);
 }
-
+#[inline(never)]
 fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAccessors+core::default::Default+Clone,
                         AllocU8:alloc::Allocator<u8>,
                         AllocU16:alloc::Allocator<u16>,
