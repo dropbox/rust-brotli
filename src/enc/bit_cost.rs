@@ -61,6 +61,15 @@ macro_rules! println_stderr(
     } }
 );
 */
+
+#[cfg(feature="vector_scratch_space")]
+const vectorize_population_cost : bool = true;
+
+#[cfg(not(feature="vector_scratch_space"))]
+const vectorize_population_cost : bool = false;
+
+
+
 fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_LENGTH_CODES],
                    nnz_data: &T,
                    nnz: usize,
@@ -303,7 +312,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
            (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as super::util::floatX -
            histomax as super::util::floatX;
   }
-  if false { // vectorization failed: it's faster to do things inline than split into two loops
+  if vectorize_population_cost { // vectorization failed: it's faster to do things inline than split into two loops
     let mut nnz: usize = 0;
     let mut depth_histo: [u32; 18] = [0u32; 18];
     let total_count = (*histogram).total_count() as super::util::floatX;

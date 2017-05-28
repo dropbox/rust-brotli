@@ -155,10 +155,34 @@ impl Default for Array712i {
 }
 
 
+pub struct EmptyIVec();
+impl SliceWrapperMut<Mem256i> for EmptyIVec {
+    fn slice_mut(&mut self) -> &mut [Mem256i] {
+        return &mut []
+    }
+}
+impl SliceWrapper<Mem256i> for EmptyIVec {
+    fn slice(&self) -> & [Mem256i] {
+        return & []
+    }
+}
+
+impl Default for EmptyIVec {
+    fn default() -> EmptyIVec {
+        return EmptyIVec();
+    }
+}
+
+#[cfg(feature="vector_scratch_space")]
+type HistogramLiteralScratch = Array264i;
+
+#[cfg(not(feature="vector_scratch_space"))]
+type HistogramLiteralScratch = EmptyIVec;
+
 impl CostAccessors for HistogramLiteral {
-  type i32vec = Array264i;
-  fn make_nnz_storage() -> Array264i {
-      return Array264i::default();
+  type i32vec = HistogramLiteralScratch;
+  fn make_nnz_storage() -> Self::i32vec {
+      return HistogramLiteralScratch::default();
   }
   fn total_count(&self) -> usize {
     return self.total_count_;
@@ -185,10 +209,17 @@ impl SliceWrapperMut<u32> for HistogramCommand {
   }
 }
 
+#[cfg(feature="vector_scratch_space")]
+type HistogramCommandScratch = Array712i;
+
+#[cfg(not(feature="vector_scratch_space"))]
+type HistogramCommandScratch = EmptyIVec;
+
+
 impl CostAccessors for HistogramCommand {
-  type i32vec = Array712i;
-  fn make_nnz_storage() -> Array712i {
-      return Array712i::default();
+  type i32vec = HistogramCommandScratch;
+  fn make_nnz_storage() -> Self::i32vec {
+      return HistogramCommandScratch::default();
   }
   fn total_count(&self) -> usize {
     return self.total_count_;
@@ -214,10 +245,18 @@ impl SliceWrapperMut<u32> for HistogramDistance {
     return &mut self.data_[..];
   }
 }
+
+#[cfg(feature="vector_scratch_space")]
+type HistogramDistanceScratch = Array528i;
+
+#[cfg(not(feature="vector_scratch_space"))]
+type HistogramDistanceScratch = EmptyIVec;
+
+
 impl CostAccessors for HistogramDistance {
-  type i32vec = Array528i;
-  fn make_nnz_storage() -> Array528i {
-      return Array528i::default();
+  type i32vec = HistogramDistanceScratch;
+  fn make_nnz_storage() -> Self::i32vec {
+      return HistogramDistanceScratch::default();
   }
 
   fn total_count(&self) -> usize {

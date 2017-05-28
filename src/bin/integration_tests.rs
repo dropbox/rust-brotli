@@ -278,7 +278,7 @@ fn test_roundtrip_64x() {
   assert_eq!(input.read_offset, in_buf.len());
 }
 
-fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) {
+fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
   let mut params = super::brotli::enc::BrotliEncoderInitParams();
   params.quality = q;
   params.lgwin = lgwin;
@@ -300,6 +300,7 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) {
   }
   assert_eq!(output.data.len(), input.data.len());
   assert_eq!(input.read_offset, in_buf.len());
+  return compressed.data[..].len()
 }
 
 fn total_roundtrip_helper(data: &[u8]) {
@@ -361,12 +362,14 @@ fn test_random_then_unicode_9() {
 
 #[test]
 fn test_random_then_unicode_9_5() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28);
+    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28);
+    assert_eq!(c_size, 136534);
 }
 
 #[test]
 fn test_random_then_unicode_9_5x() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22);
+    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22);
+    assert_eq!(c_size, 136041);
 }
 
 #[test]
