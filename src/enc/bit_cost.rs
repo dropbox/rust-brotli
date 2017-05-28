@@ -99,34 +99,39 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
     }
     let rem = nnz & 7;
     let nnz_srl_3 = nnz >> 3;
-    if (true) {
-      let mut max_depth : usize = 1;
+    if true {
+      let mut vec_max_depth :[i32;8] = [1;8];
+      let mut depth_histo_vec = [[0i32;BROTLI_CODE_LENGTH_CODES]; 8];
       for nnz_data_vec in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
-         for element in nnz_data_vec.0.iter() {
+         for i in 0..8 {
             // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
-            //                            = log2(total_count) - log2(count(symbol))
-            let log2p = log2total - FastLog2(*element as u64);
+             //                            = log2(total_count) - log2(count(symbol))
+            let ele = nnz_data_vec.0[i];
+            let log2p = log2total - FastLog2(ele as u64);
             // Approximate the bit depth by round(-log2(P(symbol)))
-            let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
-            bits += *element as super::util::floatX * log2p;
-            if (depth as usize > max_depth) {
-               max_depth = depth as usize;
-            }
-            depth_histo[depth as usize] += 1;
+            let depth = core::cmp::min((log2p + 0.5) as i32, 15) as i32;
+            bits += ele as super::util::floatX * log2p;
+            vec_max_depth[i] = core::cmp::max(vec_max_depth[i], depth);
+            depth_histo_vec[i][depth as usize] += 1;
          }
+      }
+      let mut max_depth = vec_max_depth[7];
+      for i in 0..8 {
+        for j in 0..BROTLI_CODE_LENGTH_CODES {
+          depth_histo[j] += depth_histo_vec[i][j] as u32;
+        }
+        max_depth = core::cmp::max(vec_max_depth[i], max_depth);
       }
       if rem != 0 {
         let last_vec = nnz_data.slice()[nnz_srl_3];
-        for i in 0..rem {
-          let element = last_vec.0[i&7];
+        for i in 0..rem { // remainder won't have last element for sure
+          let element = last_vec.0[i];
           let log2p = log2total - FastLog2(element as u64);
           // Approximate the bit depth by round(-log2(P(symbol)))
-          let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
+          let depth = core::cmp::min((log2p + 0.5) as i32, 15);
           bits += element as super::util::floatX * log2p;
-          if (depth as usize > max_depth) {
-             max_depth = depth as usize;
-          }
-          depth_histo[depth as usize] += 1;          
+          max_depth = core::cmp::max(depth, max_depth);
+          depth_histo[depth as usize] += 1;     
         }
       }
       // Add the estimated encoding cost of the code length code histogram.
@@ -305,7 +310,7 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
            (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize])) as super::util::floatX -
            histomax as super::util::floatX;
   }
-  if (false) { // vectorization failed
+    if true { // vectorization failed
     let mut nnz: usize = 0;
     let mut depth_histo: [u32; 18] = [0u32; 18];
     let total_count = (*histogram).total_count() as super::util::floatX;
