@@ -175,10 +175,10 @@ impl Default for EmptyIVec {
 }
 
 #[cfg(feature="vector_scratch_space")]
-type HistogramLiteralScratch = Array264i;
+pub type HistogramLiteralScratch = Array264i;
 
 #[cfg(not(feature="vector_scratch_space"))]
-type HistogramLiteralScratch = EmptyIVec;
+pub type HistogramLiteralScratch = EmptyIVec;
 
 impl CostAccessors for HistogramLiteral {
   type i32vec = HistogramLiteralScratch;
@@ -211,10 +211,10 @@ impl SliceWrapperMut<u32> for HistogramCommand {
 }
 
 #[cfg(feature="vector_scratch_space")]
-type HistogramCommandScratch = Array712i;
+pub type HistogramCommandScratch = Array712i;
 
 #[cfg(not(feature="vector_scratch_space"))]
-type HistogramCommandScratch = EmptyIVec;
+pub type HistogramCommandScratch = EmptyIVec;
 
 
 impl CostAccessors for HistogramCommand {
@@ -248,10 +248,10 @@ impl SliceWrapperMut<u32> for HistogramDistance {
 }
 
 #[cfg(feature="vector_scratch_space")]
-type HistogramDistanceScratch = Array528i;
+pub type HistogramDistanceScratch = Array528i;
 
 #[cfg(not(feature="vector_scratch_space"))]
-type HistogramDistanceScratch = EmptyIVec;
+pub type HistogramDistanceScratch = EmptyIVec;
 
 
 impl CostAccessors for HistogramDistance {
