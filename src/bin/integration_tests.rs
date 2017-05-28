@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(non_upper_case_globals)]
 extern crate core;
 extern crate brotli_decompressor;
 use super::HeapAllocator;
@@ -359,17 +360,26 @@ fn test_random_then_unicode_8() {
 fn test_random_then_unicode_9() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22);
 }
+#[cfg(not(feature="no-stdlib"))]
+const random_then_unicode_compressed_size_9_5 : usize = 136534;
+#[cfg(not(feature="no-stdlib"))]
+const random_then_unicode_compressed_size_9_5x : usize = 136041;
+
+#[cfg(feature="no-stdlib")] // approx log
+const random_then_unicode_compressed_size_9_5 : usize = 136698;
+#[cfg(feature="no-stdlib")] // approx log
+const random_then_unicode_compressed_size_9_5x : usize = 136091;
 
 #[test]
 fn test_random_then_unicode_9_5() {
     let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28);
-    assert_eq!(c_size, 136534);
+    assert_eq!(c_size, random_then_unicode_compressed_size_9_5);
 }
 
 #[test]
 fn test_random_then_unicode_9_5x() {
     let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22);
-    assert_eq!(c_size, 136041);
+    assert_eq!(c_size, random_then_unicode_compressed_size_9_5x);
 }
 
 #[test]
