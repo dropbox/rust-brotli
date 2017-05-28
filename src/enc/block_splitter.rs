@@ -315,6 +315,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   }
   for (byte_ix, data_byte_ix) in data[..length].iter().enumerate() {
     {
+      let mut block_id_ptr = &mut block_id[byte_ix];
       let ix: usize = byte_ix.wrapping_mul(bitmaplen);
       let insert_cost_ix: usize = u64::from(data_byte_ix.clone())
         .wrapping_mul(num_histograms as u64) as usize;
@@ -326,7 +327,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
           *cost_iter += *insert_cost_iter;
           if *cost_iter < min_cost {
               min_cost = *cost_iter;
-              block_id[byte_ix] = k as u8;
+              *block_id_ptr = k as u8;
           }
         }
       } else {
@@ -341,7 +342,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
             let final_cost = (*cost_iter).0[sub_index];
             if final_cost < min_cost {
               min_cost = final_cost;
-              block_id[byte_ix] = (base_index + sub_index) as u8;
+              *block_id_ptr = (base_index + sub_index) as u8;
             }
           }
         }
@@ -353,7 +354,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
           *cost_iter += *insert_cost_iter;
           if *cost_iter < min_cost {
             min_cost = *cost_iter;
-            block_id[byte_ix] = k as u8;
+            *block_id_ptr = k as u8;
           }
           k += 1;
         }
@@ -372,7 +373,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
     while byte_ix > 0usize {
       let mask: u8 = (1u32 << (cur_id as (i32) & 7i32)) as (u8);
       0i32;
-      byte_ix = byte_ix.wrapping_sub(1 as (usize));
+      byte_ix -= 1;
       ix = ix.wrapping_sub(bitmaplen);
       if switch_signal[(ix.wrapping_add((cur_id as (i32) >> 3i32) as (usize)) as
           (usize))] as (i32) & mask as (i32) != 0 {
