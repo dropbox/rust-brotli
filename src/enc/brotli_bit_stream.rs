@@ -1592,6 +1592,8 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
    mb: &mut MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>,
    mut storage_ix: &mut usize,
    mut storage: &mut [u8]) {
+  let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
+  LogMetaBlock(commands.split_at(n_commands).0, input0, input1);
   let mut pos: usize = start_pos;
   let mut i: usize;
   let num_distance_codes: usize = (16u32)
@@ -1867,6 +1869,8 @@ pub fn BrotliStoreMetaBlockTrivial(input: &[u8],
                                    n_commands: usize,
                                    mut storage_ix: &mut usize,
                                    mut storage: &mut [u8]) {
+  let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
+  LogMetaBlock(commands.split_at(n_commands).0, input0, input1);
   let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
   let mut cmd_histo: HistogramCommand = HistogramCommand::default();
   let mut dist_histo: HistogramDistance = HistogramDistance::default();
@@ -1942,8 +1946,12 @@ fn StoreStaticCommandHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut [
 fn StoreStaticDistanceHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
   BrotliWriteBits(28, 0x369dc03u64, storage_ix, storage);
 }
+use std::io::{self, Error, ErrorKind, Read, Write, Seek, SeekFrom};
 
-
+fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8]) {
+   ::std::io::stderr().write(input0).unwrap();
+   ::std::io::stderr().write(input1).unwrap();
+}
 
 pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : &mut AllocHT,
                                 input: &[u8],
@@ -1955,7 +1963,8 @@ pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : 
                                 n_commands: usize,
                                 mut storage_ix: &mut usize,
                                 mut storage: &mut [u8]){
-  LogMetaBlock(commands.split(n_commands).0, &[], &[]);
+  let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
+  LogMetaBlock(commands.split_at(n_commands).0, input0, input1);
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BrotliWriteBits(13, 0, storage_ix, storage);
   if n_commands <= 128usize {
@@ -2083,12 +2092,11 @@ fn BrotliStoreUncompressedMetaBlockHeader(length: usize,
   BrotliWriteBits(1, 1, storage_ix, storage);
 }
 
-fn InputPairFromMaskedInput(input &[u8], position: usize, mask:usize, mut len: usize) -> (&[u8], &[u8]) {
+fn InputPairFromMaskedInput<'a>(input:&'a [u8], position: usize, mut len: usize, mask:usize) -> (&'a [u8], &'a [u8]) {
   let mut masked_pos: usize = position & mask;
   let mut raw_data0 : &[u8] = &[];
   if masked_pos.wrapping_add(len) > mask.wrapping_add(1usize) {
     let len1: usize = mask.wrapping_add(1usize).wrapping_sub(masked_pos);
-    let dst_start = ((*storage_ix >> 3i32) as (usize));
     return (&input[masked_pos..(masked_pos + len1)],
             &input[0..len.wrapping_sub(len1)]);
   }
@@ -2102,24 +2110,18 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
                                         mut len: usize,
                                         mut storage_ix: &mut usize,
                                         mut storage: &mut [u8]) {
+  let (input0,input1) = InputPairFromMaskedInput(input, position, len, mask);
   let mut masked_pos: usize = position & mask;
   BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
-  let mut raw_data0 : &[u8] = &[];
-  if masked_pos.wrapping_add(len) > mask.wrapping_add(1usize) {
-    let len1: usize = mask.wrapping_add(1usize).wrapping_sub(masked_pos);
-    let dst_start = ((*storage_ix >> 3i32) as (usize));
-    storage[dst_start..(dst_start + len1)].clone_from_slice(&input[masked_pos..(masked_pos + len1)]);
-    *storage_ix = (*storage_ix).wrapping_add(len1 << 3i32);
-    raw_data0 = &input[masked_pos..(masked_pos + len1)];
-    len = len.wrapping_sub(len1);
-    masked_pos = 0usize;
-  }
-  let dst_start = (*storage_ix >> 3i32) as (usize);
-  storage[dst_start..dst_start + len].clone_from_slice(&input[masked_pos..masked_pos + len]);
-  *storage_ix = (*storage_ix).wrapping_add(len << 3i32);
+  let dst_start0 = ((*storage_ix >> 3i32) as (usize));
+  storage[dst_start0..(dst_start0 + input0.len())].clone_from_slice(input0);
+  *storage_ix = (*storage_ix).wrapping_add(input0.len() << 3i32);
+  let dst_start1 = ((*storage_ix >> 3i32) as (usize));
+  storage[dst_start1..(dst_start1 + input1.len())].clone_from_slice(input1);
+  *storage_ix = (*storage_ix).wrapping_add(input1.len() << 3i32);
   BrotliWriteBitsPrepareStorage(*storage_ix, storage);
-  LogMetaBlock(&[], raw_data0, input[masked_pos..masked_pos + len]);
+  LogMetaBlock(&[], input0, input1);
   if is_final_block != 0 {
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
