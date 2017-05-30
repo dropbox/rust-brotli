@@ -1948,9 +1948,15 @@ fn StoreStaticDistanceHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut 
 }
 use std::io::{self, Error, ErrorKind, Read, Write, Seek, SeekFrom};
 
+#[cfg(features="no-stdlib")] // doesn't work with no-stdlib atm
+fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8]) {
+}
+
+#[cfg(not(features="no-stdlib"))]
 fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8]) {
    ::std::io::stderr().write(input0).unwrap();
    ::std::io::stderr().write(input1).unwrap();
+   
 }
 
 pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : &mut AllocHT,
