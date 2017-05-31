@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use super::util::Log2FloorNonZero;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Command {
   pub insert_len_: u32,
   pub copy_len_: u32,
@@ -58,7 +58,7 @@ pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i
 }
 
 
-fn GetInsertLengthCode(insertlen: usize) -> u16 {
+pub fn GetInsertLengthCode(insertlen: usize) -> u16 {
   if insertlen < 6usize {
     insertlen as (u16)
   } else if insertlen < 130usize {
@@ -77,7 +77,7 @@ fn GetInsertLengthCode(insertlen: usize) -> u16 {
   }
 }
 
-fn GetCopyLengthCode(copylen: usize) -> u16 {
+pub fn GetCopyLengthCode(copylen: usize) -> u16 {
   if copylen < 10usize {
     copylen.wrapping_sub(2usize) as (u16)
   } else if copylen < 134usize {
@@ -143,11 +143,11 @@ pub fn PrefixEncodeCopyDistance(distance_code: usize,
   }
 }
 pub fn CommandRestoreDistanceCode(xself: &Command) -> u32 {
-  if (*xself).dist_prefix_ as (i32) < 16i32 {
+  if (*xself).dist_prefix_ as (i32) < 16i32 { //25
     (*xself).dist_prefix_ as (u32)
   } else {
-    let nbits: u32 = (*xself).dist_extra_ >> 24i32;
-    let extra: u32 = (*xself).dist_extra_ & 0xffffffu32;
+    let nbits: u32 = (*xself).dist_extra_ >> 24i32; //5
+    let extra: u32 = (*xself).dist_extra_ & 0xffffffu32; //19
     let prefix: u32 = ((*xself).dist_prefix_ as (u32))
       .wrapping_add(4u32)
       .wrapping_sub(16u32)
@@ -156,6 +156,63 @@ pub fn CommandRestoreDistanceCode(xself: &Command) -> u32 {
   }
 }
 
+// returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate and 45 
+pub fn CommandReturnDistanceIndexOffset(cmd: &Command,
+                                        n_postfix : u32,
+                                        n_direct: u32) -> (usize, isize) {
+   
+    let nbits = cmd.dist_extra_ >> 24;
+    let dextra = cmd.dist_extra_ & 0xffffff;
+    if cmd.dist_prefix_ < 16 {
+        let table: [(usize, isize);16]= [(1,0), (2,0),(3,0),(4,0),
+                                        (1,-1), (1, 1), (1,-2), (1,2),(1,-3),(1,3),
+                                        (2,-1),(2,1),(2,-2),(2,2),(2,-3),(2,3)];
+        return table[cmd.dist_prefix_ as usize];
+    }
+    if (cmd.dist_prefix_ as usize) < 16 + n_direct as usize {
+        return (0, cmd.dist_prefix_ as isize - 16);
+    }
+    let postfix_mask = (1 << n_postfix) - 1;
+    let dcode = cmd.dist_prefix_ as u32 - 16 - n_direct;
+    let n_dist_bits = 1 + (dcode >> (n_postfix + 1));
+    assert_eq!(n_dist_bits, nbits);
+    let hcode = dcode >> n_postfix;
+    let lcode = dcode & postfix_mask;
+    let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;
+    (0, (((offset + dextra) << n_postfix) + lcode + n_direct + 1) as isize)
+}
+
+mod test {
+    #[test]
+    fn test_command_return_distance_index_offset() {
+        let mut cmd = super::Command::default();
+        super::InitCommand(&mut cmd, 4, 4, 4, 1);
+        cmd.dist_prefix_ = 25;
+        cmd.dist_extra_ = 83886099;
+        assert_eq!(super::CommandReturnDistanceIndexOffset(&cmd, 0, 0),
+                   (0, 112));
+        
+        cmd.dist_prefix_ = 43;
+        cmd.dist_extra_ = 234889987;
+        assert_eq!(super::CommandReturnDistanceIndexOffset(&cmd, 0, 0),
+                   (0, 58112));
+        
+        cmd.dist_prefix_ = 22;
+        cmd.dist_extra_ = 67108878;
+        assert_eq!(super::CommandReturnDistanceIndexOffset(&cmd, 0, 0),
+                   (0, 43));
+        
+    }
+    #[test]
+    fn test_restore_distance_code() {
+        for dist_code in 0..50000 {
+            let mut cmd = super::Command::default();
+            super::InitCommand(&mut cmd, 4, 4, 4, dist_code);
+            let exp_dist_code = super::CommandRestoreDistanceCode(&cmd);
+            assert_eq!(exp_dist_code as u32, dist_code as u32);
+        }
+    }
+}
 pub fn RecomputeDistancePrefixes(mut cmds: &mut [Command],
                                  num_commands: usize,
                                  num_direct_distance_codes: u32,

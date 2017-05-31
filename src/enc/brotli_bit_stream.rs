@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use super::block_split::BlockSplit;
-use super::command::Command;
+use super::command::{Command, CommandRestoreDistanceCode, GetCopyLengthCode, GetInsertLengthCode};
 use super::constants::{BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDepth,
                        kNonZeroRepsBits, kNonZeroRepsDepth, kCodeLengthBits, kCodeLengthDepth,
                        kStaticCommandCodeDepth, kStaticCommandCodeBits, kStaticDistanceCodeDepth,
@@ -18,6 +18,14 @@ pub struct PrefixCodeRange {
   pub offset: u32,
   pub nbits: u32,
 }
+
+use std::io::{self, Error, Write};
+
+macro_rules! println_stderr(
+    ($($val:tt)*) => { {
+        writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
+    } }
+);
 
 
 static kBlockLengthPrefixCode: [PrefixCodeRange; BROTLI_NUM_BLOCK_LEN_SYMBOLS] =
@@ -1420,39 +1428,6 @@ mut storage: &mut [u8]){
 fn CommandCopyLenCode(xself: &Command) -> u32 {
   (*xself).copy_len_ & 0xffffffu32 ^ (*xself).copy_len_ >> 24i32
 }
-fn GetInsertLengthCode(insertlen: usize) -> u16 {
-  if insertlen < 6usize {
-    insertlen as (u16)
-  } else if insertlen < 130usize {
-    let nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2usize) as u64).wrapping_sub(1u32);
-    ((nbits << 1i32) as (usize))
-      .wrapping_add(insertlen.wrapping_sub(2usize) >> nbits)
-      .wrapping_add(2usize) as (u16)
-  } else if insertlen < 2114usize {
-    Log2FloorNonZero(insertlen.wrapping_sub(66usize) as u64).wrapping_add(10u32) as (u16)
-  } else if insertlen < 6210usize {
-    21u32 as (u16)
-  } else if insertlen < 22594usize {
-    22u32 as (u16)
-  } else {
-    23u32 as (u16)
-  }
-}
-
-fn GetCopyLengthCode(copylen: usize) -> u16 {
-  if copylen < 10usize {
-    copylen.wrapping_sub(2usize) as (u16)
-  } else if copylen < 134usize {
-    let nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize) as u64).wrapping_sub(1u32);
-    ((nbits << 1i32) as (usize))
-      .wrapping_add(copylen.wrapping_sub(6usize) >> nbits)
-      .wrapping_add(4usize) as (u16)
-  } else if copylen < 2118usize {
-    Log2FloorNonZero(copylen.wrapping_sub(70usize) as u64).wrapping_add(12u32) as (u16)
-  } else {
-    23u32 as (u16)
-  }
-}
 fn GetInsertExtra(inscode: u16) -> u32 {
   kInsExtra[inscode as (usize)]
 }
@@ -1946,7 +1921,39 @@ fn StoreStaticCommandHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut [
 fn StoreStaticDistanceHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut [u8]) {
   BrotliWriteBits(28, 0x369dc03u64, storage_ix, storage);
 }
-use std::io::{self, Error, ErrorKind, Read, Write, Seek, SeekFrom};
+
+#[derive(Clone)]
+struct InputPair<'a>(&'a [u8], &'a [u8]);
+
+impl<'a> core::fmt::LowerHex for InputPair<'a> {
+    fn fmt(&self, fmtr: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+        for item in self.0 {
+            try!( fmtr.write_fmt(format_args!("{:02x}", item)));
+        }
+        for item in self.1 {
+            try!( fmtr.write_fmt(format_args!("{:02x}", item)));
+        }
+        Ok(())
+    }
+}
+
+impl<'a> InputPair<'a> {
+    fn split_at(&self, loc : usize) -> (InputPair<'a>, InputPair<'a>) {
+        if loc >= self.0.len() {
+            let (first, second) = self.1.split_at(core::cmp::min(loc - self.0.len(),
+                                                                 self.1.len()));
+            return (InputPair::<'a>(self.0, first), InputPair::<'a>(&[], second));
+        }
+        let (first, second) = self.0.split_at(core::cmp::min(loc,
+                                                             self.0.len()));
+        (InputPair::<'a>(first, &[]), InputPair::<'a>(second, self.1))
+    }
+    fn len(&self) -> usize {
+        self.0.len() + self.1.len()
+    }
+}
+
+
 
 #[cfg(features="no-stdlib")] // doesn't work with no-stdlib atm
 fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8]) {
@@ -1954,8 +1961,28 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8]) {
 
 #[cfg(not(features="no-stdlib"))]
 fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8]) {
-   ::std::io::stderr().write(input0).unwrap();
-   ::std::io::stderr().write(input1).unwrap();
+    let input = InputPair(input0, input1);
+    let mut input_iter = input.clone();
+    for cmd in commands.iter() {
+        let (inserts, interim) = input_iter.split_at(cmd.insert_len_ as usize);
+        let (_copied, remainder) = interim.split_at(CommandCopyLen(cmd) as usize);
+        input_iter = remainder;
+        let _copy_cursor = input.len() - interim.len();
+        let distance_code = CommandRestoreDistanceCode(cmd);
+        let distance_context = CommandDistanceContext(cmd);
+        let copylen_code: u32 = CommandCopyLenCode(cmd);
+        let inscode: u16 = GetInsertLengthCode((*cmd).insert_len_ as (usize));
+        let copycode: u16 = GetCopyLengthCode(copylen_code as (usize));
+        let insnumextra: u32 = GetInsertExtra(inscode);
+        let insextraval: u64 = (*cmd).insert_len_.wrapping_sub(GetInsertBase(inscode)) as (u64);
+        let copyextraval: u64 = copylen_code.wrapping_sub(GetCopyBase(copycode)) as (u64);
+
+        println_stderr!("insert({:}): {:x} copy({:}) from dist({:},{:} = {:}) ctx: {:} [copylen_code:{:} inscode: {:}, copycode: {:}, insnumextra: {:} insextraval: {:}, copyextraval {:}",
+                        cmd.insert_len_, inserts, cmd.copy_len_, cmd.dist_prefix_,cmd.dist_extra_,distance_code, distance_context,
+        copylen_code, inscode, copycode, insnumextra, insextraval, copyextraval);
+    }
+//   ::std::io::stderr().write(input0).unwrap();
+//   ::std::io::stderr().write(input1).unwrap();
    
 }
 
