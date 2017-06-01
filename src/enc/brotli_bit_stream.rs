@@ -3,7 +3,11 @@ use super::block_split::BlockSplit;
 
 #[cfg(not(features="no-stdlib"))]
 use std::io::{Write};
-
+use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets,
+                             kStaticDictionaryWords, DictWord};
+use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength,
+                               kBrotliDictionaryOffsetsByLength};
+use super::super::transform::{TransformDictionaryWord};
 use super::static_dict::kNumDistanceCacheEntries;
 use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode, CommandDistanceIndexAndOffset};
 use super::constants::{BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDepth,
@@ -1570,11 +1574,13 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
    commands: &[Command],
    n_commands: usize,
    mb: &mut MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>,
+   recoder_state: &mut RecoderState,
    mut storage_ix: &mut usize,
    mut storage: &mut [u8]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   LogMetaBlock(commands.split_at(n_commands).0, input0, input1,
-               distance_postfix_bits, num_direct_distance_codes, distance_cache);
+               distance_postfix_bits, num_direct_distance_codes, distance_cache,
+               recoder_state, mask + 1);
   let mut pos: usize = start_pos;
   let mut i: usize;
   let num_distance_codes: usize = (16u32)
@@ -1849,10 +1855,11 @@ pub fn BrotliStoreMetaBlockTrivial(input: &[u8],
                                    distance_cache: &[i32; kNumDistanceCacheEntries],
                                    commands: &[Command],
                                    n_commands: usize,
+                                   recoder_state: &mut RecoderState,
                                    mut storage_ix: &mut usize,
                                    mut storage: &mut [u8]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
-  LogMetaBlock(commands.split_at(n_commands).0, input0, input1, 0, 0, distance_cache);
+  LogMetaBlock(commands.split_at(n_commands).0, input0, input1, 0, 0, distance_cache, recoder_state, mask + 1);
   let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
   let mut cmd_histo: HistogramCommand = HistogramCommand::default();
   let mut dist_histo: HistogramDistance = HistogramDistance::default();
@@ -1929,9 +1936,22 @@ fn StoreStaticDistanceHuffmanTree(mut storage_ix: &mut usize, mut storage: &mut 
   BrotliWriteBits(28, 0x369dc03u64, storage_ix, storage);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct InputPair<'a>(&'a [u8], &'a [u8]);
 
+impl<'a> core::cmp::PartialEq for InputPair<'a> {
+    fn eq<'b>(&self, other: &InputPair<'b>) -> bool {
+        if self.0.len() + self.1.len() != other.0.len() + other.1.len() {
+            return false;
+        }
+        for (a_iter, b_iter) in self.0.iter().chain(self.1.iter()).zip(other.0.iter().chain(other.1.iter())) {
+            if *a_iter != *b_iter {
+                return false;
+            }
+        }
+        return true;
+    }
+}
 impl<'a> core::fmt::LowerHex for InputPair<'a> {
     fn fmt(&self, fmtr: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
         for item in self.0 {
@@ -1961,23 +1981,38 @@ impl<'a> InputPair<'a> {
 }
 
 
+pub struct RecoderState {
+    pub num_bytes_encoded : usize,
+}
+
+impl RecoderState {
+    pub fn new() -> Self {
+        RecoderState{
+            num_bytes_encoded:0,
+        }
+    }
+}
 
 #[cfg(features="no-stdlib")] // doesn't work with no-stdlib atm
 fn LogMetaBlock(_commands: &[Command], _input0: &[u8], _input1: &[u8],
-                _n_postfix: u32, _n_direct: u32, _dist_cache: &[i32;kNumDistanceCacheEntries]) {
+                _n_postfix: u32, _n_direct: u32, _dist_cache: &[i32;kNumDistanceCacheEntries],
+                &mut recoder_state:&mut RecoderState,
+                window_size: usize) {
 }
 
 #[cfg(not(features="no-stdlib"))]
 fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
-                n_postfix: u32, n_direct: u32, dist_cache: &[i32;kNumDistanceCacheEntries]) {
+                n_postfix: u32, n_direct: u32, dist_cache: &[i32;kNumDistanceCacheEntries],
+                mut recoder_state :&mut RecoderState,
+                window_size: usize) {
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
     local_dist_cache.clone_from_slice(&dist_cache[..]);
     for cmd in commands.iter() {
         let (inserts, interim) = input_iter.split_at(cmd.insert_len_ as usize);
-        let (_copied, remainder) = interim.split_at(CommandCopyLen(cmd) as usize);
-        input_iter = remainder;
+        recoder_state.num_bytes_encoded += inserts.len();
+//        let copy_len = CommandCopyLen(cmd) as usize;
         let _copy_cursor = input.len() - interim.len();
         let distance_context = CommandDistanceContext(cmd);
         let copylen_code: u32 = CommandCopyLenCode(cmd);
@@ -1989,7 +2024,7 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
 
         let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, n_postfix, n_direct);
         let final_distance: usize;
-        if prev_dist_index != 0 {
+        if prev_dist_index == 0 {
             let mut tmp_dist_cache = [0i32;kNumDistanceCacheEntries - 1];
             tmp_dist_cache.clone_from_slice(&local_dist_cache[1..]);
             local_dist_cache[1..].clone_from_slice(&tmp_dist_cache[..]);
@@ -1998,9 +2033,36 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
         } else {
             final_distance = (local_dist_cache[prev_dist_index - 1] as isize + dist_offset) as usize;
         }
-        println_stderr!("insert({:}): {:x} copy({:}): from dist({:},{:}) = {:} ctx: {:} [copylen_code:{:} inscode: {:}, copycode: {:}, insnumextra: {:} insextraval: {:}, copyextraval {:}",
-                        cmd.insert_len_, inserts, cmd.copy_len_, prev_dist_index, dist_offset, final_distance, distance_context,
-        copylen_code, inscode, copycode, insnumextra, insextraval, copyextraval);
+        let copy_len = copylen_code as usize;
+        let actual_copy_len : usize;
+        let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size);
+        if final_distance > max_distance { // is dictionary
+            assert!(copy_len >= 4);
+            assert!(copy_len < 25);
+            let dictionary_offset = final_distance - max_distance - 1;
+            let ndbits = kBrotliDictionarySizeBitsByLength[copy_len] as usize;
+            let action = dictionary_offset >> ndbits;
+            let word_sub_index = dictionary_offset & ((1 << ndbits) - 1);
+            let dict = &kBrotliDictionary[..];
+            let word_index = word_sub_index * copy_len + kBrotliDictionaryOffsetsByLength[copy_len] as usize;
+            let raw_word = &kBrotliDictionary[word_index..word_index + copy_len];
+            let mut transformed_word = [0u8; 38];
+            actual_copy_len = TransformDictionaryWord(&mut transformed_word[..],
+                                                      raw_word,
+                                                      copy_len as i32,
+                                                      action as i32) as usize;
+            println_stderr!("insert({:}) {:x}\ncopy({:}) dict({:},{:}) {:x} func({:}) {:x}", inserts.len(), inserts, actual_copy_len, copy_len, word_sub_index, InputPair(raw_word, &[]), action, InputPair(transformed_word.split_at(actual_copy_len).0, &[]));
+            assert_eq!(InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
+                       interim.split_at(actual_copy_len).0);
+        } else {
+            println_stderr!("insert({:}) {:x}\ncopy({:}) from {:}", inserts.len(), inserts, copy_len, final_distance);
+            actual_copy_len = copy_len;
+        }
+        let (copied, remainder) = interim.split_at(actual_copy_len);
+        recoder_state.num_bytes_encoded += copied.len();
+        input_iter = remainder;
+        //println_stderr!("insert({:}): {:x} copy({:} --> {:}): from dist({:},{:}) = {:} ctx: {:}",
+        //                cmd.insert_len_, inserts, copy_len, actual_copy_len, prev_dist_index, dist_offset, final_distance, distance_context);
     }
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
@@ -2016,10 +2078,11 @@ pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : 
                                 dist_cache: &[i32; kNumDistanceCacheEntries],
                                 commands: &[Command],
                                 n_commands: usize,
+                                recoder_state: &mut RecoderState,
                                 mut storage_ix: &mut usize,
                                 mut storage: &mut [u8]){
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
-  LogMetaBlock(commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache);
+  LogMetaBlock(commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache, recoder_state, mask + 1);
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BrotliWriteBits(13, 0, storage_ix, storage);
   if n_commands <= 128usize {
@@ -2162,6 +2225,7 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
                                         position: usize,
                                         mask: usize,
                                         mut len: usize,
+                                        recoder_state: &mut RecoderState,
                                         mut storage_ix: &mut usize,
                                         mut storage: &mut [u8]) {
   let (input0,input1) = InputPairFromMaskedInput(input, position, len, mask);
@@ -2175,7 +2239,7 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
   storage[dst_start1..(dst_start1 + input1.len())].clone_from_slice(input1);
   *storage_ix = (*storage_ix).wrapping_add(input1.len() << 3i32);
   BrotliWriteBitsPrepareStorage(*storage_ix, storage);
-  LogMetaBlock(&[], input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32]);
+  LogMetaBlock(&[], input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state, mask + 1);
   if is_final_block != 0 {
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);

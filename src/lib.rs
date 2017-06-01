@@ -19,6 +19,7 @@ pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, 
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
 pub mod enc;
+pub use brotli_decompressor::transform;
 pub use brotli_decompressor::dictionary;
 pub use brotli_decompressor::reader;
 pub use brotli_decompressor::writer;

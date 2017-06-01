@@ -13,7 +13,7 @@ use super::block_split::BlockSplit;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
                                BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
                                BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
-                               MetaBlockSplit};
+                               MetaBlockSplit, RecoderState};
 use super::command::{Command, GetLengthCode, RecomputeDistancePrefixes};
 use super::compress_fragment::BrotliCompressFragmentFast;
 use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
@@ -169,8 +169,8 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub last_insert_len_: usize,
   pub last_flush_pos_: usize,
   pub last_processed_pos_: usize,
-  pub dist_cache_: [i32; 4],
-  pub saved_dist_cache_: [i32; 4],
+  pub dist_cache_: [i32; 16],
+  pub saved_dist_cache_: [i32; kNumDistanceCacheEntries],
   pub last_byte_: u8,
   pub last_byte_bits_: u8,
   pub prev_byte_: u8,
@@ -197,6 +197,7 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub literal_scratch_space: <HistogramLiteral as CostAccessors>::i32vec,
   pub command_scratch_space: <HistogramCommand as CostAccessors>::i32vec,
   pub distance_scratch_space: <HistogramDistance as CostAccessors>::i32vec,
+  pub recoder_state: RecoderState,
 }
 
 
@@ -291,7 +292,7 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
    m32: AllocU32,
    mc: AllocCommand)
    -> BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand> {
-  let cache: [i32; kNumDistanceCacheEntries] = [4, 11, 15, 16];
+  let cache: [i32; 16] = [4, 11, 15, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
   BrotliEncoderStateStruct::<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand> {
     params: BrotliEncoderInitParams(),
     input_pos_: 0usize,
@@ -319,7 +320,7 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     ringbuffer_: RingBufferInit(),
     commands_: AllocCommand::AllocatedMemory::default(),
     cmd_alloc_size_: 0usize,
-    dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
+    dist_cache_: cache,
     saved_dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
     cmd_bits_: [0; 128],
     cmd_depths_: [0; 128],
@@ -337,6 +338,7 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     literal_scratch_space: HistogramLiteral::make_nnz_storage(),
     command_scratch_space: HistogramCommand::make_nnz_storage(),
     distance_scratch_space: HistogramDistance::make_nnz_storage(),
+    recoder_state: RecoderState::new(),
   }
 }
 
@@ -2425,7 +2427,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              num_commands: usize,
              mut commands: &mut [Command],
              saved_dist_cache: &[i32;kNumDistanceCacheEntries],
-             mut dist_cache: &mut [i32;kNumDistanceCacheEntries],
+             mut dist_cache: &mut [i32;16],
+             recoder_state: &mut RecoderState,
              mut storage_ix: &mut usize,
              mut storage: &mut [u8]) {
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
@@ -2450,6 +2453,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                      wrapped_last_flush_pos as (usize),
                                      mask,
                                      bytes,
+                                     recoder_state,
                                      storage_ix,
                                      storage);
     return;
@@ -2475,6 +2479,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                              saved_dist_cache,
                              commands,
                              num_commands,
+                             recoder_state,
                              storage_ix,
                              storage);
     if !(0i32 == 0) {
@@ -2489,6 +2494,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                 saved_dist_cache,
                                 commands,
                                 num_commands,
+                                recoder_state,
                                 storage_ix,
                                 storage);
     if !(0i32 == 0) {
@@ -2567,6 +2573,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                          commands,
                          num_commands,
                          &mut mb,
+                         recoder_state,
                          storage_ix,
                          storage);
     mb.destroy(m8, m32, mhl, mhc, mhd);
@@ -2583,6 +2590,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                        wrapped_last_flush_pos as (usize),
                                        mask,
                                        bytes,
+                                       recoder_state,
                                        storage_ix,
                                        storage);
   }
@@ -2819,6 +2827,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                            (*s).commands_.slice_mut(),
                            &mut (*s).saved_dist_cache_,
                            &mut (*s).dist_cache_,
+                           &mut (*s).recoder_state,
                            &mut storage_ix,
                            (*s).storage_.slice_mut());
 
@@ -2839,7 +2848,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     }
     (*s).num_commands_ = 0usize;
     (*s).num_literals_ = 0usize;
-    (*s).saved_dist_cache_.clone_from_slice(&(*s).dist_cache_);
+    (*s).saved_dist_cache_.clone_from_slice(&(*s).dist_cache_.split_at(4).0);
     // *output = &mut storage[(0usize)];
     (*s).next_out_ = NextOut::DynamicStorage(0); // this always returns that
     *out_size = storage_ix >> 3i32;
