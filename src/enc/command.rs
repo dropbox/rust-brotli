@@ -157,7 +157,7 @@ pub fn CommandRestoreDistanceCode(xself: &Command) -> u32 {
 }
 
 // returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate and 45 
-pub fn CommandReturnDistanceIndexOffset(cmd: &Command,
+pub fn CommandDistanceIndexAndOffset(cmd: &Command,
                                         n_postfix : u32,
                                         n_direct: u32) -> (usize, isize) {
    
@@ -189,17 +189,17 @@ mod test {
         super::InitCommand(&mut cmd, 4, 4, 4, 1);
         cmd.dist_prefix_ = 25;
         cmd.dist_extra_ = 83886099;
-        assert_eq!(super::CommandReturnDistanceIndexOffset(&cmd, 0, 0),
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, 0, 0),
                    (0, 112));
         
         cmd.dist_prefix_ = 43;
         cmd.dist_extra_ = 234889987;
-        assert_eq!(super::CommandReturnDistanceIndexOffset(&cmd, 0, 0),
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, 0, 0),
                    (0, 58112));
         
         cmd.dist_prefix_ = 22;
         cmd.dist_extra_ = 67108878;
-        assert_eq!(super::CommandReturnDistanceIndexOffset(&cmd, 0, 0),
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, 0, 0),
                    (0, 43));
         
     }

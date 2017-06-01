@@ -21,7 +21,7 @@ use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWri
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree};
 use super::cluster::{HistogramPair};
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
-use super::static_dict::{BrotliGetDictionary};
+use super::static_dict::{BrotliGetDictionary, kNumDistanceCacheEntries};
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, Context, CostAccessors};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
@@ -169,7 +169,7 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub last_insert_len_: usize,
   pub last_flush_pos_: usize,
   pub last_processed_pos_: usize,
-  pub dist_cache_: [i32; 16],
+  pub dist_cache_: [i32; 4],
   pub saved_dist_cache_: [i32; 4],
   pub last_byte_: u8,
   pub last_byte_bits_: u8,
@@ -291,7 +291,7 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
    m32: AllocU32,
    mc: AllocCommand)
    -> BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand> {
-  let cache: [i32; 16] = [4, 11, 15, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  let cache: [i32; kNumDistanceCacheEntries] = [4, 11, 15, 16];
   BrotliEncoderStateStruct::<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand> {
     params: BrotliEncoderInitParams(),
     input_pos_: 0usize,
@@ -319,7 +319,7 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     ringbuffer_: RingBufferInit(),
     commands_: AllocCommand::AllocatedMemory::default(),
     cmd_alloc_size_: 0usize,
-    dist_cache_: cache,
+    dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
     saved_dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
     cmd_bits_: [0; 128],
     cmd_depths_: [0; 128],
@@ -2424,8 +2424,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              num_literals: usize,
              num_commands: usize,
              mut commands: &mut [Command],
-             saved_dist_cache: &[i32],
-             mut dist_cache: &mut [i32],
+             saved_dist_cache: &[i32;kNumDistanceCacheEntries],
+             mut dist_cache: &mut [i32;kNumDistanceCacheEntries],
              mut storage_ix: &mut usize,
              mut storage: &mut [u8]) {
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
@@ -2472,6 +2472,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                              bytes,
                              mask,
                              is_last,
+                             saved_dist_cache,
                              commands,
                              num_commands,
                              storage_ix,
@@ -2485,6 +2486,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                 bytes,
                                 mask,
                                 is_last,
+                                saved_dist_cache,
                                 commands,
                                 num_commands,
                                 storage_ix,
@@ -2561,6 +2563,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                          num_direct_distance_codes,
                          distance_postfix_bits,
                          literal_context_mode,
+                         saved_dist_cache,
                          commands,
                          num_commands,
                          &mut mb,
@@ -2745,7 +2748,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                    mask as (usize),
                                    &mut (*s).params,
                                    &mut (*s).hasher_,
-                                   &mut (*s).dist_cache_[..],
+                                   &mut (*s).dist_cache_,
                                    &mut (*s).last_insert_len_,
                                    &mut (*s).commands_.slice_mut()[((*s).num_commands_ as (usize))..],
                                    &mut (*s).num_commands_,
@@ -2814,8 +2817,8 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                            (*s).num_literals_,
                            (*s).num_commands_,
                            (*s).commands_.slice_mut(),
-                           &mut (*s).saved_dist_cache_[..],
-                           &mut (*s).dist_cache_[..],
+                           &mut (*s).saved_dist_cache_,
+                           &mut (*s).dist_cache_,
                            &mut storage_ix,
                            (*s).storage_.slice_mut());
 
@@ -2836,7 +2839,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     }
     (*s).num_commands_ = 0usize;
     (*s).num_literals_ = 0usize;
-    (*s).saved_dist_cache_[..4].clone_from_slice(&(*s).dist_cache_[..4]);
+    (*s).saved_dist_cache_.clone_from_slice(&(*s).dist_cache_);
     // *output = &mut storage[(0usize)];
     (*s).next_out_ = NextOut::DynamicStorage(0); // this always returns that
     *out_size = storage_ix >> 3i32;

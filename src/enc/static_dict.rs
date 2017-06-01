@@ -1,4 +1,5 @@
-#![allow(dead_code)]
+pub const kNumDistanceCacheEntries: usize = 4;
+
 use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets,
                              kStaticDictionaryWords, DictWord};
 use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength,
