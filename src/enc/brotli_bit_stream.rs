@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 use super::block_split::BlockSplit;
 
-#[cfg(not(features="no-stdlib"))]
-use std::io::{Write};
 use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets,
                              kStaticDictionaryWords, DictWord};
 use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength,
@@ -2005,6 +2003,10 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
                 n_postfix: u32, n_direct: u32, dist_cache: &[i32;kNumDistanceCacheEntries],
                 mut recoder_state :&mut RecoderState,
                 window_size: usize) {
+
+    use std::io::{Write};
+
+
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
@@ -2025,17 +2027,15 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
         let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, n_postfix, n_direct);
         let final_distance: usize;
         if prev_dist_index == 0 {
-            let mut tmp_dist_cache = [0i32;kNumDistanceCacheEntries - 1];
-            tmp_dist_cache.clone_from_slice(&local_dist_cache[1..]);
-            local_dist_cache[1..].clone_from_slice(&tmp_dist_cache[..]);
             final_distance = dist_offset as usize;
-            local_dist_cache[0] = final_distance as i32;
         } else {
             final_distance = (local_dist_cache[prev_dist_index - 1] as isize + dist_offset) as usize;
         }
         let copy_len = copylen_code as usize;
         let actual_copy_len : usize;
         let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size);
+        println_stderr!("(@{:}) insert({:}): {:x} (@{:}) copy({:}): from dist({:},{:}) = {:} ctx: {:}",recoder_state.num_bytes_encoded - inserts.len(),
+                        cmd.insert_len_, inserts, recoder_state.num_bytes_encoded, copy_len, prev_dist_index, dist_offset, final_distance, distance_context);
         if final_distance > max_distance { // is dictionary
             assert!(copy_len >= 4);
             assert!(copy_len < 25);
@@ -2057,12 +2057,17 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
         } else {
             println_stderr!("insert({:}) {:x}\ncopy({:}) from {:}", inserts.len(), inserts, copy_len, final_distance);
             actual_copy_len = copy_len;
+            if prev_dist_index == 0 { // update distance cache
+               let mut tmp_dist_cache = [0i32;kNumDistanceCacheEntries - 1];
+               tmp_dist_cache.clone_from_slice(&local_dist_cache[1..]);
+               local_dist_cache[1..].clone_from_slice(&tmp_dist_cache[..]);
+               local_dist_cache[0] = final_distance as i32;
+
+            }
         }
         let (copied, remainder) = interim.split_at(actual_copy_len);
         recoder_state.num_bytes_encoded += copied.len();
         input_iter = remainder;
-        //println_stderr!("insert({:}): {:x} copy({:} --> {:}): from dist({:},{:}) = {:} ctx: {:}",
-        //                cmd.insert_len_, inserts, copy_len, actual_copy_len, prev_dist_index, dist_offset, final_distance, distance_context);
     }
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
