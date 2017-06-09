@@ -4,8 +4,10 @@ use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuck
                              kStaticDictionaryWords, DictWord};
 use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength,
                                kBrotliDictionaryOffsetsByLength};
+#[allow(unused)]
 static kUppercaseFirst: u8 = 10i32 as (u8);
 
+#[allow(unused)]
 static kOmitLastNTransforms: [u8; 10] = [0i32 as (u8),
                                          12i32 as (u8),
                                          27i32 as (u8),
@@ -106,6 +108,7 @@ macro_rules! sub_match8 {
 }
 
 // factor of 10 slower (example takes 158s, not 30, and for the 30 second run it took 15 of them)
+#[allow(unused)]
 pub fn SlowerFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
   for index in 0..limit {
     if s1[index] != s2[index] {
@@ -115,6 +118,7 @@ pub fn SlowerFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usi
   return limit;
 }
 // factor of 5 slower (example takes 90 seconds)
+#[allow(unused)]
 pub fn SlowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
   for (index, pair) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
     if *pair.0 != *pair.1 {
@@ -163,6 +167,7 @@ pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) 
 }
 
 mod test {
+    #[allow(unused)]
     fn construct_situation(seed : &[u8], mut output: &mut [u8], limit : usize, matchfor: usize) {
         output[..].clone_from_slice(&seed[..]);
         if matchfor >= limit {
@@ -221,6 +226,7 @@ mod test {
         assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), a.len());
     }
 }
+#[allow(unused)]
 pub fn slowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
   for (index, it) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
       if it.0 != it.1 {
@@ -276,19 +282,23 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
   }
 }
 
+#[allow(unused)]
 fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
   if a < b { a } else { b }
 }
 
+#[allow(unused)]
 fn AddMatch(distance: usize, len: usize, len_code: usize, mut matches: &mut [u32]) {
   let match_: u32 = (distance << 5i32).wrapping_add(len_code) as (u32);
   matches[len as (usize)] = brotli_min_uint32_t(matches[len as (usize)], match_);
 }
 
+#[allow(unused)]
 fn brotli_min_size_t(a: usize, b: usize) -> usize {
   if a < b { a } else { b }
 }
 
+#[allow(unused)]
 fn DictMatchLength(dictionary: &BrotliDictionary,
                    data: &[u8],
                    id: usize,
@@ -302,10 +312,12 @@ fn DictMatchLength(dictionary: &BrotliDictionary,
                            brotli_min_size_t(len, maxlen))
 }
 
+#[allow(unused)]
 fn brotli_max_size_t(a: usize, b: usize) -> usize {
   if a > b { a } else { b }
 }
 
+#[allow(unused)]
 fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
                                         data: &[u8],
                                         min_length: usize,

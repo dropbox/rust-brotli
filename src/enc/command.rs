@@ -161,7 +161,6 @@ pub fn CommandDistanceIndexAndOffset(cmd: &Command,
                                         n_postfix : u32,
                                         n_direct: u32) -> (usize, isize) {
    
-    let nbits = cmd.dist_extra_ >> 24;
     let dextra = cmd.dist_extra_ & 0xffffff;
     if cmd.dist_prefix_ < 16 {
         let table: [(usize, isize);16]= [(1,0), (2,0),(3,0),(4,0),
@@ -175,7 +174,7 @@ pub fn CommandDistanceIndexAndOffset(cmd: &Command,
     let postfix_mask = (1 << n_postfix) - 1;
     let dcode = cmd.dist_prefix_ as u32 - 16 - n_direct;
     let n_dist_bits = 1 + (dcode >> (n_postfix + 1));
-    //assert_eq!(n_dist_bits, nbits);
+
     let hcode = dcode >> n_postfix;
     let lcode = dcode & postfix_mask;
     let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;

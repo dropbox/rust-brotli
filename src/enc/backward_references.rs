@@ -51,6 +51,7 @@ pub struct BrotliEncoderParams {
   pub size_hint: usize,
   pub disable_literal_context_modeling: i32,
   pub hasher: BrotliHasherParams,
+  pub log_meta_block: bool,
 }
 
 

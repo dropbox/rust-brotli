@@ -358,6 +358,11 @@ fn main() {
       if argument == "-d" {
         continue;
       }
+      if argument == "-i" {
+        // display the intermediate representation of metablocks
+        params.log_meta_block = true;
+        continue;
+      }
       if argument == "-0" || argument == "-q0" {
         params.quality = 0;
         continue;
