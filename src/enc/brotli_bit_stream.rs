@@ -52,14 +52,15 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
     let window_size = window_size_from_lgwin(lgwin);
     use std::io::{Write};
 
-    let mb_len = input0.len() + input1.len();
+    let mut mb_len = input0.len() + input1.len();
     println_stderr!("window {:} len {:}", lgwin, mb_len);
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
     local_dist_cache.clone_from_slice(&dist_cache[..]);
     for cmd in commands.iter() {
-        let (inserts, interim) = input_iter.split_at(cmd.insert_len_ as usize);
+        let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
+                                                                     mb_len));
         recoder_state.num_bytes_encoded += inserts.len();
 //        let copy_len = CommandCopyLen(cmd) as usize;
         let _copy_cursor = input.len() - interim.len();
@@ -91,18 +92,38 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
                                                       raw_word,
                                                       copy_len as i32,
                                                       action as i32) as usize;
-            println_stderr!("insert {:} {:x}\ndict {:} word {:},{:} {:x} func {:} {:x} ctx {:}",
-                            inserts.len(), inserts,
-                            actual_copy_len, copy_len,
-                            word_sub_index, InputPair(raw_word, &[]),
-                            action, InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
-                            distance_context);
+            if actual_copy_len + inserts.len() > mb_len {
+                println_stderr!("insert {:} {:x}{:x}",
+                                mb_len, inserts,
+                                InputPair(transformed_word.split_at(mb_len - inserts.len()).0, &[]));
+                mb_len = 0;
+            } else {
+                println_stderr!("insert {:} {:x}\ndict {:} word {:},{:} {:x} func {:} {:x} ctx {:}",
+                                inserts.len(), inserts,
+                                actual_copy_len,
+                                copy_len, word_sub_index,
+                                InputPair(raw_word, &[]),
+                                action, InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
+                                distance_context);
+                mb_len -= inserts.len() + actual_copy_len;
+            }
             assert_eq!(InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
                        interim.split_at(actual_copy_len).0);
         } else {
-            println_stderr!("insert {:} {:x}\ncopy {:} from {:} ctx {:}",
-                            inserts.len(), inserts, copy_len, final_distance, distance_context);
-            actual_copy_len = copy_len;
+            assert!(inserts.len() <= mb_len);
+            if inserts.len() + copy_len > mb_len {
+                actual_copy_len = mb_len - inserts.len();
+            } else {
+                actual_copy_len = copy_len;
+            }
+            if actual_copy_len != 0 {
+                println_stderr!("insert {:} {:x}\ncopy {:} from {:} ctx {:}",
+                                inserts.len(), inserts, actual_copy_len, final_distance, distance_context);
+            } else {
+                println_stderr!("insert {:} {:x}",
+                                inserts.len(), inserts);
+            }
+            mb_len -= actual_copy_len + inserts.len();
             if prev_dist_index != 1 || dist_offset != 0 { // update distance cache unless it's the "0 distance symbol"
                let mut tmp_dist_cache = [0i32;kNumDistanceCacheEntries - 1];
                tmp_dist_cache.clone_from_slice(&local_dist_cache[..kNumDistanceCacheEntries - 1]);
