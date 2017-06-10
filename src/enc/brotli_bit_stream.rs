@@ -103,9 +103,9 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
             println_stderr!("insert {:} {:x}\ncopy {:} from {:} ctx {:}",
                             inserts.len(), inserts, copy_len, final_distance, distance_context);
             actual_copy_len = copy_len;
-            if prev_dist_index == 0 { // update distance cache
+            if prev_dist_index != 1 || dist_offset != 0 { // update distance cache unless it's the "0 distance symbol"
                let mut tmp_dist_cache = [0i32;kNumDistanceCacheEntries - 1];
-               tmp_dist_cache.clone_from_slice(&local_dist_cache[1..]);
+               tmp_dist_cache.clone_from_slice(&local_dist_cache[..kNumDistanceCacheEntries - 1]);
                local_dist_cache[1..].clone_from_slice(&tmp_dist_cache[..]);
                local_dist_cache[0] = final_distance as i32;
 
