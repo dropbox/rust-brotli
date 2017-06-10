@@ -50,10 +50,10 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
                 mut recoder_state :&mut RecoderState,
                 lgwin: i32) {
     let window_size = window_size_from_lgwin(lgwin);
-    println_stderr!("window {:}", lgwin);
     use std::io::{Write};
 
-
+    let mb_len = input0.len() + input1.len();
+    println_stderr!("window {:} len {:}", lgwin, mb_len);
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
