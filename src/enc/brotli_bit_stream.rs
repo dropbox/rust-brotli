@@ -55,16 +55,29 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
     use std::io::{Write};
 
     let mut mb_len = input0.len() + input1.len();
+    assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
+               block_type.btypel.num_types);
+    assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
+               block_type.btypec.num_types);
+    assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
+               block_type.btyped.num_types);
     println_stderr!("window {:} len {:} nbltypesl {:} nbltypesi {:} nbltypesd {:}",
                     lgwin, mb_len,
-                    block_type.btypel.types.iter().max().unwrap_or(&0) + 1,
-                    block_type.btypec.types.iter().max().unwrap_or(&0) + 1,
-                    block_type.btyped.types.iter().max().unwrap_or(&0) + 1);
+                    block_type.btypel.num_types,
+                    block_type.btypec.num_types,
+                    block_type.btyped.num_types);
     
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
     local_dist_cache.clone_from_slice(&dist_cache[..]);
+    let mut _btypel_counter = 0usize;
+    let mut _btypec_counter = 0usize;
+    let mut _btyped_counter = 0usize;
+    let mut _btypel_sub = 0usize;
+    let mut _btypec_sub = 0usize;
+    let mut _btyped_sub = 0usize;
+    
     for cmd in commands.iter() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
                                                                      mb_len));
@@ -84,7 +97,13 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
         let copy_len = copylen_code as usize;
         let actual_copy_len : usize;
         let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size);
-
+        assert!(inserts.len() <= mb_len);
+        if inserts.len() != 0 {
+            println_stderr!("insert {:} {:x}",
+                            inserts.len(),
+                            inserts);
+            mb_len -= inserts.len();
+        }
         if final_distance > max_distance { // is dictionary
             assert!(copy_len >= 4);
             assert!(copy_len < 25);
@@ -99,38 +118,31 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
                                                       raw_word,
                                                       copy_len as i32,
                                                       action as i32) as usize;
-            if actual_copy_len + inserts.len() > mb_len {
-                println_stderr!("insert {:} {:x}{:x}",
-                                mb_len, inserts,
-                                InputPair(transformed_word.split_at(mb_len - inserts.len()).0, &[]));
-                mb_len = 0;
-            } else {
-                println_stderr!("insert {:} {:x}\ndict {:} word {:},{:} {:x} func {:} {:x} ctx {:}",
-                                inserts.len(), inserts,
+            if actual_copy_len <= mb_len {
+                println_stderr!("dict {:} word {:},{:} {:x} func {:} {:x} ctx {:}",
                                 actual_copy_len,
                                 copy_len, word_sub_index,
                                 InputPair(raw_word, &[]),
                                 action, InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
                                 distance_context);
-                mb_len -= inserts.len() + actual_copy_len;
-            }
-            assert_eq!(InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
-                       interim.split_at(actual_copy_len).0);
-        } else {
-            assert!(inserts.len() <= mb_len);
-            if inserts.len() + copy_len > mb_len {
-                actual_copy_len = mb_len - inserts.len();
-            } else {
-                actual_copy_len = copy_len;
-            }
-            if actual_copy_len != 0 {
-                println_stderr!("insert {:} {:x}\ncopy {:} from {:} ctx {:}",
-                                inserts.len(), inserts, actual_copy_len, final_distance, distance_context);
-            } else {
+                mb_len -= actual_copy_len;
+                assert_eq!(InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
+                           interim.split_at(actual_copy_len).0);
+            } else if mb_len != 0 {
+                // truncated dictionary word: represent it as literals instead
                 println_stderr!("insert {:} {:x}",
-                                inserts.len(), inserts);
+                                mb_len, InputPair(transformed_word.split_at(mb_len).0, &[]));
+                mb_len = 0;
+                assert_eq!(InputPair(transformed_word.split_at(mb_len).0, &[]),
+                           interim.split_at(mb_len).0);
             }
-            mb_len -= actual_copy_len + inserts.len();
+        } else {
+            actual_copy_len = core::cmp::min(mb_len, copy_len);
+            if actual_copy_len != 0 {
+                println_stderr!("copy {:} from {:} ctx {:}",
+                                actual_copy_len, final_distance, distance_context);
+            }
+            mb_len -= actual_copy_len;
             if prev_dist_index != 1 || dist_offset != 0 { // update distance cache unless it's the "0 distance symbol"
                let mut tmp_dist_cache = [0i32;kNumDistanceCacheEntries - 1];
                tmp_dist_cache.clone_from_slice(&local_dist_cache[..kNumDistanceCacheEntries - 1]);
@@ -2111,12 +2123,14 @@ impl<'a> InputPair<'a> {
 struct BlockSplitRef<'a> {
     types: &'a [u8],
     lengths:&'a [u32],
+    num_types: u32,
 }
 impl<'a> Default for BlockSplitRef<'a> {
     fn default() -> Self {
         BlockSplitRef {
             types:&[],
             lengths:&[],
+            num_types:1,
         }
     }
 }
@@ -2145,14 +2159,17 @@ fn block_split_reference<'a,
             btypel:BlockSplitRef {
                 types: mb.literal_split.types.slice().split_at(mb.literal_split.num_blocks).0, // FIXME
                 lengths:mb.literal_split.lengths.slice().split_at(mb.literal_split.num_blocks).0,
+                num_types:mb.literal_split.num_types as u32,
             },
             btypec:BlockSplitRef {
                 types: mb.command_split.types.slice().split_at(mb.command_split.num_blocks).0, // FIXME
                 lengths:mb.command_split.lengths.slice().split_at(mb.command_split.num_blocks).0,
+                num_types:mb.command_split.num_types as u32,
             },
             btyped:BlockSplitRef {
                 types: mb.distance_split.types.slice().split_at(mb.distance_split.num_blocks).0, // FIXME
                 lengths:mb.distance_split.lengths.slice().split_at(mb.distance_split.num_blocks).0,
+                num_types:mb.distance_split.num_types as u32,
             },
         }
 }
