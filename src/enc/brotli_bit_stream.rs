@@ -71,12 +71,12 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
     local_dist_cache.clone_from_slice(&dist_cache[..]);
-    let mut _btypel_counter = 0usize;
-    let mut _btypec_counter = 0usize;
-    let mut _btyped_counter = 0usize;
-    let mut _btypel_sub = 0usize;
-    let mut _btypec_sub = 0usize;
-    let mut _btyped_sub = 0usize;
+    let mut btypel_counter = 0usize;
+    let mut btypec_counter = 0usize;
+    let mut btyped_counter = 0usize;
+    let mut btypel_sub = if block_type.btypel.num_types == 1 { 1u32<<31 } else {block_type.btypel.lengths[0]};
+    let mut btypec_sub = if block_type.btypec.num_types == 1 { 1u32<<31 } else {block_type.btypec.lengths[0]};
+    let mut btyped_sub = if block_type.btyped.num_types == 1 { 1u32<<31 } else {block_type.btyped.lengths[0]};
     
     for cmd in commands.iter() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
@@ -98,11 +98,60 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
         let actual_copy_len : usize;
         let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size);
         assert!(inserts.len() <= mb_len);
+        {
+            btypec_sub -= 1;
+            if btypec_sub == 0 {
+                btypec_counter += 1;
+                if block_type.btypec.types.len() > btypec_counter {
+                    btypec_sub = block_type.btypec.lengths[btypec_counter];
+                    println_stderr!("ctype {:}",
+                                    block_type.btypec.types[btypec_counter]);
+                } else {
+                    btypec_sub = 1u32 << 31;
+                }
+            }
+        }
         if inserts.len() != 0 {
-            println_stderr!("insert {:} {:x}",
-                            inserts.len(),
-                            inserts);
-            mb_len -= inserts.len();
+            let mut tmp_inserts = inserts;
+            while tmp_inserts.len() > btypel_sub as usize {
+                // we have to divide some:
+                let (in_a, in_b) = tmp_inserts.split_at(btypel_sub as usize);
+                if in_a.len() != 0 {
+                    println_stderr!("insert {:} {:x}",
+                                    in_a.len(),
+                                    in_a);
+                }
+                mb_len -= in_a.len();
+                tmp_inserts = in_b;
+                btypel_counter += 1;
+                if block_type.btypel.types.len() > btypel_counter {
+                    btypel_sub = block_type.btypel.lengths[btypel_counter];
+                    println_stderr!("ltype {:}",
+                                    block_type.btypel.types[btypel_counter]);
+                } else {
+                    btypel_sub = 1u32<<31;
+                }
+            }
+            if tmp_inserts.len() != 0 {
+                println_stderr!("insert {:} {:x}",
+                                tmp_inserts.len(),
+                                tmp_inserts);
+                mb_len -= tmp_inserts.len();
+                btypel_sub -= tmp_inserts.len() as u32;
+            }
+        }
+        if copy_len != 0 && cmd.cmd_prefix_ >= 128 {
+            btyped_sub -= 1;
+            if btyped_sub == 0 {
+                btyped_counter += 1;
+                if block_type.btyped.types.len() > btyped_counter {
+                    btyped_sub = block_type.btyped.lengths[btyped_counter];
+                    println_stderr!("dtype {:}",
+                                    block_type.btyped.types[btyped_counter]);
+                } else {
+                    btyped_sub = 1u32 << 31;
+                }
+            }
         }
         if final_distance > max_distance { // is dictionary
             assert!(copy_len >= 4);
