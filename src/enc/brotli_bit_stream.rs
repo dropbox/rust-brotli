@@ -2282,7 +2282,13 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
   *storage_ix = (*storage_ix).wrapping_add(input1.len() << 3i32);
   BrotliWriteBitsPrepareStorage(*storage_ix, storage);
   if params.log_meta_block {
-    LogMetaBlock(&[], input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
+    let cmds = [Command{insert_len_:len as u32,
+                        copy_len_:0,
+                        dist_extra_:0,
+                        cmd_prefix_:0,
+                        dist_prefix_:0
+    }];
+    LogMetaBlock(&cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
       params.lgwin);
   }
   if is_final_block != 0 {
