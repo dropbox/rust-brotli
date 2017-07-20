@@ -1,7 +1,12 @@
 #![allow(dead_code)]
 use super::command::{Command, ComputeDistanceCode, InitCommand};
 use super::dictionary_hash::kStaticDictionaryHash;
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
+use super::static_dict::{
+    BROTLI_UNALIGNED_LOAD32,
+    BROTLI_UNALIGNED_LOAD64,
+    FindMatchLengthWithLimit,
+    BrotliFindAllStaticDictionaryMatches,
+};
 use super::static_dict::BrotliDictionary;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
@@ -93,6 +98,19 @@ pub trait AnyHasher {
   fn HashTypeLength(&self) -> usize;
   fn StoreLookahead(&self) -> usize;
   fn PrepareDistanceCache(&self, distance_cache: &mut [i32]);
+  fn FindLongestMatchInAll(&mut self,
+                           dictionary: &BrotliDictionary,
+                           dictionary_hash: &[u16],
+                           data: &[u8],
+                           ring_buffer_mask: usize,
+                           distance_cache: &[i32],
+                           cur_ix: usize,
+                           max_length: usize,
+                           max_backward: usize,
+                           mut out: &mut HasherSearchResult)
+                           -> bool {
+      return false;
+  }
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
@@ -990,8 +1008,8 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
     }
     if is_match_found == 0 {
         let (_, cur_data) = data.split_at(cur_ix_masked as usize);
-        let mut minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1usize));
-        let mut dict_matches: [kInvalidMatch; 38];
+        let minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1usize));
+        let mut dict_matches = [kInvalidMatch; 38];
         if BrotliFindAllStaticDictionaryMatches(dictionary,
                                                 cur_data,
                                                 minlen,
@@ -1003,24 +1021,19 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
                 if dict_id < kInvalidMatch {
                     let dist = max_backward.wrapping_add((dict_id >> 5i32) as (usize))
                                           .wrapping_add(1usize);
-                    len_code = (dict_id & 31u32) as (usize);
-                    (*out).len = l;
-                    (*out).distance = dist;
-                    (*out).len_x_code = len_code;
-                    (*out).score = BackwardReferenceScore(l, dist);
+                    let score = BackwardReferenceScore(l, dist);
+                    if best_score < score {
+                        let len_code = (dict_id & 31u32) as (usize);
+                        (*out).len = l;
+                        (*out).distance = dist;
+                        (*out).len_x_code = len_code;
+                        (*out).score = score; 
+                        best_score = score;
+                        is_match_found = 1;
+                    }
                 }
             }
         }
-      let mut maxlen: usize = brotli_min_size_t(37usize, max_length);
-
-      is_match_found = SearchInStaticDictionary(dictionary,
-                                                dictionary_hash,
-                                                self,
-                                                cur_data,
-                                                max_length,
-                                                max_backward,
-                                                out,
-                                                0i32);
     }
     is_match_found != 0
 

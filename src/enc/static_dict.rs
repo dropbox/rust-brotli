@@ -317,13 +317,12 @@ fn brotli_max_size_t(a: usize, b: usize) -> usize {
   if a > b { a } else { b }
 }
 
-#[allow(unused)]
-fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
-                                        data: &[u8],
-                                        min_length: usize,
-                                        max_length: usize,
-                                        mut matches: &mut [u32])
-                                        -> i32 {
+pub fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
+                                            data: &[u8],
+                                            min_length: usize,
+                                            max_length: usize,
+                                            mut matches: &mut [u32])
+                                            -> i32 {
   let mut has_found_match: i32 = 0i32;
   {
     let mut offset: usize = kStaticDictionaryBuckets[Hash(data) as (usize)] as (usize);
