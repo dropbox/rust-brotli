@@ -109,9 +109,44 @@ pub trait AnyHasher {
                            max_backward: usize,
                            mut out: &mut HasherSearchResult)
                            -> bool {
-      return self.FindLongestMatch(dictionary, dictionary_hash, data, ring_buffer_mask, distance_cache,
-                                   cur_ix, max_length, max_backward, out);
+    let found_in_one = self.FindLongestMatch(dictionary, dictionary_hash, data, ring_buffer_mask,
+                                             distance_cache, cur_ix, max_length, max_backward, out);
+    let mut found_in_all = false;
+    let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
+    let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+    let mut best_len = 4usize;
+    if found_in_one {
+        best_len = (*out).len;
+    }
+    let minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1usize));
+    let mut dict_matches = [kInvalidMatch; 38];
+    if BrotliFindAllStaticDictionaryMatches(dictionary,
+                                            cur_data,
+                                            minlen,
+                                            max_length,
+                                            &mut dict_matches) != 0 {
+    
+        for l in (minlen .. max_length + 1) {
+            let dict_id = dict_matches[l];
+            if dict_id < kInvalidMatch {
+                let dist = max_backward.wrapping_add((dict_id >> 5i32) as (usize))
+                                      .wrapping_add(1usize);
+                let score = BackwardReferenceScore(l, dist);
+                if (*out).score < score {
+                    let len_code = (dict_id & 31u32) as (usize);
+                    (*out).len = l;
+                    (*out).distance = dist;
+                    (*out).len_x_code = len_code;
+                    (*out).score = score; 
+                    found_in_all = true;
+                }
+            }
+        }
+    }
+    return found_in_all || found_in_one;
   }
+
+
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
@@ -876,54 +911,6 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
       self.Store(data, mask, i);
     }
   }
-  fn FindLongestMatchInAll(&mut self,
-                           dictionary: &BrotliDictionary,
-                           dictionary_hash: &[u16],
-                           data: &[u8],
-                           ring_buffer_mask: usize,
-                           distance_cache: &[i32],
-                           cur_ix: usize,
-                           max_length: usize,
-                           max_backward: usize,
-                           mut out: &mut HasherSearchResult)
-                           -> bool {
-    let found_in_one = self.FindLongestMatch(dictionary, dictionary_hash, data, ring_buffer_mask,
-                                             distance_cache, cur_ix, max_length, max_backward, out);
-    let mut found_in_all = false;
-    let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
-    let (_, cur_data) = data.split_at(cur_ix_masked as usize);
-    let mut best_len = 4usize;
-    if found_in_one {
-        best_len = (*out).len;
-    }
-    let minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1usize));
-    let mut dict_matches = [kInvalidMatch; 38];
-    if BrotliFindAllStaticDictionaryMatches(dictionary,
-                                            cur_data,
-                                            minlen,
-                                            max_length,
-                                            &mut dict_matches) != 0 {
-    
-        for l in (minlen .. max_length + 1) {
-            let dict_id = dict_matches[l];
-            if dict_id < kInvalidMatch {
-                let dist = max_backward.wrapping_add((dict_id >> 5i32) as (usize))
-                                      .wrapping_add(1usize);
-                let score = BackwardReferenceScore(l, dist);
-                if (*out).score < score {
-                    let len_code = (dict_id & 31u32) as (usize);
-                    (*out).len = l;
-                    (*out).distance = dist;
-                    (*out).len_x_code = len_code;
-                    (*out).score = score; 
-                    found_in_all = true;
-                }
-            }
-        }
-    }
-    return found_in_all || found_in_one;
-  }
-
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
