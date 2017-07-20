@@ -1620,7 +1620,8 @@ fn BrotliCompressBufferQuality10(mut lgwin: i32,
                                        mask,
                                        metablock_size,
                                        &mut storage_ix,
-                                       storage);
+                                       storage,
+                                       false);
     } else {
       let mut num_direct_distance_codes: u32 = 0u32;
       let mut distance_postfix_bits: u32 = 0u32;
@@ -1701,7 +1702,8 @@ fn BrotliCompressBufferQuality10(mut lgwin: i32,
                                          mask,
                                          metablock_size,
                                          &mut storage_ix,
-                                         storage);
+                                         storage,
+                                         true);
       }
       DestroyMetaBlockSplit(m, &mut mb);
     }
@@ -2457,7 +2459,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                      bytes,
                                      recoder_state,
                                      storage_ix,
-                                     storage);
+                                     storage,
+                                     false);
     return;
   }
   last_byte = storage[(0usize)];
@@ -2598,7 +2601,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                        bytes,
                                        recoder_state,
                                        storage_ix,
-                                       storage);
+                                       storage,
+                                       true);
   }
 }
 

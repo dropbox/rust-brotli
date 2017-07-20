@@ -2270,7 +2270,8 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
                                         len: usize,
                                         recoder_state: &mut RecoderState,
                                         mut storage_ix: &mut usize,
-                                        mut storage: &mut [u8]) {
+                                        mut storage: &mut [u8],
+                                        suppress_meta_block_logging: bool) {
   let (input0,input1) = InputPairFromMaskedInput(input, position, len, mask);
   BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
@@ -2281,7 +2282,7 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
   storage[dst_start1..(dst_start1 + input1.len())].clone_from_slice(input1);
   *storage_ix = (*storage_ix).wrapping_add(input1.len() << 3i32);
   BrotliWriteBitsPrepareStorage(*storage_ix, storage);
-  if params.log_meta_block {
+  if params.log_meta_block && !suppress_meta_block_logging {
     let cmds = [Command{insert_len_:len as u32,
                         copy_len_:0,
                         dist_extra_:0,
