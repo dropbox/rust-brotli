@@ -857,6 +857,174 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
       self.Store(data, mask, i);
     }
   }
+  fn FindLongestMatchInAll(&mut self,
+                           dictionary: &BrotliDictionary,
+                           dictionary_hash: &[u16],
+                           data: &[u8],
+                           ring_buffer_mask: usize,
+                           distance_cache: &[i32],
+                           cur_ix: usize,
+                           max_length: usize,
+                           max_backward: usize,
+                           mut out: &mut HasherSearchResult)
+                           -> bool {
+    let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
+    let mut is_match_found: i32 = 0i32;
+    let mut best_score: usize = (*out).score;
+    let mut best_len: usize = (*out).len;
+    let mut i: usize;
+    (*out).len = 0usize;
+    (*out).len_x_code = 0usize;
+    i = 0usize;
+    while i < self.GetHasherCommon.params.num_last_distances_to_check as (usize) {
+      'continue45: loop {
+        {
+          let backward: usize = distance_cache[(i as (usize))] as (usize);
+          let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
+          if prev_ix >= cur_ix {
+            {
+              break 'continue45;
+            }
+          }
+          if backward > max_backward {
+            {
+              break 'continue45;
+            }
+          }
+          prev_ix = prev_ix & ring_buffer_mask;
+          if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
+             data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32) !=
+             data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
+            {
+              break 'continue45;
+            }
+          }
+          {
+            let (_, prev_data) = data.split_at(prev_ix as usize);
+            let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+
+            let len: usize = FindMatchLengthWithLimit(&prev_data,
+                                                      &cur_data,
+                                                      max_length);
+            if len >= 3usize || len == 2usize && (i < 2usize) {
+              let mut score: usize = BackwardReferenceScoreUsingLastDistance(len);
+              if best_score < score {
+                if i != 0usize {
+                  score = score.wrapping_sub(BackwardReferencePenaltyUsingLastDistance(i));
+                }
+                if best_score < score {
+                  best_score = score;
+                  best_len = len;
+                  (*out).len = best_len;
+                  (*out).distance = backward;
+                  (*out).score = best_score;
+                  is_match_found = 1i32;
+                }
+              }
+            }
+          }
+        }
+        break;
+      }
+      i = i.wrapping_add(1 as (usize));
+    }
+    {
+      let key: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
+      let common_block_bits = self.GetHasherCommon.params.block_bits;
+        if (key << common_block_bits) as usize >= self.buckets.slice().len() {
+            let key2: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
+            let key3: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
+            assert_eq!(key2, key3 + 1);
+        }
+      let mut bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
+      let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).block_size_ {
+        (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).block_size_) as usize
+      } else {
+        0u32 as (usize)
+      };
+      i = self.num.slice()[(key as (usize))] as (usize);
+      while i > down {
+        let mut prev_ix: usize = bucket[(({
+            i = i.wrapping_sub(1 as (usize));
+            i
+          } & (*self).block_mask_ as (usize)) as (usize))] as (usize);
+        let backward: usize = cur_ix.wrapping_sub(prev_ix);
+        if backward > max_backward {
+          {
+            break;
+          }
+        }
+        prev_ix = prev_ix & ring_buffer_mask;
+        if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
+           data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32) !=
+           data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
+          {
+            continue;
+          }
+        }
+        {
+          let (_, prev_data) = data.split_at(prev_ix as usize);
+          let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+          let len: usize = FindMatchLengthWithLimit(&prev_data,
+                                                    &cur_data,
+                                                    max_length);
+          if len >= 4usize {
+            let score: usize = BackwardReferenceScore(len, backward);
+            if best_score < score {
+              best_score = score;
+              best_len = len;
+              (*out).len = best_len;
+              (*out).distance = backward;
+              (*out).score = best_score;
+              is_match_found = 1i32;
+            }
+          }
+        }
+      }
+      bucket[((self.num.slice()[(key as (usize))] as (u32) & (self).block_mask_) as (usize))] = cur_ix as (u32);
+      {
+        let _rhs = 1;
+        let _lhs = &mut self.num.slice_mut()[(key as (usize))];
+        *_lhs = (*_lhs as (i32) + _rhs) as (u16);
+      }
+    }
+    if is_match_found == 0 {
+        let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+        let mut minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1usize));
+        let mut dict_matches: [kInvalidMatch; 38];
+        if BrotliFindAllStaticDictionaryMatches(dictionary,
+                                                cur_data,
+                                                minlen,
+                                                max_length,
+                                                &mut dict_matches) != 0 {
+
+            for l in (minlen .. max_length + 1) {
+                let dict_id = dict_matches[l];
+                if dict_id < kInvalidMatch {
+                    let dist = max_backward.wrapping_add((dict_id >> 5i32) as (usize))
+                                          .wrapping_add(1usize);
+                    len_code = (dict_id & 31u32) as (usize);
+                    (*out).len = l;
+                    (*out).distance = dist;
+                    (*out).len_x_code = len_code;
+                    (*out).score = BackwardReferenceScore(l, dist);
+                }
+            }
+        }
+      let mut maxlen: usize = brotli_min_size_t(37usize, max_length);
+
+      is_match_found = SearchInStaticDictionary(dictionary,
+                                                dictionary_hash,
+                                                self,
+                                                cur_data,
+                                                max_length,
+                                                max_backward,
+                                                out,
+                                                0i32);
+    }
+    is_match_found != 0
+
+  }
 
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
