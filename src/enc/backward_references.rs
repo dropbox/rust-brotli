@@ -12,6 +12,7 @@ use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{Log2FloorNonZero, brotli_max_size_t};
 use core;
+use core::cmp;
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -126,7 +127,8 @@ pub trait AnyHasher {
                                             max_length,
                                             &mut dict_matches) != 0 {
     
-        for l in (minlen .. max_length + 1) {
+        let len = cmp::min(max_length + 1, dict_matches.len());
+        for l in (minlen .. len) {
             let dict_id = dict_matches[l];
             if dict_id < kInvalidMatch {
                 let dist = max_backward.wrapping_add((dict_id >> 5i32) as (usize))
@@ -1395,7 +1397,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
     sr.len_x_code = 0usize;
     sr.distance = 0usize;
     sr.score = kMinScore;
-    if hasher.FindLongestMatch(dictionary,
+    if hasher.FindLongestMatchInAll(dictionary,
                                dictionary_hash,
                                ringbuffer,
                                ringbuffer_mask,
