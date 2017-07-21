@@ -41,19 +41,30 @@ fn window_size_from_lgwin(lgwin: i32) -> usize{
 fn LogMetaBlock(_commands: &[Command], _input0: &[u8], _input1: &[u8],
                 _n_postfix: u32, _n_direct: u32, _dist_cache: &[i32;kNumDistanceCacheEntries],
                 mut recoder_state:&mut RecoderState,
-                lgwin: i32) {
+                lgwin: i32,
+                context_type:ContextType) {
+}
+
+fn context_type_str(context_type:ContextType) -> &'static str {
+   match context_type {
+         ContextType::CONTEXT_LSB6 => "lsb6",
+         ContextType::CONTEXT_MSB6 => "msb6",
+         ContextType::CONTEXT_UTF8 => "utf8",
+         ContextType::CONTEXT_SIGNED => "sign",
+   }
 }
 
 #[cfg(not(feature="no-stdlib"))]
 fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
                 n_postfix: u32, n_direct: u32, dist_cache: &[i32;kNumDistanceCacheEntries],
                 mut recoder_state :&mut RecoderState,
-                lgwin: i32) {
+                lgwin: i32,
+                context_type:ContextType) {
     let window_size = window_size_from_lgwin(lgwin);
     use std::io::{Write};
 
     let mut mb_len = input0.len() + input1.len();
-    println_stderr!("window {:} len {:}", lgwin, mb_len);
+    println_stderr!("window {:} len {:} {}", lgwin, mb_len, context_type_str(context_type));
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
@@ -1688,7 +1699,8 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
       LogMetaBlock(commands.split_at(n_commands).0, input0, input1,
                    distance_postfix_bits, num_direct_distance_codes, distance_cache,
                    recoder_state,
-                   params.lgwin);
+                   params.lgwin,
+                   literal_context_mode);
   }
   let mut pos: usize = start_pos;
   let mut i: usize;
@@ -1971,7 +1983,8 @@ pub fn BrotliStoreMetaBlockTrivial(input: &[u8],
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
     LogMetaBlock(commands.split_at(n_commands).0, input0, input1, 0, 0, distance_cache, recoder_state,
-                 params.lgwin);
+                 params.lgwin,
+                 ContextType::CONTEXT_LSB6);
   }
   let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
   let mut cmd_histo: HistogramCommand = HistogramCommand::default();
@@ -2123,7 +2136,8 @@ pub fn BrotliStoreMetaBlockFast<AllocHT: alloc::Allocator<HuffmanTree>>(mut m : 
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
     LogMetaBlock(commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache, recoder_state,
-               params.lgwin);
+               params.lgwin,
+               ContextType::CONTEXT_LSB6);
   }
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BrotliWriteBits(13, 0, storage_ix, storage);
@@ -2290,7 +2304,8 @@ pub fn BrotliStoreUncompressedMetaBlock(is_final_block: i32,
                         dist_prefix_:0
     }];
     LogMetaBlock(&cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
-      params.lgwin);
+      params.lgwin,
+      ContextType::CONTEXT_LSB6);
   }
   if is_final_block != 0 {
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
