@@ -306,7 +306,7 @@ fn test_roundtrip_compressed_repeated() {
 }
 
 #[test]
-fn test_roundtrip_quickfox() {
+fn test_roundtrip_quickfox1() {
   test_roundtrip_file!("../bin/testdata/quickfox", 256, 9, 10, 1, 2);
 }
 
