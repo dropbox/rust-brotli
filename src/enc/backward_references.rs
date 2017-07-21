@@ -157,7 +157,7 @@ pub trait AnyHasher {
                                                            max_backward, &mut nout);
                     if (matches != 0) && ((*out).score < nout.score) {
                         (*out) = nout;
-                        println!("found {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
+                        //println!("found {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
                         found_in_all = true;
                     }
                 }
@@ -1190,7 +1190,7 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
   dist = item >> 5i32;
   offset = ((*dictionary).offsets_by_length[len] as (usize)).wrapping_add(len.wrapping_mul(dist));
   if offset  > dictionary.data.len() {
-      println!("offset is to big {} {}", offset, dictionary.data.len());
+      //println!("offset is to big {} {}", offset, dictionary.data.len());
       return 0i32;
   }
   if len > max_length {
@@ -1216,7 +1216,7 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
   (*out).len_x_code = len ^ matchlen;
   (*out).distance = backward;
   (*out).score = score;
-  println!("test {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
+  //println!("test {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
   1i32
 }
 
@@ -1417,7 +1417,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
     sr.distance = 0usize;
     sr.score = kMinScore;
 
-    println!("# CreateBackwardReferences position is {} num_commands {}", position, new_commands_count);
+    //println!("# CreateBackwardReferences position is {} num_commands {}", position, new_commands_count);
     if hasher.FindLongestMatchInAll(dictionary,
     //if hasher.FindLongestMatch(dictionary,
                                dictionary_hash,
