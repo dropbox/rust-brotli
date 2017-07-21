@@ -286,11 +286,21 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
 fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
   if a < b { a } else { b }
 }
-
+pub fn FromMatch(match_: u32, distance: &mut usize, len_code: &mut usize) {
+    *distance = (match_ as usize) >> 5i32;
+    *len_code = (match_ as usize) & ((1<<5i32) - 1);
+    //println!("FromMatch {:x} {:x}", distance, len_code);
+}
 #[allow(unused)]
 fn AddMatch(distance: usize, len: usize, len_code: usize, mut matches: &mut [u32]) {
-  let match_: u32 = (distance << 5i32).wrapping_add(len_code) as (u32);
-  matches[len as (usize)] = brotli_min_uint32_t(matches[len as (usize)], match_);
+    //println!("AddMatch {:x} {:x} {:x}", distance, len, len_code);
+    let match_: u32 = (distance << 5i32).wrapping_add(len_code) as (u32);
+    let mut d = 0usize;
+    let mut c = 0usize;
+    FromMatch(match_, &mut d, &mut c);
+    assert!(d == distance);
+    assert!(c == len_code);
+    matches[len as (usize)] = brotli_min_uint32_t(matches[len as (usize)], match_);
 }
 
 #[allow(unused)]
