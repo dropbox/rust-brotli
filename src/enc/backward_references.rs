@@ -119,8 +119,7 @@ pub trait AnyHasher {
                            max_backward: usize,
                            mut out: &mut HasherSearchResult)
                            -> bool {
-    let mut none: HasherSearchResult = HasherSearchResult::default(); 
-    none = (*out).clone();
+    let mut none: HasherSearchResult = (*out).clone();
     let found_in_one = self.FindLongestMatch(dictionary, dictionary_hash, data, ring_buffer_mask,
                                              distance_cache, cur_ix, max_length, max_backward, &mut none);
     let mut found_in_all = false;
@@ -1404,9 +1403,10 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
   };
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
-  let kMinScore: usize = ((30i32 * 8i32) as (usize))
-    .wrapping_mul(::core::mem::size_of::<usize>())
-    .wrapping_add(100usize);
+  //let kMinScore: usize = ((30i32 * 8i32) as (usize))
+  //  .wrapping_mul(::core::mem::size_of::<usize>())
+  //  .wrapping_add(100usize);
+  let kMinScore: usize = 0; 
   hasher.PrepareDistanceCache(dist_cache);
   while position.wrapping_add(hasher.HashTypeLength()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -1417,7 +1417,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
     sr.distance = 0usize;
     sr.score = kMinScore;
 
-    //println!("# CreateBackwardReferences position is {} num_commands {}", position, new_commands_count);
+    println!("# CreateBackwardReferences position is {} num_commands {} pos_end {}", position, new_commands_count, pos_end);
     if hasher.FindLongestMatchInAll(dictionary,
     //if hasher.FindLongestMatch(dictionary,
                                dictionary_hash,

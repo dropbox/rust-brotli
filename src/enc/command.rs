@@ -102,7 +102,7 @@ fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u1
       (bits64 as (i32) | s64 as (i32)) as (u16)
     }
   } else {
-      println!("combine length codes: {} {} {}", inscode, copycode, use_last_distance);
+    //println!("combine length codes: {} {} {}", inscode, copycode, use_last_distance);
     let mut offset: i32 = 2i32 * ((copycode as (i32) >> 3i32) + 3i32 * (inscode as (i32) >> 3i32));
     offset = (offset << 5i32) + 0x40i32 + (0x520d40i32 >> offset & 0xc0i32);
     (offset as (u16) as (i32) | bits64 as (i32)) as (u16)
