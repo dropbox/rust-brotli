@@ -125,8 +125,12 @@ pub trait AnyHasher {
     if found_in_one {
         best_len = (*out).len;
     }
-    let minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1usize));
+    let minlen: usize = brotli_max_size_t(4usize, best_len);
     let mut dict_matches = [kInvalidMatch; 38];
+    let zero: HasherSearchResult = HasherSearchResult::default(); 
+    if ! found_in_one {
+        *out = zero;
+    }
     if BrotliFindAllStaticDictionaryMatches(dictionary,
                                             cur_data,
                                             minlen,
@@ -138,10 +142,15 @@ pub trait AnyHasher {
             let dict_id = dict_matches[l];
             if dict_id < kInvalidMatch {
                 let mut nout: HasherSearchResult = HasherSearchResult::default(); 
-                let matches = TestStaticDictionaryItem(dictionary, dict_id as usize, cur_data,
+                //HACK(aeyakovenko): not sure why this works for qbf
+                let item = (dict_id & 0xffff) as usize;
+                println!("dict_id {:x} ", dict_id);
+                let matches = TestStaticDictionaryItem(dictionary, item, cur_data,
                                                        max_length, max_backward, &mut nout);
-                if (matches != 0) && ((*out).score < nout.score) {
+                if (matches != 0) && ((*out).score <= nout.score) {
+                    println!("before {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
                     *out = nout;
+                    println!("after {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
                     found_in_all = true;
                 }
             }
@@ -1195,7 +1204,7 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
   (*out).len_x_code = len ^ matchlen;
   (*out).distance = backward;
   (*out).score = score;
-  println!("found {:x} {:x} {:x} {:x}", (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
+  println!("found {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
   1i32
 }
 
@@ -1220,6 +1229,7 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
   while i < if shallow != 0 { 1u32 } else { 2u32 } as (usize) {
     {
       let item: usize = dictionary_hash[(key as (usize))] as (usize);
+      println!("item: {:x} key: {:x}", item, key);
       (*xself).dict_num_lookups = (*xself).dict_num_lookups.wrapping_add(1 as (usize));
       if item != 0usize {
         let item_matches: i32 =
@@ -1421,6 +1431,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
           sr2.distance = 0usize;
           sr2.score = kMinScore;
           max_distance = brotli_min_size_t(position.wrapping_add(1usize), max_backward_limit);
+          //is_match_found = hasher.FindLongestMatchInAll(dictionary,
           is_match_found = hasher.FindLongestMatch(dictionary,
                                                    dictionary_hash,
                                                    ringbuffer,
