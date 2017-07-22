@@ -64,7 +64,8 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
     use std::io::{Write};
 
     let mut mb_len = input0.len() + input1.len();
-    println_stderr!("window {:} len {:} {}", lgwin, mb_len, context_type_str(context_type));
+    println_stderr!("window {:} len {:}", lgwin, mb_len);
+    println_stderr!("prediction {}", context_type_str(context_type));
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
