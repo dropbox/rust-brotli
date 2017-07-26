@@ -1,5 +1,7 @@
 mod integration_tests;
 mod tests;
+mod util;
+
 extern crate brotli;
 extern crate brotli_decompressor;
 extern crate core;
@@ -357,6 +359,10 @@ fn main() {
       }
       if argument == "-d" {
         continue;
+      }
+      if argument == "--dump-dictionary" {
+        util::print_dictionary(util::permute_dictionary());
+        return
       }
       if argument == "-i" {
         // display the intermediate representation of metablocks
