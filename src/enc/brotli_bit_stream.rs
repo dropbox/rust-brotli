@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
 
@@ -28,6 +29,7 @@ pub struct PrefixCodeRange {
 
 macro_rules! println_stderr(
     ($($val:tt)*) => { {
+        use std::string::ToString;
         writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
     } }
 );
@@ -77,7 +79,12 @@ fn LogMetaBlock(commands: &[Command], input0: &[u8],input1: &[u8],
                     block_type.btypel.num_types,
                     block_type.btypec.num_types,
                     block_type.btyped.num_types);
-    println_stderr!("prediction {}", context_type_str(context_type));
+    println_stderr!(
+        "prediction {} lcontextmap{} dcontextmap{}",
+        context_type_str(context_type),
+        block_type.literal_context_map.iter().fold(::std::string::String::new(), |res, &val| res + " " + &val.to_string()),
+        block_type.distance_context_map.iter().fold(::std::string::String::new(), |res, &val| res + " " + &val.to_string()),
+    );
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
@@ -1484,7 +1491,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(mut m: &mut AllocU32,
     m.alloc_cell(context_map_size)
   } else {
     AllocU32::AllocatedMemory::default()
-  };
+  };  
   MoveToFrontTransform(context_map, context_map_size, rle_symbols.slice_mut());
   RunLengthCodeZeros(context_map_size,
                      rle_symbols.slice_mut(),
@@ -2201,8 +2208,10 @@ impl<'a> Default for BlockSplitRef<'a> {
 #[derive(Default)]
 struct MetaBlockSplitRefs<'a> {
     btypel : BlockSplitRef<'a>,
+    literal_context_map:&'a [u32],
     btypec : BlockSplitRef<'a>,
     btyped : BlockSplitRef<'a>,
+    distance_context_map:&'a [u32],
 }
 
 fn block_split_nop() -> MetaBlockSplitRefs<'static> {
@@ -2219,20 +2228,22 @@ fn block_split_reference<'a,
     (mb:&'a MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>) -> MetaBlockSplitRefs<'a> {
         return MetaBlockSplitRefs::<'a> {
             btypel:BlockSplitRef {
-                types: mb.literal_split.types.slice().split_at(mb.literal_split.num_blocks).0, // FIXME
+                types: mb.literal_split.types.slice().split_at(mb.literal_split.num_blocks).0,
                 lengths:mb.literal_split.lengths.slice().split_at(mb.literal_split.num_blocks).0,
                 num_types:mb.literal_split.num_types as u32,
             },
+            literal_context_map: mb.literal_context_map.slice().split_at(mb.literal_context_map_size).0,
             btypec:BlockSplitRef {
-                types: mb.command_split.types.slice().split_at(mb.command_split.num_blocks).0, // FIXME
+                types: mb.command_split.types.slice().split_at(mb.command_split.num_blocks).0,
                 lengths:mb.command_split.lengths.slice().split_at(mb.command_split.num_blocks).0,
                 num_types:mb.command_split.num_types as u32,
             },
             btyped:BlockSplitRef {
-                types: mb.distance_split.types.slice().split_at(mb.distance_split.num_blocks).0, // FIXME
+                types: mb.distance_split.types.slice().split_at(mb.distance_split.num_blocks).0,
                 lengths:mb.distance_split.lengths.slice().split_at(mb.distance_split.num_blocks).0,
                 num_types:mb.distance_split.num_types as u32,
             },
+            distance_context_map: mb.distance_context_map.slice().split_at(mb.distance_context_map_size).0,
         }
 }
      
