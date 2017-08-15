@@ -42,10 +42,10 @@ fn window_size_from_lgwin(lgwin: i32) -> usize{
 #[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
 fn LogMetaBlock(_commands: &[Command], _input0: &[u8], _input1: &[u8],
                 _n_postfix: u32, _n_direct: u32, _dist_cache: &[i32;kNumDistanceCacheEntries],
-                mut recoder_state:&mut RecoderState,
-                block_type: MetaBlockSplitRefs,
-                lgwin: i32,
-                context_type:ContextType) {
+                _recoder_state:&mut RecoderState,
+                _block_type: MetaBlockSplitRefs,
+                _lgwin: i32,
+                _context_type:ContextType) {
 }
 
 fn context_type_str(context_type:ContextType) -> &'static str {
