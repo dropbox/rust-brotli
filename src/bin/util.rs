@@ -9,7 +9,7 @@ struct HexSlice<'a>(&'a [u8]);
 impl<'a> fmt::Display for HexSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for byte in self.0 {
-            write!(f, "{:02X}", byte)?;
+            try!(write!(f, "{:02X}", byte));
         }
         Ok(())
     }
@@ -22,11 +22,11 @@ pub fn permute_dictionary() -> BTreeMap<Vec<u8>, ()> {
         for index in 0..(1 << kBrotliDictionarySizeBitsByLength[wordlen]) {
             let word = &kBrotliDictionary[offset + index..offset + index + wordlen];
             for transform in 0..121 {
-                TransformDictionaryWord(&mut transformed[..],
+                let final_size = TransformDictionaryWord(&mut transformed[..],
                                         word,
                                         wordlen as i32,
-                                        transform as i32);
-                let vec : Vec<u8> = transformed[..wordlen].to_vec();
+                                        transform as i32) as usize;
+                let vec : Vec<u8> = transformed[..final_size].to_vec();
                 ret.insert(vec, ());
             }
         }
