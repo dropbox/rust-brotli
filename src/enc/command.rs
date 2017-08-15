@@ -111,7 +111,7 @@ fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u1
 pub fn GetLengthCode(insertlen: usize,
                      copylen: usize,
                      use_last_distance: i32,
-                     mut code: &mut u16) {
+                     code: &mut u16) {
   let inscode: u16 = GetInsertLengthCode(insertlen);
   let copycode: u16 = GetCopyLengthCode(copylen);
   *code = CombineLengthCodes(inscode, copycode, use_last_distance);
@@ -119,8 +119,8 @@ pub fn GetLengthCode(insertlen: usize,
 pub fn PrefixEncodeCopyDistance(distance_code: usize,
                                 num_direct_codes: usize,
                                 postfix_bits: u64,
-                                mut code: &mut u16,
-                                mut extra_bits: &mut u32) {
+                                code: &mut u16,
+                                extra_bits: &mut u32) {
   if distance_code < (16usize).wrapping_add(num_direct_codes) {
     *code = distance_code as (u16);
     *extra_bits = 0u32;
@@ -212,7 +212,7 @@ mod test {
         }
     }
 }
-pub fn RecomputeDistancePrefixes(mut cmds: &mut [Command],
+pub fn RecomputeDistancePrefixes(cmds: &mut [Command],
                                  num_commands: usize,
                                  num_direct_distance_codes: u32,
                                  distance_postfix_bits: u32) {
@@ -223,7 +223,7 @@ pub fn RecomputeDistancePrefixes(mut cmds: &mut [Command],
   i = 0usize;
   while i < num_commands {
     {
-      let mut cmd: &mut Command = &mut cmds[(i as (usize))];
+      let cmd: &mut Command = &mut cmds[(i as (usize))];
       if CommandCopyLen(cmd) != 0 && ((*cmd).cmd_prefix_ as (i32) >= 128i32) {
         PrefixEncodeCopyDistance(CommandRestoreDistanceCode(cmd) as (usize),
                                  num_direct_distance_codes as (usize),

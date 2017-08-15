@@ -19,7 +19,7 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 
 
 
-pub fn ShannonEntropy(mut population: &[u32], size: usize, mut total: &mut usize) -> super::util::floatX {
+pub fn ShannonEntropy(mut population: &[u32], size: usize, total: &mut usize) -> super::util::floatX {
   let mut sum: usize = 0usize;
   let mut retval: super::util::floatX = 0i32 as super::util::floatX;
   let mut p: usize;
