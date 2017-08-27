@@ -60,8 +60,8 @@ fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper
     mut idx2 : u32,
     max_num_pairs : usize,
     scratch_space: &mut HistogramType::i32vec,
-    mut pairs : &mut [HistogramPair],
-    mut num_pairs : &mut usize
+    pairs : &mut [HistogramPair],
+    num_pairs : &mut usize
 ){
   let mut is_good_pair: i32 = 0i32;
   let mut p: HistogramPair = HistogramPair {
@@ -125,9 +125,9 @@ fn BrotliCompareAndPushToQueue<HistogramType:SliceWrapperMut<u32> + SliceWrapper
 
 pub fn BrotliHistogramCombine<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors +Clone>
     (mut out: &mut [HistogramType],
-     mut cluster_size: &mut [u32],
-     mut symbols: &mut [u32],
-     mut clusters: &mut [u32],
+     cluster_size: &mut [u32],
+     symbols: &mut [u32],
+     clusters: &mut [u32],
      mut pairs: &mut [HistogramPair],
      mut num_clusters: usize,
      symbols_size: usize,
@@ -284,8 +284,8 @@ pub fn BrotliHistogramRemap<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u3
                                    clusters: &[u32],
                                    num_clusters: usize,
                                    scratch_space: &mut HistogramType::i32vec,
-                                   mut out: &mut [HistogramType],
-                                   mut symbols: &mut [u32]){
+                                   out: &mut [HistogramType],
+                                   symbols: &mut [u32]){
   let mut i: usize;
   i = 0usize;
   while i < in_size {
@@ -350,11 +350,11 @@ pub fn BrotliHistogramRemap<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u3
 pub fn BrotliHistogramReindex<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
                             AllocU32:alloc::Allocator<u32>,
                             AllocH:alloc::Allocator<HistogramType> >
-                            (mut m: &mut AllocU32,
-                             mut mh: &mut AllocH,
-                                     mut out: &mut [HistogramType],
-                                     mut symbols: &mut [u32],
-                                     length: usize)
+                            (m: &mut AllocU32,
+                             mh: &mut AllocH,
+                             out: &mut [HistogramType],
+                             symbols: &mut [u32],
+                             length: usize)
 -> usize{
   static kInvalidIndex: u32 = !(0u32);
   let mut new_index: AllocU32::AllocatedMemory = if length != 0 {
@@ -423,16 +423,16 @@ pub fn BrotliClusterHistograms<HistogramType:SliceWrapperMut<u32> + SliceWrapper
                                       AllocU32:alloc::Allocator<u32>,
                                       AllocHP:alloc::Allocator<HistogramPair>,
                                       AllocH:alloc::Allocator<HistogramType> >
-                                     (mut m32: &mut AllocU32,
-                                      mut mhp: &mut AllocHP,
-                                      mut mh: &mut AllocH,
+                                     (m32: &mut AllocU32,
+                                      mhp: &mut AllocHP,
+                                      mh: &mut AllocH,
                                       inp: &[HistogramType],
                                       in_size: usize,
                                       max_histograms: usize,
                                       scratch_space: &mut HistogramType::i32vec,
-                                      mut out: &mut [HistogramType],
-                                      mut out_size: &mut usize,
-mut histogram_symbols: &mut [u32]){
+                                      out: &mut [HistogramType],
+                                      out_size: &mut usize,
+                                      histogram_symbols: &mut [u32]) {
   let mut cluster_size = if in_size != 0 {
     m32.alloc_cell(in_size)
   } else {

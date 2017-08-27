@@ -14,7 +14,7 @@ static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 
 // returns number of commands inserted
 #[must_use]
-fn EmitInsertLen(insertlen: u32, mut commands: &mut &mut [u32]) -> usize {
+fn EmitInsertLen(insertlen: u32, commands: &mut &mut [u32]) -> usize {
   if insertlen < 6u32 {
     (*commands)[0] = insertlen;
   } else if insertlen < 130u32 {
@@ -40,12 +40,12 @@ fn EmitInsertLen(insertlen: u32, mut commands: &mut &mut [u32]) -> usize {
     let extra: u32 = insertlen.wrapping_sub(22594u32);
     (*commands)[0] = 23u32 | extra << 8i32;
   }
-  let mut remainder = core::mem::replace(commands, &mut []);
+  let remainder = core::mem::replace(commands, &mut []);
   core::mem::replace(commands, &mut remainder[1..]);
   1
 }
 #[must_use]
-fn EmitDistance(distance: u32, mut commands: &mut &mut [u32]) -> usize {
+fn EmitDistance(distance: u32, commands: &mut &mut [u32]) -> usize {
   let d: u32 = distance.wrapping_add(3u32);
   let nbits: u32 = Log2FloorNonZero(d as (u64)).wrapping_sub(1u32);
   let prefix: u32 = d >> nbits & 1u32;
@@ -54,16 +54,16 @@ fn EmitDistance(distance: u32, mut commands: &mut &mut [u32]) -> usize {
     (2u32).wrapping_mul(nbits.wrapping_sub(1u32)).wrapping_add(prefix).wrapping_add(80u32);
   let extra: u32 = d.wrapping_sub(offset);
   (*commands)[0] = distcode | extra << 8i32;
-  let mut remainder = core::mem::replace(commands, &mut []);
+  let remainder = core::mem::replace(commands, &mut []);
   core::mem::replace(commands, &mut remainder[1..]);
   1
 }
 
 #[must_use]
-fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usize {
+fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
   if copylen < 12usize {
     (*commands)[0] = copylen.wrapping_add(20usize) as (u32);
-    let mut remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder[1..]);
     1
   } else if copylen < 72usize {
@@ -73,7 +73,7 @@ fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usi
     let code: usize = (nbits << 1i32).wrapping_add(prefix).wrapping_add(28usize);
     let extra: usize = tail.wrapping_sub(prefix << nbits);
     (*commands)[0] = (code | extra << 8i32) as (u32);
-    let mut remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder[1..]);
     1
   } else if copylen < 136usize {
@@ -81,10 +81,10 @@ fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usi
     let code: usize = (tail >> 5i32).wrapping_add(54usize);
     let extra: usize = tail & 31usize;
     (*commands)[0] = (code | extra << 8i32) as (u32);
-    let mut remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder[1..]);
     (*commands)[0] = 64u32;
-    let mut remainder2 = core::mem::replace(commands, &mut []);
+    let remainder2 = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder2[1..]);
     2
   } else if copylen < 2120usize {
@@ -93,19 +93,19 @@ fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usi
     let code: usize = nbits.wrapping_add(52usize);
     let extra: usize = tail.wrapping_sub(1usize << nbits);
     (*commands)[0] = (code | extra << 8i32) as (u32);
-    let mut remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder[1..]);
     (*commands)[0] = 64u32;
-    let mut remainder2 = core::mem::replace(commands, &mut []);
+    let remainder2 = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder2[1..]);
     2
   } else {
     let extra: usize = copylen.wrapping_sub(2120usize);
     (*commands)[0] = (63usize | extra << 8i32) as (u32);
-    let mut remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder[1..]);
     (*commands)[0] = 64u32;
-    let mut remainder2 = core::mem::replace(commands, &mut []);
+    let remainder2 = core::mem::replace(commands, &mut []);
     core::mem::replace(commands, &mut remainder2[1..]);
     2
   }
@@ -120,7 +120,7 @@ fn HashBytesAtOffset(v: u64, offset: i32, shift: usize) -> u32 {
 }
 
 #[must_use]
-fn EmitCopyLen(copylen: usize, mut commands: &mut &mut [u32]) -> usize {
+fn EmitCopyLen(copylen: usize, commands: &mut &mut [u32]) -> usize {
   if copylen < 10usize {
     (*commands)[0] = copylen.wrapping_add(38usize) as (u32);
   } else if copylen < 134usize {
@@ -140,7 +140,7 @@ fn EmitCopyLen(copylen: usize, mut commands: &mut &mut [u32]) -> usize {
     let extra: usize = copylen.wrapping_sub(2118usize);
     (*commands)[0] = (63usize | extra << 8i32) as (u32);
   }
-  let mut remainder = core::mem::replace(commands, &mut []);
+  let remainder = core::mem::replace(commands, &mut []);
   core::mem::replace(commands, &mut remainder[1..]);
   1
 }
@@ -164,11 +164,11 @@ fn CreateCommands(input_index: usize,
                   block_size: usize,
                   input_size: usize,
                   base_ip: &[u8],
-                  mut table: &mut [i32],
+                  table: &mut [i32],
                   table_bits: usize,
-                  mut literals: &mut &mut [u8],
+                  literals: &mut &mut [u8],
                   num_literals: &mut usize,
-                  mut commands: &mut &mut [u32],
+                  commands: &mut &mut [u32],
                   num_commands: &mut usize) {
   let mut ip_index: usize = input_index;
   let shift: usize = (64u32 as (usize)).wrapping_sub(table_bits);
@@ -267,11 +267,11 @@ fn CreateCommands(input_index: usize,
                                                            ((next_emit +
                                                              insert as usize))]);
         *num_literals += insert as usize;
-        let mut new_literals = core::mem::replace(literals, &mut []);
+        let new_literals = core::mem::replace(literals, &mut []);
         core::mem::replace(literals, &mut new_literals[(insert as usize)..]);
         if distance == last_distance {
           (*commands)[0] = 64u32;
-          let mut remainder = core::mem::replace(commands, &mut []);
+          let remainder = core::mem::replace(commands, &mut []);
           core::mem::replace(commands, &mut remainder[1..]);
           *num_commands += 1;
         } else {
@@ -401,8 +401,8 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
   }
 }
 
-pub fn BrotliWriteBits(n_bits: usize, bits: u64, mut pos: &mut usize, mut array: &mut [u8]) {
-  let mut p = &mut array[((*pos >> 3i32) as (usize))..];
+pub fn BrotliWriteBits(n_bits: usize, bits: u64, pos: &mut usize, array: &mut [u8]) {
+  let p = &mut array[((*pos >> 3i32) as (usize))..];
   let mut v: u64 = p[0] as (u64);
   v = v | bits << (*pos & 7);
   BROTLI_UNALIGNED_STORE64(p, v);
@@ -410,8 +410,8 @@ pub fn BrotliWriteBits(n_bits: usize, bits: u64, mut pos: &mut usize, mut array:
 }
 pub fn BrotliStoreMetaBlockHeader(len: usize,
                                   is_uncompressed: i32,
-                                  mut storage_ix: &mut usize,
-                                  mut storage: &mut [u8]) {
+                                  storage_ix: &mut usize,
+                                  storage: &mut [u8]) {
   let mut nibbles: u64 = 6;
   BrotliWriteBits(1, 0, storage_ix, storage);
   if len <= (1u32 << 16i32) as (usize) {
@@ -428,7 +428,7 @@ pub fn BrotliStoreMetaBlockHeader(len: usize,
 }
 
 
-pub fn memcpy<T: Sized + Clone>(mut dst: &mut [T],
+pub fn memcpy<T: Sized + Clone>(dst: &mut [T],
                                 dst_offset: usize,
                                 src: &[T],
                                 src_offset: usize,
@@ -437,10 +437,10 @@ pub fn memcpy<T: Sized + Clone>(mut dst: &mut [T],
                                                                  (src_offset + size_to_copy)]);
 }
 fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
-                                  mut depth: &mut [u8],
+                                  depth: &mut [u8],
                                   mut bits: &mut [u16],
-                                  mut storage_ix: &mut usize,
-                                  mut storage: &mut [u8]) {
+                                  storage_ix: &mut usize,
+                                  storage: &mut [u8]) {
   let mut tree: [HuffmanTree; 129] = [NewHuffmanTree(0, 0, 0); 129];
   let mut cmd_depth: [u8; 704] = [0; 704];
   let mut cmd_bits: [u16; 64] = [0; 64];
@@ -550,13 +550,13 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                          storage);
 }
 
-fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
+fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(mht: &mut AllocHT,
                                                          mut literals: &[u8],
                                                          num_literals: usize,
                                                          commands: &[u32],
                                                          num_commands: usize,
-                                                         mut storage_ix: &mut usize,
-                                                         mut storage: &mut [u8]) {
+                                                         storage_ix: &mut usize,
+                                                         storage: &mut [u8]) {
   static kNumExtraBits: [u32; 128] =
     [0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 1u32, 1u32, 2u32, 2u32, 3u32, 3u32, 4u32, 4u32, 5u32,
      5u32, 6u32, 7u32, 8u32, 9u32, 10u32, 12u32, 14u32, 24u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
@@ -664,8 +664,8 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
 }
 fn EmitUncompressedMetaBlock(input: &[u8],
                              input_size: usize,
-                             mut storage_ix: &mut usize,
-                             mut storage: &mut [u8]) {
+                             storage_ix: &mut usize,
+                             storage: &mut [u8]) {
   BrotliStoreMetaBlockHeader(input_size, 1i32, storage_ix, storage);
   *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
   memcpy(storage,
@@ -677,16 +677,16 @@ fn EmitUncompressedMetaBlock(input: &[u8],
   storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
 }
 #[allow(unused_variables)]
-fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
+fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
                                      base_ip: &[u8],
                                      mut input_size: usize,
                                      is_last: i32,
-                                     mut command_buf: &mut [u32],
-                                     mut literal_buf: &mut [u8],
-                                     mut table: &mut [i32],
+                                     command_buf: &mut [u32],
+                                     literal_buf: &mut [u8],
+                                     table: &mut [i32],
                                      table_bits: usize,
-                                     mut storage_ix: &mut usize,
-mut storage: &mut [u8]){
+                                     storage_ix: &mut usize,
+                                     storage: &mut [u8]){
   let mut input_index: usize = 0usize;
   while input_size > 0usize {
     let block_size: usize = brotli_min_size_t(input_size, kCompressFragmentTwoPassBlockSize);
@@ -730,15 +730,15 @@ mut storage: &mut [u8]){
 }
 macro_rules! compress_specialization {
     ($table_bits : expr, $fname: ident) => {
-        fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
+        fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mht: &mut AllocHT,
                                       input: &[u8],
                                       input_size: usize,
                                       is_last: i32,
-                                      mut command_buf: &mut [u32],
-                                      mut literal_buf: &mut [u8],
-                                      mut table: &mut [i32],
-                                      mut storage_ix: &mut usize,
-                                      mut storage: &mut [u8]) {
+                                      command_buf: &mut [u32],
+                                      literal_buf: &mut [u8],
+                                      table: &mut [i32],
+                                      storage_ix: &mut usize,
+                                      storage: &mut [u8]) {
             BrotliCompressFragmentTwoPassImpl(mht,
                                               input,
                                               input_size,
@@ -763,7 +763,7 @@ compress_specialization!(15, BrotliCompressFragmentTwoPassImpl15);
 compress_specialization!(16, BrotliCompressFragmentTwoPassImpl16);
 compress_specialization!(17, BrotliCompressFragmentTwoPassImpl17);
 
-fn RewindBitPosition(new_storage_ix: usize, mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mut [u8]) {
   let bitpos: usize = new_storage_ix & 7usize;
   let mask: usize = (1u32 << bitpos).wrapping_sub(1u32) as (usize);
   {
@@ -774,16 +774,16 @@ fn RewindBitPosition(new_storage_ix: usize, mut storage_ix: &mut usize, mut stor
   *storage_ix = new_storage_ix;
 }
 
-pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
+pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
                                      input: &[u8],
                                      input_size: usize,
                                      is_last: i32,
-                                     mut command_buf: &mut [u32],
-                                     mut literal_buf: &mut [u8],
-                                     mut table: &mut [i32],
+                                     command_buf: &mut [u32],
+                                     literal_buf: &mut [u8],
+                                     table: &mut [i32],
                                      table_size: usize,
-                                     mut storage_ix: &mut usize,
-mut storage: &mut [u8]){
+                                     storage_ix: &mut usize,
+                                     storage: &mut [u8]){
   let initial_storage_ix: usize = *storage_ix;
   let table_bits: usize = Log2FloorNonZero(table_size as u64) as (usize);
   if table_bits == 8usize {

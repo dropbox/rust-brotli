@@ -118,7 +118,7 @@ impl<R: Read,
     Read for CompressorReaderCustomAlloc<R, BufferType,
                                          AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand, AllocF64, AllocFV,
                                          AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
-  	fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
+  	fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
        self.0.read(buf)
     }
 }
@@ -184,7 +184,7 @@ impl<R: Read> CompressorReader<R> {
 
 #[cfg(not(feature="no-stdlib"))]
 impl<R: Read> Read for CompressorReader<R> {
-  fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
+  fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
     self.0.read(buf)
   }
 }
@@ -300,7 +300,7 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
             self.input_offset = 0;
             self.input_len = 0;
         } else if self.input_offset + 256 > self.input_buffer.slice_mut().len() && avail_in < self.input_offset {
-            let (mut first, second) = self.input_buffer.slice_mut().split_at_mut(self.input_offset);
+            let (first, second) = self.input_buffer.slice_mut().split_at_mut(self.input_offset);
             first[0..avail_in].clone_from_slice(&second[0..avail_in]);
             self.input_len -= self.input_offset;
             self.input_offset = 0;
@@ -348,7 +348,7 @@ impl<ErrType,
      AllocHT: Allocator<HuffmanTree>> CustomRead<ErrType> for
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
                          AllocF64, AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
-	fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, ErrType > {
+	fn read(&mut self, buf: &mut [u8]) -> Result<usize, ErrType > {
         let mut output_offset : usize = 0;
         let mut avail_out = buf.len() - output_offset;
         let mut avail_in = self.input_len - self.input_offset;

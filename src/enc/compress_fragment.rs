@@ -41,13 +41,13 @@ fn IsMatch(p1: &[u8], p2: &[u8]) -> i32 {
   }
 }
 
-fn BuildAndStoreLiteralPrefixCode<AllocHT:alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
+fn BuildAndStoreLiteralPrefixCode<AllocHT:alloc::Allocator<HuffmanTree>>(mht: &mut AllocHT,
                                   input: &[u8],
                                   input_size: usize,
-                                  mut depths: &mut [u8],
+                                  depths: &mut [u8],
                                   bits: &mut [u16],
-                                  mut storage_ix: &mut usize,
-                                  mut storage: &mut [u8])
+                                  storage_ix: &mut usize,
+                                  storage: &mut [u8])
 -> usize{
   let mut histogram: [u32; 256] = [0; 256];
   let mut histogram_total: usize;
@@ -142,8 +142,8 @@ fn EmitInsertLen(insertlen: usize,
                  depth: &[u8],
                  bits: &[u16],
                  histo: &mut [u32],
-                 mut storage_ix: &mut usize,
-                 mut storage: &mut [u8]) {
+                 storage_ix: &mut usize,
+                 storage: &mut [u8]) {
   if insertlen < 6usize {
     let code: usize = insertlen.wrapping_add(40usize);
     BrotliWriteBits(depth[(code as (usize))] as (usize),
@@ -217,7 +217,7 @@ fn ShouldUseUncompressedMode(delta: isize, insertlen: usize, literal_ratio: usiz
     0i32
   }
 }
-fn RewindBitPosition(new_storage_ix: usize, mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mut [u8]) {
   let bitpos: usize = new_storage_ix & 7usize;
   let mask: usize = (1u32 << bitpos).wrapping_sub(1u32) as (usize);
   {
@@ -231,8 +231,8 @@ fn RewindBitPosition(new_storage_ix: usize, mut storage_ix: &mut usize, mut stor
 fn EmitUncompressedMetaBlock(begin: &[u8],
                              len: usize,
                              storage_ix_start: usize,
-                             mut storage_ix: &mut usize,
-                             mut storage: &mut [u8]) {
+                             storage_ix: &mut usize,
+                             storage: &mut [u8]) {
   RewindBitPosition(storage_ix_start, storage_ix, storage);
   BrotliStoreMetaBlockHeader(len, 1i32, storage_ix, storage);
   *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
@@ -244,9 +244,9 @@ fn EmitUncompressedMetaBlock(begin: &[u8],
 fn EmitLongInsertLen(insertlen: usize,
                      depth: &[u8],
                      bits: &[u16],
-                     mut histo: &mut [u32],
-                     mut storage_ix: &mut usize,
-                     mut storage: &mut [u8]) {
+                     histo: &mut [u32],
+                     storage_ix: &mut usize,
+                     storage: &mut [u8]) {
   if insertlen < 22594usize {
     BrotliWriteBits(depth[(62usize)] as (usize),
                     bits[(62usize)] as (u64),
@@ -282,8 +282,8 @@ fn EmitLiterals(input: &[u8],
                 len: usize,
                 depth: &[u8],
                 bits: &[u16],
-                mut storage_ix: &mut usize,
-                mut storage: &mut [u8]) {
+                storage_ix: &mut usize,
+                storage: &mut [u8]) {
   let mut j: usize;
   j = 0usize;
   while j < len {
@@ -301,9 +301,9 @@ fn EmitLiterals(input: &[u8],
 fn EmitDistance(distance: usize,
                 depth: &[u8],
                 bits: &[u16],
-                mut histo: &mut [u32],
-                mut storage_ix: &mut usize,
-                mut storage: &mut [u8]) {
+                histo: &mut [u32],
+                storage_ix: &mut usize,
+                storage: &mut [u8]) {
   let d: u64 = distance.wrapping_add(3usize) as u64;
   let nbits: u32 = Log2FloorNonZero(d as u64).wrapping_sub(1u32);
   let prefix: u64 = d >> nbits & 1;
@@ -330,9 +330,9 @@ fn EmitDistance(distance: usize,
 fn EmitCopyLenLastDistance(copylen: usize,
                            depth: &[u8],
                            bits: &[u16],
-                           mut histo: &mut [u32],
-                           mut storage_ix: &mut usize,
-                           mut storage: &mut [u8]) {
+                           histo: &mut [u32],
+                           storage_ix: &mut usize,
+                           storage: &mut [u8]) {
   if copylen < 12usize {
     BrotliWriteBits(depth[(copylen.wrapping_sub(4usize) as (usize))] as (usize),
                     bits[(copylen.wrapping_sub(4usize) as (usize))] as (u64),
@@ -445,9 +445,9 @@ fn HashBytesAtOffset(v: u64, offset: i32, shift: usize) -> u32 {
 fn EmitCopyLen(copylen: usize,
                depth: &[u8],
                bits: &[u16],
-               mut histo: &mut [u32],
-               mut storage_ix: &mut usize,
-               mut storage: &mut [u8]) {
+               histo: &mut [u32],
+               storage_ix: &mut usize,
+               storage: &mut [u8]) {
   if copylen < 10usize {
     BrotliWriteBits(depth[(copylen.wrapping_add(14usize) as (usize))] as (usize),
                     bits[(copylen.wrapping_add(14usize) as (usize))] as (u64),
@@ -537,7 +537,7 @@ fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> i32 {
   }
 }
 
-fn UpdateBits(mut n_bits: usize, mut bits: u32, mut pos: usize, mut array: &mut [u8]) {
+fn UpdateBits(mut n_bits: usize, mut bits: u32, mut pos: usize, array: &mut [u8]) {
   while n_bits > 0usize {
     let byte_pos: usize = pos >> 3i32;
     let n_unchanged_bits: usize = pos & 7usize;
@@ -556,10 +556,10 @@ fn UpdateBits(mut n_bits: usize, mut bits: u32, mut pos: usize, mut array: &mut 
 
 
 fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
-                                  mut depth: &mut [u8],
-                                  mut bits: &mut [u16],
-                                  mut storage_ix: &mut usize,
-                                  mut storage: &mut [u8]) {
+                                  depth: &mut [u8],
+                                  bits: &mut [u16],
+                                  storage_ix: &mut usize,
+                                  storage: &mut [u8]) {
   let mut tree: [HuffmanTree; 129] = [NewHuffmanTree(0, 0, 0); 129];
   let mut cmd_depth: [u8; 704] = [0i32 as (u8); 704];
 
@@ -657,18 +657,18 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                          storage);
 }
 #[allow(unused_assignments)]
-fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
+fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
                                   input_ptr: &[u8],
                                   mut input_size: usize,
                                   is_last: i32,
-                                  mut table: &mut [i32],
+                                  table: &mut [i32],
                                   table_bits: usize,
-                                  mut cmd_depth: &mut [u8],
-                                  mut cmd_bits: &mut [u16],
-                                  mut cmd_code_numbits: &mut usize,
-                                  mut cmd_code: &mut [u8],
-                                  mut storage_ix: &mut usize,
-mut storage: &mut [u8]){
+                                  cmd_depth: &mut [u8],
+                                  cmd_bits: &mut [u16],
+                                  cmd_code_numbits: &mut usize,
+                                  cmd_code: &mut [u8],
+                                  storage_ix: &mut usize,
+                                  storage: &mut [u8]){
   let mut cmd_histo: [u32; 128] = [0; 128];
   let mut ip_end: usize = 0;
   let mut next_emit: usize = 0usize;
@@ -1083,17 +1083,18 @@ mut storage: &mut [u8]){
 }
 macro_rules! compress_specialization {
     ($table_bits : expr, $fname: ident) => {
-fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mut mht: &mut AllocHT,
+fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(
+                                   mht: &mut AllocHT,
                                    input: &[u8],
                                    input_size: usize,
                                    is_last: i32,
-                                   mut table: &mut [i32],
-                                   mut cmd_depth: &mut [u8],
-                                   mut cmd_bits: &mut [u16],
-                                   mut cmd_code_numbits: &mut usize,
-                                   mut cmd_code: &mut [u8],
-                                   mut storage_ix: &mut usize,
-                                   mut storage: &mut [u8]) {
+                                   table: &mut [i32],
+                                   cmd_depth: &mut [u8],
+                                   cmd_bits: &mut [u16],
+                                   cmd_code_numbits: &mut usize,
+                                   cmd_code: &mut [u8],
+                                   storage_ix: &mut usize,
+                                   storage: &mut [u8]) {
   BrotliCompressFragmentFastImpl(mht,
                                  input,
                                  input_size,
@@ -1116,18 +1117,18 @@ compress_specialization!(13, BrotliCompressFragmentFastImpl13);
 compress_specialization!(15, BrotliCompressFragmentFastImpl15);
 
 
-pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(mut m: &mut AllocHT,
+pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
                                   input: &[u8],
                                   input_size: usize,
                                   is_last: i32,
-                                  mut table: &mut [i32],
+                                  table: &mut [i32],
                                   table_size: usize,
-                                  mut cmd_depth: &mut [u8],
-                                  mut cmd_bits: &mut [u16],
-                                  mut cmd_code_numbits: &mut usize,
-                                  mut cmd_code: &mut [u8],
-                                  mut storage_ix: &mut usize,
-mut storage: &mut [u8]){
+                                  cmd_depth: &mut [u8],
+                                  cmd_bits: &mut [u16],
+                                  cmd_code_numbits: &mut usize,
+                                  cmd_code: &mut [u8],
+                                  storage_ix: &mut usize,
+                                  storage: &mut [u8]) {
   let initial_storage_ix: usize = *storage_ix;
   let table_bits: usize = Log2FloorNonZero(table_size as u64) as (usize);
   if input_size == 0usize {
