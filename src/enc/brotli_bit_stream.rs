@@ -164,7 +164,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
     {
         last_btypel_index = command_queue.size();
         command_queue.push(interface::Command::BlockSwitchLiteral(
-            interface::BlockSwitch(0)));
+            interface::LiteralBlockSwitch::new(0, 0)));
     }
     for (index, cmd) in commands.iter().enumerate() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,

@@ -15,6 +15,24 @@ impl BlockSwitch {
     }
 }
 
+#[derive(Debug,Copy,Clone,Default)]
+pub struct LiteralBlockSwitch(pub u8, pub u8);
+
+impl LiteralBlockSwitch {
+    pub fn new(block_type: u8, stride: u8) -> Self {
+        LiteralBlockSwitch(block_type, stride)
+    }
+    pub fn block_type(&self) -> u8 {
+        self.0
+    }
+    pub fn stride(&self) -> u8 {
+        self.1
+    }
+    pub fn update_stride(&mut self, new_stride: u8) {
+        self.1 = new_stride;
+    }
+}
+
 pub const LITERAL_PREDICTION_MODE_SIGN: u8 = 3;
 pub const LITERAL_PREDICTION_MODE_UTF8: u8 = 2;
 pub const LITERAL_PREDICTION_MODE_MSB6: u8 = 1;
@@ -128,7 +146,7 @@ pub enum Command<SliceType:SliceWrapper<u8> > {
     Dict(DictCommand),
     Literal(LiteralCommand<SliceType>),
     BlockSwitchCommand(BlockSwitch),
-    BlockSwitchLiteral(BlockSwitch),
+    BlockSwitchLiteral(LiteralBlockSwitch),
     BlockSwitchDistance(BlockSwitch),
     PredictionMode(PredictionModeContextMap<SliceType>),
 }
@@ -152,9 +170,9 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for Command<SliceType> {
             &Command::Copy(ref copy) => Command::Copy(copy.clone()),
             &Command::Dict(ref dict) => Command::Dict(dict.clone()),
             &Command::Literal(ref literal) => Command::Literal(literal.clone()),
-            &Command::BlockSwitchCommand(ref switch) => Command::BlockSwitchLiteral(switch.clone()),
+            &Command::BlockSwitchCommand(ref switch) => Command::BlockSwitchCommand(switch.clone()),
             &Command::BlockSwitchLiteral(ref switch) => Command::BlockSwitchLiteral(switch.clone()),
-            &Command::BlockSwitchDistance(ref switch) => Command::BlockSwitchLiteral(switch.clone()),
+            &Command::BlockSwitchDistance(ref switch) => Command::BlockSwitchDistance(switch.clone()),
             &Command::PredictionMode(ref pm) => Command::PredictionMode(pm.clone()),
         }
     }
