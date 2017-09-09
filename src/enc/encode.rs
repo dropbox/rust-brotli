@@ -2451,7 +2451,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                     num_literals,
                     num_commands) == 0 {
     dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
-    BrotliStoreUncompressedMetaBlock(is_last,
+    BrotliStoreUncompressedMetaBlock(m32,
+                                     is_last,
                                      data,
                                      wrapped_last_flush_pos as (usize),
                                      mask,
@@ -2476,6 +2477,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
   }
   if (*params).quality <= 2i32 {
     BrotliStoreMetaBlockFast(mht,
+                             m32,
                              data,
                              wrapped_last_flush_pos as (usize),
                              bytes,
@@ -2492,7 +2494,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
       return;
     }
   } else if (*params).quality < 4i32 {
-    BrotliStoreMetaBlockTrivial(data,
+    BrotliStoreMetaBlockTrivial(m32,
+                                data,
                                 wrapped_last_flush_pos as (usize),
                                 bytes,
                                 mask,
@@ -2593,7 +2596,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
       //     (4usize).wrapping_mul(::std::mem::size_of::<i32>()));
       storage[(0usize)] = last_byte;
       *storage_ix = last_byte_bits as (usize);
-      BrotliStoreUncompressedMetaBlock(is_last,
+      BrotliStoreUncompressedMetaBlock(m32,
+                                       is_last,
                                        data,
                                        wrapped_last_flush_pos as (usize),
                                        mask,

@@ -24,6 +24,8 @@ pub mod compress_fragment;
 pub mod encode;
 pub mod reader;
 pub mod writer;
+pub mod find_stride;
+pub mod interface;
 mod test;
 pub use self::util::floatX;
 pub use self::backward_references::BrotliEncoderParams;
