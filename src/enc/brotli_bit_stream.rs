@@ -96,6 +96,18 @@ impl<'a> CommandQueue<'a> {
     fn content(&mut self) -> &[interface::Command<InputReference>] {
         self.queue.split_at(self.loc).0
     }
+    fn push_literals(&mut self, data:&InputPair<'a>) {
+        if data.0.len() != 0 {
+            self.push(interface::Command::Literal(interface::LiteralCommand{
+                data:InputReference(data.0),
+            }));
+        }
+        if data.1.len() != 0 {
+            self.push(interface::Command::Literal(interface::LiteralCommand{
+                data:InputReference(data.1),
+            }));
+        }
+    }
 }
 #[cfg(not(feature="no-stdlib"))]
 fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
@@ -207,6 +219,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
             while tmp_inserts.len() > btypel_sub as usize {
                 // we have to divide some:
                 let (in_a, in_b) = tmp_inserts.split_at(btypel_sub as usize);
+                command_queue.push_literals(&in_a);
                 if in_a.len() != 0 {
                     println_stderr!("insert {:} {:x}",
                                     in_a.len(),
@@ -222,12 +235,16 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                                                                             btypel_sub,
                                                                             &mut scratch_stride_counter);
 */
+                    last_btypel_index = command_queue.size();
+                    command_queue.push(interface::Command::BlockSwitchLiteral(
+                        interface::LiteralBlockSwitch::new(block_type.btypel.types[btypel_counter], 0)));
                     println_stderr!("ltype {:} {:}",
                                     block_type.btypel.types[btypel_counter], 0/*cur_stride*/);
                 } else {
                     btypel_sub = 1u32<<31;
                 }
             }
+            command_queue.push_literals(&tmp_inserts);
             if tmp_inserts.len() != 0 {
                 println_stderr!("insert {:} {:x}",
                                 tmp_inserts.len(),
@@ -242,6 +259,8 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                 btyped_counter += 1;
                 if block_type.btyped.types.len() > btyped_counter {
                     btyped_sub = block_type.btyped.lengths[btyped_counter];
+                    command_queue.push(interface::Command::BlockSwitchDistance(
+                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])));
                     println_stderr!("dtype {:}",
                                     block_type.btyped.types[btyped_counter]);
                 } else {
@@ -264,6 +283,15 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                                                       copy_len as i32,
                                                       action as i32) as usize;
             if actual_copy_len <= mb_len {
+                command_queue.push(interface::Command::Dict(
+                    interface::DictCommand{
+                        word_size: copy_len as u8,
+                        transform: action as u8,
+                        final_size: actual_copy_len as u8,
+                        empty: 0,
+                        word_id: word_sub_index as u32,
+                    }));
+
                 println_stderr!("dict {:} word {:},{:} {:x} func {:} {:x} ctx {:}",
                                 actual_copy_len,
                                 copy_len, word_sub_index,
@@ -284,6 +312,11 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
         } else {
             actual_copy_len = core::cmp::min(mb_len, copy_len);
             if actual_copy_len != 0 {
+                command_queue.push(interface::Command::Copy(
+                    interface::CopyCommand{
+                        distance: final_distance as u32,
+                        num_bytes: actual_copy_len as u32,
+                    }));
                 println_stderr!("copy {:} from {:} ctx {:}",
                                 actual_copy_len, final_distance, distance_context);
             }
