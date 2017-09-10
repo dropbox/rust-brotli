@@ -1,7 +1,7 @@
 
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-
+use core::mem;
 use core::ops::{Index,IndexMut};
 use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode, CommandDistanceIndexAndOffset};
 struct EntropyBucketPopulation<AllocU32: alloc::Allocator<u32> > {
@@ -98,5 +98,13 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
             
         }
         0
+    }
+    pub fn free(&mut self, m32: &mut AllocU32) {
+        for item in self.pop.iter_mut() {
+            m32.free_cell(mem::replace(&mut item.bucket_populations, AllocU32::AllocatedMemory::default()))
+        }
+    }
+    pub fn is_free(&mut self) -> bool {
+        self.pop[0].bucket_populations.slice().len() == 0
     }
 }

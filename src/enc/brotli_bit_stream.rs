@@ -68,17 +68,31 @@ impl<'a> SliceWrapper<u8> for InputReference<'a> {
 }
 
 const COMMAND_BUFFER_SIZE: usize = 16384;
-struct CommandQueue<'a> {
+struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     queue: [interface::Command<InputReference<'a> >;COMMAND_BUFFER_SIZE],
     loc: usize,
+    last_btypel_index: Option<usize>,
+    entropy_tally_total: find_stride::EntropyTally<AllocU32>,
+    entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
 }
 
-impl<'a> CommandQueue<'a> {
-    fn new() -> CommandQueue <'a>{
+impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
+    fn new(m32:&mut AllocU32) -> CommandQueue <'a, AllocU32> {
+        let (mut entropy_tally_total,
+             mut entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
         CommandQueue {
             queue:[interface::Command::<InputReference<'a>>::default();COMMAND_BUFFER_SIZE],
             loc:0,
+            entropy_tally_total: entropy_tally_total,
+            entropy_tally_scratch: entropy_tally_scratch,
+            last_btypel_index: None,
         }
+    }
+    fn header(&self, lgwin: i32, mb_size: usize, num_types_l: u32, num_types_c: u32, num_types_d: u32) {
+        use std::io::{Write};
+        println_stderr!("window {:} len {:} nbltypesl {:} nbltypesi {:} nbltypesd {:}",
+                    lgwin, mb_size,
+                    num_types_l, num_types_c, num_types_d);
     }
     fn push(&mut self, val: interface::Command<InputReference<'a> >) {
         self.queue[self.loc] = val;
@@ -96,6 +110,15 @@ impl<'a> CommandQueue<'a> {
     fn content(&mut self) -> &[interface::Command<InputReference>] {
         self.queue.split_at(self.loc).0
     }
+    fn flush(&mut self) {
+       self.last_btypel_index = None;
+    }
+    fn push_block_switch_literal(&mut self, block_type: u8) {
+        self.flush();
+        self.last_btypel_index = Some(self.size());
+        self.push(interface::Command::BlockSwitchLiteral(
+            interface::LiteralBlockSwitch::new(block_type, 0)))
+    }
     fn push_literals(&mut self, data:&InputPair<'a>) {
         if data.0.len() != 0 {
             self.push(interface::Command::Literal(interface::LiteralCommand{
@@ -108,6 +131,19 @@ impl<'a> CommandQueue<'a> {
             }));
         }
     }
+    fn free(&mut self, m32: &mut AllocU32) {
+       self.flush();
+       self.entropy_tally_total.free(m32);
+       self.entropy_tally_scratch.free(m32);
+    }
+}
+
+impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
+  fn drop(&mut self) {
+     if !self.entropy_tally_total.is_free() {
+        panic!("Need to call free before CommandQueue drops");
+     }
+  }
 }
 #[cfg(not(feature="no-stdlib"))]
 fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
@@ -131,7 +167,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                block_type.btypec.num_types);
     assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btyped.num_types);
-    let mut command_queue = CommandQueue::new();
+    let mut command_queue = CommandQueue::new(m32);
     if block_type.literal_context_map.len() == 256 * 64 {
         for (index, item) in block_type.literal_context_map.split_at(256 * 64).0.iter().enumerate() {
             local_literal_context_map[index] = *item as u8;
@@ -148,18 +184,13 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
             literal_context_map:InputReference(&local_literal_context_map[..]),
             distance_context_map:InputReference(&local_distance_context_map[..]),            
     }));
-    println_stderr!("window {:} len {:} nbltypesl {:} nbltypesi {:} nbltypesd {:}",
-                    lgwin, mb_len,
-                    block_type.btypel.num_types,
-                    block_type.btypec.num_types,
-                    block_type.btyped.num_types);
+    command_queue.header(lgwin, mb_len, block_type.btypel.num_types, block_type.btypec.num_types, block_type.btyped.num_types);
     println_stderr!(
         "prediction {} lcontextmap{} dcontextmap{}",
         context_type_str(context_type),
         block_type.literal_context_map.iter().fold(::std::string::String::new(), |res, &val| res + " " + &val.to_string()),
         block_type.distance_context_map.iter().fold(::std::string::String::new(), |res, &val| res + " " + &val.to_string()),
     );
-    let mut last_btypel_index = 1;
                        
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
@@ -171,12 +202,8 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
     let mut btypel_sub = if block_type.btypel.num_types == 1 { 1u32<<31 } else {block_type.btypel.lengths[0]};
     let mut btypec_sub = if block_type.btypec.num_types == 1 { 1u32<<31 } else {block_type.btypec.lengths[0]};
     let mut btyped_sub = if block_type.btyped.num_types == 1 { 1u32<<31 } else {block_type.btyped.lengths[0]};
-    let (mut locked_stride_counter,
-         mut scratch_stride_counter) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
     {
-        last_btypel_index = command_queue.size();
-        command_queue.push(interface::Command::BlockSwitchLiteral(
-            interface::LiteralBlockSwitch::new(0, 0)));
+        command_queue.push_block_switch_literal(0);
     }
     for (index, cmd) in commands.iter().enumerate() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
@@ -235,9 +262,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                                                                             btypel_sub,
                                                                             &mut scratch_stride_counter);
 */
-                    last_btypel_index = command_queue.size();
-                    command_queue.push(interface::Command::BlockSwitchLiteral(
-                        interface::LiteralBlockSwitch::new(block_type.btypel.types[btypel_counter], 0)));
+                    command_queue.push_block_switch_literal(block_type.btypel.types[btypel_counter]);
                     println_stderr!("ltype {:} {:}",
                                     block_type.btypel.types[btypel_counter], 0/*cur_stride*/);
                 } else {
@@ -333,6 +358,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
         recoder_state.num_bytes_encoded += copied.len();
         input_iter = remainder;
     }
+    command_queue.free(m32);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
    
