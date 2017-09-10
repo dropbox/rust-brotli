@@ -92,11 +92,8 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
                 ]
             })
     }
-    pub fn pick_best_stride(&mut self, commands: &[Command], btype_bytes_left:u32,
-                            scratch: &mut EntropyTally<AllocU32>) -> u8 {
-        for cmd in commands.iter() {
-            
-        }
+    pub fn pick_best_stride(&mut self, /*commands: &[Command], btype_bytes_left:u32,
+                            */scratch: &mut EntropyTally<AllocU32>) -> u8 {
         0
     }
     pub fn free(&mut self, m32: &mut AllocU32) {

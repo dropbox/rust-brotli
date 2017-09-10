@@ -107,11 +107,27 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn clear(&mut self) {
         self.loc = 0;
     }
+    fn write_one(&self, cmd: &interface::Command<InputReference>) {
+    }
     fn content(&mut self) -> &[interface::Command<InputReference>] {
         self.queue.split_at(self.loc).0
     }
     fn flush(&mut self) {
+       let cur_stride = self.entropy_tally_total.pick_best_stride(&mut self.entropy_tally_scratch);
+       match self.last_btypel_index.clone() {
+           None => {},
+           Some(literal_block_type_offset) => {
+               match &mut self.queue[literal_block_type_offset] {
+                   &mut interface::Command::BlockSwitchLiteral(ref mut cmd) => cmd.1 = cur_stride,
+                   _ => panic!("Logic Error: literal block type index must point to literal block type"),
+               }
+           },
+       }
        self.last_btypel_index = None;
+       for cmd in self.queue.iter() {
+           self.write_one(cmd);
+       }
+       self.clear();
     }
     fn push_block_switch_literal(&mut self, block_type: u8) {
         self.flush();
