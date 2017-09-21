@@ -59,6 +59,17 @@ fn context_type_str(context_type:ContextType) -> &'static str {
          ContextType::CONTEXT_SIGNED => "sign",
    }
 }
+
+fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNibble) -> &'static str {
+   match prediction_mode_nibble.prediction_mode() {
+         interface::LITERAL_PREDICTION_MODE_SIGN => "sign",
+         interface::LITERAL_PREDICTION_MODE_UTF8 => "lsb6",
+         interface::LITERAL_PREDICTION_MODE_MSB6 => "msb6",
+         interface::LITERAL_PREDICTION_MODE_UTF8 => "utf8",
+         _ => "unknown",
+   }
+}
+
 #[derive(Copy,Clone)]
 pub struct InputReference<'a>(pub &'a [u8]);
 impl<'a> SliceWrapper<u8> for InputReference<'a> {
@@ -108,6 +119,54 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         self.loc = 0;
     }
     fn write_one(&self, cmd: &interface::Command<InputReference>) {
+       use std::io::Write;
+       match cmd {
+             &interface::Command::BlockSwitchLiteral(ref bsl) => {
+                println_stderr!("ltype {} {}", bsl.0, bsl.1);
+             },
+             &interface::Command::BlockSwitchCommand(ref bsc) => {
+                println_stderr!("ctype {}", bsc.0);
+             },
+             &interface::Command::BlockSwitchDistance(ref bsd) => {
+                println_stderr!("dtype {}", bsd.0);
+             },
+             &interface::Command::PredictionMode(ref prediction) => {
+                println_stderr!("prediction {} lcontextmap{} dcontextmap{}",
+                    prediction_mode_str(prediction.literal_prediction_mode),
+                    prediction.literal_context_map.slice().iter().fold(::std::string::String::new(),
+                                                               |res, &val| res + " " + &val.to_string()),
+                    prediction.distance_context_map.slice().iter().fold(::std::string::String::new(),
+                                                                |res, &val| res + " " + &val.to_string()));
+             },
+             &interface::Command::Copy(ref copy) => {
+                println_stderr!("copy {} from {}", copy.num_bytes, copy.distance);
+             },
+             &interface::Command::Dict(ref dict) => {
+               let mut transformed_word = [0u8;38];
+               let word_index = dict.word_id as usize * dict.word_size as usize +
+                   kBrotliDictionaryOffsetsByLength[dict.word_size as usize] as usize;
+               let raw_word = &kBrotliDictionary[word_index..(word_index + dict.word_size as usize)];
+               let actual_copy_len = TransformDictionaryWord(&mut transformed_word[..],
+                                                      raw_word,
+                                                      dict.word_size as i32,
+                                                      dict.transform as i32) as usize;
+
+                transformed_word.split_at(actual_copy_len).0;
+                assert_eq!(dict.final_size as usize, actual_copy_len);
+                println_stderr!("dict {} word {},{} {:x} func {} {:x}",
+                                      actual_copy_len,
+                                      dict.word_size,
+                                      dict.word_id,
+                                      InputPair(raw_word, &[]),
+                                      dict.transform,
+                                      InputPair(transformed_word.split_at(actual_copy_len).0, &[]));
+             },
+             &interface::Command::Literal(ref lit) => {
+                println_stderr!("insert {} {:x}",
+                                      lit.data.slice().len(),
+                                      InputPair(lit.data.slice(), &[]));
+             },
+       }
     }
     fn content(&mut self) -> &[interface::Command<InputReference>] {
         self.queue.split_at(self.loc).0
@@ -201,12 +260,6 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
             distance_context_map:InputReference(&local_distance_context_map[..]),            
     }));
     command_queue.header(lgwin, mb_len, block_type.btypel.num_types, block_type.btypec.num_types, block_type.btyped.num_types);
-    println_stderr!(
-        "prediction {} lcontextmap{} dcontextmap{}",
-        context_type_str(context_type),
-        block_type.literal_context_map.iter().fold(::std::string::String::new(), |res, &val| res + " " + &val.to_string()),
-        block_type.distance_context_map.iter().fold(::std::string::String::new(), |res, &val| res + " " + &val.to_string()),
-    );
                        
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
@@ -249,9 +302,6 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                     btypec_sub = block_type.btypec.lengths[btypec_counter];
                     command_queue.push(interface::Command::BlockSwitchCommand(
                             interface::BlockSwitch(block_type.btypec.types[btypec_counter])));
-                    
-                    println_stderr!("ctype {:}",
-                                    block_type.btypec.types[btypec_counter]);
                 } else {
                     btypec_sub = 1u32 << 31;
                 }
@@ -262,11 +312,8 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
             while tmp_inserts.len() > btypel_sub as usize {
                 // we have to divide some:
                 let (in_a, in_b) = tmp_inserts.split_at(btypel_sub as usize);
-                command_queue.push_literals(&in_a);
                 if in_a.len() != 0 {
-                    println_stderr!("insert {:} {:x}",
-                                    in_a.len(),
-                                    in_a);
+                    command_queue.push_literals(&in_a);
                 }
                 mb_len -= in_a.len();
                 tmp_inserts = in_b;
@@ -279,17 +326,12 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                                                                             &mut scratch_stride_counter);
 */
                     command_queue.push_block_switch_literal(block_type.btypel.types[btypel_counter]);
-                    println_stderr!("ltype {:} {:}",
-                                    block_type.btypel.types[btypel_counter], 0/*cur_stride*/);
                 } else {
                     btypel_sub = 1u32<<31;
                 }
             }
             command_queue.push_literals(&tmp_inserts);
             if tmp_inserts.len() != 0 {
-                println_stderr!("insert {:} {:x}",
-                                tmp_inserts.len(),
-                                tmp_inserts);
                 mb_len -= tmp_inserts.len();
                 btypel_sub -= tmp_inserts.len() as u32;
             }
@@ -302,8 +344,6 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                     btyped_sub = block_type.btyped.lengths[btyped_counter];
                     command_queue.push(interface::Command::BlockSwitchDistance(
                         interface::BlockSwitch(block_type.btyped.types[btyped_counter])));
-                    println_stderr!("dtype {:}",
-                                    block_type.btyped.types[btyped_counter]);
                 } else {
                     btyped_sub = 1u32 << 31;
                 }
@@ -332,20 +372,12 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                         empty: 0,
                         word_id: word_sub_index as u32,
                     }));
-
-                println_stderr!("dict {:} word {:},{:} {:x} func {:} {:x} ctx {:}",
-                                actual_copy_len,
-                                copy_len, word_sub_index,
-                                InputPair(raw_word, &[]),
-                                action, InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
-                                distance_context);
                 mb_len -= actual_copy_len;
                 assert_eq!(InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
                            interim.split_at(actual_copy_len).0);
             } else if mb_len != 0 {
                 // truncated dictionary word: represent it as literals instead
-                println_stderr!("insert {:} {:x}",
-                                mb_len, InputPair(transformed_word.split_at(mb_len).0, &[]));
+                command_queue.push_literals(&interim.split_at(mb_len).0);
                 mb_len = 0;
                 assert_eq!(InputPair(transformed_word.split_at(mb_len).0, &[]),
                            interim.split_at(mb_len).0);
@@ -358,8 +390,6 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                         distance: final_distance as u32,
                         num_bytes: actual_copy_len as u32,
                     }));
-                println_stderr!("copy {:} from {:} ctx {:}",
-                                actual_copy_len, final_distance, distance_context);
             }
             mb_len -= actual_copy_len;
             if prev_dist_index != 1 || dist_offset != 0 { // update distance cache unless it's the "0 distance symbol"
