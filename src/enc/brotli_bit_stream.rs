@@ -63,7 +63,7 @@ fn context_type_str(context_type:ContextType) -> &'static str {
 fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNibble) -> &'static str {
    match prediction_mode_nibble.prediction_mode() {
          interface::LITERAL_PREDICTION_MODE_SIGN => "sign",
-         interface::LITERAL_PREDICTION_MODE_UTF8 => "lsb6",
+         interface::LITERAL_PREDICTION_MODE_LSB6 => "lsb6",
          interface::LITERAL_PREDICTION_MODE_MSB6 => "msb6",
          interface::LITERAL_PREDICTION_MODE_UTF8 => "utf8",
          _ => "unknown",
@@ -108,6 +108,9 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn push(&mut self, val: interface::Command<InputReference<'a> >) {
         self.queue[self.loc] = val;
         self.loc += 1;
+        if self.full() {
+            self.flush();
+        }
     }
     fn full(&self) -> bool {
         self.loc == self.queue.len()
@@ -183,7 +186,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
            },
        }
        self.last_btypel_index = None;
-       for cmd in self.queue.iter() {
+       for cmd in self.queue.split_at(self.loc).0.iter() {
            self.write_one(cmd);
        }
        self.clear();
@@ -243,21 +246,21 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
     assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btyped.num_types);
     let mut command_queue = CommandQueue::new(m32);
-    if block_type.literal_context_map.len() == 256 * 64 {
-        for (index, item) in block_type.literal_context_map.split_at(256 * 64).0.iter().enumerate() {
+    if block_type.literal_context_map.len() <= 256 * 64 {
+        for (index, item) in block_type.literal_context_map.iter().enumerate() {
             local_literal_context_map[index] = *item as u8;
         }
     }
-    if block_type.distance_context_map.len() == 256 * 64 {
-        for (index, item) in block_type.distance_context_map.split_at(256 * 64).0.iter().enumerate() {
+    if block_type.distance_context_map.len() <= 256 * 64 {
+        for (index, item) in block_type.distance_context_map.iter().enumerate() {
             local_distance_context_map[index] = *item as u8;
         }
     }
     command_queue.push(interface::Command::PredictionMode(
         interface::PredictionModeContextMap::<InputReference>{
             literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type as u8),
-            literal_context_map:InputReference(&local_literal_context_map[..]),
-            distance_context_map:InputReference(&local_distance_context_map[..]),            
+            literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
+            distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
     }));
     command_queue.header(lgwin, mb_len, block_type.btypel.num_types, block_type.btypec.num_types, block_type.btyped.num_types);
                        
@@ -274,13 +277,13 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
     {
         command_queue.push_block_switch_literal(0);
     }
-    for (index, cmd) in commands.iter().enumerate() {
+    for cmd in commands.iter() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
                                                                      mb_len));
         recoder_state.num_bytes_encoded += inserts.len();
 //        let copy_len = CommandCopyLen(cmd) as usize;
         let _copy_cursor = input.len() - interim.len();
-        let distance_context = CommandDistanceContext(cmd);
+        // let distance_context = CommandDistanceContext(cmd);
         let copylen_code: u32 = CommandCopyLenCode(cmd);
 
         let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, n_postfix, n_direct);

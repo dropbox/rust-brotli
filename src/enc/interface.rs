@@ -1,4 +1,4 @@
-use alloc::{SliceWrapper, Allocator};
+use alloc::SliceWrapper;
 #[derive(Debug,Copy,Clone,Default)]
 pub struct BlockSwitch(pub u8);
 // Commands that can instantiate as a no-op should implement this.
