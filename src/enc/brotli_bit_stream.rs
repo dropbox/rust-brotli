@@ -80,6 +80,8 @@ impl<'a> SliceWrapper<u8> for InputReference<'a> {
 
 const COMMAND_BUFFER_SIZE: usize = 16384;
 struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
+    mb: InputPair<'a>,
+    mb_byte_offset: usize,
     queue: [interface::Command<InputReference<'a> >;COMMAND_BUFFER_SIZE],
     loc: usize,
     last_btypel_index: Option<usize>,
@@ -88,10 +90,12 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
 }
 
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
-    fn new(m32:&mut AllocU32) -> CommandQueue <'a, AllocU32> {
+    fn new(m32:&mut AllocU32, mb: InputPair<'a>) -> CommandQueue <'a, AllocU32> {
         let (mut entropy_tally_total,
-             mut entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
+             entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
         CommandQueue {
+            mb:mb,
+            mb_byte_offset:0,
             queue:[interface::Command::<InputReference<'a>>::default();COMMAND_BUFFER_SIZE],
             loc:0,
             entropy_tally_total: entropy_tally_total,
@@ -175,7 +179,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         self.queue.split_at(self.loc).0
     }
     fn flush(&mut self) {
-       let cur_stride = self.entropy_tally_total.pick_best_stride(&mut self.entropy_tally_scratch);
+       let cur_stride = self.entropy_tally_total.pick_best_stride(self.queue.split_at(self.loc).0, &mut self.entropy_tally_scratch, self.mb.0, self.mb.1, &mut self.mb_byte_offset);
        match self.last_btypel_index.clone() {
            None => {},
            Some(literal_block_type_offset) => {
@@ -245,7 +249,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                block_type.btypec.num_types);
     assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btyped.num_types);
-    let mut command_queue = CommandQueue::new(m32);
+    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1));
     if block_type.literal_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.literal_context_map.iter().enumerate() {
             local_literal_context_map[index] = *item as u8;
