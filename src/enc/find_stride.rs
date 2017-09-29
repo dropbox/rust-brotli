@@ -4,7 +4,32 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use core::mem;
 use core::ops::{Index,IndexMut};
 use super::bit_cost::BitsEntropy;
+use super::util::{floatX, FastLog2};
 use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode, CommandDistanceIndexAndOffset};
+
+fn ApproxCost(population: &[u32]) -> floatX{
+    let mut retval: floatX= 0.0 as floatX;
+    for pop in population.iter() {
+        retval += *pop as floatX * (*pop as floatX);
+    }
+    return 1.0 as floatX/retval;
+}
+fn HuffmanCost(population: &[u32]) -> floatX{
+    assert_eq!(population.len(), 256 * 256);
+    let mut cost : floatX = 0.0 as floatX;
+    let mut sum : floatX = 0.0 as floatX;
+    let mut buckets : floatX = 0.0 as floatX;
+    for pop in population.iter() {
+       if *pop == 0 {
+           continue;
+       }
+       cost -= *pop as floatX * FastLog2(*pop as u64);
+       sum += *pop as floatX;
+       buckets += 1.0 as floatX;
+    }
+    return 12.0 as floatX * buckets +  cost + sum * FastLog2(sum as u64);
+}
+
 struct EntropyBucketPopulation<AllocU32: alloc::Allocator<u32> > {
     pub bucket_populations: AllocU32::AllocatedMemory,
     pub cached_bit_entropy: f64,
@@ -15,7 +40,46 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
        for (item, other_item) in self.bucket_populations.slice_mut().iter_mut().zip(other.bucket_populations.slice().iter()) {
            *item += *other_item;
        }
-       self.cached_bit_entropy = BitsEntropy(self.bucket_populations.slice(), self.bucket_populations.slice().len()) as f64;
+       self.cached_bit_entropy = HuffmanCost(self.bucket_populations.slice()) as f64;
+   }
+   fn bzero(&mut self) {
+      self.cached_bit_entropy = 0.0;
+      for bp in self.bucket_populations.slice_mut().iter_mut() {
+         *bp = 0;
+      }
+   }
+   fn initiate_from(&mut self, row: &[Self], row_stride:&[u8], prev_item: Option<&Self>, stride: u8) {
+      self.cached_bit_entropy = 0.0;
+      let mut found_any = false;
+      for (index, item) in row.iter().enumerate() {
+          if row_stride[index] != stride {
+             continue;
+          }
+          if !found_any {
+              self.bucket_populations.slice_mut().clone_from_slice(item.bucket_populations.slice());
+              found_any = true;
+          } else{
+              for (dst, src) in self.bucket_populations.slice_mut().iter_mut().zip(item.bucket_populations.slice().iter()) {
+                  *dst += *src;
+              }
+          }
+      }
+      match prev_item {
+          None => {}, 
+          Some(other) => {
+              if !found_any {
+                  self.bucket_populations.slice_mut().clone_from_slice(other.bucket_populations.slice());
+                  found_any = true;
+              } else{
+                  for (dst, src) in self.bucket_populations.slice_mut().iter_mut().zip(other.bucket_populations.slice()) {
+                     *dst += *src;
+                  }
+              }
+          }
+      }
+     if !found_any {
+         self.bzero();
+     }
    }
 }
 
@@ -41,6 +105,103 @@ impl <AllocU32: alloc::Allocator<u32> > IndexMut<BucketPopIndex> for EntropyBuck
 
 pub struct EntropyTally<AllocU32: alloc::Allocator<u32> > {
     pop:[EntropyBucketPopulation<AllocU32>;NUM_STRIDES],
+}
+const NUM_LEVELS: usize = 3;
+const NUM_NODES: usize = (1<<(1 + NUM_LEVELS)) - 1;
+pub struct EntropyPyramid<AllocU32: alloc::Allocator<u32> > {
+    pop: [EntropyBucketPopulation<AllocU32>;NUM_NODES],
+    stride: [u8;NUM_NODES],
+}
+
+impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
+    pub fn new(m32: &mut AllocU32) -> Self {
+        let size = 256 * 256;
+        EntropyPyramid::<AllocU32> {
+           pop: [
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0f64,
+                    bucket_populations:m32.alloc_cell(size),
+                },
+           ],         
+           stride:[1;NUM_NODES],
+        }
+    }
+    pub fn populate_entry(&mut self, input0:&[u8], input1:&[u8], scratch: &mut EntropyTally<AllocU32>, index: u32, mirror_index_start: Option<u32>, mirror_index_end: Option<u32>, alt_prev_index: Option<u32>) {
+        let (alt_tally, alt_stride) = match alt_prev_index {
+           None => (None, None),
+           Some(alt_index) => (Some(&self.pop[alt_index as usize]), Some(self.stride[alt_index as usize])),
+        };
+        for stride in 0..NUM_STRIDES {
+            match mirror_index_start {
+                None => {
+                   scratch.pop[stride].bzero();
+                },
+                Some(mirror_index) => {
+                 scratch.pop[stride].initiate_from(&self.pop[mirror_index as usize ..
+                                                   mirror_index_end.unwrap() as usize],
+                                                   &self.stride[mirror_index as usize ..mirror_index_end.unwrap() as usize],
+                                                   if alt_stride == Some(stride as u8) {alt_tally} else {None},
+                                                   stride as u8);
+                },
+            }
+        }
+    }
 }
 
 impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
@@ -133,9 +294,9 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
         }
         best_index as u8
     }
-    fn get_previous_bytes(&self, input0:&[u8], input1:&[u8], bytes_processed: usize) -> [u8; 8] {
-        let mut retval = [0u8; 8];
-        for index in 0..8 {
+    fn get_previous_bytes(&self, input0:&[u8], input1:&[u8], bytes_processed: usize) -> [u8; NUM_STRIDES] {
+        let mut retval = [0u8; NUM_STRIDES];
+        for index in 0..NUM_STRIDES {
             let bp_offset = index + 1;
             if bp_offset <= bytes_processed {
                  let offset = bytes_processed - bp_offset;
@@ -160,8 +321,8 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
                 &interface::Command::Literal(ref lit) => {
                     let mut priors = self.get_previous_bytes(input0, input1, *bytes_processed);
                     for (lindex, val) in lit.data.slice().iter().enumerate() {
-			 if lindex == 8 {
-			    let vpriors = self.get_previous_bytes(input0, input1, 8+*bytes_processed);
+			 if lindex == NUM_STRIDES  {
+			    let vpriors = self.get_previous_bytes(input0, input1, NUM_STRIDES+*bytes_processed);
 			    assert_eq!(vpriors, priors);
 			 }
                          for (index, prior) in priors.iter().enumerate() {

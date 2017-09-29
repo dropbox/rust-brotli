@@ -87,12 +87,14 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     last_btypel_index: Option<usize>,
     entropy_tally_total: find_stride::EntropyTally<AllocU32>,
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
+    entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
 }
 
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn new(m32:&mut AllocU32, mb: InputPair<'a>) -> CommandQueue <'a, AllocU32> {
         let (mut entropy_tally_total,
              entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
+        let entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::new(m32);
         CommandQueue {
             mb:mb,
             mb_byte_offset:0,
@@ -100,6 +102,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             loc:0,
             entropy_tally_total: entropy_tally_total,
             entropy_tally_scratch: entropy_tally_scratch,
+            entropy_pyramid: entropy_pyramid,
             last_btypel_index: None,
         }
     }
