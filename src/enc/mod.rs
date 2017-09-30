@@ -1,6 +1,6 @@
 #[macro_use]
 pub mod vectorization;
-
+pub mod input_pair;
 pub mod fast_log;
 pub mod command;
 pub mod block_split;
