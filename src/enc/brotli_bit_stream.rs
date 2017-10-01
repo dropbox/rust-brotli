@@ -95,8 +95,9 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn new(m32:&mut AllocU32, mb: InputPair<'a>) -> CommandQueue <'a, AllocU32> {
         let (mut entropy_tally_total,
-             entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
-        let entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::new(m32);
+             mut entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
+        let mut entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::new(m32);
+        entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
         CommandQueue {
             mb:mb,
             mb_byte_offset:0,
@@ -184,7 +185,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         self.queue.split_at(self.loc).0
     }
     fn flush(&mut self) {
-       let cur_stride = self.entropy_tally_total.pick_best_stride(self.queue.split_at(self.loc).0, &mut self.entropy_tally_scratch, self.mb.0, self.mb.1, &mut self.mb_byte_offset);
+       let cur_stride = self.entropy_tally_total.pick_best_stride(self.queue.split_at(self.loc).0, &mut self.entropy_tally_scratch, self.mb.0, self.mb.1, &mut self.mb_byte_offset, &self.entropy_pyramid);
        match self.last_btypel_index.clone() {
            None => {},
            Some(literal_block_type_offset) => {

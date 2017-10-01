@@ -5,32 +5,34 @@ use core::mem;
 use core::ops::{Index, IndexMut, Range};
 use super::input_pair::InputPair;
 use super::bit_cost::BitsEntropy;
-use super::util::{floatX, FastLog2};
+use super::util::{FastLog2};
 use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode, CommandDistanceIndexAndOffset};
-
+// float32 doesn't have enough resolution for blocks of data more than 3.5 megs
+pub type floatY = f64;
 // the cost of storing a particular population of data including the approx
 // cost of a huffman table to describe the frequencies of each symbol
-fn HuffmanCost(population: &[u32]) -> floatX{
+fn HuffmanCost(population: &[u32]) -> floatY{
     assert_eq!(population.len(), 256 * 256);
-    let mut cost : floatX = 0.0 as floatX;
-    let mut sum : floatX = 0.0 as floatX;
-    let mut buckets : floatX = 0.0 as floatX;
+    let mut cost : floatY = 0.0 as floatY;
+    let mut sum : floatY = 0.0 as floatY;
+    let mut buckets : floatY = 0.0 as floatY;
     for pop in population.iter() {
        if *pop == 0 {
            continue;
        }
-       cost -= *pop as floatX * FastLog2(*pop as u64);
-       sum += *pop as floatX;
-       buckets += 1.0 as floatX;
+       cost -= *pop as floatY * FastLog2(*pop as u64) as floatY;
+       sum += *pop as floatY;
+       buckets += 1.0 as floatY;
     }
-    return 12.0 as floatX * buckets +  cost + sum * FastLog2(sum as u64);
+    println!("Observed {} nonzero buckets with a sum of {}", buckets, sum);
+    return 22.0 as floatY * buckets +  cost + sum * FastLog2(sum as u64) as floatY;
 }
 
 // this holds a population of data assuming 1 byte of prior for that data
 // bucket_populations is therefore a 65536-long dynamically allocated buffer
 struct EntropyBucketPopulation<AllocU32: alloc::Allocator<u32> > {
     pub bucket_populations: AllocU32::AllocatedMemory,
-    pub cached_bit_entropy: floatX,
+    pub cached_bit_entropy: floatY,
 }
 impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
    fn clone_from(&mut self, other: &EntropyBucketPopulation<AllocU32>) {
@@ -100,14 +102,40 @@ impl <AllocU32: alloc::Allocator<u32> > IndexMut<BucketPopIndex> for EntropyBuck
 pub struct EntropyTally<AllocU32: alloc::Allocator<u32> > {
     pop:[EntropyBucketPopulation<AllocU32>;NUM_STRIDES],
 }
-const NUM_LEVELS: usize = 3;
-const NUM_NODES: usize = (1<<(1 + NUM_LEVELS)) - 1;
+const NUM_LEVELS: usize = 4;
+const NUM_NODES: usize = (1<<(NUM_LEVELS)) - 1;
 pub struct EntropyPyramid<AllocU32: alloc::Allocator<u32> > {
     pop: [EntropyBucketPopulation<AllocU32>;NUM_NODES],
     stride: [u8;NUM_NODES],
 }
 
 impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
+    pub fn last_level_range(&self) -> Range<usize> {
+        (NUM_NODES - (1 << (NUM_LEVELS - 1)))..NUM_NODES
+    }
+    pub fn reset_scratch_to_deepest_level(&self, output: &mut EntropyTally<AllocU32>) {
+        let mut has_modified = [false; NUM_STRIDES];
+        println!("Last level range {:?}", self.last_level_range());
+        for index in self.last_level_range() {
+            if has_modified[self.stride[index] as usize] {
+                output.pop[self.stride[index] as usize].add_assign(&self.pop[index]);
+//                println("Copyingying Pop {} = {} to {} = {}", index, stride, output.pop[index].cached_bit_entropy, HuffmanCost(output.pop[index].bucket_populations));
+            } else {
+                output.pop[self.stride[index] as usize].clone_from(&self.pop[index]);
+                has_modified[self.stride[index] as usize] = true;
+//                println("Modifying Pop {} = {} to {} = {} = {}", index, self.stride[index], output.pop[self.stride[index] as usize].cached_bit_entropy, HuffmanCost(output.pop[self.stride[index] as usize].bucket_populations.slice()), HuffmanCost(self.pop[index].bucket_populations.slice()));
+            }
+        }
+	for stride in 0..NUM_STRIDES {
+            if !has_modified[stride] {
+                output.pop[stride].bzero();
+                output.pop[stride].cached_bit_entropy = 0.0;
+            } else {
+                output.pop[stride].cached_bit_entropy = HuffmanCost(output.pop[stride].bucket_populations.slice());
+            }
+            println!("BASE PYRAMID {} = {}", stride,output.pop[stride].cached_bit_entropy);
+        }
+    }
     pub fn free(&mut self, m32: &mut AllocU32) {
         for item in self.pop.iter_mut() {
             m32.free_cell(mem::replace(&mut item.bucket_populations,
@@ -183,7 +211,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         }
     }
     pub fn populate_entry(&mut self, input:InputPair, scratch: &mut EntropyTally<AllocU32>, index: u32, mirror_range: Option<Range<usize>>, prev_range: Option<Range<usize>>) {
-        let mut initial_entropies = [0.0 as floatX; NUM_STRIDES];
+        let mut initial_entropies = [0.0 as floatY; NUM_STRIDES];
         {
             let pop_ranges = [match mirror_range{
                                  None => &[],
@@ -209,9 +237,12 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         }
         scratch.observe_input_stream(input.0, input.1);
         let mut best_entropy_index = 0;
-        let mut min_entropy_value = scratch.pop[0].cached_bit_entropy - initial_entropies[0];
+        let mut min_entropy_value = (scratch.pop[0].cached_bit_entropy - initial_entropies[0]);
+println!("{} OLD ENTROPY {:} NEW_ENTROPY {:}", best_entropy_index, scratch.pop[0].cached_bit_entropy, initial_entropies[0]);
         for stride in 1..NUM_STRIDES {
            let entropy_value = scratch.pop[stride].cached_bit_entropy - initial_entropies[stride];
+println!("{} OLD ENTROPY {:} NEW_ENTROPY {:}", stride, scratch.pop[stride].cached_bit_entropy, initial_entropies[stride]);
+
            if entropy_value < min_entropy_value {
                 best_entropy_index = stride;
                 min_entropy_value = entropy_value;
@@ -220,7 +251,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         self.pop[index as usize].clone_from(&scratch.pop[best_entropy_index]);
         self.stride[index as usize] = best_entropy_index as u8;
     }
-    fn populate(&mut self, input0:&[u8], input1:&[u8], scratch: &mut EntropyTally<AllocU32>) {
+    pub fn populate(&mut self, input0:&[u8], input1:&[u8], scratch: &mut EntropyTally<AllocU32>) {
         let input = InputPair(input0, input1);
         self.populate_entry(input, scratch, 0, None, None); // BASE
 
@@ -233,8 +264,22 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         self.populate_entry(input.split_at(input.len() >> 1).0.split_at(input.len() >>2).1, scratch, 4, Some(2..3), Some(3..4));
         self.populate_entry(input.split_at(input.len() >> 1).1.split_at(input.len() >>2).0, scratch, 5, Some(3..5), None);
         self.populate_entry(input.split_at(input.len() >> 1).1.split_at(input.len() >>2).1, scratch, 6, Some(3..6), None);
-        assert_eq!(NUM_LEVELS, 3); // we hard coded the 3 levels for now... we can add more later or make this into some kind of recursion
+        if NUM_LEVELS == 4 {
+            // level 4
+            self.populate_entry(input.split_at(input.len() >> 1).0.split_at(input.len() >> 2).0.split_at(input.len() >> 3).0, scratch, 7, Some(4..7), None);
+            self.populate_entry(input.split_at(input.len() >> 1).0.split_at(input.len() >> 2).0.split_at(input.len() >>3).1, scratch, 8, Some(4..7), Some(7..8));
+            self.populate_entry(input.split_at(input.len() >> 1).0.split_at(input.len() >> 2).1.split_at(input.len() >>3).0, scratch, 9, Some(5..7), Some(7..9));
+            self.populate_entry(input.split_at(input.len() >> 1).0.split_at(input.len() >> 2).1.split_at(input.len() >>3).1, scratch, 0xa, Some(5..7), Some(7..0xa));
 
+            self.populate_entry(input.split_at(input.len() >> 1).1.split_at(input.len() >> 2).0.split_at(input.len() >> 3).0, scratch, 0xb, Some(6..7), Some(7..0xb));
+            self.populate_entry(input.split_at(input.len() >> 1).1.split_at(input.len() >> 2).0.split_at(input.len() >>3).1, scratch, 0xc, Some(6..7), Some(7..0xc));
+            self.populate_entry(input.split_at(input.len() >> 1).1
+.split_at(input.len() >> 2).1.split_at(input.len() >>3).0, scratch, 0xd, None, Some(7..0xd));
+            self.populate_entry(input.split_at(input.len() >> 1).1.split_at(input.len() >> 2).1.split_at(input.len() >>3).1, scratch, 0xe, None, Some(7..0xe));
+
+        } else {
+            assert_eq!(NUM_LEVELS, 3); // we hard coded the 3 levels for now... we can add more later or make this into some kind of recursion
+        }
     }
 }
 
@@ -315,9 +360,10 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
     }
     fn observe_input_stream(&mut self, input0:&[u8], input1:&[u8]) {
         let mut priors = [0u8;NUM_STRIDES];
+        let mut total_count = 0;
         for (index, val) in input0.iter().chain(input1.iter()).enumerate() {
             for stride in 0..NUM_STRIDES {
-                if stride > index {
+                if stride < index {
                     self.pop[stride].bucket_populations.slice_mut()[priors[stride] as usize * 256 + (*val as usize)] += 1;
                 }
             }
@@ -331,6 +377,23 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
         for stride in 0..NUM_STRIDES {
             self.pop[stride].cached_bit_entropy = HuffmanCost(self.pop[stride].bucket_populations.slice());
         }
+    }
+    fn identify_best_population_and_update_cache(&mut self) -> u8 {
+        let mut old_bit_entropy : [floatY; NUM_STRIDES] = [0.0; NUM_STRIDES];
+        for (mut obe, be) in old_bit_entropy.iter_mut().zip(self.pop.iter_mut()) {
+            *obe = be.cached_bit_entropy;
+            be.cached_bit_entropy = HuffmanCost(be.bucket_populations.slice());
+        }
+        let mut best_stride = 0u8;
+        let mut best_entropy = self.pop[0].cached_bit_entropy - old_bit_entropy[0];
+        for index in 1..NUM_STRIDES {
+            let cur = self.pop[index].cached_bit_entropy - old_bit_entropy[index];
+            if cur < best_entropy {
+                best_stride = index as u8;
+                best_entropy = cur;
+            }
+        }
+        return best_stride;
     }
     fn identify_best_population_from_scratch(&self, scratch:&mut EntropyTally<AllocU32>) -> u8 {
         for index in 0..scratch.pop.len() {
@@ -362,7 +425,9 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
 	}
 	retval
     }
-    pub fn pick_best_stride<InputReference:SliceWrapper<u8>>(&mut self, commands: &[interface::Command<InputReference>], scratch: &mut EntropyTally<AllocU32>, input0: &[u8], input1: &[u8], bytes_processed: &mut usize) -> u8 {
+    pub fn pick_best_stride<InputReference:SliceWrapper<u8>>(&mut self, commands: &[interface::Command<InputReference>], scratch: &mut EntropyTally<AllocU32>, input0: &[u8], input1: &[u8], bytes_processed: &mut usize, entropy_pyramid: &EntropyPyramid<AllocU32>) -> u8 {
+        println!("ENTROPY PYRAMID {:?}", entropy_pyramid.stride);
+        entropy_pyramid.reset_scratch_to_deepest_level(scratch);
         for cmd in commands.iter() {
             match cmd {
                 &interface::Command::Copy(ref copy) => {
@@ -395,10 +460,15 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
                 _ => {},
             }
         }
-        let retval = self.identify_best_population_from_scratch(scratch);
-        self.pop[retval as usize].bucket_populations.slice_mut().clone_from_slice(scratch.pop[retval as usize].bucket_populations.slice());
-	self.pop[retval as usize].cached_bit_entropy = scratch.pop[retval as usize].cached_bit_entropy;
-        retval + 1
+        if false {
+            let retval = self.identify_best_population_from_scratch(scratch);
+            self.pop[retval as usize].bucket_populations.slice_mut().clone_from_slice(scratch.pop[retval as usize].bucket_populations.slice());
+	    self.pop[retval as usize].cached_bit_entropy = scratch.pop[retval as usize].cached_bit_entropy;
+            retval + 1
+       } else {
+            // avoid using pop altogether
+            scratch.identify_best_population_and_update_cache() + 1
+       }
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
         for item in self.pop.iter_mut() {
