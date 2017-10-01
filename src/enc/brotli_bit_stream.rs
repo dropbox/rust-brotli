@@ -87,15 +87,13 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     queue: [interface::Command<InputReference<'a> >;COMMAND_BUFFER_SIZE],
     loc: usize,
     last_btypel_index: Option<usize>,
-    entropy_tally_total: find_stride::EntropyTally<AllocU32>,
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
     entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
 }
 
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn new(m32:&mut AllocU32, mb: InputPair<'a>) -> CommandQueue <'a, AllocU32> {
-        let (entropy_tally_total,
-             mut entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
+        let mut entropy_tally_scratch = find_stride::EntropyTally::<AllocU32>::new(m32);
         let mut entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::new(m32);
         entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
         CommandQueue {
@@ -103,7 +101,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             mb_byte_offset:0,
             queue:[interface::Command::<InputReference<'a>>::default();COMMAND_BUFFER_SIZE],
             loc:0,
-            entropy_tally_total: entropy_tally_total,
             entropy_tally_scratch: entropy_tally_scratch,
             entropy_pyramid: entropy_pyramid,
             last_btypel_index: None,
@@ -193,7 +190,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         self.queue.split_at(self.loc).0
     }
     fn flush(&mut self) {
-       let cur_stride = self.entropy_tally_total.pick_best_stride(self.queue.split_at(self.loc).0, &mut self.entropy_tally_scratch, self.mb.0, self.mb.1, &mut self.mb_byte_offset, &self.entropy_pyramid);
+       let cur_stride = self.entropy_tally_scratch.pick_best_stride(self.queue.split_at(self.loc).0, self.mb.0, self.mb.1, &mut self.mb_byte_offset, &self.entropy_pyramid);
        match self.last_btypel_index.clone() {
            None => {},
            Some(literal_block_type_offset) => {
@@ -229,7 +226,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     }
     fn free(&mut self, m32: &mut AllocU32) {
        self.flush();
-       self.entropy_tally_total.free(m32);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
     }
@@ -237,7 +233,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
 
 impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
   fn drop(&mut self) {
-     if !self.entropy_tally_total.is_free() {
+     if !self.entropy_tally_scratch.is_free() {
         panic!("Need to call free before CommandQueue drops");
      }
   }
