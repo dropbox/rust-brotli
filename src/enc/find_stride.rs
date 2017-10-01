@@ -24,8 +24,8 @@ fn HuffmanCost(population: &[u32]) -> floatY{
        sum += *pop as floatY;
        buckets += 1.0 as floatY;
     }
-    let cost = 22.0 as floatY * buckets +  cost + sum * FastLog2(sum as u64) as floatY;
-    println!("Observed {} nonzero buckets with a sum of {}, hc={}", buckets, sum, cost);
+    let cost = 16.0 as floatY * buckets +  cost + sum * FastLog2(sum as u64) as floatY;
+    //println!("Observed {} nonzero buckets with a sum of {}, hc={}", buckets, sum, cost);
     cost
 }
 
@@ -116,15 +116,13 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     }
     pub fn reset_scratch_to_deepest_level(&self, output: &mut EntropyTally<AllocU32>) {
         let mut has_modified = [false; NUM_STRIDES];
-        println!("Last level range {:?}", self.last_level_range());
+        //println!("Last level range {:?}", self.last_level_range());
         for index in self.last_level_range() {
             if has_modified[self.stride[index] as usize] {
                 output.pop[self.stride[index] as usize].add_assign(&self.pop[index]);
-//                println("Copyingying Pop {} = {} to {} = {}", index, stride, output.pop[index].cached_bit_entropy, HuffmanCost(output.pop[index].bucket_populations));
             } else {
                 output.pop[self.stride[index] as usize].clone_from(&self.pop[index]);
                 has_modified[self.stride[index] as usize] = true;
-//                println("Modifying Pop {} = {} to {} = {} = {}", index, self.stride[index], output.pop[self.stride[index] as usize].cached_bit_entropy, HuffmanCost(output.pop[self.stride[index] as usize].bucket_populations.slice()), HuffmanCost(self.pop[index].bucket_populations.slice()));
             }
         }
 	for stride in 0..NUM_STRIDES {
@@ -134,7 +132,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
             } else {
                 output.pop[stride].cached_bit_entropy = HuffmanCost(output.pop[stride].bucket_populations.slice());
             }
-            println!("BASE PYRAMID {} = {}", stride,output.pop[stride].cached_bit_entropy);
+            //println!("BASE PYRAMID {} = {}", stride,output.pop[stride].cached_bit_entropy);
         }
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
@@ -239,11 +237,10 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         scratch.observe_input_stream(input.0, input.1);
         let mut best_entropy_index = 0;
         let mut min_entropy_value = (scratch.pop[0].cached_bit_entropy - initial_entropies[0]);
-println!("{} OLD ENTROPY {:} NEW_ENTROPY {:}", best_entropy_index, scratch.pop[0].cached_bit_entropy, initial_entropies[0]);
+        //println!("{} OLD ENTROPY {:} NEW_ENTROPY {:}", best_entropy_index, scratch.pop[0].cached_bit_entropy, initial_entropies[0]);
         for stride in 1..NUM_STRIDES {
            let entropy_value = scratch.pop[stride].cached_bit_entropy - initial_entropies[stride];
-println!("{} OLD ENTROPY {:} NEW_ENTROPY {:}", stride, scratch.pop[stride].cached_bit_entropy, initial_entropies[stride]);
-
+           //println!("{} OLD ENTROPY {:} NEW_ENTROPY {:}", stride, scratch.pop[stride].cached_bit_entropy, initial_entropies[stride]);
            if entropy_value < min_entropy_value {
                 best_entropy_index = stride;
                 min_entropy_value = entropy_value;
@@ -389,10 +386,10 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
         }
         let mut best_stride = 0u8;
         let mut best_entropy = self.pop[0].cached_bit_entropy - old_bit_entropy[0];
-        println!("Weighing {} as {}", best_stride, best_entropy);
+        //println!("Weighing {} as {}", best_stride, best_entropy);
         for index in 1..NUM_STRIDES {
             let cur = self.pop[index].cached_bit_entropy - old_bit_entropy[index];
-            println!("Weighing {} as {} = [{} - {}]", index, cur, self.pop[index].cached_bit_entropy, old_bit_entropy[index]);
+            //println!("Weighing {} as {} = [{} - {}]", index, cur, self.pop[index].cached_bit_entropy, old_bit_entropy[index]);
             if cur < best_entropy && old_bit_entropy[index] > 0.0 {
                 best_stride = index as u8;
                 best_entropy = cur;
@@ -431,7 +428,7 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
 	retval
     }
     pub fn pick_best_stride<InputReference:SliceWrapper<u8>>(&mut self, commands: &[interface::Command<InputReference>], scratch: &mut EntropyTally<AllocU32>, input0: &[u8], input1: &[u8], bytes_processed: &mut usize, entropy_pyramid: &EntropyPyramid<AllocU32>) -> u8 {
-        println!("ENTROPY PYRAMID {:?}", entropy_pyramid.stride);
+        //println!("ENTROPY PYRAMID {:?}", entropy_pyramid.stride);
         entropy_pyramid.reset_scratch_to_deepest_level(scratch);
         for cmd in commands.iter() {
             match cmd {
@@ -473,7 +470,7 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
        } else {
             // avoid using pop altogether
             let bs = scratch.identify_best_population_and_update_cache() + 1;
-            println!("ENTROPY PYRAMID {:?} selected {}", entropy_pyramid.stride, bs);
+            //println!("ENTROPY PYRAMID {:?} selected {}", entropy_pyramid.stride, bs);
             bs
        }
     }

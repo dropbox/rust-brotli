@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
-
+#![allow(unused_macros)]
 use super::input_pair::InputPair;
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
@@ -44,7 +44,7 @@ fn window_size_from_lgwin(lgwin: i32) -> usize{
 
 
 #[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
-fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
+fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(_m32:&mut AllocU32,
     _commands: &[Command], _input0: &[u8], _input1: &[u8],
                 _n_postfix: u32, _n_direct: u32, _dist_cache: &[i32;kNumDistanceCacheEntries],
                 _recoder_state:&mut RecoderState,
@@ -94,7 +94,7 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
 
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn new(m32:&mut AllocU32, mb: InputPair<'a>) -> CommandQueue <'a, AllocU32> {
-        let (mut entropy_tally_total,
+        let (entropy_tally_total,
              mut entropy_tally_scratch) = find_stride::EntropyTally::<AllocU32>::new_pair(m32);
         let mut entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::new(m32);
         entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
@@ -109,6 +109,10 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             last_btypel_index: None,
         }
     }
+    #[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
+    fn header(&self, _lgwin: i32, _mb_size: usize, _num_types_l: u32, _num_types_c: u32, _num_types_d: u32) {
+    }
+    #[cfg(not(feature="no-stdlib"))] // doesn't work with no-stdlib atm
     fn header(&self, lgwin: i32, mb_size: usize, num_types_l: u32, num_types_c: u32, num_types_d: u32) {
         use std::io::{Write};
         println_stderr!("window {:} len {:} nbltypesl {:} nbltypesi {:} nbltypesd {:}",
@@ -131,6 +135,10 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn clear(&mut self) {
         self.loc = 0;
     }
+    #[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
+    fn write_one(&self, _cmd: &interface::Command<InputReference>) {
+    }
+    #[cfg(not(feature="no-stdlib"))] // doesn't work with no-stdlib atm
     fn write_one(&self, cmd: &interface::Command<InputReference>) {
        use std::io::Write;
        match cmd {
