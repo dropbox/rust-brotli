@@ -24,8 +24,9 @@ fn HuffmanCost(population: &[u32]) -> floatY{
        sum += *pop as floatY;
        buckets += 1.0 as floatY;
     }
-    println!("Observed {} nonzero buckets with a sum of {}", buckets, sum);
-    return 22.0 as floatY * buckets +  cost + sum * FastLog2(sum as u64) as floatY;
+    let cost = 22.0 as floatY * buckets +  cost + sum * FastLog2(sum as u64) as floatY;
+    println!("Observed {} nonzero buckets with a sum of {}, hc={}", buckets, sum, cost);
+    cost
 }
 
 // this holds a population of data assuming 1 byte of prior for that data
@@ -363,9 +364,9 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
         let mut total_count = 0;
         for (index, val) in input0.iter().chain(input1.iter()).enumerate() {
             for stride in 0..NUM_STRIDES {
-                if stride < index {
-                    self.pop[stride].bucket_populations.slice_mut()[priors[stride] as usize * 256 + (*val as usize)] += 1;
-                }
+                //if stride < index {
+                self.pop[stride].bucket_populations.slice_mut()[priors[stride] as usize * 256 + (*val as usize)] += 1;
+                //}
             }
             {
                 let mut tmp = [0u8;NUM_STRIDES - 1];
@@ -382,13 +383,17 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
         let mut old_bit_entropy : [floatY; NUM_STRIDES] = [0.0; NUM_STRIDES];
         for (mut obe, be) in old_bit_entropy.iter_mut().zip(self.pop.iter_mut()) {
             *obe = be.cached_bit_entropy;
-            be.cached_bit_entropy = HuffmanCost(be.bucket_populations.slice());
+            if *obe != 0.0 {
+                be.cached_bit_entropy = HuffmanCost(be.bucket_populations.slice());
+            }
         }
         let mut best_stride = 0u8;
         let mut best_entropy = self.pop[0].cached_bit_entropy - old_bit_entropy[0];
+        println!("Weighing {} as {}", best_stride, best_entropy);
         for index in 1..NUM_STRIDES {
             let cur = self.pop[index].cached_bit_entropy - old_bit_entropy[index];
-            if cur < best_entropy {
+            println!("Weighing {} as {} = [{} - {}]", index, cur, self.pop[index].cached_bit_entropy, old_bit_entropy[index]);
+            if cur < best_entropy && old_bit_entropy[index] > 0.0 {
                 best_stride = index as u8;
                 best_entropy = cur;
             }
@@ -467,7 +472,9 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
             retval + 1
        } else {
             // avoid using pop altogether
-            scratch.identify_best_population_and_update_cache() + 1
+            let bs = scratch.identify_best_population_and_update_cache() + 1;
+            println!("ENTROPY PYRAMID {:?} selected {}", entropy_pyramid.stride, bs);
+            bs
        }
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
