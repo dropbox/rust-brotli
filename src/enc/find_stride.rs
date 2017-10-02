@@ -351,7 +351,7 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
         for index in 1..NUM_STRIDES {
             let cur = self.pop[index].cached_bit_entropy - old_bit_entropy[index];
             //println!("Weighing {} as {} = [{} - {}]", index, cur, self.pop[index].cached_bit_entropy, old_bit_entropy[index]);
-            if cur < best_entropy && old_bit_entropy[index] > 0.0 {
+            if (best_entropy == 0.0 || cur < best_entropy) && old_bit_entropy[index] > 0.0 {
                 best_stride = index as u8;
                 best_entropy = cur;
             }
