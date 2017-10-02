@@ -209,21 +209,23 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     }
     pub fn populate_entry(&mut self, input:InputPair, scratch: &mut EntropyTally<AllocU32>, index: u32, mirror_range: Option<Range<usize>>, prev_range: Option<Range<usize>>) {
         let mut initial_entropies = [0.0 as floatY; NUM_STRIDES];
+        let nothing: &[EntropyBucketPopulation<AllocU32>] = &[];
+        let nothing_u8: &[u8] = &[];
         {
             let pop_ranges = [match mirror_range{
-                                 None => &[],
+                                 None => nothing,
                                  Some(ref ir) => &self.pop[ir.clone()],
                               },
                               match prev_range {
-                                 None => &[],
+                                 None => nothing,
                                  Some(ref pr) => &self.pop[pr.clone()],
                               }];
             let stride_ranges = [match mirror_range{
-                                 None => &[],
+                                 None => nothing_u8,
                                  Some(ref ir) => &self.stride[ir.clone()],
                               },
                               match prev_range {
-                                 None => &[],
+                                 None => nothing_u8,
                                  Some(ref pr) => &self.stride[pr.clone()],
                               }];
             for stride in 0..NUM_STRIDES {
