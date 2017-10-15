@@ -13,7 +13,6 @@ use core;
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 
 // returns number of commands inserted
-#[must_use]
 fn EmitInsertLen(insertlen: u32, mut commands: &mut &mut [u32]) -> usize {
   if insertlen < 6u32 {
     (*commands)[0] = insertlen;
@@ -44,7 +43,7 @@ fn EmitInsertLen(insertlen: u32, mut commands: &mut &mut [u32]) -> usize {
   core::mem::replace(commands, &mut remainder[1..]);
   1
 }
-#[must_use]
+
 fn EmitDistance(distance: u32, mut commands: &mut &mut [u32]) -> usize {
   let d: u32 = distance.wrapping_add(3u32);
   let nbits: u32 = Log2FloorNonZero(d as (u64)).wrapping_sub(1u32);
@@ -59,7 +58,6 @@ fn EmitDistance(distance: u32, mut commands: &mut &mut [u32]) -> usize {
   1
 }
 
-#[must_use]
 fn EmitCopyLenLastDistance(copylen: usize, mut commands: &mut &mut [u32]) -> usize {
   if copylen < 12usize {
     (*commands)[0] = copylen.wrapping_add(20usize) as (u32);
@@ -119,7 +117,6 @@ fn HashBytesAtOffset(v: u64, offset: i32, shift: usize) -> u32 {
   }
 }
 
-#[must_use]
 fn EmitCopyLen(copylen: usize, mut commands: &mut &mut [u32]) -> usize {
   if copylen < 10usize {
     (*commands)[0] = copylen.wrapping_add(38usize) as (u32);
