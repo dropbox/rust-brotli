@@ -113,7 +113,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                                  AllocCT: Allocator<ContextType>,
                                  AllocHT: Allocator<HuffmanTree>>
   (r: &mut InputType,
-   mut w: &mut OutputType,
+   w: &mut OutputType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
    params: &BrotliEncoderParams,
@@ -172,7 +172,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocCT: Allocator<ContextType>,
                               AllocHT: Allocator<HuffmanTree>>
   (r: &mut InputType,
-   mut w: &mut OutputType,
+   w: &mut OutputType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
    params: &BrotliEncoderParams,
@@ -200,7 +200,7 @@ pub fn BrotliCompressCustomIo<ErrType,
   let mut next_out_offset: usize = 0;
   let mut total_out = Some(0usize);
   {
-      let mut s = &mut s_orig;
+      let s = &mut s_orig;
       
       BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0 as (u32)); // gen, text, font
       //BrotliEncoderSetParameter(s,

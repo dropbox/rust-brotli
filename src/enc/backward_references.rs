@@ -114,7 +114,7 @@ pub trait AnyHasher {
                            ringbuffer_mask: usize);
 }
 
-pub fn StitchToPreviousBlockInternal<T: AnyHasher>(mut handle: &mut T,
+pub fn StitchToPreviousBlockInternal<T: AnyHasher>(handle: &mut T,
                                                    num_bytes: usize,
                                                    position: usize,
                                                    ringbuffer: &[u8],
@@ -126,7 +126,7 @@ pub fn StitchToPreviousBlockInternal<T: AnyHasher>(mut handle: &mut T,
   }
 }
 
-pub fn StoreLookaheadThenStore<T: AnyHasher>(mut hasher: &mut T, size: usize, dict: &[u8]) {
+pub fn StoreLookaheadThenStore<T: AnyHasher>(hasher: &mut T, size: usize, dict: &[u8]) {
   let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
   let mut i: usize = 0;
   while i.wrapping_add(overlap) < size {
@@ -217,7 +217,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
-                      mut out: &mut HasherSearchResult)
+                      out: &mut HasherSearchResult)
                       -> bool {
     let best_len_in: usize = (*out).len;
     let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
@@ -617,10 +617,10 @@ impl<AllocU16: alloc::Allocator<u16>,
         }
         if max_length >= 4 && cur_ix_masked.wrapping_add(best_len) <= ring_buffer_mask {
             let key = self.HashBytes(&data.split_at(cur_ix_masked).1);
-            let mut bucket = &mut self.buckets_.slice_mut().split_at_mut(key << H9_BLOCK_BITS).1.split_at_mut(H9_BLOCK_SIZE).0;
+            let bucket = &mut self.buckets_.slice_mut().split_at_mut(key << H9_BLOCK_BITS).1.split_at_mut(H9_BLOCK_SIZE).0;
             assert!(bucket.len() > H9_BLOCK_MASK);
             assert_eq!(bucket.len(), H9_BLOCK_MASK + 1);
-            let mut self_num_key = &mut self.num_.slice_mut()[key];
+            let self_num_key = &mut self.num_.slice_mut()[key];
             let down = if *self_num_key > H9_BLOCK_SIZE as u16 {
                 (*self_num_key as usize) - H9_BLOCK_SIZE
             } else {0usize};
@@ -682,7 +682,7 @@ impl<AllocU16: alloc::Allocator<u16>,
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
         let (_, data_window) = data.split_at((ix & mask) as (usize));
         let key: u32 = self.HashBytes(data_window) as u32;
-        let mut self_num_key = &mut self.num_.slice_mut()[key as usize];
+        let self_num_key = &mut self.num_.slice_mut()[key as usize];
         let minor_ix: usize = (*self_num_key as usize & H9_BLOCK_MASK);
         self.buckets_.slice_mut()[minor_ix.wrapping_add((key as usize) << H9_BLOCK_BITS)] = ix as u32;
         *self_num_key = self_num_key.wrapping_add(1);
@@ -792,7 +792,7 @@ fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> usiz
 
 impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
   for AdvHasher<Specialization, AllocU16, AllocU32> {
-  fn PrepareDistanceCache(&self, mut distance_cache: &mut [i32]){
+  fn PrepareDistanceCache(&self, distance_cache: &mut [i32]){
     let num_distances = self.GetHasherCommon.params.num_last_distances_to_check;
     adv_prepare_distance_cache(distance_cache, num_distances);
   }
@@ -867,7 +867,7 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
-                      mut out: &mut HasherSearchResult)
+                      out: &mut HasherSearchResult)
                       -> bool {
     let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
     let mut is_match_found: i32 = 0i32;
@@ -937,7 +937,7 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
             let key3: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
             assert_eq!(key2, key3 + 1);
         }
-      let mut bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
+      let bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
       let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).block_size_ {
         (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).block_size_) as usize
       } else {
@@ -1104,7 +1104,7 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
                             data: &[u8],
                             max_length: usize,
                             max_backward: usize,
-                            mut out: &mut HasherSearchResult)
+                            out: &mut HasherSearchResult)
                             -> i32 {
   let len: usize;
   let dist: usize;
@@ -1143,17 +1143,17 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
 
 fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary,
                                                    dictionary_hash: &[u16],
-                                                   mut handle: &mut HasherType,
+                                                   handle: &mut HasherType,
                                                    data: &[u8],
                                                    max_length: usize,
                                                    max_backward: usize,
-                                                   mut out: &mut HasherSearchResult,
+                                                   out: &mut HasherSearchResult,
                                                    shallow: i32)
                                                    -> i32 {
   let mut key: usize;
   let mut i: usize;
   let mut is_match_found: i32 = 0i32;
-  let mut xself: &mut Struct1 = handle.GetHasherCommon();
+  let xself: &mut Struct1 = handle.GetHasherCommon();
   if (*xself).dict_num_matches < (*xself).dict_num_lookups >> 7i32 {
     return 0i32;
   }
@@ -1308,12 +1308,12 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                            ringbuffer: &[u8],
                                            ringbuffer_mask: usize,
                                            params: &BrotliEncoderParams,
-                                           mut hasher: &mut AH,
-                                           mut dist_cache: &mut [i32],
-                                           mut last_insert_len: &mut usize,
+                                           hasher: &mut AH,
+                                           dist_cache: &mut [i32],
+                                           last_insert_len: &mut usize,
                                            mut commands: &mut [Command],
-                                           mut num_commands: &mut usize,
-                                           mut num_literals: &mut usize) {
+                                           num_commands: &mut usize,
+                                           num_literals: &mut usize) {
   let max_backward_limit: usize = (1usize << (*params).lgwin).wrapping_sub(16usize);
   let mut new_commands_count: usize = 0;
   let mut insert_length: usize = *last_insert_len;
@@ -1475,12 +1475,12 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
    ringbuffer: &[u8],
    ringbuffer_mask: usize,
    params: &BrotliEncoderParams,
-   mut hasher_union: &mut UnionHasher<AllocU16, AllocU32>,
-   mut dist_cache: &mut [i32],
-   mut last_insert_len: &mut usize,
-   mut commands: &mut [Command],
-   mut num_commands: &mut usize,
-   mut num_literals: &mut usize) {
+   hasher_union: &mut UnionHasher<AllocU16, AllocU32>,
+   dist_cache: &mut [i32],
+   last_insert_len: &mut usize,
+   commands: &mut [Command],
+   num_commands: &mut usize,
+   num_literals: &mut usize) {
   match (hasher_union) {
     &mut UnionHasher::Uninit => panic!("working with uninitialized hash map"),
     &mut UnionHasher::H2(ref mut hasher) => {

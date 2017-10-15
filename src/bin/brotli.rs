@@ -177,7 +177,7 @@ impl<InputType: Read> brotli::CustomRead<io::Error> for IntoIoReader<InputType> 
 }
 #[cfg(not(feature="seccomp"))]
 pub fn decompress<InputType, OutputType>(r: &mut InputType,
-                                         mut w: &mut OutputType,
+                                         w: &mut OutputType,
                                          buffer_size: usize)
                                          -> Result<(), io::Error>
   where InputType: Read,
@@ -250,7 +250,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
 }
 
 pub fn compress<InputType, OutputType>(r: &mut InputType,
-                                       mut w: &mut OutputType,
+                                       w: &mut OutputType,
                                        buffer_size: usize,
                                        params:&brotli::enc::BrotliEncoderParams) -> Result<usize, io::Error>
     where InputType: Read,
@@ -323,7 +323,7 @@ impl<R: Read> BrotliDecompressor<R> {
 }
 
 impl<R: Read> Read for BrotliDecompressor<R> {
-  fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Error> {
+  fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
     self.0.read(buf)
   }
 }

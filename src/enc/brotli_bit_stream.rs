@@ -1452,10 +1452,10 @@ fn BuildAndStoreBlockSplitCode(types: &[u8],
 fn BuildAndStoreBlockSwitchEntropyCodes<'a,
                                         AllocU8: alloc::Allocator<u8>,
                                         AllocU16: alloc::Allocator<u16>>
-  (mut xself: &mut BlockEncoder<'a, AllocU8, AllocU16>,
-   mut tree: &mut [HuffmanTree],
-   mut storage_ix: &mut usize,
-   mut storage: &mut [u8]) {
+  (xself: &mut BlockEncoder<'a, AllocU8, AllocU16>,
+   tree: &mut [HuffmanTree],
+   storage_ix: &mut usize,
+   storage: &mut [u8]) {
   BuildAndStoreBlockSplitCode((*xself).block_types_,
                               (*xself).block_lengths_,
                               (*xself).num_blocks_,
@@ -1844,7 +1844,7 @@ fn GetCopyExtra(copycode: u16) -> u32 {
   kCopyExtra[copycode as (usize)]
 }
 
-fn StoreCommandExtra(cmd: &Command, mut storage_ix: &mut usize, mut storage: &mut [u8]) {
+fn StoreCommandExtra(cmd: &Command, storage_ix: &mut usize, storage: &mut [u8]) {
   let copylen_code: u32 = CommandCopyLenCode(cmd);
   let inscode: u16 = GetInsertLengthCode((*cmd).insert_len_ as (usize));
   let copycode: u16 = GetCopyLengthCode(copylen_code as (usize));
