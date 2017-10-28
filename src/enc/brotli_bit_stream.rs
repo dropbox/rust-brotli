@@ -42,7 +42,7 @@ fn window_size_from_lgwin(lgwin: i32) -> usize{
 }
 
 
-
+/*
 #[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
 fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(_m32:&mut AllocU32,
     _commands: &[Command], _input0: &[u8], _input1: &[u8],
@@ -52,7 +52,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(_m32:&mut AllocU32,
                 _lgwin: i32,
                 _context_type:ContextType) {
 }
-
+*/
 fn context_type_str(context_type:ContextType) -> &'static str {
    match context_type {
          ContextType::CONTEXT_LSB6 => "lsb6",
@@ -240,7 +240,7 @@ impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
      }
   }
 }
-#[cfg(not(feature="no-stdlib"))]
+
 fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                 Cb>(m32:&mut AllocU32,
                                                             commands: &[Command], input0: &'a[u8],input1: &'a[u8],
@@ -255,7 +255,6 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
     let window_size = window_size_from_lgwin(lgwin);
-    use std::io::{Write};
 
     let mut mb_len = input0.len() + input1.len();
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
