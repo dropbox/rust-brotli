@@ -134,6 +134,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
   where InputType: Read,
         OutputType: Write
 {
+  let mut nop_callback = |_data:&[interface::Command<brotli_bit_stream::InputReference>]|();
   BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
                            &mut IoWriterWrapper::<OutputType>(w),
                            input_buffer,
@@ -152,6 +153,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                            alloc_hp,
                            alloc_ct,
                            alloc_ht,
+                           &mut nop_callback,
                            Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 
@@ -170,7 +172,8 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocHD: Allocator<HistogramDistance>,
                               AllocHP: Allocator<HistogramPair>,
                               AllocCT: Allocator<ContextType>,
-                              AllocHT: Allocator<HuffmanTree>>
+                              AllocHT: Allocator<HuffmanTree>,
+                              MetablockCallback: FnMut(&[interface::Command<brotli_bit_stream::InputReference>])>
   (r: &mut InputType,
    mut w: &mut OutputType,
    input_buffer: &mut [u8],
@@ -189,6 +192,7 @@ pub fn BrotliCompressCustomIo<ErrType,
    mut mhp: AllocHP,
    mut mct: AllocCT,
    mut mht: AllocHT,
+   metablock_callback: &mut MetablockCallback,
    unexpected_eof_error_constant: ErrType)
    -> Result<usize, ErrType>
   where InputType: CustomRead<ErrType>,
@@ -240,7 +244,8 @@ pub fn BrotliCompressCustomIo<ErrType,
                                                    &mut available_out,
                                                    output_buffer,
                                                    &mut next_out_offset,
-                                                   &mut total_out);
+                                                   &mut total_out,
+                                                   metablock_callback);
           let fin = BrotliEncoderIsFinished(s);
           if available_out == 0 || fin != 0 {
               let lim = output_buffer.len() - available_out;

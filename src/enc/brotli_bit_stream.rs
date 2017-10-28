@@ -116,11 +116,12 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                     lgwin, mb_size,
                     num_types_l, num_types_c, num_types_d);
     }
-    fn push(&mut self, val: interface::Command<InputReference<'a> >) {
+    fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
+     where Cb: FnMut(&[interface::Command<InputReference>]) {
         self.queue[self.loc] = val;
         self.loc += 1;
         if self.full() {
-            self.flush();
+            self.flush(callback);
         }
     }
     fn full(&self) -> bool {
@@ -189,7 +190,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn content(&mut self) -> &[interface::Command<InputReference>] {
         self.queue.split_at(self.loc).0
     }
-    fn flush(&mut self) {
+    fn flush<Cb>(&mut self, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        let cur_stride = self.entropy_tally_scratch.pick_best_stride(self.queue.split_at(self.loc).0, self.mb.0, self.mb.1, &mut self.mb_byte_offset, &self.entropy_pyramid);
        match self.last_btypel_index.clone() {
            None => {},
@@ -201,31 +202,32 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
            },
        }
        self.last_btypel_index = None;
+       callback(self.queue.split_at(self.loc).0);
        for cmd in self.queue.split_at(self.loc).0.iter() {
            self.write_one(cmd);
        }
        self.clear();
     }
-    fn push_block_switch_literal(&mut self, block_type: u8) {
-        self.flush();
+    fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+        self.flush(callback);
         self.last_btypel_index = Some(self.size());
         self.push(interface::Command::BlockSwitchLiteral(
-            interface::LiteralBlockSwitch::new(block_type, 0)))
+            interface::LiteralBlockSwitch::new(block_type, 0)), callback)
     }
-    fn push_literals(&mut self, data:&InputPair<'a>) {
+    fn push_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
         if data.0.len() != 0 {
             self.push(interface::Command::Literal(interface::LiteralCommand{
                 data:InputReference(data.0),
-            }));
+            }), callback);
         }
         if data.1.len() != 0 {
             self.push(interface::Command::Literal(interface::LiteralCommand{
                 data:InputReference(data.1),
-            }));
+            }), callback);
         }
     }
-    fn free(&mut self, m32: &mut AllocU32) {
-       self.flush();
+    fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+       self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
     }
@@ -239,15 +241,17 @@ impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
   }
 }
 #[cfg(not(feature="no-stdlib"))]
-fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
-                                                commands: &[Command], input0: &[u8],input1: &[u8],
-                                                n_postfix: u32,
-                                                n_direct: u32,
-                                                dist_cache: &[i32;kNumDistanceCacheEntries],
-                                                recoder_state :&mut RecoderState,
-                                                block_type: MetaBlockSplitRefs,
-                                                lgwin: i32,
-                                                context_type:ContextType) {
+fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
+                Cb>(m32:&mut AllocU32,
+                                                            commands: &[Command], input0: &'a[u8],input1: &'a[u8],
+                                                            n_postfix: u32,
+                                                            n_direct: u32,
+                                                            dist_cache: &[i32;kNumDistanceCacheEntries],
+                                                            recoder_state :&mut RecoderState,
+                                                            block_type: MetaBlockSplitRefs,
+                                                            lgwin: i32,
+                                                            context_type:ContextType,
+                                                            callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
     let window_size = window_size_from_lgwin(lgwin);
@@ -271,13 +275,13 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
             local_distance_context_map[index] = *item as u8;
         }
     }
+    command_queue.header(lgwin, mb_len, block_type.btypel.num_types, block_type.btypec.num_types, block_type.btyped.num_types);
     command_queue.push(interface::Command::PredictionMode(
         interface::PredictionModeContextMap::<InputReference>{
             literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type as u8),
             literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
             distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
-    }));
-    command_queue.header(lgwin, mb_len, block_type.btypel.num_types, block_type.btypec.num_types, block_type.btyped.num_types);
+    }), callback);
                        
     let input = InputPair(input0, input1);
     let mut input_iter = input.clone();
@@ -290,7 +294,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
     let mut btypec_sub = if block_type.btypec.num_types == 1 { 1u32<<31 } else {block_type.btypec.lengths[0]};
     let mut btyped_sub = if block_type.btyped.num_types == 1 { 1u32<<31 } else {block_type.btyped.lengths[0]};
     {
-        command_queue.push_block_switch_literal(0);
+        command_queue.push_block_switch_literal(0, callback);
     }
     for cmd in commands.iter() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
@@ -319,7 +323,8 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                 if block_type.btypec.types.len() > btypec_counter {
                     btypec_sub = block_type.btypec.lengths[btypec_counter];
                     command_queue.push(interface::Command::BlockSwitchCommand(
-                            interface::BlockSwitch(block_type.btypec.types[btypec_counter])));
+                        interface::BlockSwitch(block_type.btypec.types[btypec_counter])),
+                                       callback);
                 } else {
                     btypec_sub = 1u32 << 31;
                 }
@@ -331,7 +336,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                 // we have to divide some:
                 let (in_a, in_b) = tmp_inserts.split_at(btypel_sub as usize);
                 if in_a.len() != 0 {
-                    command_queue.push_literals(&in_a);
+                    command_queue.push_literals(&in_a, callback);
                 }
                 mb_len -= in_a.len();
                 tmp_inserts = in_b;
@@ -343,12 +348,12 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                                                                             btypel_sub,
                                                                             &mut scratch_stride_counter);
 */
-                    command_queue.push_block_switch_literal(block_type.btypel.types[btypel_counter]);
+                    command_queue.push_block_switch_literal(block_type.btypel.types[btypel_counter], callback);
                 } else {
                     btypel_sub = 1u32<<31;
                 }
             }
-            command_queue.push_literals(&tmp_inserts);
+            command_queue.push_literals(&tmp_inserts, callback);
             if tmp_inserts.len() != 0 {
                 mb_len -= tmp_inserts.len();
                 btypel_sub -= tmp_inserts.len() as u32;
@@ -361,7 +366,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                 if block_type.btyped.types.len() > btyped_counter {
                     btyped_sub = block_type.btyped.lengths[btyped_counter];
                     command_queue.push(interface::Command::BlockSwitchDistance(
-                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])));
+                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])), callback);
                 } else {
                     btyped_sub = 1u32 << 31;
                 }
@@ -389,13 +394,13 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                         final_size: actual_copy_len as u8,
                         empty: 0,
                         word_id: word_sub_index as u32,
-                    }));
+                    }), callback);
                 mb_len -= actual_copy_len;
                 assert_eq!(InputPair(transformed_word.split_at(actual_copy_len).0, &[]),
                            interim.split_at(actual_copy_len).0);
             } else if mb_len != 0 {
                 // truncated dictionary word: represent it as literals instead
-                command_queue.push_literals(&interim.split_at(mb_len).0);
+                command_queue.push_literals(&interim.split_at(mb_len).0, callback);
                 mb_len = 0;
                 assert_eq!(InputPair(transformed_word.split_at(mb_len).0, &[]),
                            interim.split_at(mb_len).0);
@@ -407,7 +412,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
                     interface::CopyCommand{
                         distance: final_distance as u32,
                         num_bytes: actual_copy_len as u32,
-                    }));
+                    }), callback);
             }
             mb_len -= actual_copy_len;
             if prev_dist_index != 1 || dist_offset != 0 { // update distance cache unless it's the "0 distance symbol"
@@ -422,7 +427,7 @@ fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(m32:&mut AllocU32,
         recoder_state.num_bytes_encoded += copied.len();
         input_iter = remainder;
     }
-    command_queue.free(m32);
+    command_queue.free(m32, callback);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
    
@@ -1941,18 +1946,20 @@ fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
 }
 
 
-pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
+pub fn BrotliStoreMetaBlock<'a,
+                            AllocU8: alloc::Allocator<u8>,
                             AllocU16: alloc::Allocator<u16>,
                             AllocU32: alloc::Allocator<u32>,
                             AllocHT: alloc::Allocator<HuffmanTree>,
                             AllocHL: alloc::Allocator<HistogramLiteral>,
                             AllocHC: alloc::Allocator<HistogramCommand>,
-                            AllocHD: alloc::Allocator<HistogramDistance>>
+                            AllocHD: alloc::Allocator<HistogramDistance>,
+                            Cb>
   (m8: &mut AllocU8,
    m16: &mut AllocU16,
    m32: &mut AllocU32,
    mht: &mut AllocHT,
-   input: &[u8],
+   input: &'a[u8],
    start_pos: usize,
    length: usize,
    mask: usize,
@@ -1969,7 +1976,8 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
    mb: &mut MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>,
    recoder_state: &mut RecoderState,
    storage_ix: &mut usize,
-   storage: &mut [u8]) {
+   storage: &mut [u8],
+  callback: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
       LogMetaBlock(m32, commands.split_at(n_commands).0, input0, input1,
@@ -1978,7 +1986,7 @@ pub fn BrotliStoreMetaBlock<AllocU8: alloc::Allocator<u8>,
                    block_split_reference(mb),
                    params.lgwin,
                    literal_context_mode,
-                   );
+                   callback);
   }
   let mut pos: usize = start_pos;
   let mut i: usize;
@@ -2246,9 +2254,13 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
   }
 }
 
-pub fn BrotliStoreMetaBlockTrivial<AllocU32:alloc::Allocator<u32>>
+fn nop<'a>(_data:&[interface::Command<InputReference>]){
+}
+pub fn BrotliStoreMetaBlockTrivial<'a,
+                                   AllocU32:alloc::Allocator<u32>,
+                                   Cb>
     (m32:&mut AllocU32,
-     input: &[u8],
+     input: &'a [u8],
      start_pos: usize,
      length: usize,
      mask: usize,
@@ -2259,7 +2271,8 @@ pub fn BrotliStoreMetaBlockTrivial<AllocU32:alloc::Allocator<u32>>
      n_commands: usize,
      recoder_state: &mut RecoderState,
      storage_ix: &mut usize,
-     storage: &mut [u8]) {
+     storage: &mut [u8],
+    f:&mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
       LogMetaBlock(m32,
@@ -2273,7 +2286,7 @@ pub fn BrotliStoreMetaBlockTrivial<AllocU32:alloc::Allocator<u32>>
                    block_split_nop(),
                    params.lgwin,
                    ContextType::CONTEXT_LSB6,
-                   );
+                   f);
   }
   let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
   let mut cmd_histo: HistogramCommand = HistogramCommand::default();
@@ -2424,7 +2437,8 @@ impl RecoderState {
 }
 
 
-pub fn BrotliStoreMetaBlockFast<AllocU32:alloc::Allocator<u32>,
+pub fn BrotliStoreMetaBlockFast<Cb,
+                                AllocU32:alloc::Allocator<u32>,
                                 AllocHT: alloc::Allocator<HuffmanTree>>(m : &mut AllocHT,
                                                                         m32: &mut AllocU32,
                                 input: &[u8],
@@ -2438,7 +2452,8 @@ pub fn BrotliStoreMetaBlockFast<AllocU32:alloc::Allocator<u32>,
                                 n_commands: usize,
                                 recoder_state: &mut RecoderState,
                                 storage_ix: &mut usize,
-                                storage: &mut [u8]){
+                                storage: &mut [u8],
+                                cb: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
       LogMetaBlock(m32,
@@ -2446,7 +2461,7 @@ pub fn BrotliStoreMetaBlockFast<AllocU32:alloc::Allocator<u32>,
                    block_split_nop(),
                    params.lgwin,
                    ContextType::CONTEXT_LSB6,
-                   );
+                   cb);
   }
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BrotliWriteBits(13, 0, storage_ix, storage);
@@ -2585,7 +2600,7 @@ fn InputPairFromMaskedInput<'a>(input:&'a [u8], position: usize, len: usize, mas
   return (&input[masked_pos..masked_pos + len], &[]);
 
 }
-pub fn BrotliStoreUncompressedMetaBlock<AllocU32:alloc::Allocator<u32>>
+pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU32:alloc::Allocator<u32>>
     (m32:&mut AllocU32,
      is_final_block: i32,
      input: &[u8],
@@ -2596,7 +2611,8 @@ pub fn BrotliStoreUncompressedMetaBlock<AllocU32:alloc::Allocator<u32>>
      recoder_state: &mut RecoderState,
      storage_ix: &mut usize,
      storage: &mut [u8],
-     suppress_meta_block_logging: bool) {
+     suppress_meta_block_logging: bool,
+     cb: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]){
   let (input0,input1) = InputPairFromMaskedInput(input, position, len, mask);
   BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
@@ -2614,11 +2630,12 @@ pub fn BrotliStoreUncompressedMetaBlock<AllocU32:alloc::Allocator<u32>>
                         cmd_prefix_:0,
                         dist_prefix_:0
     }];
+
     LogMetaBlock(m32, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
       block_split_nop(),
       params.lgwin,
                  ContextType::CONTEXT_LSB6,
-                 );
+                 cb);
   }
   if is_final_block != 0 {
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);

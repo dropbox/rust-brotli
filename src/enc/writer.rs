@@ -7,7 +7,8 @@ use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
 use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use brotli_decompressor::CustomWrite;
-
+use super::brotli_bit_stream;
+use super::interface;
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::{IntoIoWriter, IoWriterWrapper};
 
@@ -301,6 +302,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
         ret
     }
     fn flush_or_close(&mut self, op:BrotliEncoderOperation) -> Result<(), ErrType>{
+        let mut nop_callback = |_data:&[interface::Command<brotli_bit_stream::InputReference>]|();
         loop {
             let mut avail_in : usize = 0;
             let mut input_offset : usize = 0;
@@ -323,7 +325,8 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
                 &mut avail_out,
                 self.output_buffer.slice_mut(),
                 &mut output_offset,
-                &mut self.total_out);
+                &mut self.total_out,
+                &mut nop_callback);
            if output_offset > 0 {
              match write_all(&mut self.output, &self.output_buffer.slice_mut()[..output_offset]) {
                Ok(_) => {},
@@ -386,6 +389,7 @@ impl<ErrType,
 CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
                          AllocF64, AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
 	fn write(&mut self, buf: & [u8]) -> Result<usize, ErrType > {
+        let mut nop_callback = |_data:&[interface::Command<brotli_bit_stream::InputReference>]|();
         let mut avail_in = buf.len();
         let mut input_offset : usize = 0;
         while avail_in != 0 {
@@ -408,7 +412,8 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
                 &mut avail_out,
                 self.output_buffer.slice_mut(),
                 &mut output_offset,
-                &mut self.total_out);
+                &mut self.total_out,
+                &mut nop_callback);
            if output_offset > 0 {
              match write_all(&mut self.output, &self.output_buffer.slice_mut()[..output_offset]) {
               Ok(_) => {},

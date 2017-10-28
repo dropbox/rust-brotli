@@ -25,7 +25,8 @@ pub use brotli_decompressor::reader;
 pub use brotli_decompressor::writer;
 pub use brotli_decompressor::BrotliState;
 pub use brotli_decompressor::reader::{DecompressorCustomIo};
-
+pub use brotli_decompressor::HuffmanCode; // so we can make custom allocator for decompression
+pub use brotli_decompressor::transform::TransformDictionaryWord;
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::reader::{Decompressor};
 
@@ -38,7 +39,8 @@ pub use brotli_decompressor::io_wrappers::{CustomRead, CustomWrite};
 
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
-
+pub use enc::interface;
+pub use enc::brotli_bit_stream::InputReference;
 // interface
 // pub fn BrotliDecompressStream(mut available_in: &mut usize,
 //                               input_offset: &mut usize,
