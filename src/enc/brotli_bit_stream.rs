@@ -142,7 +142,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
        use std::io::Write;
        match cmd {
              &interface::Command::BlockSwitchLiteral(ref bsl) => {
-                println_stderr!("ltype {} {}", bsl.0, bsl.1);
+                println_stderr!("ltype {} {}", bsl.0.block_type(), bsl.1);
              },
              &interface::Command::BlockSwitchCommand(ref bsc) => {
                 println_stderr!("ctype {}", bsc.0);

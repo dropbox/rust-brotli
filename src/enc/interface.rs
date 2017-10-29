@@ -1,6 +1,6 @@
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
-use alloc::SliceWrapper;
+use alloc::{SliceWrapper, Allocator};
 #[derive(Debug,Copy,Clone,Default)]
 pub struct BlockSwitch(pub u8);
 // Commands that can instantiate as a no-op should implement this.
@@ -18,14 +18,14 @@ impl BlockSwitch {
 }
 
 #[derive(Debug,Copy,Clone,Default)]
-pub struct LiteralBlockSwitch(pub u8, pub u8);
+pub struct LiteralBlockSwitch(pub BlockSwitch, pub u8);
 
 impl LiteralBlockSwitch {
     pub fn new(block_type: u8, stride: u8) -> Self {
-        LiteralBlockSwitch(block_type, stride)
+        LiteralBlockSwitch(BlockSwitch::new(block_type), stride)
     }
     pub fn block_type(&self) -> u8 {
-        self.0
+        self.0.block_type()
     }
     pub fn stride(&self) -> u8 {
         self.1
@@ -144,7 +144,7 @@ impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceT
 
 #[derive(Debug)]
 #[cfg(feature="external-literal-probability")]
-pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(SliceType);
+pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(pub SliceType);
 
 #[cfg(feature="external-literal-probability")]
 impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
@@ -203,6 +203,20 @@ pub enum Command<SliceType:SliceWrapper<u8> > {
     BlockSwitchDistance(BlockSwitch),
     PredictionMode(PredictionModeContextMap<SliceType>),
 }
+impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
+    pub fn free_array<F>(&mut self, apply_func: &mut F) where F: FnMut(SliceType) {
+       match self {
+          &mut Command::Literal(ref mut lit) => {
+             apply_func(core::mem::replace(&mut lit.data, SliceType::default()))
+          },
+          &mut Command::PredictionMode(ref mut pm) => {
+             apply_func(core::mem::replace(&mut pm.literal_context_map, SliceType::default()));
+             apply_func(core::mem::replace(&mut pm.distance_context_map, SliceType::default()));
+          },
+          _ => {},
+       }
+    }
+}
 
 
 impl<SliceType:SliceWrapper<u8>> Default for Command<SliceType> {
@@ -232,4 +246,17 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for Command<SliceType> {
 }
 
 impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for Command<SliceType> {
+}
+
+pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
+       match xself {
+          &mut Command::Literal(ref mut lit) => {
+             m8.free_cell(core::mem::replace(&mut lit.data, SliceTypeAllocator::AllocatedMemory::default()))
+          },
+          &mut Command::PredictionMode(ref mut pm) => {
+             m8.free_cell(core::mem::replace(&mut pm.literal_context_map, SliceTypeAllocator::AllocatedMemory::default()));
+             m8.free_cell(core::mem::replace(&mut pm.distance_context_map, SliceTypeAllocator::AllocatedMemory::default()));
+          },
+          _ => {},
+    }
 }
