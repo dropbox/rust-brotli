@@ -1,3 +1,4 @@
+#![allow(unknown_lints)]
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_macros)]
@@ -72,7 +73,7 @@ fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNi
    }
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,Default)]
 pub struct InputReference<'a>(pub &'a [u8]);
 impl<'a> SliceWrapper<u8> for InputReference<'a> {
     fn slice(&self) -> & [u8] {
@@ -218,11 +219,13 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         if data.0.len() != 0 {
             self.push(interface::Command::Literal(interface::LiteralCommand{
                 data:InputReference(data.0),
+                prob:interface::FeatureFlagSliceType::<InputReference>::default(),
             }), callback);
         }
         if data.1.len() != 0 {
             self.push(interface::Command::Literal(interface::LiteralCommand{
                 data:InputReference(data.1),
+                prob:interface::FeatureFlagSliceType::<InputReference>::default(),
             }), callback);
         }
     }

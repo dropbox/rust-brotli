@@ -1,3 +1,5 @@
+#[allow(unused_imports)] // right now just used in feature flag
+use core;
 use alloc::SliceWrapper;
 #[derive(Debug,Copy,Clone,Default)]
 pub struct BlockSwitch(pub u8);
@@ -121,20 +123,71 @@ impl Nop<DictCommand> for DictCommand {
 }
 
 #[derive(Debug)]
+#[cfg(not(feature="external-literal-probability"))]
+pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(core::marker::PhantomData<*const SliceType>);
+
+#[cfg(not(feature="external-literal-probability"))]
+impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
+   fn slice(&self) -> &[u8] {
+       &[]
+   }
+}
+
+#[cfg(not(feature="external-literal-probability"))]
+impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceType> {
+    fn default() -> Self {
+        FeatureFlagSliceType::<SliceType>(core::marker::PhantomData::<*const SliceType>::default())
+    }
+}
+
+
+
+#[derive(Debug)]
+#[cfg(feature="external-literal-probability")]
+pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(SliceType);
+
+#[cfg(feature="external-literal-probability")]
+impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
+   fn slice(&self) -> &[u8] {
+       self.0.slice()
+   }
+}
+
+#[cfg(feature="external-literal-probability")]
+impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceType> {
+    fn default() -> Self {
+        FeatureFlagSliceType::<SliceType>(SliceType::default())
+    }
+}
+
+
+
+impl<SliceType:SliceWrapper<u8>+Clone> Clone for FeatureFlagSliceType<SliceType> {
+    fn clone(&self) -> Self {
+       FeatureFlagSliceType::<SliceType>(self.0.clone())
+    }
+}
+impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for FeatureFlagSliceType<SliceType> {
+}
+
+
+#[derive(Debug)]
 pub struct LiteralCommand<SliceType:SliceWrapper<u8>> {
     pub data: SliceType,
+    pub prob: FeatureFlagSliceType<SliceType>
 }
 
 impl<SliceType:SliceWrapper<u8>+Default> Nop<LiteralCommand<SliceType>> for LiteralCommand<SliceType> {
     fn nop() -> Self {
         LiteralCommand {
-            data: SliceType::default()
+            data: SliceType::default(),
+            prob: FeatureFlagSliceType::<SliceType>::default(),
         }
     }
 }
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for LiteralCommand<SliceType> {
     fn clone(&self) -> LiteralCommand<SliceType>{
-        LiteralCommand::<SliceType>{data:self.data.clone()}
+        LiteralCommand::<SliceType>{data:self.data.clone(), prob:self.prob.clone()}
     }
 }
 impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for LiteralCommand<SliceType> {
