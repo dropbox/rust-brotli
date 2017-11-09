@@ -198,6 +198,8 @@ pub fn BrotliCompressCustomIo<ErrType,
   where InputType: CustomRead<ErrType>,
         OutputType: CustomWrite<ErrType>
 {
+  assert!(input_buffer.len() != 0);
+  assert!(output_buffer.len() != 0);
   let mut s_orig = BrotliEncoderCreateInstance(mu8, mu16, mi32, mu32, mc);
   s_orig.params = params.clone();
   let mut next_in_offset: usize = 0;  

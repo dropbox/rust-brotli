@@ -150,6 +150,7 @@ pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
 #[cfg(not(any(feature="no-stdlib")))]
 impl<W: Write> CompressorWriter<W> {
   pub fn new(w: W, buffer_size: usize, q: u32, lgwin: u32) -> Self {
+    assert!(buffer_size != 0);
     let mut alloc_u8 = HeapAlloc::<u8> { default_value: 0 };
     let buffer = alloc_u8.alloc_cell(buffer_size);
     let alloc_u16 = HeapAlloc::<u16> { default_value: 0 };
