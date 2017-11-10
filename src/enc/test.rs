@@ -30,37 +30,37 @@ declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);
 declare_stack_allocator_struct!(CallocatedFreelist2048, 64, calloc);
 
 fn oneshot_compress(input: &[u8],
-                    mut output: &mut [u8],
+                    output: &mut [u8],
                     quality: u32,
                     lgwin: u32,
                     in_batch_size: usize,
                     out_batch_size: usize)
                     -> (i32, usize) {
-  let mut stack_u8_buffer =
+  let stack_u8_buffer =
     unsafe { define_allocator_memory_pool!(96, u8, [0; 24 * 1024 * 1024], calloc) };
-  let mut stack_u16_buffer =
+  let stack_u16_buffer =
     unsafe { define_allocator_memory_pool!(96, u16, [0; 128 * 1024], calloc) };
-  let mut stack_i32_buffer =
+  let stack_i32_buffer =
     unsafe { define_allocator_memory_pool!(96, i32, [0; 128 * 1024], calloc) };
-  let mut stack_u32_buffer =
+  let stack_u32_buffer =
     unsafe { define_allocator_memory_pool!(96, u32, [0; 32 * 1024 * 1024], calloc) };
-  let mut stack_f64_buffer =
+  let stack_f64_buffer =
     unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
-  let mut stack_fv_buffer =
+  let stack_fv_buffer =
     unsafe { define_allocator_memory_pool!(48, Mem256f, [0; 128 * 1024], calloc) };
-  let mut stack_hl_buffer =
+  let stack_hl_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramLiteral, [0; 128 * 1024], calloc) };
-  let mut stack_hc_buffer =
+  let stack_hc_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramCommand, [0; 128 * 1024], calloc) };
-  let mut stack_hd_buffer =
+  let stack_hd_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramDistance, [0; 128 * 1024], calloc) };
-  let mut stack_hp_buffer =
+  let stack_hp_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramPair, [0; 128 * 1024], calloc) };
-  let mut stack_ct_buffer =
+  let stack_ct_buffer =
     unsafe { define_allocator_memory_pool!(48, ContextType, [0; 128 * 1024], calloc) };
-  let mut stack_ht_buffer =
+  let stack_ht_buffer =
     unsafe { define_allocator_memory_pool!(48, HuffmanTree, [0; 128 * 1024], calloc) };
-  let mut stack_mc_buffer =
+  let stack_mc_buffer =
     unsafe { define_allocator_memory_pool!(48, Command, [0; 128 * 1024], calloc) };
   let stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
   let stack_u16_allocator = CallocatedFreelist4096::<u16>::new_allocator(stack_u16_buffer.data,
@@ -90,7 +90,7 @@ fn oneshot_compress(input: &[u8],
   let mut next_in_offset: usize = 0;
   let mut next_out_offset: usize = 0;
   {
-    let mut s = &mut s_orig;
+    let s = &mut s_orig;
 
     BrotliEncoderSetParameter(s,
                               BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
@@ -181,8 +181,8 @@ fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult
 }
 
 fn oneshot(input: &[u8],
-           mut compressed: &mut [u8],
-           mut output: &mut [u8],
+           compressed: &mut [u8],
+           output: &mut [u8],
            q: u32,
            lg: u32,
            in_buffer_size: usize,
@@ -228,7 +228,7 @@ fn test_roundtrip_10x10y() {
 
 macro_rules! test_roundtrip_file {
   ($filename : expr, $bufsize: expr, $quality: expr, $lgwin: expr, $in_buf:expr, $out_buf:expr) => {{
-    let mut stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 18 * 1024 * 1024], calloc)};
+    let stack_u8_buffer = unsafe{define_allocator_memory_pool!(4096, u8, [0; 18 * 1024 * 1024], calloc)};
     let mut stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
 
     let mut compressed = stack_u8_allocator.alloc_cell($bufsize);
