@@ -2,7 +2,7 @@
 use brotli::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength,
                          kBrotliDictionaryOffsetsByLength};
 use brotli::transform::{TransformDictionaryWord};
-use brotli::{interface, InputReference};
+use brotli::interface;
 use std::collections::BTreeMap;
 use std::fmt;
 use alloc_no_stdlib::SliceWrapper;
@@ -44,7 +44,6 @@ pub fn print_dictionary(dict :BTreeMap<Vec<u8>, ()>) {
 }
 macro_rules! println_stderr(
     ($($val:tt)*) => { {
-        use std::string::ToString;
         writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
     } }
 );

@@ -51,7 +51,7 @@ fn EstimateBitCostsForLiteralsUTF8(pos: usize,
                                    len: usize,
                                    mask: usize,
                                    data: &[u8],
-                                   mut cost: &mut [f32]) {
+                                   cost: &mut [f32]) {
   let max_utf8: usize = DecideMultiByteStatsLevel(pos, len, mask, data);
   let mut histogram: [[usize; 256]; 3] = [[0; 256]; 3];
   let window_half: usize = 495usize;
@@ -172,7 +172,7 @@ pub fn BrotliEstimateBitCostsForLiterals(pos: usize,
                                          len: usize,
                                          mask: usize,
                                          data: &[u8],
-                                         mut cost: &mut [f32]) {
+                                         cost: &mut [f32]) {
   if BrotliIsMostlyUTF8(data, pos, mask, len, kMinUTF8Ratio) != 0 {
     EstimateBitCostsForLiteralsUTF8(pos, len, mask, data, cost);
   } else {
