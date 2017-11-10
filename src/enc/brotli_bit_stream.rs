@@ -31,29 +31,10 @@ pub struct PrefixCodeRange {
   pub nbits: u32,
 }
 
-
-macro_rules! println_stderr(
-    ($($val:tt)*) => { {
-        use std::string::ToString;
-        writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
-    } }
-);
 fn window_size_from_lgwin(lgwin: i32) -> usize{
     (1usize << lgwin) - 16usize
 }
 
-
-/*
-#[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
-fn LogMetaBlock<AllocU32:alloc::Allocator<u32>>(_m32:&mut AllocU32,
-    _commands: &[Command], _input0: &[u8], _input1: &[u8],
-                _n_postfix: u32, _n_direct: u32, _dist_cache: &[i32;kNumDistanceCacheEntries],
-                _recoder_state:&mut RecoderState,
-                _block_type: MetaBlockSplitRefs,
-                _lgwin: i32,
-                _context_type:ContextType) {
-}
-*/
 fn context_type_str(context_type:ContextType) -> &'static str {
    match context_type {
          ContextType::CONTEXT_LSB6 => "lsb6",
@@ -107,16 +88,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             last_btypel_index: None,
         }
     }
-    #[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
-    fn header(&self, _lgwin: i32, _mb_size: usize, _num_types_l: u32, _num_types_c: u32, _num_types_d: u32) {
-    }
-    #[cfg(not(feature="no-stdlib"))] // doesn't work with no-stdlib atm
-    fn header(&self, lgwin: i32, mb_size: usize, num_types_l: u32, num_types_c: u32, num_types_d: u32) {
-        use std::io::{Write};
-        println_stderr!("window {:} len {:} nbltypesl {:} nbltypesi {:} nbltypesd {:}",
-                    lgwin, mb_size,
-                    num_types_l, num_types_c, num_types_d);
-    }
     fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
      where Cb: FnMut(&[interface::Command<InputReference>]) {
         self.queue[self.loc] = val;
@@ -134,60 +105,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn clear(&mut self) {
         self.loc = 0;
     }
-    #[cfg(feature="no-stdlib")] // doesn't work with no-stdlib atm
-    fn write_one(&self, _cmd: &interface::Command<InputReference>) {
-    }
-    #[cfg(not(feature="no-stdlib"))] // doesn't work with no-stdlib atm
-    fn write_one(&self, cmd: &interface::Command<InputReference>) {
-       use std::io::Write;
-       match cmd {
-             &interface::Command::BlockSwitchLiteral(ref bsl) => {
-                println_stderr!("ltype {} {}", bsl.0.block_type(), bsl.1);
-             },
-             &interface::Command::BlockSwitchCommand(ref bsc) => {
-                println_stderr!("ctype {}", bsc.0);
-             },
-             &interface::Command::BlockSwitchDistance(ref bsd) => {
-                println_stderr!("dtype {}", bsd.0);
-             },
-             &interface::Command::PredictionMode(ref prediction) => {
-                println_stderr!("prediction {} lcontextmap{} dcontextmap{}",
-                    prediction_mode_str(prediction.literal_prediction_mode),
-                    prediction.literal_context_map.slice().iter().fold(::std::string::String::new(),
-                                                               |res, &val| res + " " + &val.to_string()),
-                    prediction.distance_context_map.slice().iter().fold(::std::string::String::new(),
-                                                                |res, &val| res + " " + &val.to_string()));
-             },
-             &interface::Command::Copy(ref copy) => {
-                println_stderr!("copy {} from {}", copy.num_bytes, copy.distance);
-             },
-             &interface::Command::Dict(ref dict) => {
-               let mut transformed_word = [0u8;38];
-               let word_index = dict.word_id as usize * dict.word_size as usize +
-                   kBrotliDictionaryOffsetsByLength[dict.word_size as usize] as usize;
-               let raw_word = &kBrotliDictionary[word_index..(word_index + dict.word_size as usize)];
-               let actual_copy_len = TransformDictionaryWord(&mut transformed_word[..],
-                                                      raw_word,
-                                                      dict.word_size as i32,
-                                                      dict.transform as i32) as usize;
-
-                transformed_word.split_at(actual_copy_len).0;
-                assert_eq!(dict.final_size as usize, actual_copy_len);
-                println_stderr!("dict {} word {},{} {:x} func {} {:x}",
-                                      actual_copy_len,
-                                      dict.word_size,
-                                      dict.word_id,
-                                      InputPair(raw_word, &[]),
-                                      dict.transform,
-                                      InputPair(transformed_word.split_at(actual_copy_len).0, &[]));
-             },
-             &interface::Command::Literal(ref lit) => {
-                println_stderr!("insert {} {:x}",
-                                      lit.data.slice().len(),
-                                      InputPair(lit.data.slice(), &[]));
-             },
-       }
-    }
     fn content(&mut self) -> &[interface::Command<InputReference>] {
         self.queue.split_at(self.loc).0
     }
@@ -204,9 +121,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
        }
        self.last_btypel_index = None;
        callback(self.queue.split_at(self.loc).0);
-       for cmd in self.queue.split_at(self.loc).0.iter() {
-           self.write_one(cmd);
-       }
        self.clear();
     }
     fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
@@ -277,7 +191,6 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
             local_distance_context_map[index] = *item as u8;
         }
     }
-    command_queue.header(lgwin, mb_len, block_type.btypel.num_types, block_type.btypec.num_types, block_type.btyped.num_types);
     command_queue.push(interface::Command::PredictionMode(
         interface::PredictionModeContextMap::<InputReference>{
             literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type as u8),

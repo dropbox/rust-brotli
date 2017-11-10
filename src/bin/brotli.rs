@@ -258,7 +258,10 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
     let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
     let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
-    let mut nop = |_data:&[brotli::interface::Command<brotli::InputReference>]|();
+    let mut log = |data:&[brotli::interface::Command<brotli::InputReference>]| {for cmd in data.iter() {util::write_one(cmd)} };
+    if params.log_meta_block {
+        println_stderr!("window {} 0 0 0", params.lgwin);
+    }
     brotli::BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
                                    &mut IoWriterWrapper::<OutputType>(w),
                                    &mut input_buffer.slice_mut(),
@@ -289,7 +292,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<HuffmanTree>{
                                        default_value:HuffmanTree::default(),
                                    },
-                                   &mut nop,
+                                   &mut log,
                                    Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 
