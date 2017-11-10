@@ -81,6 +81,7 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_LGBLOCK = 3,
   BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING = 4,
   BROTLI_PARAM_SIZE_HINT = 5,
+  BROTLI_METABLOCK_CALLBACK = 151
 }
 
 
@@ -227,6 +228,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_QUALITY as (i32) {
     (*state).params.quality = value as (i32);
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_METABLOCK_CALLBACK as (i32) {
+    (*state).params.log_meta_block = if value != 0 {true} else {false};
     return 1i32;
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_LGWIN as (i32) {
