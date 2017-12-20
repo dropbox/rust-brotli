@@ -1,6 +1,6 @@
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
-use alloc::{SliceWrapper, Allocator};
+use alloc::{SliceWrapper, Allocator, SliceWrapperMut};
 #[derive(Debug,Copy,Clone,Default)]
 pub struct BlockSwitch(pub u8);
 // Commands that can instantiate as a no-op should implement this.
@@ -9,9 +9,11 @@ pub trait Nop<T> {
 }
 
 impl BlockSwitch {
+    #[inline(always)]
     pub fn new(block_type: u8) -> Self {
         BlockSwitch(block_type)
     }
+    #[inline(always)]
     pub fn block_type(&self) -> u8 {
         self.0
     }
@@ -24,12 +26,15 @@ impl LiteralBlockSwitch {
     pub fn new(block_type: u8, stride: u8) -> Self {
         LiteralBlockSwitch(BlockSwitch::new(block_type), stride)
     }
+    #[inline(always)]
     pub fn block_type(&self) -> u8 {
         self.0.block_type()
     }
+    #[inline(always)]
     pub fn stride(&self) -> u8 {
         self.1
     }
+    #[inline(always)]
     pub fn update_stride(&mut self, new_stride: u8) {
         self.1 = new_stride;
     }
@@ -44,24 +49,30 @@ pub const LITERAL_PREDICTION_MODE_LSB6: u8 = 0;
 pub struct LiteralPredictionModeNibble(pub u8);
 
 impl LiteralPredictionModeNibble {
+    #[inline(always)]
     pub fn new(prediction_mode: u8) -> Result<Self, ()> {
         if prediction_mode < 16 {
             return Ok(LiteralPredictionModeNibble(prediction_mode));
         }
         return Err(());
     }
+    #[inline(always)]
     pub fn prediction_mode(&self) -> u8 {
         self.0
     }
+    #[inline(always)]
     pub fn signed() -> Self {
         LiteralPredictionModeNibble(LITERAL_PREDICTION_MODE_SIGN)
     }
+    #[inline(always)]
     pub fn utf8() -> Self {
         LiteralPredictionModeNibble(LITERAL_PREDICTION_MODE_UTF8)
     }
+    #[inline(always)]
     pub fn msb6() -> Self {
         LiteralPredictionModeNibble(LITERAL_PREDICTION_MODE_MSB6)
     }
+    #[inline(always)]
     pub fn lsb6() -> Self {
         LiteralPredictionModeNibble(LITERAL_PREDICTION_MODE_LSB6)
     }
@@ -93,6 +104,7 @@ pub struct CopyCommand {
 }
 
 impl Nop<CopyCommand> for CopyCommand {
+    #[inline(always)]
     fn nop() -> Self {
         CopyCommand {
             distance: 1,
@@ -111,6 +123,7 @@ pub struct DictCommand {
 }
 
 impl Nop<DictCommand> for DictCommand {
+    #[inline(always)]
     fn nop() -> Self {
         DictCommand {
             word_size: 0,
@@ -148,6 +161,7 @@ pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(pub SliceType);
 
 #[cfg(feature="external-literal-probability")]
 impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
+    #[inline(always)]
    fn slice(&self) -> &[u8] {
        self.0.slice()
    }
@@ -155,6 +169,7 @@ impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<Slice
 
 #[cfg(feature="external-literal-probability")]
 impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceType> {
+    #[inline(always)]
     fn default() -> Self {
         FeatureFlagSliceType::<SliceType>(SliceType::default())
     }
@@ -163,6 +178,7 @@ impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceT
 
 
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for FeatureFlagSliceType<SliceType> {
+    #[inline(always)]
     fn clone(&self) -> Self {
        FeatureFlagSliceType::<SliceType>(self.0.clone())
     }
@@ -176,8 +192,21 @@ pub struct LiteralCommand<SliceType:SliceWrapper<u8>> {
     pub data: SliceType,
     pub prob: FeatureFlagSliceType<SliceType>
 }
+impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for LiteralCommand<SliceType> {
+    #[inline(always)]
+    fn slice(&self) -> &[u8] {
+        self.data.slice()
+    }
+}
+impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> SliceWrapperMut<u8> for LiteralCommand<SliceType> {
+    #[inline(always)]
+    fn slice_mut(&mut self) -> &mut [u8] {
+        self.data.slice_mut()
+    }
+}
 
 impl<SliceType:SliceWrapper<u8>+Default> Nop<LiteralCommand<SliceType>> for LiteralCommand<SliceType> {
+    #[inline(always)]
     fn nop() -> Self {
         LiteralCommand {
             data: SliceType::default(),
@@ -186,6 +215,7 @@ impl<SliceType:SliceWrapper<u8>+Default> Nop<LiteralCommand<SliceType>> for Lite
     }
 }
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for LiteralCommand<SliceType> {
+    #[inline(always)]
     fn clone(&self) -> LiteralCommand<SliceType>{
         LiteralCommand::<SliceType>{data:self.data.clone(), prob:self.prob.clone()}
     }
@@ -193,11 +223,49 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for LiteralCommand<SliceType> {
 impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for LiteralCommand<SliceType> {
 }
 
+
+
+#[derive(Debug)]
+pub struct RandLiteralCommand<SliceType:SliceWrapper<u8>> {
+    pub data: SliceType,
+}
+impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for RandLiteralCommand<SliceType> {
+    #[inline(always)]
+    fn slice(&self) -> &[u8] {
+        self.data.slice()
+    }
+}
+impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> SliceWrapperMut<u8> for RandLiteralCommand<SliceType> {
+    #[inline(always)]
+    fn slice_mut(&mut self) -> &mut [u8] {
+        self.data.slice_mut()
+    }
+}
+
+impl<SliceType:SliceWrapper<u8>+Default> Nop<RandLiteralCommand<SliceType>> for RandLiteralCommand<SliceType> {
+    #[inline(always)]
+    fn nop() -> Self {
+        RandLiteralCommand {
+            data: SliceType::default(),
+        }
+    }
+}
+impl<SliceType:SliceWrapper<u8>+Clone> Clone for RandLiteralCommand<SliceType> {
+    #[inline(always)]
+    fn clone(&self) -> RandLiteralCommand<SliceType>{
+        RandLiteralCommand::<SliceType>{data:self.data.clone()}
+    }
+}
+impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for RandLiteralCommand<SliceType> {
+}
+
+
 #[derive(Debug)]
 pub enum Command<SliceType:SliceWrapper<u8> > {
     Copy(CopyCommand),
     Dict(DictCommand),
     Literal(LiteralCommand<SliceType>),
+    RandLiteral(RandLiteralCommand<SliceType>),
     BlockSwitchCommand(BlockSwitch),
     BlockSwitchLiteral(LiteralBlockSwitch),
     BlockSwitchDistance(BlockSwitch),
@@ -207,6 +275,9 @@ impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
     pub fn free_array<F>(&mut self, apply_func: &mut F) where F: FnMut(SliceType) {
        match self {
           &mut Command::Literal(ref mut lit) => {
+             apply_func(core::mem::replace(&mut lit.data, SliceType::default()))
+          },
+          &mut Command::RandLiteral(ref mut lit) => {
              apply_func(core::mem::replace(&mut lit.data, SliceType::default()))
           },
           &mut Command::PredictionMode(ref mut pm) => {
@@ -220,12 +291,14 @@ impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
 
 
 impl<SliceType:SliceWrapper<u8>> Default for Command<SliceType> {
+    #[inline(always)]
     fn default() -> Self {
         Command::<SliceType>::nop()
     }
 }
 
 impl<SliceType:SliceWrapper<u8>> Nop<Command<SliceType>> for Command<SliceType> {
+    #[inline(always)]
     fn nop() -> Command<SliceType> {
         Command::Copy(CopyCommand::nop())
     }
@@ -237,6 +310,7 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for Command<SliceType> {
             &Command::Copy(ref copy) => Command::Copy(copy.clone()),
             &Command::Dict(ref dict) => Command::Dict(dict.clone()),
             &Command::Literal(ref literal) => Command::Literal(literal.clone()),
+            &Command::RandLiteral(ref literal) => Command::RandLiteral(literal.clone()),
             &Command::BlockSwitchCommand(ref switch) => Command::BlockSwitchCommand(switch.clone()),
             &Command::BlockSwitchLiteral(ref switch) => Command::BlockSwitchLiteral(switch.clone()),
             &Command::BlockSwitchDistance(ref switch) => Command::BlockSwitchDistance(switch.clone()),
@@ -251,6 +325,9 @@ impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for Command<SliceType> {
 pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
        match xself {
           &mut Command::Literal(ref mut lit) => {
+             m8.free_cell(core::mem::replace(&mut lit.data, SliceTypeAllocator::AllocatedMemory::default()))
+          },
+          &mut Command::RandLiteral(ref mut lit) => {
              m8.free_cell(core::mem::replace(&mut lit.data, SliceTypeAllocator::AllocatedMemory::default()))
           },
           &mut Command::PredictionMode(ref mut pm) => {

@@ -2,6 +2,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_macros)]
+#[cfg(not(feature="no-stdlib"))]
+use std::io::Write;
 use super::input_pair::InputPair;
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
@@ -143,18 +145,37 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             }), callback);
         }
     }
+    fn push_rand_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+        if data.0.len() != 0 {
+            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
+                data:InputReference(data.0),
+            }), callback);
+        }
+        if data.1.len() != 0 {
+            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
+                data:InputReference(data.1),
+            }), callback);
+        }
+    }
     fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
     }
 }
-
+#[cfg(not(feature="no-stdlib"))]
+fn warn_on_missing_free() {
+    let _err = ::std::io::stderr().write(b"Need to free entropy_tally_scratch before dropping CommandQueue\n");
+}
+#[cfg(feature="no-stdlib")]
+fn warn_on_missing_free() {
+     // no way to warn in this case
+}
 impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
   fn drop(&mut self) {
-     if !self.entropy_tally_scratch.is_free() {
-        panic!("Need to call free before CommandQueue drops");
-     }
+      if !self.entropy_tally_scratch.is_free() {
+          warn_on_missing_free();
+      }
   }
 }
 
@@ -167,7 +188,7 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                                                             recoder_state :&mut RecoderState,
                                                             block_type: MetaBlockSplitRefs,
                                                             lgwin: i32,
-                                                            context_type:ContextType,
+                                                            context_type:Option<ContextType>,
                                                             callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
@@ -193,7 +214,7 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
     }
     command_queue.push(interface::Command::PredictionMode(
         interface::PredictionModeContextMap::<InputReference>{
-            literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type as u8),
+            literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
             literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
             distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
     }), callback);
@@ -251,7 +272,11 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                 // we have to divide some:
                 let (in_a, in_b) = tmp_inserts.split_at(btypel_sub as usize);
                 if in_a.len() != 0 {
-                    command_queue.push_literals(&in_a, callback);
+                    if let Some(_) = context_type {
+                        command_queue.push_literals(&in_a, callback);
+                    } else {
+                        command_queue.push_rand_literals(&in_a, callback);
+                    }
                 }
                 mb_len -= in_a.len();
                 tmp_inserts = in_b;
@@ -268,7 +293,11 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                     btypel_sub = 1u32<<31;
                 }
             }
-            command_queue.push_literals(&tmp_inserts, callback);
+            if let Some(_) = context_type {
+                command_queue.push_literals(&tmp_inserts, callback);
+            }else {
+                command_queue.push_rand_literals(&tmp_inserts, callback);
+            }
             if tmp_inserts.len() != 0 {
                 mb_len -= tmp_inserts.len();
                 btypel_sub -= tmp_inserts.len() as u32;
@@ -315,6 +344,7 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                            interim.split_at(actual_copy_len).0);
             } else if mb_len != 0 {
                 // truncated dictionary word: represent it as literals instead
+                // won't be random noise since it fits in the dictionary, so we won't check for rand
                 command_queue.push_literals(&interim.split_at(mb_len).0, callback);
                 mb_len = 0;
                 assert_eq!(InputPair(transformed_word.split_at(mb_len).0, &[]),
@@ -1900,7 +1930,7 @@ pub fn BrotliStoreMetaBlock<'a,
                    recoder_state,
                    block_split_reference(mb),
                    params.lgwin,
-                   literal_context_mode,
+                   Some(literal_context_mode),
                    callback);
   }
   let mut pos: usize = start_pos;
@@ -2200,7 +2230,7 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
                    recoder_state,
                    block_split_nop(),
                    params.lgwin,
-                   ContextType::CONTEXT_LSB6,
+                   Some(ContextType::CONTEXT_LSB6),
                    f);
   }
   let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
@@ -2375,7 +2405,7 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                    commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache, recoder_state,
                    block_split_nop(),
                    params.lgwin,
-                   ContextType::CONTEXT_LSB6,
+                   Some(ContextType::CONTEXT_LSB6),
                    cb);
   }
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
@@ -2547,9 +2577,9 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU32:alloc::Allocator<u32>>
     }];
 
     LogMetaBlock(m32, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
-      block_split_nop(),
-      params.lgwin,
-                 ContextType::CONTEXT_LSB6,
+                 block_split_nop(),
+                 params.lgwin,
+                 None,
                  cb);
   }
   if is_final_block != 0 {

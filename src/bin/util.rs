@@ -117,5 +117,10 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                             lit.data.slice().len(),
                             SliceU8Ref(lit.data.slice()));
         },
+        &interface::Command::RandLiteral(ref lit) => {
+            println_stderr!("rndins {} {:x}",
+                            lit.data.slice().len(),
+                            SliceU8Ref(lit.data.slice()));
+        },
     }
 }
