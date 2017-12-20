@@ -73,13 +73,24 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     last_btypel_index: Option<usize>,
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
     entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
+    stride_detection_quality: u8,
 }
 
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
-    fn new(m32:&mut AllocU32, mb: InputPair<'a>) -> CommandQueue <'a, AllocU32> {
-        let mut entropy_tally_scratch = find_stride::EntropyTally::<AllocU32>::new(m32);
-        let mut entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::new(m32);
-        entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
+    fn new(m32:&mut AllocU32, mb: InputPair<'a>, stride_detection_quality: u8) -> CommandQueue <'a, AllocU32> {
+        let mut entropy_tally_scratch = if stride_detection_quality == 0 {
+            find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
+        } else {
+            find_stride::EntropyTally::<AllocU32>::new(m32)
+        };
+        let mut entropy_pyramid = if stride_detection_quality == 0 {
+            find_stride::EntropyPyramid::<AllocU32>::disabled_placeholder(m32)
+        } else {
+            find_stride::EntropyPyramid::<AllocU32>::new(m32)
+        };
+        if stride_detection_quality > 0 {
+            entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
+        }
         CommandQueue {
             mb:mb,
             mb_byte_offset:0,
@@ -88,6 +99,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             entropy_tally_scratch: entropy_tally_scratch,
             entropy_pyramid: entropy_pyramid,
             last_btypel_index: None,
+            stride_detection_quality: stride_detection_quality,
         }
     }
     fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
@@ -111,7 +123,12 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         self.queue.split_at(self.loc).0
     }
     fn flush<Cb>(&mut self, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
-       let cur_stride = self.entropy_tally_scratch.pick_best_stride(self.queue.split_at(self.loc).0, self.mb.0, self.mb.1, &mut self.mb_byte_offset, &self.entropy_pyramid);
+       let cur_stride = self.entropy_tally_scratch.pick_best_stride(self.queue.split_at(self.loc).0,
+                                                                    self.mb.0,
+                                                                    self.mb.1,
+                                                                    &mut self.mb_byte_offset,
+                                                                    &self.entropy_pyramid,
+                                                                    self.stride_detection_quality);
        match self.last_btypel_index.clone() {
            None => {},
            Some(literal_block_type_offset) => {
@@ -181,18 +198,18 @@ impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
 
 fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                 Cb>(m32:&mut AllocU32,
-                                                            commands: &[Command], input0: &'a[u8],input1: &'a[u8],
-                                                            n_postfix: u32,
-                                                            n_direct: u32,
-                                                            dist_cache: &[i32;kNumDistanceCacheEntries],
-                                                            recoder_state :&mut RecoderState,
-                                                            block_type: MetaBlockSplitRefs,
-                                                            lgwin: i32,
-                                                            context_type:Option<ContextType>,
-                                                            callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
+                    commands: &[Command], input0: &'a[u8],input1: &'a[u8],
+                    n_postfix: u32,
+                    n_direct: u32,
+                    dist_cache: &[i32;kNumDistanceCacheEntries],
+                    recoder_state :&mut RecoderState,
+                    block_type: MetaBlockSplitRefs,
+                    params: &BrotliEncoderParams,
+                    context_type:Option<ContextType>,
+                    callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
-    let window_size = window_size_from_lgwin(lgwin);
+    let window_size = window_size_from_lgwin(params.lgwin);
 
     let mut mb_len = input0.len() + input1.len();
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -201,7 +218,7 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                block_type.btypec.num_types);
     assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btyped.num_types);
-    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1));
+    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1), params.stride_detection_quality);
     if block_type.literal_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.literal_context_map.iter().enumerate() {
             local_literal_context_map[index] = *item as u8;
@@ -1929,7 +1946,7 @@ pub fn BrotliStoreMetaBlock<'a,
                    distance_postfix_bits, num_direct_distance_codes, distance_cache,
                    recoder_state,
                    block_split_reference(mb),
-                   params.lgwin,
+                   params,
                    Some(literal_context_mode),
                    callback);
   }
@@ -2229,7 +2246,7 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
                    distance_cache,
                    recoder_state,
                    block_split_nop(),
-                   params.lgwin,
+                   params,
                    Some(ContextType::CONTEXT_LSB6),
                    f);
   }
@@ -2404,7 +2421,7 @@ pub fn BrotliStoreMetaBlockFast<Cb,
       LogMetaBlock(m32,
                    commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache, recoder_state,
                    block_split_nop(),
-                   params.lgwin,
+                   params,
                    Some(ContextType::CONTEXT_LSB6),
                    cb);
   }
@@ -2578,7 +2595,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU32:alloc::Allocator<u32>>
 
     LogMetaBlock(m32, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
                  block_split_nop(),
-                 params.lgwin,
+                 params,
                  None,
                  cb);
   }

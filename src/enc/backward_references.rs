@@ -25,6 +25,7 @@ pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32
 
 
 #[derive(PartialEq, Eq, Copy, Clone)]
+#[repr(C)]
 pub enum BrotliEncoderMode {
   BROTLI_MODE_GENERIC = 0,
   BROTLI_MODE_TEXT = 1,
@@ -52,6 +53,8 @@ pub struct BrotliEncoderParams {
   pub disable_literal_context_modeling: i32,
   pub hasher: BrotliHasherParams,
   pub log_meta_block: bool,
+  pub stride_detection_quality: u8, // 0 = off (stride 1 always) 1 = on per 16th of a file 2 = on per block type switch
+  pub high_entropy_detection_quality: u8,
 }
 
 

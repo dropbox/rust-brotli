@@ -439,9 +439,19 @@ fn main() {
           params.lgwin = argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap();
           continue;
       }
-      if argument.starts_with("-s") {
-          params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<usize>().unwrap();
+      if argument == "-basicstride" {
+          params.stride_detection_quality = 1;
           continue;
+      } else {
+          if argument == "-stride" {
+              params.stride_detection_quality = 2;
+              continue;
+          } else {
+              if argument.starts_with("-s") {
+                  params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<usize>().unwrap();
+                  continue;
+              }
+          }
       }
       if argument.starts_with("-b") {
           num_benchmarks = argument.trim_matches('-').trim_matches('b').parse::<usize>().unwrap();

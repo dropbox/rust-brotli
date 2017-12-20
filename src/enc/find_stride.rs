@@ -103,6 +103,7 @@ pub struct EntropyTally<AllocU32: alloc::Allocator<u32> > {
 }
 const NUM_LEVELS: usize = 4;
 const NUM_NODES: usize = (1<<(NUM_LEVELS)) - 1;
+
 pub struct EntropyPyramid<AllocU32: alloc::Allocator<u32> > {
     pop: [EntropyBucketPopulation<AllocU32>;NUM_NODES],
     stride: [u8;NUM_NODES],
@@ -111,6 +112,10 @@ pub struct EntropyPyramid<AllocU32: alloc::Allocator<u32> > {
 impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     pub fn last_level_range(&self) -> Range<usize> {
         (NUM_NODES - (1 << (NUM_LEVELS - 1)))..NUM_NODES
+    }
+    pub fn byte_index_to_pyramid_index(&self, byte_index: usize, metablock_size: usize) -> usize {
+        let range = self.last_level_range();
+        range.start + (range.end - range.start) * byte_index / metablock_size
     }
     pub fn reset_scratch_to_deepest_level(&self, output: &mut EntropyTally<AllocU32>) {
         let mut has_modified = [false; NUM_STRIDES];
@@ -123,7 +128,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
                 has_modified[self.stride[index] as usize] = true;
             }
         }
-	for stride in 0..NUM_STRIDES {
+        for stride in 0..NUM_STRIDES {
             if !has_modified[stride] {
                 output.pop[stride].bzero();
                 output.pop[stride].cached_bit_entropy = 0.0;
@@ -137,6 +142,73 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         for item in self.pop.iter_mut() {
             m32.free_cell(mem::replace(&mut item.bucket_populations,
                                        AllocU32::AllocatedMemory::default()));
+        }
+    }
+    pub fn disabled_placeholder(_m32: &mut AllocU32) -> Self {
+        EntropyPyramid::<AllocU32> {
+           pop: [
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+           ],
+           stride:[0;NUM_NODES],
         }
     }
     pub fn new(m32: &mut AllocU32) -> Self {
@@ -204,7 +276,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
                     bucket_populations:m32.alloc_cell(size),
                 },
            ],         
-           stride:[1;NUM_NODES],
+           stride:[0;NUM_NODES],
         }
     }
     pub fn populate_entry(&mut self, input:InputPair, scratch: &mut EntropyTally<AllocU32>, index: u32, mirror_range: Option<Range<usize>>, prev_range: Option<Range<usize>>) {
@@ -320,6 +392,43 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
                 },
             ]}
     }
+    pub fn disabled_placeholder(_m32: &mut AllocU32) -> EntropyTally<AllocU32> {
+        EntropyTally::<AllocU32> {
+            pop:[
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+                EntropyBucketPopulation::<AllocU32>{
+                    cached_bit_entropy:0.0,
+                    bucket_populations:AllocU32::AllocatedMemory::default(),
+                },
+            ]}
+    }
     fn observe_input_stream(&mut self, input0:&[u8], input1:&[u8]) {
         let mut priors = [0u8;NUM_STRIDES];
         for val in input0.iter().chain(input1.iter()) {
@@ -365,50 +474,72 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
             if bp_offset <= bytes_processed {
                  let offset = bytes_processed - bp_offset;
                  if offset >= input0.len() {
-		    retval[index] = input1[offset - input0.len()];
+                    retval[index] = input1[offset - input0.len()];
                  } else {
                     retval[index] = input0[offset];
                  }
             }
-	}
-	retval
+        }
+        retval
     }
-    pub fn pick_best_stride<InputReference:SliceWrapper<u8>>(&mut self, commands: &[interface::Command<InputReference>], input0: &[u8], input1: &[u8], bytes_processed: &mut usize, entropy_pyramid: &EntropyPyramid<AllocU32>) -> u8 {
+    pub fn pick_best_stride<InputReference:SliceWrapper<u8>>(&mut self,
+                                                             commands: &[interface::Command<InputReference>],
+                                                             input0: &[u8],
+                                                             input1: &[u8],
+                                                             bytes_processed: &mut usize,
+                                                             entropy_pyramid: &EntropyPyramid<AllocU32>,
+                                                             stride_detection_quality: u8) -> u8 {
+        if stride_detection_quality == 0 {
+            return 0;
+        }
         //println!("ENTROPY PYRAMID {:?}", entropy_pyramid.stride);
-        entropy_pyramid.reset_scratch_to_deepest_level(self);
+        if stride_detection_quality > 1 {
+            entropy_pyramid.reset_scratch_to_deepest_level(self);
+        }
+        let mut pyramid_byte_index: usize = 0;
         for cmd in commands.iter() {
             match cmd {
                 &interface::Command::Copy(ref copy) => {
-		    *bytes_processed += copy.num_bytes as usize;
+                    *bytes_processed += copy.num_bytes as usize;
                 },
                 &interface::Command::Dict(ref dict) => {
-		    *bytes_processed += dict.final_size as usize;
+                    *bytes_processed += dict.final_size as usize;
                 },
                 &interface::Command::Literal(ref lit) => {
-                    let mut priors = self.get_previous_bytes(input0, input1, *bytes_processed);
-                    for (lindex, val) in lit.data.slice().iter().enumerate() {
-			 if lindex == NUM_STRIDES  {
-			    let vpriors = self.get_previous_bytes(input0, input1, NUM_STRIDES+*bytes_processed);
-			    assert_eq!(vpriors, priors);
-			 }
-                         for (index, prior) in priors.iter().enumerate() {
-                             self.pop[index].bucket_populations.slice_mut()[256 * (*prior as usize) + *val as usize] += 1;
-                             // increment the population value of this literal
-                             // for the respective prior for the stride index
-                         }
-                         { //reset prior values for the next item
-                             let mut tmp = [0u8;7];
-                             tmp.clone_from_slice(&priors[..7]);
-                             priors[1..].clone_from_slice(&tmp[..]);
-                             priors[0] = *val;
-                         }
+                    if stride_detection_quality > 1 {
+                        let mut priors = self.get_previous_bytes(input0, input1, *bytes_processed);
+                        for (lindex, val) in lit.data.slice().iter().enumerate() {
+                            if lindex == NUM_STRIDES  {
+                                let vpriors = self.get_previous_bytes(input0, input1, NUM_STRIDES+*bytes_processed);
+                                assert_eq!(vpriors, priors);
+                            }
+                            for (index, prior) in priors.iter().enumerate() {
+                                self.pop[index].bucket_populations.slice_mut()[256 * (*prior as usize) + *val as usize] += 1;
+                                // increment the population value of this literal
+                                // for the respective prior for the stride index
+                            }
+                            { //reset prior values for the next item
+                                let mut tmp = [0u8;7];
+                                tmp.clone_from_slice(&priors[..7]);
+                                priors[1..].clone_from_slice(&tmp[..]);
+                                priors[0] = *val;
+                            }
+                        }
                     }
                     *bytes_processed += lit.data.slice().len();
+                    pyramid_byte_index = *bytes_processed;
                 },
                 _ => {},
             }
         }
-        let best_stride = self.identify_best_population_and_update_cache() + 1;
+
+        let best_stride = if stride_detection_quality > 1 {
+            self.identify_best_population_and_update_cache() + 1
+        } else {
+            entropy_pyramid.stride[
+                entropy_pyramid.byte_index_to_pyramid_index(pyramid_byte_index,
+                                                            input0.len() + input1.len())] + 1
+        };
         //println!("ENTROPY PYRAMID {:?} selected {}", entropy_pyramid.stride, best_stride);
         best_stride
     }

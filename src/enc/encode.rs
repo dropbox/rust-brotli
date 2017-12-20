@@ -74,6 +74,7 @@ static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
 #[derive(PartialEq, Eq, Copy, Clone)]
+#[repr(i32)]
 pub enum BrotliEncoderParameter {
   BROTLI_PARAM_MODE = 0,
   BROTLI_PARAM_QUALITY = 1,
@@ -81,7 +82,9 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_LGBLOCK = 3,
   BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING = 4,
   BROTLI_PARAM_SIZE_HINT = 5,
-  BROTLI_METABLOCK_CALLBACK = 151
+  BROTLI_METABLOCK_CALLBACK = 151,
+  BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
+  BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY = 153,
 }
 
 
@@ -98,6 +101,7 @@ pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
 
 
 #[derive(PartialEq, Eq, Copy, Clone)]
+#[repr(i32)]
 pub enum BrotliEncoderStreamState {
   BROTLI_STREAM_PROCESSING = 0,
   BROTLI_STREAM_FLUSH_REQUESTED = 1,
@@ -230,6 +234,14 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.quality = value as (i32);
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_STRIDE_DETECTION_QUALITY as (i32) {
+    (*state).params.stride_detection_quality = value as (u8);
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY as (i32) {
+    (*state).params.high_entropy_detection_quality = value as (u8);
+    return 1i32;
+  }
   if p as (i32) == BrotliEncoderParameter::BROTLI_METABLOCK_CALLBACK as (i32) {
     (*state).params.log_meta_block = if value != 0 {true} else {false};
     return 1i32;
@@ -264,6 +276,8 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            lgblock: 0i32,
            size_hint: 0usize,
            disable_literal_context_modeling: 0i32,
+           stride_detection_quality: 0,
+           high_entropy_detection_quality: 0,
            hasher: BrotliHasherParams {
              type_: 6,
              block_bits: 9 - 1,
