@@ -63,7 +63,23 @@ impl<'a> SliceWrapper<u8> for InputReference<'a> {
         self.0
     }
 }
-
+fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) -> bool{
+    return match high_entropy_detection_quality {
+        0 => false,
+        1 => len >= 256,
+        2 => len >= 128,
+        3 => len >= 96,
+        4 => len >= 64,
+        5 => len >= 48,
+        6 => len >= 32,
+        7 => len >= 24,
+        8 => len >= 16,
+        9 => len >= 8,
+        10 => len >= 6,
+        11 => len >= 4,
+        _ => len >= 8,
+    }
+}
 const COMMAND_BUFFER_SIZE: usize = 16384;
 struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     mb: InputPair<'a>,
@@ -161,24 +177,32 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                        local_byte_offset += lit.data.slice().len();
                    },
                    interface::Command::Literal(ref mut lit) => {
-                       let mut priors = self.entropy_tally_scratch.get_previous_bytes(
-                           self.mb.0,
-                           self.mb.1,
-                           local_byte_offset);
-
-                       let literal_cost = self.entropy_pyramid.bit_cost_of_literals(
-                           lit.data.slice(),
-                           local_byte_offset as u32,
-                           mb_len,
-                           cur_stride,
-                           priors,
-                           &mut self.entropy_tally_scratch);
-                       local_byte_offset += lit.data.slice().len();
-                       let random_cost = lit.data.slice().len() as find_stride::floatY * 8.0 + 1.0;
-                       if random_cost <= literal_cost {
-                           // transmute
-                           switch_to_random = Some(
-                               core::mem::replace(&mut lit.data, InputReference::default()));
+                       if is_long_enough_to_be_random(lit.data.slice().len(), self.high_entropy_detection_quality) {
+                           //print!("Long enough to be random {}\n", lit.data.slice().len());
+                           let mut priors = self.entropy_tally_scratch.get_previous_bytes(
+                               self.mb.0,
+                               self.mb.1,
+                               local_byte_offset);
+                           let mut rev_priors = priors;
+                           rev_priors.reverse();
+                           //print!("Stride {} prev {:?} byte offset {} {:?}\n", cur_stride, rev_priors, local_byte_offset, lit.data.slice());
+                           let literal_cost = self.entropy_pyramid.bit_cost_of_literals(
+                               lit.data.slice(),
+                               local_byte_offset as u32,
+                               mb_len,
+                               cur_stride,
+                               priors,
+                               &mut self.entropy_tally_scratch);
+                           local_byte_offset += lit.data.slice().len();
+                           let random_cost = lit.data.slice().len() as find_stride::floatY * 8.0 + 1.0;
+                           //print!("Rnd Cost {} ({} bytes)\nLit Cost {} ({} bytes) ratio {}\n", random_cost, random_cost as f64 / 8.0, literal_cost, literal_cost as f64 / 8.0, literal_cost as f64 / 8.0 / lit.data.slice().len() as f64);
+                           if random_cost <= literal_cost {
+                               // transmute
+                               switch_to_random = Some(
+                                   core::mem::replace(&mut lit.data, InputReference::default()));
+                           }
+                       } else {
+                           local_byte_offset += lit.data.slice().len();
                        }
                    }
                }

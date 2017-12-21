@@ -2,6 +2,7 @@ use super::interface;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use core::mem;
+use core::cmp;
 use core::ops::{Index, IndexMut, Range};
 use super::input_pair::InputPair;
 use super::util::FastLog2;
@@ -76,11 +77,13 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
           self.cached_bit_entropy = HuffmanCost(self.bucket_populations.slice());
       }
    }
-    fn bit_cost_of_data_subset(&self,
+    fn bit_cost_of_data_subset(&mut self,
                                data0:&[u8],
-                               stride: u8,
+                               mut stride: u8,
                                mut prev_bytes: [u8;NUM_STRIDES],
                                scratch: &mut EntropyBucketPopulation<AllocU32>) -> floatY{
+       prev_bytes.reverse();
+       stride = cmp::max(1, stride); // we return stride=1 to mean 1 away
        scratch.bucket_populations.slice_mut().clone_from_slice(self.bucket_populations.slice());
        scratch.bucket_populations.slice_mut()[65535] += 1; // to demonstrate that we have
        scratch.bucket_populations.slice_mut()[65535] -= 1; // to demonstrate that we have write capability
@@ -94,8 +97,14 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
            } else {
                *loc -= 1;
            }
-           prev_bytes[(index + 1) & (NUM_STRIDES - 1)] = *val;
+           prev_bytes[index & (NUM_STRIDES - 1)] = *val;
        }
+       if self.cached_bit_entropy == 0.0 as floatY {
+           self.cached_bit_entropy = HuffmanCost(self.bucket_populations.slice());
+       }
+       debug_assert_eq!(HuffmanCost(self.bucket_populations.slice()),
+                        self.cached_bit_entropy);
+
        scratch.cached_bit_entropy = HuffmanCost(scratch.bucket_populations.slice());
        self.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
    }
@@ -138,7 +147,8 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     }
     pub fn byte_index_to_pyramid_index(&self, byte_index: usize, metablock_size: usize) -> usize {
         let range = self.last_level_range();
-        range.start + (range.end - range.start) * byte_index / metablock_size
+        cmp::min(range.start + (range.end - range.start) * byte_index / metablock_size,
+                 range.end - 1) // since we tally after the end of the literal block, it could be after the pyramid
     }
     pub fn reset_scratch_to_deepest_level(&self, output: &mut EntropyTally<AllocU32>) {
         let mut has_modified = [false; NUM_STRIDES];
@@ -302,14 +312,14 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
            stride:[0;NUM_NODES],
         }
     }
-    pub fn bit_cost_of_literals(&self,
+    pub fn bit_cost_of_literals(&mut self,
                                 data0: &[u8],
                                 start_index: u32,
                                 metablock_len: usize,
                                 stride:u8,
                                 previous_bytes: [u8; NUM_STRIDES],
                                 scratch: &mut EntropyTally<AllocU32>) -> floatY {
-        assert!(stride > 0 && stride as usize <= NUM_STRIDES);
+        assert!(stride as usize <= NUM_STRIDES);
         let cost = self.pop[self.byte_index_to_pyramid_index(start_index as usize,  metablock_len)].bit_cost_of_data_subset(
             data0,
             stride,
