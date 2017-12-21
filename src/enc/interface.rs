@@ -323,17 +323,21 @@ impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for Command<SliceType> {
 }
 
 pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
-       match xself {
-          &mut Command::Literal(ref mut lit) => {
+       match *xself {
+          Command::Literal(ref mut lit) => {
              m8.free_cell(core::mem::replace(&mut lit.data, SliceTypeAllocator::AllocatedMemory::default()))
           },
-          &mut Command::RandLiteral(ref mut lit) => {
+          Command::RandLiteral(ref mut lit) => {
              m8.free_cell(core::mem::replace(&mut lit.data, SliceTypeAllocator::AllocatedMemory::default()))
           },
-          &mut Command::PredictionMode(ref mut pm) => {
+          Command::PredictionMode(ref mut pm) => {
              m8.free_cell(core::mem::replace(&mut pm.literal_context_map, SliceTypeAllocator::AllocatedMemory::default()));
              m8.free_cell(core::mem::replace(&mut pm.distance_context_map, SliceTypeAllocator::AllocatedMemory::default()));
           },
-          _ => {},
+          Command::Dict(_) |
+          Command::Copy(_) |
+          Command::BlockSwitchCommand(_) |
+          Command::BlockSwitchLiteral(_) |
+          Command::BlockSwitchDistance(_) => {},
     }
 }
