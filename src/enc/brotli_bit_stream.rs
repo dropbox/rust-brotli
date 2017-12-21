@@ -74,22 +74,33 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
     entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
     stride_detection_quality: u8,
+    high_entropy_detection_quality: u8,
 }
 
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
-    fn new(m32:&mut AllocU32, mb: InputPair<'a>, stride_detection_quality: u8) -> CommandQueue <'a, AllocU32> {
-        let mut entropy_tally_scratch = if stride_detection_quality == 0 {
+    fn new(m32:&mut AllocU32, mb: InputPair<'a>,
+           stride_detection_quality: u8,
+           high_entropy_detection_quality: u8) -> CommandQueue <'a, AllocU32> {
+        let mut entropy_tally_scratch = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 {
             find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
         } else {
-            find_stride::EntropyTally::<AllocU32>::new(m32)
+            if stride_detection_quality == 0 {
+                find_stride::EntropyTally::<AllocU32>::new(m32, Some(1))
+            } else {
+                find_stride::EntropyTally::<AllocU32>::new(m32, None)
+            }
         };
-        let mut entropy_pyramid = if stride_detection_quality == 0 {
+        let mut entropy_pyramid = if stride_detection_quality == 0 && high_entropy_detection_quality == 0{
             find_stride::EntropyPyramid::<AllocU32>::disabled_placeholder(m32)
         } else {
             find_stride::EntropyPyramid::<AllocU32>::new(m32)
         };
         if stride_detection_quality > 0 {
             entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
+        } else {
+            if high_entropy_detection_quality != 0 {
+                entropy_pyramid.populate_stride1(mb.0, mb.1);
+            }
         }
         CommandQueue {
             mb:mb,
@@ -100,6 +111,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             entropy_pyramid: entropy_pyramid,
             last_btypel_index: None,
             stride_detection_quality: stride_detection_quality,
+            high_entropy_detection_quality: high_entropy_detection_quality,
         }
     }
     fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
@@ -123,12 +135,61 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         self.queue.split_at(self.loc).0
     }
     fn flush<Cb>(&mut self, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+       let mut local_byte_offset = self.mb_byte_offset;
+       let mb_len = self.mb.0.len() + self.mb.1.len();
        let cur_stride = self.entropy_tally_scratch.pick_best_stride(self.queue.split_at(self.loc).0,
                                                                     self.mb.0,
                                                                     self.mb.1,
                                                                     &mut self.mb_byte_offset,
                                                                     &self.entropy_pyramid,
                                                                     self.stride_detection_quality);
+       if self.high_entropy_detection_quality > 0 {
+           for command in self.queue.split_at_mut(self.loc).0.iter_mut() {
+               let mut switch_to_random: Option<InputReference> = None;
+               match *command {
+                   interface::Command::BlockSwitchCommand(_) |
+                   interface::Command::BlockSwitchLiteral(_) |
+                   interface::Command::BlockSwitchDistance(_) |
+                   interface::Command::PredictionMode(_) => {},
+                   interface::Command::Copy(ref copy) => {
+                       local_byte_offset += copy.num_bytes as usize;
+                   },
+                   interface::Command::Dict(ref dict) => {
+                       local_byte_offset += dict.final_size as usize;
+                   },
+                   interface::Command::RandLiteral(ref lit) => {
+                       local_byte_offset += lit.data.slice().len();
+                   },
+                   interface::Command::Literal(ref mut lit) => {
+                       let mut priors = self.entropy_tally_scratch.get_previous_bytes(
+                           self.mb.0,
+                           self.mb.1,
+                           local_byte_offset);
+
+                       let literal_cost = self.entropy_pyramid.bit_cost_of_literals(
+                           lit.data.slice(),
+                           local_byte_offset as u32,
+                           mb_len,
+                           cur_stride,
+                           priors,
+                           &mut self.entropy_tally_scratch);
+                       local_byte_offset += lit.data.slice().len();
+                       let random_cost = lit.data.slice().len() as find_stride::floatY * 8.0 + 1.0;
+                       if random_cost <= literal_cost {
+                           // transmute
+                           switch_to_random = Some(
+                               core::mem::replace(&mut lit.data, InputReference::default()));
+                       }
+                   }
+               }
+               if let Some(data) = switch_to_random {
+                   *command = interface::Command::RandLiteral(
+                       interface::RandLiteralCommand{
+                       data: data,
+                   });
+               }
+           }
+       }
        match self.last_btypel_index.clone() {
            None => {},
            Some(literal_block_type_offset) => {
@@ -218,7 +279,9 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                block_type.btypec.num_types);
     assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btyped.num_types);
-    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1), params.stride_detection_quality);
+    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
+                                              params.stride_detection_quality,
+                                              params.high_entropy_detection_quality);
     if block_type.literal_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.literal_context_map.iter().enumerate() {
             local_literal_context_map[index] = *item as u8;
