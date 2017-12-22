@@ -81,6 +81,41 @@ fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) ->
     }
 }
 const COMMAND_BUFFER_SIZE: usize = 16384;
+trait CommandProcessor<'a> {
+   fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
+                                                             val: interface::Command<InputReference<'a> >,
+                                                             callback :&mut Cb);
+   fn push_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+        if data.0.len() != 0 {
+            self.push(interface::Command::Literal(interface::LiteralCommand{
+                data:InputReference(data.0),
+                prob:interface::FeatureFlagSliceType::<InputReference>::default(),
+            }), callback);
+        }
+        if data.1.len() != 0 {
+            self.push(interface::Command::Literal(interface::LiteralCommand{
+                data:InputReference(data.1),
+                prob:interface::FeatureFlagSliceType::<InputReference>::default(),
+            }), callback);
+        }
+   }
+   fn push_rand_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+        if data.0.len() != 0 {
+            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
+                data:InputReference(data.0),
+            }), callback);
+        }
+        if data.1.len() != 0 {
+            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
+                data:InputReference(data.1),
+            }), callback);
+        }
+   }
+   fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+       self.push(interface::Command::BlockSwitchLiteral(interface::LiteralBlockSwitch::new(block_type, 0)), callback)
+   }
+}
+
 struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     mb: InputPair<'a>,
     mb_byte_offset: usize,
@@ -128,14 +163,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             last_btypel_index: None,
             stride_detection_quality: stride_detection_quality,
             high_entropy_detection_quality: high_entropy_detection_quality,
-        }
-    }
-    fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
-     where Cb: FnMut(&[interface::Command<InputReference>]) {
-        self.queue[self.loc] = val;
-        self.loc += 1;
-        if self.full() {
-            self.flush(callback);
         }
     }
     fn full(&self) -> bool {
@@ -227,42 +254,26 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
        callback(self.queue.split_at(self.loc).0);
        self.clear();
     }
+    fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+       self.flush(callback);
+       self.entropy_tally_scratch.free(m32);
+       self.entropy_pyramid.free(m32);
+    }
+}
+impl<'a, AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue<'a, AllocU32 > {
+    fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
+     where Cb: FnMut(&[interface::Command<InputReference>]) {
+        self.queue[self.loc] = val;
+        self.loc += 1;
+        if self.full() {
+            self.flush(callback);
+        }
+    }
     fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
         self.flush(callback);
         self.last_btypel_index = Some(self.size());
         self.push(interface::Command::BlockSwitchLiteral(
             interface::LiteralBlockSwitch::new(block_type, 0)), callback)
-    }
-    fn push_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
-        if data.0.len() != 0 {
-            self.push(interface::Command::Literal(interface::LiteralCommand{
-                data:InputReference(data.0),
-                prob:interface::FeatureFlagSliceType::<InputReference>::default(),
-            }), callback);
-        }
-        if data.1.len() != 0 {
-            self.push(interface::Command::Literal(interface::LiteralCommand{
-                data:InputReference(data.1),
-                prob:interface::FeatureFlagSliceType::<InputReference>::default(),
-            }), callback);
-        }
-    }
-    fn push_rand_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
-        if data.0.len() != 0 {
-            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
-                data:InputReference(data.0),
-            }), callback);
-        }
-        if data.1.len() != 0 {
-            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
-                data:InputReference(data.1),
-            }), callback);
-        }
-    }
-    fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
-       self.flush(callback);
-       self.entropy_tally_scratch.free(m32);
-       self.entropy_pyramid.free(m32);
     }
 }
 #[cfg(not(feature="no-stdlib"))]
@@ -281,49 +292,19 @@ impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
   }
 }
 
-fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
-                Cb>(m32:&mut AllocU32,
-                    commands: &[Command], input0: &'a[u8],input1: &'a[u8],
-                    n_postfix: u32,
-                    n_direct: u32,
-                    dist_cache: &[i32;kNumDistanceCacheEntries],
-                    recoder_state :&mut RecoderState,
-                    block_type: MetaBlockSplitRefs,
-                    params: &BrotliEncoderParams,
-                    context_type:Option<ContextType>,
-                    callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
-    let mut local_literal_context_map = [0u8; 256 * 64];
-    let mut local_distance_context_map = [0u8; 256 * 64];
-    let window_size = window_size_from_lgwin(params.lgwin);
-
-    let mut mb_len = input0.len() + input1.len();
-    assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
-               block_type.btypel.num_types);
-    assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
-               block_type.btypec.num_types);
-    assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
-               block_type.btyped.num_types);
-    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
-                                              params.stride_detection_quality,
-                                              params.high_entropy_detection_quality);
-    if block_type.literal_context_map.len() <= 256 * 64 {
-        for (index, item) in block_type.literal_context_map.iter().enumerate() {
-            local_literal_context_map[index] = *item as u8;
-        }
-    }
-    if block_type.distance_context_map.len() <= 256 * 64 {
-        for (index, item) in block_type.distance_context_map.iter().enumerate() {
-            local_distance_context_map[index] = *item as u8;
-        }
-    }
-    command_queue.push(interface::Command::PredictionMode(
-        interface::PredictionModeContextMap::<InputReference>{
-            literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
-            literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
-            distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
-    }), callback);
-                       
-    let input = InputPair(input0, input1);
+fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), CmdProcessor: CommandProcessor<'a> > (
+    command_queue: &mut CmdProcessor,
+    input: InputPair<'a>,
+    commands: &[Command],
+    n_postfix: u32,
+    n_direct: u32,
+    dist_cache: &[i32;kNumDistanceCacheEntries],
+    mut recoder_state :RecoderState,
+    block_type: MetaBlockSplitRefs,
+    params: &BrotliEncoderParams,
+    context_type:Option<ContextType>,
+    callback: &mut Cb,
+) -> RecoderState {
     let mut input_iter = input.clone();
     let mut local_dist_cache = [0i32;kNumDistanceCacheEntries];
     local_dist_cache.clone_from_slice(&dist_cache[..]);
@@ -336,11 +317,11 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
     {
         command_queue.push_block_switch_literal(0, callback);
     }
+    let mut mb_len = input.len();
     for cmd in commands.iter() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
                                                                      mb_len));
         recoder_state.num_bytes_encoded += inserts.len();
-//        let copy_len = CommandCopyLen(cmd) as usize;
         let _copy_cursor = input.len() - interim.len();
         // let distance_context = CommandDistanceContext(cmd);
         let copylen_code: u32 = CommandCopyLenCode(cmd);
@@ -354,7 +335,7 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
         }
         let copy_len = copylen_code as usize;
         let actual_copy_len : usize;
-        let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size);
+        let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size_from_lgwin(params.lgwin));
         assert!(inserts.len() <= mb_len);
         {
             btypec_sub -= 1;
@@ -387,11 +368,6 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                 btypel_counter += 1;
                 if block_type.btypel.types.len() > btypel_counter {
                     btypel_sub = block_type.btypel.lengths[btypel_counter];
-                    /*
-                    let cur_stride = locked_stride_counter.pick_best_stride(commands.split_at(index).1,
-                                                                            btypel_sub,
-                                                                            &mut scratch_stride_counter);
-*/
                     command_queue.push_block_switch_literal(block_type.btypel.types[btypel_counter], callback);
                 } else {
                     btypel_sub = 1u32<<31;
@@ -476,6 +452,61 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
         recoder_state.num_bytes_encoded += copied.len();
         input_iter = remainder;
     }
+    recoder_state
+}
+
+fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
+                Cb>(m32:&mut AllocU32,
+                    commands: &[Command], input0: &'a[u8],input1: &'a[u8],
+                    n_postfix: u32,
+                    n_direct: u32,
+                    dist_cache: &[i32;kNumDistanceCacheEntries],
+                    recoder_state :&mut RecoderState,
+                    block_type: MetaBlockSplitRefs,
+                    params: &BrotliEncoderParams,
+                    context_type:Option<ContextType>,
+                    callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
+    let mut local_literal_context_map = [0u8; 256 * 64];
+    let mut local_distance_context_map = [0u8; 256 * 64];
+
+    assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
+               block_type.btypel.num_types);
+    assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
+               block_type.btypec.num_types);
+    assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
+               block_type.btyped.num_types);
+    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
+                                              params.stride_detection_quality,
+                                              params.high_entropy_detection_quality);
+    if block_type.literal_context_map.len() <= 256 * 64 {
+        for (index, item) in block_type.literal_context_map.iter().enumerate() {
+            local_literal_context_map[index] = *item as u8;
+        }
+    }
+    if block_type.distance_context_map.len() <= 256 * 64 {
+        for (index, item) in block_type.distance_context_map.iter().enumerate() {
+            local_distance_context_map[index] = *item as u8;
+        }
+    }
+    command_queue.push(interface::Command::PredictionMode(
+        interface::PredictionModeContextMap::<InputReference>{
+            literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
+            literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
+            distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
+    }), callback);
+                       
+    let input = InputPair(input0, input1);
+    *recoder_state = process_command_queue(&mut command_queue,
+                                           input,
+                                           commands,
+                                           n_postfix,
+                                           n_direct,
+                                           dist_cache,
+                                           *recoder_state,
+                                           block_type,
+                                           params,
+                                           context_type,
+                                           callback);
     command_queue.free(m32, callback);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
@@ -2472,7 +2503,7 @@ fn block_split_reference<'a,
         }
 }
      
-
+#[derive(Clone, Copy)]
 pub struct RecoderState {
     pub num_bytes_encoded : usize,
 }
