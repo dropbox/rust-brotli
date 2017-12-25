@@ -254,7 +254,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
        callback(self.queue.split_at(self.loc).0);
        self.clear();
     }
-    fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+    fn free<Cb>(mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
@@ -276,6 +276,31 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue
             interface::LiteralBlockSwitch::new(block_type, 0)), callback)
     }
 }
+
+struct ContextMapEntropy<'a, AllocU32:alloc::Allocator<u32>> {
+  entropy_tally: find_stride::EntropyBucketPopulation<AllocU32>,
+  context_map: interface::PredictionModeContextMap<InputReference<'a>>,
+}
+impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
+   fn new(m32: &mut AllocU32, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+      ContextMapEntropy::<AllocU32>{
+         entropy_tally:find_stride::EntropyBucketPopulation::<AllocU32>::new(m32),
+         context_map: prediction_mode,
+      }
+   }
+   fn free(self, m32: &mut AllocU32) {
+       self.entropy_tally.free(m32);
+   }
+}
+impl<'a, 'b, AllocU32:alloc::Allocator<u32>> CommandProcessor<'b> for ContextMapEntropy<'a, AllocU32> {
+    fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
+                                                             val: interface::Command<InputReference<'b>>,
+                                                             callback: &mut Cb) {
+        let cbval = [val];
+        callback(&cbval[..]);
+    }
+}
+
 #[cfg(not(feature="no-stdlib"))]
 fn warn_on_missing_free() {
     let _err = ::std::io::stderr().write(b"Need to free entropy_tally_scratch before dropping CommandQueue\n");
@@ -300,7 +325,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     n_direct: u32,
     dist_cache: &[i32;kNumDistanceCacheEntries],
     mut recoder_state :RecoderState,
-    block_type: MetaBlockSplitRefs,
+    block_type: &MetaBlockSplitRefs,
     params: &BrotliEncoderParams,
     context_type:Option<ContextType>,
     callback: &mut Cb,
@@ -488,14 +513,27 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
             local_distance_context_map[index] = *item as u8;
         }
     }
-    command_queue.push(interface::Command::PredictionMode(
-        interface::PredictionModeContextMap::<InputReference>{
+    let prediction_mode = interface::PredictionModeContextMap::<InputReference>{
             literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
             literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
             distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
-    }), callback);
-                       
+    };
+    let mut context_map_entropy = ContextMapEntropy::<AllocU32>::new(m32, prediction_mode);
     let input = InputPair(input0, input1);
+    process_command_queue(&mut context_map_entropy,
+                         input,
+                         commands,
+                         n_postfix,
+                         n_direct,
+                         dist_cache,
+                         *recoder_state,
+                         &block_type,
+                         params,
+                         context_type,
+                         &mut |_x|());
+    command_queue.push(interface::Command::PredictionMode(
+        prediction_mode.clone()), callback);
+     
     *recoder_state = process_command_queue(&mut command_queue,
                                            input,
                                            commands,
@@ -503,14 +541,14 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                                            n_direct,
                                            dist_cache,
                                            *recoder_state,
-                                           block_type,
+                                           &block_type,
                                            params,
                                            context_type,
                                            callback);
     command_queue.free(m32, callback);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
-   
+    context_map_entropy.free(m32);
 }
 
 static kBlockLengthPrefixCode: [PrefixCodeRange; BROTLI_NUM_BLOCK_LEN_SYMBOLS] =

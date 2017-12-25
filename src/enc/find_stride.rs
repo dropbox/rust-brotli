@@ -30,11 +30,26 @@ fn HuffmanCost(population: &[u32]) -> floatY{
 
 // this holds a population of data assuming 1 byte of prior for that data
 // bucket_populations is therefore a 65536-long dynamically allocated buffer
-struct EntropyBucketPopulation<AllocU32: alloc::Allocator<u32> > {
+pub struct EntropyBucketPopulation<AllocU32: alloc::Allocator<u32> > {
     pub bucket_populations: AllocU32::AllocatedMemory,
     pub cached_bit_entropy: floatY,
 }
 impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
+    pub fn new(m32: &mut AllocU32) -> Self {
+        let size = 256 * 256;
+        EntropyBucketPopulation::<AllocU32> {
+          cached_bit_entropy:0.0,
+          bucket_populations:m32.alloc_cell(size),
+        }
+    }
+    pub fn free(mut self, m32: &mut AllocU32) {
+       self.free_internal(m32);
+    }
+    fn free_internal(&mut self, m32: &mut AllocU32) {
+        m32.free_cell(mem::replace(&mut self.bucket_populations,
+                                   AllocU32::AllocatedMemory::default()));
+
+    }
    fn clone_from(&mut self, other: &EntropyBucketPopulation<AllocU32>) {
         self.bucket_populations.slice_mut().clone_from_slice(other.bucket_populations.slice());
    }
@@ -173,8 +188,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
         for item in self.pop.iter_mut() {
-            m32.free_cell(mem::replace(&mut item.bucket_populations,
-                                       AllocU32::AllocatedMemory::default()));
+            item.free_internal(m32);
         }
     }
     pub fn disabled_placeholder(_m32: &mut AllocU32) -> Self {
