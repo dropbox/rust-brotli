@@ -75,8 +75,8 @@ fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) ->
         7 => len >= 24,
         8 => len >= 16,
         9 => len >= 8,
-        10 => len >= 6,
-        11 => len >= 4,
+        10 => len >= 4,
+        11 => len >= 1,
         _ => len >= 8,
     }
 }
@@ -230,7 +230,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                                cur_stride,
                                priors,
                                &mut self.entropy_tally_scratch);
-
                            let cm_literal_cost = self.context_map_entropy.compute_bit_cost_of_data_subset(
                                lit.data.slice(),
                                priors[0],
@@ -243,14 +242,13 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                               literal_cost
                            };
                            local_byte_offset += lit.data.slice().len();
-                           let random_cost = lit.data.slice().len() as find_stride::floatY * 8.0 + 1.0;
-                           print!("Rnd Cost {} ({} bytes)\nLit Cost {} ({} bytes) ratio {}\nCML Cost {} ({} bytes) ratio {}\n",
-                                    random_cost, random_cost as f64 / 8.0,
+                           let random_cost = lit.data.slice().len() as find_stride::floatY * 8.0 + 8.0;
+                           print!("Rnd Cost {} ({} bytes) rndratio: {}\nlit Cost {} ({} bytes) ratio {}\nCml Cost {} ({} bytes) ratio {}\n",
+                                    random_cost, random_cost as f64 / 8.0, random_cost as f64 / min_cost as f64,
                                     literal_cost, literal_cost as f64 / 8.0, literal_cost as f64 / 8.0 / lit.data.slice().len() as f64,
                                     cm_literal_cost, cm_literal_cost as f64 / 8.0, cm_literal_cost as f64 / 8.0 / lit.data.slice().len() as f64
                                     );
                            if random_cost <= min_cost {
-                               // transmute
                                switch_to_random = Some(
                                    core::mem::replace(&mut lit.data, InputReference::default()));
                            }
@@ -335,11 +333,14 @@ impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
        for val in data.iter() {
            let huffman_table_index = compute_huffman_table_index_for_context_map(prev_byte, prev_prev_byte, self.context_map, block_type);
            let loc = &mut scratch.bucket_populations.slice_mut()[huffman_table_index * 256 + *val as usize];
+           //let mut stray = false;
            if *loc == 0 {
                stray_count += 1.0;
+               //stray = true;
            } else {
                *loc -= 1;
            }
+           //println!("{} {:02x}{:02x} => {:02x} (bt: {}, ind: {}, cnt: {})", if stray {"S"} else {"L"}, prev_byte, prev_prev_byte, *val, block_type, huffman_table_index, *loc);
            prev_prev_byte = prev_byte;
            prev_byte = *val;
        }
@@ -398,7 +399,9 @@ impl<'a, 'b, AllocU32:alloc::Allocator<u32>> CommandProcessor<'b> for ContextMap
                }
                for literal in lit.data.slice().iter() {                   
                    let huffman_table_index = compute_huffman_table_index_for_context_map(priors[1], priors[0], self.context_map, self.block_type);
+
                    self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
+                    //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
                    priors[0] = priors[1];
                    priors[1] = *literal;
                }
