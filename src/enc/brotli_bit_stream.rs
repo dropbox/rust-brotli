@@ -243,11 +243,11 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                            };
                            local_byte_offset += lit.data.slice().len();
                            let random_cost = lit.data.slice().len() as find_stride::floatY * 8.0 + 8.0;
-                           print!("Rnd Cost {} ({} bytes) rndratio: {}\nlit Cost {} ({} bytes) ratio {}\nCml Cost {} ({} bytes) ratio {}\n",
+                           /*print!("Rnd Cost {} ({} bytes) rndratio: {}\nlit Cost {} ({} bytes) ratio {}\nCml Cost {} ({} bytes) ratio {}\n",
                                     random_cost, random_cost as f64 / 8.0, random_cost as f64 / min_cost as f64,
                                     literal_cost, literal_cost as f64 / 8.0, literal_cost as f64 / 8.0 / lit.data.slice().len() as f64,
                                     cm_literal_cost, cm_literal_cost as f64 / 8.0, cm_literal_cost as f64 / 8.0 / lit.data.slice().len() as f64
-                                    );
+                                    );*/
                            if random_cost <= min_cost {
                                switch_to_random = Some(
                                    core::mem::replace(&mut lit.data, InputReference::default()));
