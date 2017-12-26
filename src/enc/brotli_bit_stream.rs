@@ -66,7 +66,7 @@ impl<'a> SliceWrapper<u8> for InputReference<'a> {
 fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) -> bool{
     return match high_entropy_detection_quality {
         0 => false,
-        1 => len >= 256,
+        1 => false,
         2 => len >= 128,
         3 => len >= 96,
         4 => len >= 64,
@@ -153,7 +153,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         if stride_detection_quality > 0 {
             entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
         } else {
-            if high_entropy_detection_quality != 0 {
+            if high_entropy_detection_quality > 1 {
                 entropy_pyramid.populate_stride1(mb.0, mb.1);
             }
         }
@@ -193,7 +193,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                                                                     &mut self.mb_byte_offset,
                                                                     &self.entropy_pyramid,
                                                                     self.stride_detection_quality);
-       if self.high_entropy_detection_quality > 0 {
+       if self.high_entropy_detection_quality > 1 {
            for command in self.queue.split_at_mut(self.loc).0.iter_mut() {
                let mut switch_to_random: Option<InputReference> = None;
                match *command {
@@ -496,6 +496,8 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
                 if in_a.len() != 0 {
                     if let Some(_) = context_type {
                         command_queue.push_literals(&in_a, callback);
+                    } else if params.high_entropy_detection_quality == 0 {
+                        command_queue.push_literals(&in_a, callback);
                     } else {
                         command_queue.push_rand_literals(&in_a, callback);
                     }
@@ -511,6 +513,8 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
                 }
             }
             if let Some(_) = context_type {
+                command_queue.push_literals(&tmp_inserts, callback);
+            } else if params.high_entropy_detection_quality == 0 {
                 command_queue.push_literals(&tmp_inserts, callback);
             }else {
                 command_queue.push_rand_literals(&tmp_inserts, callback);
