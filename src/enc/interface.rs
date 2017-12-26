@@ -1,6 +1,7 @@
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
 use alloc::{SliceWrapper, Allocator, SliceWrapperMut};
+use super::histogram;
 #[derive(Debug,Copy,Clone,Default)]
 pub struct BlockSwitch(pub u8);
 // Commands that can instantiate as a no-op should implement this.
@@ -75,6 +76,16 @@ impl LiteralPredictionModeNibble {
     #[inline(always)]
     pub fn lsb6() -> Self {
         LiteralPredictionModeNibble(LITERAL_PREDICTION_MODE_LSB6)
+    }
+    #[inline(always)]
+    pub fn to_context_enum(&self) -> Result<histogram::ContextType, ()>{
+        match self.0 {
+          LITERAL_PREDICTION_MODE_LSB6 => Ok(histogram::ContextType::CONTEXT_LSB6),
+          LITERAL_PREDICTION_MODE_MSB6 => Ok(histogram::ContextType::CONTEXT_MSB6),
+          LITERAL_PREDICTION_MODE_UTF8 => Ok(histogram::ContextType::CONTEXT_UTF8),
+          LITERAL_PREDICTION_MODE_SIGN => Ok(histogram::ContextType::CONTEXT_SIGNED),
+          _ => Err(()),
+        }
     }
 }
 #[derive(Debug)]

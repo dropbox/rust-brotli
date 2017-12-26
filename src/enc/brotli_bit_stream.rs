@@ -124,14 +124,18 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     last_btypel_index: Option<usize>,
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
     entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
+    context_map_entropy: ContextMapEntropy<'a, AllocU32>,
     stride_detection_quality: u8,
     high_entropy_detection_quality: u8,
+    block_type_literal: u8,
 }
 
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn new(m32:&mut AllocU32, mb: InputPair<'a>,
            stride_detection_quality: u8,
-           high_entropy_detection_quality: u8) -> CommandQueue <'a, AllocU32> {
+           high_entropy_detection_quality: u8,
+           context_map_entropy: ContextMapEntropy<'a, AllocU32>,
+           ) -> CommandQueue <'a, AllocU32> {
         let mut entropy_tally_scratch = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 {
             find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
         } else {
@@ -163,6 +167,8 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             last_btypel_index: None,
             stride_detection_quality: stride_detection_quality,
             high_entropy_detection_quality: high_entropy_detection_quality,
+            context_map_entropy: context_map_entropy,
+            block_type_literal: 0,
         }
     }
     fn full(&self) -> bool {
@@ -173,6 +179,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     }
     fn clear(&mut self) {
         self.loc = 0;
+        self.block_type_literal = 0;
     }
     fn content(&mut self) -> &[interface::Command<InputReference>] {
         self.queue.split_at(self.loc).0
@@ -191,9 +198,11 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                let mut switch_to_random: Option<InputReference> = None;
                match *command {
                    interface::Command::BlockSwitchCommand(_) |
-                   interface::Command::BlockSwitchLiteral(_) |
                    interface::Command::BlockSwitchDistance(_) |
                    interface::Command::PredictionMode(_) => {},
+                   interface::Command::BlockSwitchLiteral(bs) => {
+                      self.block_type_literal = bs.block_type();
+                   },
                    interface::Command::Copy(ref copy) => {
                        local_byte_offset += copy.num_bytes as usize;
                    },
@@ -213,17 +222,34 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                            let mut rev_priors = priors;
                            rev_priors.reverse();
                            //print!("Stride {} prev {:?} byte offset {} {:?}\n", cur_stride, rev_priors, local_byte_offset, lit.data.slice());
-                           let literal_cost = self.entropy_pyramid.bit_cost_of_literals(
-                               lit.data.slice(),
+                           
+                            let literal_cost = self.entropy_pyramid.bit_cost_of_literals(
+                                lit.data.slice(),
                                local_byte_offset as u32,
                                mb_len,
                                cur_stride,
                                priors,
                                &mut self.entropy_tally_scratch);
+
+                           let cm_literal_cost = self.context_map_entropy.compute_bit_cost_of_data_subset(
+                               lit.data.slice(),
+                               priors[0],
+                               priors[1],
+                               self.block_type_literal,
+                               self.entropy_tally_scratch.peek());
+                           let min_cost = if cm_literal_cost < literal_cost {
+                              cm_literal_cost
+                           } else {
+                              literal_cost
+                           };
                            local_byte_offset += lit.data.slice().len();
                            let random_cost = lit.data.slice().len() as find_stride::floatY * 8.0 + 1.0;
-                           //print!("Rnd Cost {} ({} bytes)\nLit Cost {} ({} bytes) ratio {}\n", random_cost, random_cost as f64 / 8.0, literal_cost, literal_cost as f64 / 8.0, literal_cost as f64 / 8.0 / lit.data.slice().len() as f64);
-                           if random_cost <= literal_cost {
+                           print!("Rnd Cost {} ({} bytes)\nLit Cost {} ({} bytes) ratio {}\nCML Cost {} ({} bytes) ratio {}\n",
+                                    random_cost, random_cost as f64 / 8.0,
+                                    literal_cost, literal_cost as f64 / 8.0, literal_cost as f64 / 8.0 / lit.data.slice().len() as f64,
+                                    cm_literal_cost, cm_literal_cost as f64 / 8.0, cm_literal_cost as f64 / 8.0 / lit.data.slice().len() as f64
+                                    );
+                           if random_cost <= min_cost {
                                // transmute
                                switch_to_random = Some(
                                    core::mem::replace(&mut lit.data, InputReference::default()));
@@ -258,6 +284,8 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
+       self.context_map_entropy.free(m32);
+
     }
 }
 impl<'a, AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue<'a, AllocU32 > {
@@ -278,24 +306,105 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue
 }
 
 struct ContextMapEntropy<'a, AllocU32:alloc::Allocator<u32>> {
+  input: InputPair<'a>,
   entropy_tally: find_stride::EntropyBucketPopulation<AllocU32>,
   context_map: interface::PredictionModeContextMap<InputReference<'a>>,
+  block_type: u8,
+  local_byte_offset: usize,
 }
 impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
-   fn new(m32: &mut AllocU32, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+   fn new(m32: &mut AllocU32, input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
       ContextMapEntropy::<AllocU32>{
+         input: input,
          entropy_tally:find_stride::EntropyBucketPopulation::<AllocU32>::new(m32),
          context_map: prediction_mode,
+         block_type: 0,
+         local_byte_offset: 0,
+
       }
    }
-   fn free(self, m32: &mut AllocU32) {
+   fn compute_bit_cost_of_data_subset(&mut self,
+                                     data: &[u8],
+                                      mut prev_byte: u8, mut prev_prev_byte: u8,
+                                      block_type: u8,
+                                      scratch: &mut find_stride::EntropyBucketPopulation<AllocU32>) -> find_stride::floatY {
+       scratch.bucket_populations.slice_mut().clone_from_slice(self.entropy_tally.bucket_populations.slice());
+       scratch.bucket_populations.slice_mut()[65535] += 1; // to demonstrate that we have
+       scratch.bucket_populations.slice_mut()[65535] -= 1; // to demonstrate that we have write capability
+       let mut stray_count = 0 as find_stride::floatY;
+       for val in data.iter() {
+           let huffman_table_index = compute_huffman_table_index_for_context_map(prev_byte, prev_prev_byte, self.context_map, block_type);
+           let loc = &mut scratch.bucket_populations.slice_mut()[huffman_table_index * 256 + *val as usize];
+           if *loc == 0 {
+               stray_count += 1.0;
+           } else {
+               *loc -= 1;
+           }
+           prev_prev_byte = prev_byte;
+           prev_byte = *val;
+       }
+       if self.entropy_tally.cached_bit_entropy == 0.0 as find_stride::floatY {
+           self.entropy_tally.cached_bit_entropy = find_stride::HuffmanCost(self.entropy_tally.bucket_populations.slice());
+       }
+       debug_assert_eq!(find_stride::HuffmanCost(self.entropy_tally.bucket_populations.slice()),
+                        self.entropy_tally.cached_bit_entropy);
+
+       scratch.cached_bit_entropy = find_stride::HuffmanCost(scratch.bucket_populations.slice());
+       self.entropy_tally.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
+   }
+   fn free(&mut self, m32: &mut AllocU32) {
        self.entropy_tally.free(m32);
    }
 }
+fn compute_huffman_table_index_for_context_map<SliceType: alloc::SliceWrapper<u8> > (
+    prev_byte: u8,
+    prev_prev_byte: u8,
+    context_map: interface::PredictionModeContextMap<SliceType>,
+    block_type: u8,
+) -> usize {
+    let prior = Context(prev_byte, prev_prev_byte, context_map.literal_prediction_mode.to_context_enum().unwrap());
+    assert!(prior < 64);
+    let context_map_index = ((block_type as usize)<< 6) | prior as usize;
+    if context_map_index < context_map.literal_context_map.slice().len() {
+        context_map.literal_context_map.slice()[context_map_index] as usize
+    } else {
+        prior as usize
+    }
+}
+
 impl<'a, 'b, AllocU32:alloc::Allocator<u32>> CommandProcessor<'b> for ContextMapEntropy<'a, AllocU32> {
     fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
                                                              val: interface::Command<InputReference<'b>>,
                                                              callback: &mut Cb) {
+        match val {
+           interface::Command::BlockSwitchCommand(_) |
+           interface::Command::BlockSwitchDistance(_) |
+           interface::Command::PredictionMode(_) => {}
+           interface::Command::Copy(ref copy) => {
+             self.local_byte_offset += copy.num_bytes as usize;
+           },
+           interface::Command::Dict(ref dict) => {
+             self.local_byte_offset += dict.final_size as usize;
+           },
+           interface::Command::RandLiteral(ref lit) => {
+             self.local_byte_offset += lit.data.slice().len();
+           },
+           interface::Command::BlockSwitchLiteral(block_type) => self.block_type = block_type.block_type(),
+           interface::Command::Literal(ref lit) => {
+               let mut priors= [0u8, 0u8];
+               if self.local_byte_offset > 1 {
+                   priors[0] = self.input[self.local_byte_offset - 2];
+                   priors[1] = self.input[self.local_byte_offset - 1];
+               }
+               for literal in lit.data.slice().iter() {                   
+                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[1], priors[0], self.context_map, self.block_type);
+                   self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
+                   priors[0] = priors[1];
+                   priors[1] = *literal;
+               }
+               self.local_byte_offset += lit.data.slice().len();
+           }
+        }
         let cbval = [val];
         callback(&cbval[..]);
     }
@@ -500,9 +609,6 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                block_type.btypec.num_types);
     assert_eq!(*block_type.btyped.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btyped.num_types);
-    let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
-                                              params.stride_detection_quality,
-                                              params.high_entropy_detection_quality);
     if block_type.literal_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.literal_context_map.iter().enumerate() {
             local_literal_context_map[index] = *item as u8;
@@ -518,7 +624,7 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
             literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
             distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
     };
-    let mut context_map_entropy = ContextMapEntropy::<AllocU32>::new(m32, prediction_mode);
+    let mut context_map_entropy = ContextMapEntropy::<AllocU32>::new(m32, InputPair(input0, input1), prediction_mode);
     let input = InputPair(input0, input1);
     process_command_queue(&mut context_map_entropy,
                          input,
@@ -531,6 +637,11 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                          params,
                          context_type,
                          &mut |_x|());
+     let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
+                                              params.stride_detection_quality,
+                                              params.high_entropy_detection_quality,
+                                              context_map_entropy);
+
     command_queue.push(interface::Command::PredictionMode(
         prediction_mode.clone()), callback);
      
@@ -548,7 +659,6 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
     command_queue.free(m32, callback);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
-    context_map_entropy.free(m32);
 }
 
 static kBlockLengthPrefixCode: [PrefixCodeRange; BROTLI_NUM_BLOCK_LEN_SYMBOLS] =

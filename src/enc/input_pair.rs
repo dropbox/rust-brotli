@@ -16,6 +16,16 @@ impl<'a> core::cmp::PartialEq for InputPair<'a> {
         return true;
     }
 }
+impl<'a> core::ops::Index<usize> for InputPair<'a> {
+  type Output = u8;
+  fn index(&self, index:usize) -> &u8 {
+    if index >= self.0.len() {
+      &self.1[index - self.0.len()]
+    } else {
+      &self.0[index]
+    }
+  }
+}
 impl<'a> core::fmt::LowerHex for InputPair<'a> {
     fn fmt(&self, fmtr: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
         for item in self.0 {

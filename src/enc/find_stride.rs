@@ -10,7 +10,7 @@ use super::util::FastLog2;
 pub type floatY = f64;
 // the cost of storing a particular population of data including the approx
 // cost of a huffman table to describe the frequencies of each symbol
-fn HuffmanCost(population: &[u32]) -> floatY{
+pub fn HuffmanCost(population: &[u32]) -> floatY{
     assert_eq!(population.len(), 256 * 256);
     let mut cost : floatY = 0.0 as floatY;
     let mut sum : floatY = 0.0 as floatY;
@@ -42,10 +42,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
           bucket_populations:m32.alloc_cell(size),
         }
     }
-    pub fn free(mut self, m32: &mut AllocU32) {
-       self.free_internal(m32);
-    }
-    fn free_internal(&mut self, m32: &mut AllocU32) {
+    pub fn free(&mut self, m32: &mut AllocU32) {
         m32.free_cell(mem::replace(&mut self.bucket_populations,
                                    AllocU32::AllocatedMemory::default()));
 
@@ -148,6 +145,7 @@ impl <AllocU32: alloc::Allocator<u32> > IndexMut<BucketPopIndex> for EntropyBuck
 pub struct EntropyTally<AllocU32: alloc::Allocator<u32> > {
     pop:[EntropyBucketPopulation<AllocU32>;NUM_STRIDES],
 }
+
 const NUM_LEVELS: usize = 4;
 const NUM_NODES: usize = (1<<(NUM_LEVELS)) - 1;
 
@@ -188,7 +186,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
         for item in self.pop.iter_mut() {
-            item.free_internal(m32);
+            item.free(m32);
         }
     }
     pub fn disabled_placeholder(_m32: &mut AllocU32) -> Self {
@@ -569,6 +567,9 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
             }
         }
         return best_stride;
+    }
+    pub fn peek(&mut self) -> &mut EntropyBucketPopulation<AllocU32> {
+        &mut self.pop[0]
     }
     pub fn get_previous_bytes(&self, input0:&[u8], input1:&[u8], bytes_processed: usize) -> [u8; NUM_STRIDES] {
         let mut retval = [0u8; NUM_STRIDES];
