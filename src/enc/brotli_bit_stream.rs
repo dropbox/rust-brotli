@@ -90,12 +90,14 @@ trait CommandProcessor<'a> {
             self.push(interface::Command::Literal(interface::LiteralCommand{
                 data:InputReference(data.0),
                 prob:interface::FeatureFlagSliceType::<InputReference>::default(),
+                high_entropy: false,
             }), callback);
         }
         if data.1.len() != 0 {
             self.push(interface::Command::Literal(interface::LiteralCommand{
                 data:InputReference(data.1),
                 prob:interface::FeatureFlagSliceType::<InputReference>::default(),
+                high_entropy: false,
             }), callback);
         }
    }
@@ -249,8 +251,9 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                                     cm_literal_cost, cm_literal_cost as f64 / 8.0, cm_literal_cost as f64 / 8.0 / lit.data.slice().len() as f64
                                     );*/
                            if random_cost <= min_cost {
-                               switch_to_random = Some(
-                                   core::mem::replace(&mut lit.data, InputReference::default()));
+                               //switch_to_random = Some(
+                               //    core::mem::replace(&mut lit.data, InputReference::default()));
+                               lit.high_entropy = true;
                            }
                        } else {
                            local_byte_offset += lit.data.slice().len();

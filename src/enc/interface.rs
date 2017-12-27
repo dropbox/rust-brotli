@@ -201,7 +201,8 @@ impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for FeatureFlagSliceType<SliceT
 #[derive(Debug)]
 pub struct LiteralCommand<SliceType:SliceWrapper<u8>> {
     pub data: SliceType,
-    pub prob: FeatureFlagSliceType<SliceType>
+    pub prob: FeatureFlagSliceType<SliceType>,
+    pub high_entropy: bool, // this block of bytes is high entropy with a few patterns never seen again; adapt slower
 }
 impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for LiteralCommand<SliceType> {
     #[inline(always)]
@@ -222,13 +223,14 @@ impl<SliceType:SliceWrapper<u8>+Default> Nop<LiteralCommand<SliceType>> for Lite
         LiteralCommand {
             data: SliceType::default(),
             prob: FeatureFlagSliceType::<SliceType>::default(),
+            high_entropy: false,
         }
     }
 }
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for LiteralCommand<SliceType> {
     #[inline(always)]
     fn clone(&self) -> LiteralCommand<SliceType>{
-        LiteralCommand::<SliceType>{data:self.data.clone(), prob:self.prob.clone()}
+        LiteralCommand::<SliceType>{data:self.data.clone(), prob:self.prob.clone(),high_entropy: self.high_entropy.clone(),}
     }
 }
 impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for LiteralCommand<SliceType> {
