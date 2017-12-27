@@ -281,7 +281,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
        callback(self.queue.split_at(self.loc).0);
        self.clear();
     }
-    fn free<Cb>(mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+    fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
