@@ -455,6 +455,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     }
 }
 
+
 impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
     pub fn new(m32: &mut AllocU32, max_stride_arg: Option<u8>) -> EntropyTally<AllocU32> {
         let size = 256 * 256;
@@ -609,6 +610,7 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
                 interface::Command::Dict(ref dict) => {
                     *bytes_processed += dict.final_size as usize;
                 },
+                #[cfg(feature="random_literals")]
                 interface::Command::RandLiteral(ref lit) => {
                     *bytes_processed += lit.data.slice().len();
                 },
