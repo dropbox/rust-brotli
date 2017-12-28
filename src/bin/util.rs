@@ -113,13 +113,8 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                             SliceU8Ref(transformed_word.split_at(actual_copy_len).0));
         },
         &interface::Command::Literal(ref lit) => {
-            println_stderr!("insert {} {:x}",
-                            lit.data.slice().len(),
-                            SliceU8Ref(lit.data.slice()));
-        },
-        #[cfg(feature="random_literals")]
-        &interface::Command::RandLiteral(ref lit) => {
-            println_stderr!("rndins {} {:x}",
+            println_stderr!("{} {} {:x}",
+                            if lit.high_entropy {"rndins"} else {"insert"},
                             lit.data.slice().len(),
                             SliceU8Ref(lit.data.slice()));
         },

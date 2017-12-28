@@ -24,7 +24,6 @@ lto=true
 
 [features]
 float64 = []
-random_literals = []
 seccomp = ["brotli-decompressor/seccomp"]
 no-stdlib = ["alloc-no-stdlib/no-stdlib", "brotli-decompressor/no-stdlib"]
 external-literal-probability = []

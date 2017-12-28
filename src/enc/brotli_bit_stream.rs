@@ -101,7 +101,6 @@ trait CommandProcessor<'a> {
             }), callback);
         }
    }
-   #[cfg(not(feature="random_literals"))]
    fn push_rand_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
         if data.0.len() != 0 {
             self.push(interface::Command::Literal(interface::LiteralCommand{
@@ -115,19 +114,6 @@ trait CommandProcessor<'a> {
                 data:InputReference(data.1),
                 prob:interface::FeatureFlagSliceType::<InputReference>::default(),
                 high_entropy: true,
-            }), callback);
-        }
-   }
-   #[cfg(feature="random_literals")]
-   fn push_rand_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
-        if data.0.len() != 0 {
-            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
-                data:InputReference(data.0),
-            }), callback);
-        }
-        if data.1.len() != 0 {
-            self.push(interface::Command::RandLiteral(interface::RandLiteralCommand{
-                data:InputReference(data.1),
             }), callback);
         }
    }
@@ -136,27 +122,6 @@ trait CommandProcessor<'a> {
    }
 }
 
-#[cfg(feature="random_literals")]
-fn replace_command_with_rand<'a>(data: InputReference<'a>) -> interface::Command<InputReference<'a>> {
-   interface::Command::RandLiteral(
-                       interface::RandLiteralCommand{
-                       data: data,
-                   })
-}
-#[cfg(not(feature="random_literals"))]
-fn replace_command_with_rand<'a>(_data: InputReference<'a>) -> interface::Command<InputReference<'a>> {
-    unreachable!();
-}
-
-#[cfg(feature="random_literals")]
-fn employ_rand_command() -> bool {
-  true
-}
-
-#[cfg(not(feature="random_literals"))]
-fn employ_rand_command() -> bool {
-  false
-}
 
 struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     mb: InputPair<'a>,
@@ -237,7 +202,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                                                                     self.stride_detection_quality);
        if self.high_entropy_detection_quality > 1 {
            for command in self.queue.split_at_mut(self.loc).0.iter_mut() {
-               let mut switch_to_random: Option<InputReference> = None;
                match *command {
                    interface::Command::BlockSwitchCommand(_) |
                    interface::Command::BlockSwitchDistance(_) |
@@ -250,10 +214,6 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                    },
                    interface::Command::Dict(ref dict) => {
                        local_byte_offset += dict.final_size as usize;
-                   },
-                   #[cfg(feature="random_literals")]
-                   interface::Command::RandLiteral(ref mut lit) => {
-                       local_byte_offset += lit.data.slice().len();
                    },
                    interface::Command::Literal(ref mut lit) => {
                        if is_long_enough_to_be_random(lit.data.slice().len(), self.high_entropy_detection_quality) {
@@ -293,18 +253,11 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                                     );*/
                            if random_cost <= min_cost {
                                lit.high_entropy = true;
-                               if employ_rand_command() {
-                                   switch_to_random = Some(
-                                       core::mem::replace(&mut lit.data, InputReference::default()));
-                               }
                            }
                        } else {
                            local_byte_offset += lit.data.slice().len();
                        }
                    }
-               }
-               if let Some(data) = switch_to_random {
-                   *command = replace_command_with_rand(data);
                }
            }
        }
@@ -431,10 +384,6 @@ impl<'a, 'b, AllocU32:alloc::Allocator<u32>> CommandProcessor<'b> for ContextMap
              self.local_byte_offset += dict.final_size as usize;
            },
            interface::Command::BlockSwitchLiteral(block_type) => self.block_type = block_type.block_type(),
-           #[cfg(feature="random_literals")]
-           interface::Command::RandLiteral(ref lit) => {
-                 self.local_byte_offset += lit.data.slice().len();
-           },
            interface::Command::Literal(ref lit) => {
                let mut priors= [0u8, 0u8];
                if self.local_byte_offset > 1 {

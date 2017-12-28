@@ -610,10 +610,6 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
                 interface::Command::Dict(ref dict) => {
                     *bytes_processed += dict.final_size as usize;
                 },
-                #[cfg(feature="random_literals")]
-                interface::Command::RandLiteral(ref lit) => {
-                    *bytes_processed += lit.data.slice().len();
-                },
                 interface::Command::Literal(ref lit) => {
                     if stride_detection_quality > 1 {
                         let mut priors = self.get_previous_bytes(input0, input1, *bytes_processed);
