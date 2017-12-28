@@ -1,5 +1,6 @@
 #![cfg(test)]
 #![allow(non_upper_case_globals)]
+#![allow(dead_code)]
 extern crate core;
 extern crate brotli_decompressor;
 use super::HeapAllocator;
@@ -20,6 +21,13 @@ use std::time::Duration;
 #[cfg(not(feature="disable-timer"))]
 use std::time::SystemTime;
 use brotli::BrotliDecompressStream;
+
+
+#[cfg(feature="benchmark")]
+extern crate test;
+#[cfg(feature="benchmark")]
+use self::test::Bencher;
+
 
 struct Buffer {
   data: Vec<u8>,
@@ -77,33 +85,43 @@ fn _write_all<OutputType>(w: &mut OutputType, buf: &[u8]) -> Result<(), io::Erro
   }
   Ok(())
 }
+trait Runner {
+    fn iter<Fn:FnMut()> (&mut self, cb: &mut Fn);
+}
 
+struct Passthrough {
+}
+impl Runner for Passthrough {
+    fn iter<Fn:FnMut()> (&mut self, cb: &mut Fn) {
+        cb()
+    }
+}
 
 #[cfg(feature="benchmark")]
-const NUM_BENCHMARK_ITERATIONS: usize = 1000;
-#[cfg(not(feature="benchmark"))]
-const NUM_BENCHMARK_ITERATIONS: usize = 2;
-
+struct BenchmarkPassthrough<'a> (pub &'a mut Bencher);
+#[cfg(feature="benchmark")]
+impl<'a> Runner for BenchmarkPassthrough<'a>{
+    fn iter<Fn:FnMut()> (&mut self, cb: &mut Fn) {
+        self.0.iter(cb)
+    }
+    
+}
 // option_env!("BENCHMARK_MODE").is_some()
 
-pub fn decompress_internal<InputType, OutputType>(r: &mut InputType,
+fn decompress_internal<InputType, OutputType, Run: Runner>(r: &mut InputType,
                                                   mut w: &mut OutputType,
                                                   input_buffer_limit: usize,
                                                   output_buffer_limit: usize,
-                                                  benchmark_mode: bool)
+                                                  runner: &mut Run)
                                                   -> Result<(), io::Error>
   where InputType: io::Read,
         OutputType: io::Write
 {
   let mut total = Duration::new(0, 0);
-  let range: usize;
+  let mut range: usize = 0;
   let mut timing_error: bool = false;
-  if benchmark_mode {
-    range = NUM_BENCHMARK_ITERATIONS;
-  } else {
-    range = 1;
-  }
-  for _i in 0..range {
+  runner.iter(&mut || {
+    range += 1;
     let mut brotli_state =
       BrotliState::new(HeapAllocator::<u8> { default_value: 0 },
                        HeapAllocator::<u32> { default_value: 0 },
@@ -125,19 +143,19 @@ pub fn decompress_internal<InputType, OutputType>(r: &mut InputType,
             Err(e) => {
               match e.kind() {
                 io::ErrorKind::Interrupted => continue,
-                _ => return Err(e),
+                _ => panic!(e),
               }
             }
             Ok(size) => {
               if size == 0 {
-                return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Read EOF"));
+                panic!(io::Error::new(io::ErrorKind::UnexpectedEof, "Read EOF"));
               }
               available_in = size;
             }
           }
         }
         BrotliResult::NeedsMoreOutput => {
-          try!(_write_all(&mut w, &output.slice()[..output_offset]));
+          _write_all(&mut w, &output.slice()[..output_offset]).unwrap();
           output_offset = 0;
         }
         BrotliResult::ResultSuccess => break,
@@ -160,13 +178,13 @@ pub fn decompress_internal<InputType, OutputType>(r: &mut InputType,
       }
       total = total + delta;
       if output_offset != 0 {
-        try!(_write_all(&mut w, &output.slice()[..output_offset]));
+        _write_all(&mut w, &output.slice()[..output_offset]).unwrap();
         output_offset = 0;
         available_out = output.slice().len()
       }
     }
     brotli_state.BrotliStateCleanup();
-  }
+  });
   if timing_error {
     let _r = super::writeln0(&mut io::stderr(), "Timing error");
   } else {
@@ -197,6 +215,9 @@ impl UnlimitedBuffer {
     };
     ret.data.extend(buf);
     return ret;
+  }
+  pub fn reset_read(&mut self) {
+      self.read_offset = 0;
   }
 }
 impl io::Read for Buffer {
@@ -556,7 +577,7 @@ fn test_10x_10y_one_out_byte() {
   let mut input = Buffer::new(&in_buf);
   let mut output = Buffer::new(&[]);
   output.read_offset = 20;
-  match decompress_internal(&mut input, &mut output, 12, 1, false) {
+  match decompress_internal(&mut input, &mut output, 12, 1, &mut Passthrough{}) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -576,7 +597,7 @@ fn test_10x_10y_byte_by_byte() {
   let mut input = Buffer::new(&in_buf);
   let mut output = Buffer::new(&[]);
   output.read_offset = 20;
-  match decompress_internal(&mut input, &mut output, 1, 1, false) {
+  match decompress_internal(&mut input, &mut output, 1, 1, &mut Passthrough{}) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -608,7 +629,7 @@ fn assert_decompressed_input_matches_output(input_slice: &[u8],
                               &mut output,
                               input_buffer_size,
                               output_buffer_size,
-                              false) {
+                              &mut Passthrough{}) {
       Ok(_) => {}
       Err(e) => panic!("Error {:?}", e),
     }
@@ -617,10 +638,12 @@ fn assert_decompressed_input_matches_output(input_slice: &[u8],
   assert_eq!(output.data, output_slice)
 }
 
+#[cfg(feature="benchmark")]
 fn benchmark_decompressed_input(input_slice: &[u8],
                                 output_slice: &[u8],
                                 input_buffer_size: usize,
-                                output_buffer_size: usize) {
+                                output_buffer_size: usize,
+                                bench: &mut Bencher) {
   let mut input = Buffer::new(input_slice);
   let mut output = Buffer::new(&[]);
   output.read_offset = output_slice.len();
@@ -628,13 +651,219 @@ fn benchmark_decompressed_input(input_slice: &[u8],
                             &mut output,
                             input_buffer_size,
                             output_buffer_size,
-                            true) {
+                            &mut BenchmarkPassthrough(bench),
+  ) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
   assert_eq!(output.data.len(), output_slice.len());
   assert_eq!(output.data, output_slice)
 }
+pub struct LimitedBuffer<'a> {
+  pub data: &'a mut [u8],
+  pub write_offset: usize,
+  pub read_offset: usize,
+}
+
+impl<'a> LimitedBuffer<'a> {
+  pub fn new(buf: &'a mut [u8]) -> Self {
+    LimitedBuffer {
+        data: buf,
+        write_offset: 0,
+        read_offset: 0,
+    }
+  }
+}
+impl<'a> LimitedBuffer<'a> {
+    fn reset(&mut self) {
+        self.write_offset = 0;
+        self.read_offset = 0;
+        self.data.split_at_mut(32).0.clone_from_slice(&[0u8;32]); // clear the first 256 bits
+    }
+    fn reset_read(&mut self) {
+        self.read_offset = 0;
+    }
+    fn written(&self) -> &[u8] {
+        &self.data[..self.write_offset]
+    }
+}
+impl<'a> io::Read for LimitedBuffer<'a> {
+  fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
+    let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
+    if bytes_to_read > 0 {
+      buf[0..bytes_to_read].clone_from_slice(&self.data[self.read_offset..
+                                              self.read_offset + bytes_to_read]);
+    }
+    self.read_offset += bytes_to_read;
+    return Ok(bytes_to_read);
+  }
+}
+
+impl<'a> io::Write for LimitedBuffer<'a> {
+  fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
+      let bytes_to_write = cmp::min(buf.len(), self.data.len() - self.write_offset);
+      if bytes_to_write > 0 {
+          self.data[self.write_offset..self.write_offset + bytes_to_write].clone_from_slice(
+              &buf[..bytes_to_write]);
+      } else {
+          return Err(io::Error::new(io::ErrorKind::WriteZero, "OutOfBufferSpace"));
+      }
+      self.write_offset += bytes_to_write;
+      Ok(bytes_to_write)
+  }
+  fn flush(self: &mut Self) -> io::Result<()> {
+    return Ok(());
+  }
+}
+
+
+fn benchmark_helper<Run: Runner>(input_slice: &[u8],
+                                 compress_buffer_size: usize,
+                                 decompress_buffer_size: usize,
+                                 bench_compress: bool,
+                                 bench_decompress: bool,
+                                 bench: &mut Run,
+                                 quality: i32,
+) {
+    let mut params = super::brotli::enc::BrotliEncoderInitParams();
+    params.quality = quality;
+
+    let mut input = UnlimitedBuffer::new(&input_slice[..]);
+    let mut compressed_array = vec![0;input_slice.len() * 100/99];
+    let mut rt_array = vec![0;input_slice.len() + 1];
+    let mut compressed = LimitedBuffer::new(&mut compressed_array[..]);
+    let mut rt = LimitedBuffer::new(&mut rt_array[..]);
+    if !bench_compress {
+        match super::compress(&mut input, &mut compressed, compress_buffer_size, &params) {
+            Ok(_) => {}
+            Err(e) => panic!("Error {:?}", e),
+        }
+    }
+    bench.iter(&mut || {
+        input.reset_read();
+        if bench_compress {
+            compressed.reset();
+            match super::compress(&mut input, &mut compressed, compress_buffer_size, &params) {
+                Ok(_) => {}
+                Err(e) => panic!("Error {:?}", e),
+            }
+        }
+        if bench_decompress {
+            compressed.reset_read();
+            rt.reset();
+            match super::decompress(&mut compressed, &mut rt, decompress_buffer_size) {
+                Ok(_) => {}
+                Err(e) => panic!("Error {:?}", e),
+            }
+        }
+    });
+    if !bench_decompress {
+        compressed.reset_read();
+        rt.reset();
+        match super::decompress(&mut compressed, &mut rt, decompress_buffer_size) {
+            Ok(_) => {}
+            Err(e) => panic!("Error {:?}", e),
+        }
+    }
+    assert_eq!(rt.write_offset, input_slice.len());
+    assert_eq!(&rt.data[..input_slice.len()],
+               input_slice);
+}
+
+fn expand_test_data(size: usize) -> Vec<u8> {
+    let mut ret = vec![0u8; size];
+    let original_data = include_bytes!("testdata/random_then_unicode");
+    let mut count = 0;
+    let mut iter = 0usize;
+    while count < size {
+        let to_copy = core::cmp::min(size - count, original_data.len());
+        let target = &mut ret[count..(count + to_copy)];
+        for (dst, src) in target.iter_mut().zip(original_data[..to_copy].iter()) {
+            *dst = src.wrapping_add(iter as u8);
+        }
+        count += to_copy;
+        iter += 1;
+    }
+    ret
+}
+
+#[test]
+fn test_1024k() {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     true,
+                     true,
+                     &mut Passthrough{},
+                     2);
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn bench_e2e_decode_q9_5_1024k(bench: &mut Bencher) {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     false,
+                     true,
+                     &mut BenchmarkPassthrough(bench),
+                     11);
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn bench_e2e_decode_q5_1024k(bench: &mut Bencher) {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     false,
+                     true,
+                     &mut BenchmarkPassthrough(bench),
+                     5);
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn bench_e2e_rt_q9_5_1024k(bench: &mut Bencher) {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     true,
+                     true,
+                     &mut BenchmarkPassthrough(bench),
+                     11);
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn bench_e2e_rt_q9_1024k(bench: &mut Bencher) {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     true,
+                     true,
+                     &mut BenchmarkPassthrough(bench),
+                     9);
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn bench_e2e_rt_q5_1024k(bench: &mut Bencher) {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     true,
+                     true,
+                     &mut BenchmarkPassthrough(bench),
+                     5);
+}
+
 
 #[test]
 fn test_64x() {
@@ -668,9 +897,10 @@ fn test_alice29() {
   assert_decompressed_input_matches_output(ALICE29_BR, ALICE29, 65536, 65536);
 }
 
-#[test]
-fn benchmark_alice29() {
-  benchmark_decompressed_input(ALICE29_BR, ALICE29, 65536, 65536);
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_alice29(bench: &mut Bencher) {
+  benchmark_decompressed_input(ALICE29_BR, ALICE29, 65536, 65536, bench);
 }
 
 #[test]

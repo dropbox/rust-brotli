@@ -218,7 +218,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                    interface::Command::Literal(ref mut lit) => {
                        if is_long_enough_to_be_random(lit.data.slice().len(), self.high_entropy_detection_quality) {
                            //print!("Long enough to be random {}\n", lit.data.slice().len());
-                           let mut priors = self.entropy_tally_scratch.get_previous_bytes(
+                           let priors = self.entropy_tally_scratch.get_previous_bytes(
                                self.mb.0,
                                self.mb.1,
                                local_byte_offset);

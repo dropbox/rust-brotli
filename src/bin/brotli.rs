@@ -1,3 +1,6 @@
+
+#![cfg_attr(feature="benchmark", feature(test))]
+
 mod integration_tests;
 mod tests;
 mod util;
