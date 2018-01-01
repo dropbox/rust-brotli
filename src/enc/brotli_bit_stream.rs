@@ -2366,7 +2366,7 @@ pub fn BrotliStoreMetaBlock<'a,
         if cmd.cmd_prefix_ as (i32) >= 128i32 {
           let dist_code: usize = cmd.dist_prefix_ as (usize);
           let distnumextra: u32 = cmd.dist_extra_ >> 24i32;
-          let distextra: usize = (cmd.dist_extra_ & 0xffffffu32) as (usize);
+          let distextra: u64 = (cmd.dist_extra_ & 0xffffffu32) as (u64);
           if (*mb).distance_context_map_size == 0usize {
             StoreSymbol(&mut distance_enc, dist_code, storage_ix, storage);
           } else {
@@ -2379,7 +2379,7 @@ pub fn BrotliStoreMetaBlock<'a,
                                    storage,
                                    2usize);
           }
-          BrotliWriteBits(distnumextra as (u8), distextra as u64, storage_ix, storage);
+          BrotliWriteBits(distnumextra as (u8), distextra, storage_ix, storage);
         }
       }
     }
@@ -2467,7 +2467,7 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
       if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
         let dist_code: usize = cmd.dist_prefix_ as (usize);
         let distnumextra: u32 = cmd.dist_extra_ >> 24i32;
-        let distextra: u32 = cmd.dist_extra_ & 0xffffffu32;
+        let distextra: u32 = cmd.dist_extra_ & 0xffffff;
         BrotliWriteBits(dist_depth[(dist_code as (usize))] as (u8),
                         dist_bits[(dist_code as (usize))] as (u64),
                         storage_ix,

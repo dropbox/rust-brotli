@@ -167,15 +167,15 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub m32: AllocU32,
   pub mc: AllocCommand,
   pub hasher_: UnionHasher<AllocU16, AllocU32>,
-  pub input_pos_: usize,
+  pub input_pos_: u64,
   pub ringbuffer_: RingBuffer<AllocU8>,
   pub cmd_alloc_size_: usize,
   pub commands_: AllocCommand::AllocatedMemory, // not sure about this one
   pub num_commands_: usize,
   pub num_literals_: usize,
   pub last_insert_len_: usize,
-  pub last_flush_pos_: usize,
-  pub last_processed_pos_: usize,
+  pub last_flush_pos_: u64,
+  pub last_processed_pos_: u64,
   pub dist_cache_: [i32; 16],
   pub saved_dist_cache_: [i32; kNumDistanceCacheEntries],
   pub last_byte_: u8,
@@ -317,12 +317,12 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
   let cache: [i32; 16] = [4, 11, 15, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
   BrotliEncoderStateStruct::<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand> {
     params: BrotliEncoderInitParams(),
-    input_pos_: 0usize,
+    input_pos_: 0,
     num_commands_: 0usize,
     num_literals_: 0usize,
     last_insert_len_: 0usize,
-    last_flush_pos_: 0usize,
-    last_processed_pos_: 0usize,
+    last_flush_pos_: 0,
+    last_processed_pos_: 0,
     prev_byte_: 0i32 as (u8),
     prev_byte2_: 0i32 as (u8),
     storage_size_: 0usize,
@@ -979,7 +979,7 @@ fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
   if !(0i32 == 0) {
     return;
   }
-  (*s).input_pos_ = (*s).input_pos_.wrapping_add(input_size);
+  (*s).input_pos_ = (*s).input_pos_.wrapping_add(input_size as u64);
   if (s.ringbuffer_).pos_ <= (s.ringbuffer_).mask_ {
     let start = ((s.ringbuffer_).buffer_index.wrapping_add((s.ringbuffer_).pos_ as (usize)) as
                  (usize));
@@ -1292,9 +1292,9 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
     dict_size = max_dict_size;
   }
   CopyInputToRingBuffer(s, dict_size, dict);
-  (*s).last_flush_pos_ = dict_size;
-  (*s).last_processed_pos_ = dict_size;
-  if dict_size > 0usize {
+  (*s).last_flush_pos_ = dict_size as u64;
+  (*s).last_processed_pos_ = dict_size as u64;
+  if dict_size > 0 {
     (*s).prev_byte_ = dict[(dict_size.wrapping_sub(1usize) as (usize))];
   }
   if dict_size > 1usize {
@@ -1380,7 +1380,7 @@ fn InitInsertCommand(xself: &mut Command, insertlen: usize) {
 
 fn ShouldCompress(data: &[u8],
                   mask: usize,
-                  last_flush_pos: usize,
+                  last_flush_pos: u64,
                   bytes: usize,
                   num_literals: usize,
                   num_commands: usize)
@@ -2050,7 +2050,7 @@ fn UnprocessedInputSize<AllocU8: alloc::Allocator<u8>,
                         AllocU32: alloc::Allocator<u32>,
                         AllocI32: alloc::Allocator<i32>,
                         AllocCommand: alloc::Allocator<Command>>(
-                            s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> usize {
+                            s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> u64 {
   (*s).input_pos_.wrapping_sub((*s).last_processed_pos_)
 }
 
@@ -2061,12 +2061,12 @@ fn UpdateSizeHint<AllocU8: alloc::Allocator<u8>,
                   AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
                         available_in: usize) {
   if (*s).params.size_hint == 0usize {
-    let delta: usize = UnprocessedInputSize(s);
-    let tail: usize = available_in;
+    let delta: u64 = UnprocessedInputSize(s);
+    let tail: u64 = available_in as u64;
     let limit: u32 = 1u32 << 30i32;
     let total: u32;
-    if delta >= limit as (usize) || tail >= limit as (usize) ||
-       delta.wrapping_add(tail) >= limit as (usize) {
+    if delta >= u64::from(limit) || tail >= u64::from(limit) ||
+       delta.wrapping_add(tail) >= u64::from(limit) {
       total = limit;
     } else {
       total = delta.wrapping_add(tail) as (u32);
@@ -2076,12 +2076,12 @@ fn UpdateSizeHint<AllocU8: alloc::Allocator<u8>,
 }
 
 
-fn WrapPosition(position: usize) -> u32 {
+fn WrapPosition(position: u64) -> u32 {
   let mut result: u32 = position as (u32);
-  let gb: usize = position >> 30i32;
-  if gb > 2usize {
+  let gb: u64 = position >> 30i32;
+  if gb > 2 {
     result = result & (1u32 << 30i32).wrapping_sub(1u32) |
-             ((gb.wrapping_sub(1usize) & 1usize) as (u32)).wrapping_add(1u32) << 30i32;
+             ((gb.wrapping_sub(1) & 1) as (u32)).wrapping_add(1u32) << 30i32;
   }
   result
 }
@@ -2442,7 +2442,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              mht: &mut AllocHT,
              data: &[u8],
              mask: usize,
-             last_flush_pos: usize,
+             last_flush_pos: u64,
              bytes: usize,
              is_last: i32,
              params: &BrotliEncoderParams,
@@ -2670,7 +2670,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     callback: &mut MetablockCallback
 //              mut output: &'a mut &'a mut [u8]
 ) -> i32 where MetablockCallback: FnMut(&[interface::Command<InputReference>]){
-  let delta: usize = UnprocessedInputSize(s);
+  let delta: u64 = UnprocessedInputSize(s);
   let bytes: u32 = delta as (u32);
   let wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
   let mask: u32;
@@ -2685,7 +2685,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
   if is_last != 0 {
     (*s).is_last_block_emitted_ = 1i32;
   }
-  if delta > InputBlockSize(s) {
+  if delta > InputBlockSize(s) as u64 {
     return 0i32;
   }
   if (*s).params.quality == 1i32 && (*s).command_buf_.slice().len() == 0 {
@@ -2699,7 +2699,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     let mut table_size: usize = 0;
     {
     let table: &mut [i32];
-    if delta == 0usize && (is_last == 0) {
+    if delta == 0 && (is_last == 0) {
       *out_size = 0usize;
       return 1i32;
     }
@@ -2813,7 +2813,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     let max_length: usize = MaxMetablockSize(&mut (*s).params);
     let max_literals: usize = max_length.wrapping_div(8usize);
     let max_commands: usize = max_length.wrapping_div(8usize);
-    let processed_bytes: usize = (*s).input_pos_.wrapping_sub((*s).last_flush_pos_);
+    let processed_bytes: usize = (*s).input_pos_.wrapping_sub((*s).last_flush_pos_) as usize;
     let next_input_fits_metablock: i32 = if !!(processed_bytes.wrapping_add(InputBlockSize(s)) <=
                                                max_length) {
       1i32
@@ -2886,12 +2886,12 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
       HasherReset(&mut (*s).hasher_);
     }
     let data = &(*s).ringbuffer_.data_mo.slice()[(*s).ringbuffer_.buffer_index as usize..];
-    if (*s).last_flush_pos_ > 0usize {
+    if (*s).last_flush_pos_ > 0 {
       (*s).prev_byte_ = data[((((*s).last_flush_pos_ as (u32)).wrapping_sub(1u32) & mask) as
        (usize))];
     }
-    if (*s).last_flush_pos_ > 1usize {
-      (*s).prev_byte2_ = data[(((*s).last_flush_pos_.wrapping_sub(2usize) as (u32) & mask) as
+    if (*s).last_flush_pos_ > 1 {
+      (*s).prev_byte2_ = data[(((*s).last_flush_pos_.wrapping_sub(2) as (u32) & mask) as
        (usize))];
     }
     (*s).num_commands_ = 0usize;
@@ -3246,12 +3246,12 @@ fn RemainingInputBlockSize<AllocU8: alloc::Allocator<u8>,
                      AllocU32: alloc::Allocator<u32>,
                      AllocI32: alloc::Allocator<i32>,
                      AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> usize {
-  let delta: usize = UnprocessedInputSize(s);
+  let delta: u64 = UnprocessedInputSize(s);
   let block_size: usize = InputBlockSize(s);
-  if delta >= block_size {
+  if delta >= block_size as u64 {
     return 0usize;
   }
-  block_size.wrapping_sub(delta)
+  (block_size as u64).wrapping_sub(delta) as usize
 }
 
 pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
