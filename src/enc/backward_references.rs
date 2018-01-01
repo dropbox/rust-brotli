@@ -1126,9 +1126,9 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
     return 0i32;
   }
   {
-    let cut: usize = len.wrapping_sub(matchlen);
+    let cut: u64 = len.wrapping_sub(matchlen) as u64;
     let transform_id: usize =
-      (cut << 2i32).wrapping_add(kCutoffTransforms as usize >> cut.wrapping_mul(6) & 0x3f);
+      (cut << 2i32).wrapping_add(kCutoffTransforms as u64 >> cut.wrapping_mul(6) & 0x3f) as usize;
     backward = max_backward.wrapping_add(dist)
       .wrapping_add(1usize)
       .wrapping_add(transform_id << (*dictionary).size_bits_by_length[len] as (i32));
