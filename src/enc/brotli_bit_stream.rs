@@ -141,9 +141,10 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
     fn new(m32:&mut AllocU32, mb: InputPair<'a>,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
+           serialize_cdfs: bool,
            context_map_entropy: ContextMapEntropy<'a, AllocU32>,
            ) -> CommandQueue <'a, AllocU32> {
-        let mut entropy_tally_scratch = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 {
+        let mut entropy_tally_scratch = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 && !serialize_cdfs {
             find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
         } else {
             if stride_detection_quality == 0 {
@@ -152,7 +153,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                 find_stride::EntropyTally::<AllocU32>::new(m32, None)
             }
         };
-        let mut entropy_pyramid = if stride_detection_quality == 0 && high_entropy_detection_quality == 0{
+        let mut entropy_pyramid = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 && !serialize_cdfs {
             find_stride::EntropyPyramid::<AllocU32>::disabled_placeholder(m32)
         } else {
             find_stride::EntropyPyramid::<AllocU32>::new(m32)
@@ -160,7 +161,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         if stride_detection_quality > 0 {
             entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
         } else {
-            if high_entropy_detection_quality > 1 {
+            if high_entropy_detection_quality > 1 || serialize_cdfs {
                 entropy_pyramid.populate_stride1(mb.0, mb.1);
             }
         }
@@ -311,6 +312,16 @@ impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
       ContextMapEntropy::<AllocU32>{
          input: input,
          entropy_tally:find_stride::EntropyBucketPopulation::<AllocU32>::new(m32),
+         context_map: prediction_mode,
+         block_type: 0,
+         local_byte_offset: 0,
+
+      }
+   }
+   fn disabled_placeholder(input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+      ContextMapEntropy::<AllocU32>{
+         input: input,
+         entropy_tally:find_stride::EntropyBucketPopulation::<AllocU32>::disabled_placeholder(),
          context_map: prediction_mode,
          block_type: 0,
          local_byte_offset: 0,
@@ -624,22 +635,30 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
             literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
             distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
     };
-    let mut context_map_entropy = ContextMapEntropy::<AllocU32>::new(m32, InputPair(input0, input1), prediction_mode);
     let input = InputPair(input0, input1);
-    process_command_queue(&mut context_map_entropy,
-                         input,
-                         commands,
-                         n_postfix,
-                         n_direct,
-                         dist_cache,
-                         *recoder_state,
-                         &block_type,
-                         params,
-                         context_type,
-                         &mut |_x|());
+    let mut context_map_entropy = if params.high_entropy_detection_quality > 0 {
+        ContextMapEntropy::<AllocU32>::new(m32, input, prediction_mode)
+    } else {
+        ContextMapEntropy::<AllocU32>::disabled_placeholder(input, prediction_mode)
+    };
+    if params.high_entropy_detection_quality != 0 {
+        
+        process_command_queue(&mut context_map_entropy,
+                              input,
+                              commands,
+                              n_postfix,
+                              n_direct,
+                              dist_cache,
+                              *recoder_state,
+                              &block_type,
+                              params,
+                              context_type,
+                              &mut |_x|());
+     }
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
                                               params.high_entropy_detection_quality,
+                                              params.serialize_cdfs != 0,
                                               context_map_entropy);
 
     command_queue.push(interface::Command::PredictionMode(

@@ -35,6 +35,12 @@ pub struct EntropyBucketPopulation<AllocU32: alloc::Allocator<u32> > {
     pub cached_bit_entropy: floatY,
 }
 impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
+    pub fn disabled_placeholder() -> Self {
+        EntropyBucketPopulation::<AllocU32> {
+          cached_bit_entropy:0.0,
+          bucket_populations:AllocU32::AllocatedMemory::default(),
+        }
+    }
     pub fn new(m32: &mut AllocU32) -> Self {
         let size = 256 * 256;
         EntropyBucketPopulation::<AllocU32> {

@@ -49,12 +49,13 @@ pub struct BrotliEncoderParams {
   pub quality: i32,
   pub lgwin: i32,
   pub lgblock: i32,
-  pub size_hint: usize,
+  pub size_hint: u64,
   pub disable_literal_context_modeling: i32,
   pub hasher: BrotliHasherParams,
   pub log_meta_block: bool,
   pub stride_detection_quality: u8, // 0 = off (stride 1 always) 1 = on per 16th of a file 2 = on per block type switch
   pub high_entropy_detection_quality: u8,
+  pub serialize_cdfs : u8, // 0 = off, 1 = materialize basic strided cdfs into command stream
 }
 
 

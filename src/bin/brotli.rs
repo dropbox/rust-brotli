@@ -446,6 +446,10 @@ fn main() {
           params.high_entropy_detection_quality = argument.trim_matches('-').trim_matches('f').trim_matches('i').trim_matches('n').trim_matches('d').trim_matches('r').trim_matches('a').trim_matches('n').trim_matches('d').trim_matches('o').trim_matches('m').trim_matches('=').parse::<u32>().unwrap() as u8;
           continue;
       }
+      if argument == "-cdf" {
+         params.serialize_cdfs = 1;
+         continue;
+      }
       if argument == "-basicstride" {
           params.stride_detection_quality = 1;
           continue;
@@ -455,7 +459,7 @@ fn main() {
               continue;
           } else {
               if argument.starts_with("-s") {
-                  params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<usize>().unwrap();
+                  params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<u64>().unwrap();
                   continue;
               }
           }

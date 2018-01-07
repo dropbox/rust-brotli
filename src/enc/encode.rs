@@ -85,6 +85,7 @@ pub enum BrotliEncoderParameter {
   BROTLI_METABLOCK_CALLBACK = 151,
   BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
   BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY = 153,
+  BROTLI_PARAM_SERIALIZE_CDFS = 154,
 }
 
 
@@ -242,6 +243,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.high_entropy_detection_quality = value as (u8);
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_SERIALIZE_CDFS as (i32) {
+    (*state).params.serialize_cdfs = value as u8;
+    return 1i32;
+  }
   if p as (i32) == BrotliEncoderParameter::BROTLI_METABLOCK_CALLBACK as (i32) {
     (*state).params.log_meta_block = if value != 0 {true} else {false};
     return 1i32;
@@ -262,7 +267,7 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     return 1i32;
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT as (i32) {
-    (*state).params.size_hint = value as (usize);
+    (*state).params.size_hint = u64::from(value);
     return 1i32;
   }
   0i32
@@ -274,10 +279,11 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            quality: 9,
            lgwin: 22i32,
            lgblock: 0i32,
-           size_hint: 0usize,
+           size_hint: 0,
            disable_literal_context_modeling: 0i32,
            stride_detection_quality: 0,
            high_entropy_detection_quality: 0,
+           serialize_cdfs: 0,
            hasher: BrotliHasherParams {
              type_: 6,
              block_bits: 9 - 1,
@@ -998,7 +1004,7 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
       (*hparams).block_bits = H9_BLOCK_BITS as i32;
       (*hparams).bucket_bits = H9_BUCKET_BITS as i32;
       (*hparams).hash_len = 4;
-  } else if (*params).quality == 4 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
+  } else if (*params).quality == 4 && ((*params).size_hint >= (1u64 << 20i32)) {
     (*hparams).type_ = 54i32;
   } else if (*params).quality < 5 {
     (*hparams).type_ = (*params).quality;
@@ -1010,7 +1016,7 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
     } else {
       42i32
     };
-  } else if (*params).size_hint >= (1i32 << 20i32) as (usize) && ((*params).lgwin >= 19i32) {
+  } else if (*params).size_hint >= (1u64 << 20i32) && ((*params).lgwin >= 19i32) {
     (*hparams).type_ = 6i32;
     (*hparams).block_bits = core::cmp::min((*params).quality - 1, 9);
     (*hparams).bucket_bits = 15i32;
@@ -2060,7 +2066,7 @@ fn UpdateSizeHint<AllocU8: alloc::Allocator<u8>,
                   AllocI32: alloc::Allocator<i32>,
                   AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
                         available_in: usize) {
-  if (*s).params.size_hint == 0usize {
+  if (*s).params.size_hint == 0 {
     let delta: u64 = UnprocessedInputSize(s);
     let tail: u64 = available_in as u64;
     let limit: u32 = 1u32 << 30i32;
@@ -2071,7 +2077,7 @@ fn UpdateSizeHint<AllocU8: alloc::Allocator<u8>,
     } else {
       total = delta.wrapping_add(tail) as (u32);
     }
-    (*s).params.size_hint = total as (usize);
+    (*s).params.size_hint = u64::from(total);
   }
 }
 
@@ -2308,7 +2314,7 @@ static kStaticContextMapComplexUTF8: [u32; 64] = [
    first 5 bits of literals. */
 fn ShouldUseComplexStaticContextMap(input: &[u8],
     mut start_pos: usize, length : usize, mask : usize, quality: i32,
-    size_hint: usize, literal_context_mode: &mut ContextType,
+    size_hint: u64, literal_context_mode: &mut ContextType,
     num_literal_contexts: &mut usize, literal_context_map: &mut &[u32]) -> bool {
   let _ = quality;
   //BROTLI_UNUSED(quality);
@@ -2375,7 +2381,7 @@ fn DecideOverLiteralContextModeling(input: &[u8],
                                     length: usize,
                                     mask: usize,
                                     quality: i32,
-                                    size_hint: usize,
+                                    size_hint: u64,
                                     literal_context_mode: &mut ContextType,
                                     num_literal_contexts: &mut usize,
                                     literal_context_map: &mut &[u32]) {

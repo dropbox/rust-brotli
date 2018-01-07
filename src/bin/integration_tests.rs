@@ -304,7 +304,7 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
   let mut params = super::brotli::enc::BrotliEncoderInitParams();
   params.quality = q;
   params.lgwin = lgwin;
-  params.size_hint = if in_buf.len() > 100000 { 2048 * 1024} else {in_buf.len()};
+  params.size_hint = if in_buf.len() > 100000 { 2048 * 1024} else {in_buf.len() as u64};
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
