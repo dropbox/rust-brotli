@@ -93,6 +93,8 @@ pub struct PredictionModeContextMap<SliceType:SliceWrapper<u8>> {
     pub literal_prediction_mode: LiteralPredictionModeNibble,
     pub literal_context_map: SliceType,
     pub distance_context_map: SliceType,
+    pub high_nibble_pdf: SliceType,
+    pub low_nibble_pdf: SliceType,
 }
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceType> {
     fn clone(&self) -> PredictionModeContextMap<SliceType>{
@@ -100,6 +102,8 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceT
             literal_prediction_mode:self.literal_prediction_mode,
             literal_context_map:self.literal_context_map.clone(),
             distance_context_map:self.distance_context_map.clone(),
+            high_nibble_pdf:self.high_nibble_pdf.clone(),
+            low_nibble_pdf:self.low_nibble_pdf.clone(),
         }
     }
 }
@@ -256,6 +260,8 @@ impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
           &mut Command::PredictionMode(ref mut pm) => {
              apply_func(core::mem::replace(&mut pm.literal_context_map, SliceType::default()));
              apply_func(core::mem::replace(&mut pm.distance_context_map, SliceType::default()));
+             apply_func(core::mem::replace(&mut pm.high_nibble_pdf, SliceType::default()));
+             apply_func(core::mem::replace(&mut pm.low_nibble_pdf, SliceType::default()));
           },
           _ => {},
        }
@@ -302,6 +308,8 @@ pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceType
           Command::PredictionMode(ref mut pm) => {
              m8.free_cell(core::mem::replace(&mut pm.literal_context_map, SliceTypeAllocator::AllocatedMemory::default()));
              m8.free_cell(core::mem::replace(&mut pm.distance_context_map, SliceTypeAllocator::AllocatedMemory::default()));
+             m8.free_cell(core::mem::replace(&mut pm.high_nibble_pdf, SliceTypeAllocator::AllocatedMemory::default()));
+             m8.free_cell(core::mem::replace(&mut pm.low_nibble_pdf, SliceTypeAllocator::AllocatedMemory::default()));
           },
           Command::Dict(_) |
           Command::Copy(_) |

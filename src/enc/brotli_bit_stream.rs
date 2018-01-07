@@ -123,7 +123,7 @@ trait CommandProcessor<'a> {
 }
 
 
-struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
+struct CommandQueue<'a, AllocU8:alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32> > {
     mb: InputPair<'a>,
     mb_byte_offset: usize,
     queue: [interface::Command<InputReference<'a> >;COMMAND_BUFFER_SIZE],
@@ -132,19 +132,20 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
     entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
     context_map_entropy: ContextMapEntropy<'a, AllocU32>,
+    serialized_command_cdf_backing: AllocU8::AllocatedMemory,
     stride_detection_quality: u8,
     high_entropy_detection_quality: u8,
     block_type_literal: u8,
 }
 
-impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
-    fn new(m32:&mut AllocU32, mb: InputPair<'a>,
+impl<'a, AllocU8: alloc::Allocator<u8>, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU8, AllocU32 > {
+    fn new(m8: &mut AllocU8, m32:&mut AllocU32, mb: InputPair<'a>,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
            serialize_cdfs: bool,
            context_map_entropy: ContextMapEntropy<'a, AllocU32>,
-           ) -> CommandQueue <'a, AllocU32> {
-        let mut entropy_tally_scratch = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 && !serialize_cdfs {
+           ) -> CommandQueue <'a, AllocU8, AllocU32> {
+        let mut entropy_tally_scratch = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 {
             find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
         } else {
             if stride_detection_quality == 0 {
@@ -153,7 +154,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
                 find_stride::EntropyTally::<AllocU32>::new(m32, None)
             }
         };
-        let mut entropy_pyramid = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 && !serialize_cdfs {
+        let mut entropy_pyramid = if stride_detection_quality == 0 && high_entropy_detection_quality == 0 {
             find_stride::EntropyPyramid::<AllocU32>::disabled_placeholder(m32)
         } else {
             find_stride::EntropyPyramid::<AllocU32>::new(m32)
@@ -161,7 +162,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
         if stride_detection_quality > 0 {
             entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
         } else {
-            if high_entropy_detection_quality > 1 || serialize_cdfs {
+            if high_entropy_detection_quality > 1 {
                 entropy_pyramid.populate_stride1(mb.0, mb.1);
             }
         }
@@ -177,6 +178,11 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
             high_entropy_detection_quality: high_entropy_detection_quality,
             context_map_entropy: context_map_entropy,
             block_type_literal: 0,
+            serialized_command_cdf_backing: if serialize_cdfs {
+                m8.alloc_cell(256 * 16 * 2) // high nibble, low nibble
+            } else {
+                AllocU8::AllocatedMemory::default()
+            },
         }
     }
     fn full(&self) -> bool {
@@ -275,15 +281,20 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
        callback(self.queue.split_at(self.loc).0);
        self.clear();
     }
-    fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+    fn free<Cb>(&mut self, m8: &mut AllocU8, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
        self.context_map_entropy.free(m32);
-
+       m8.free_cell(core::mem::replace(&mut self.serialized_command_cdf_backing,
+                                  AllocU8::AllocatedMemory::default()));
     }
 }
-impl<'a, AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue<'a, AllocU32 > {
+impl<'a,
+     AllocU8: alloc::Allocator<u8>,
+     AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue<'a,
+                                                                             AllocU8,
+                                                                             AllocU32 > {
     fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
      where Cb: FnMut(&[interface::Command<InputReference>]) {
         self.queue[self.loc] = val;
@@ -299,34 +310,98 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue
             interface::LiteralBlockSwitch::new(block_type, 0)), callback)
     }
 }
-
+fn renormalize_pdf(pdf:&mut [u32; 16]) {
+    let mut sum = 0u32;
+    for item in pdf.iter() {
+        sum = sum.wrapping_add(*item);
+    }
+    if sum >= 256 {
+        for item in pdf.iter_mut() {
+            *item = (u64::from(*item) * 255 / u64::from(sum)) as u32;
+        }
+    }
+}
 struct ContextMapEntropy<'a, AllocU32:alloc::Allocator<u32>> {
   input: InputPair<'a>,
   entropy_tally: find_stride::EntropyBucketPopulation<AllocU32>,
   context_map: interface::PredictionModeContextMap<InputReference<'a>>,
+  serialize_pdf: find_stride::EntropyBucketPopulation<AllocU32>,  
   block_type: u8,
   local_byte_offset: usize,
 }
 impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
-   fn new(m32: &mut AllocU32, input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+    fn new(m32: &mut AllocU32,
+           input: InputPair<'a>,
+           prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>,
+           serialize_pdf: find_stride::EntropyBucketPopulation<AllocU32>,
+    ) -> Self {
       ContextMapEntropy::<AllocU32>{
          input: input,
          entropy_tally:find_stride::EntropyBucketPopulation::<AllocU32>::new(m32),
          context_map: prediction_mode,
          block_type: 0,
          local_byte_offset: 0,
-
+         serialize_pdf:serialize_pdf,
       }
    }
-   fn disabled_placeholder(input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+   fn disabled_placeholder(input: InputPair<'a>,
+                           prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>,
+                           serialize_pdf: find_stride::EntropyBucketPopulation<AllocU32>,
+   ) -> Self {
       ContextMapEntropy::<AllocU32>{
          input: input,
          entropy_tally:find_stride::EntropyBucketPopulation::<AllocU32>::disabled_placeholder(),
          context_map: prediction_mode,
          block_type: 0,
          local_byte_offset: 0,
-
+         serialize_pdf:serialize_pdf,
       }
+   }
+   fn get_high_nibble_pdf(&mut self, local_high_nibble_pdf: &'a mut [u8]) -> &'a [u8]{
+       if self.serialize_pdf.slice().len() != 65536 || local_high_nibble_pdf.len() != 16 * 256 {
+           return &[];
+       }
+       for prior in 0..256 {
+           let mut sum = 0;
+           let mut local_sum = [0u32; 16];
+           for high_val in 0..16 {
+               for low_val in 0..16 {
+                   let source_index = ((prior << 8) | (high_val << 4) | low_val) as usize;
+                   local_sum[high_val] = local_sum[high_val].wrapping_add(self.serialize_pdf.slice()[source_index]);
+               }
+           }
+           renormalize_pdf(&mut local_sum);
+           for high_val in 0..16 {
+               let target_index = ((prior << 4) | high_val) as usize;
+               local_high_nibble_pdf[target_index] = local_sum[high_val] as u8;
+           }
+       }
+       self.context_map.high_nibble_pdf = InputReference(local_high_nibble_pdf);
+       local_high_nibble_pdf
+   }
+    fn get_low_nibble_pdf(&mut self, local_low_nibble_pdf: &'a mut [u8]) -> &'a [u8]{
+        if self.serialize_pdf.slice().len() != 65536 || local_low_nibble_pdf.len() != 16 * 256 {
+            return &[];
+        }
+        for lower_prior in 0..16 {
+            for high_val in 0..16 {
+                let mut sum = 0;
+                let mut local_sum = [0u32; 16];
+                for high_prior in 0..16 {
+                    for low_val in 0..16 {
+                        let source_index = ((high_prior << 12) | (lower_prior << 8) | (high_val << 4) | low_val) as usize;
+                        local_sum[low_val] = local_sum[low_val].wrapping_add(self.serialize_pdf.slice()[source_index]);
+                    }
+                }
+                renormalize_pdf(&mut local_sum);
+                for low_val in 0..16 {
+                    let target_index = ((lower_prior << 8) | (high_val << 4) | low_val) as usize;
+                    local_low_nibble_pdf[target_index] = local_sum[low_val] as u8;
+                }
+            }
+        }
+        self.context_map.low_nibble_pdf = InputReference(local_low_nibble_pdf);
+        local_low_nibble_pdf
    }
    fn compute_bit_cost_of_data_subset(&mut self,
                                      data: &[u8],
@@ -401,13 +476,26 @@ impl<'a, 'b, AllocU32:alloc::Allocator<u32>> CommandProcessor<'b> for ContextMap
                    priors[0] = self.input[self.local_byte_offset - 2];
                    priors[1] = self.input[self.local_byte_offset - 1];
                }
-               for literal in lit.data.slice().iter() {                   
-                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[1], priors[0], self.context_map, self.block_type);
-
-                   self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
-                    //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
-                   priors[0] = priors[1];
-                   priors[1] = *literal;
+               let mut pdf_priors = priors;
+               if !self.entropy_tally.is_disabled_placeholder() {
+                   for literal in lit.data.slice().iter() {                   
+                       let huffman_table_index = compute_huffman_table_index_for_context_map(priors[1], priors[0], self.context_map, self.block_type);
+                       
+                       self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
+                       //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
+                       priors[0] = priors[1];
+                       priors[1] = *literal;
+                   }
+               }
+               if !self.serialize_pdf.is_disabled_placeholder() {
+                   for literal in lit.data.slice().iter() {
+                       //FIXME: prior should take into account selected stride
+                       let pdf_val = &mut self.serialize_pdf.bucket_populations.slice_mut()[((u32::from(priors[1]) << 8) | u32::from(*literal)) as usize];
+                       *pdf_val = pdf_val.wrapping_add(1);
+                       //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
+                       priors[0] = priors[1];
+                       priors[1] = *literal;
+                   }
                }
                self.local_byte_offset += lit.data.slice().len();
            }
@@ -425,7 +513,11 @@ fn warn_on_missing_free() {
 fn warn_on_missing_free() {
      // no way to warn in this case
 }
-impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
+impl<'a,
+     AllocU8: alloc::Allocator<u8>,
+     AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a,
+                                                            AllocU8,
+                                                            AllocU32> {
   fn drop(&mut self) {
       if !self.entropy_tally_scratch.is_free() {
           warn_on_missing_free();
@@ -600,8 +692,9 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     recoder_state
 }
 
-fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
-                Cb>(m32:&mut AllocU32,
+fn LogMetaBlock<'a, AllocU8: alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32>,
+                Cb>(m8: &mut AllocU8,
+                    m32:&mut AllocU32,
                     commands: &[Command], input0: &'a[u8],input1: &'a[u8],
                     n_postfix: u32,
                     n_direct: u32,
@@ -613,7 +706,9 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                     callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
-
+    let mut local_high_nibble_pdf = AllocU8::AllocatedMemory::default();
+    let mut local_low_nibble_pdf = AllocU8::AllocatedMemory::default();
+    {
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btypel.num_types);
     assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -630,18 +725,25 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
             local_distance_context_map[index] = *item as u8;
         }
     }
-    let prediction_mode = interface::PredictionModeContextMap::<InputReference>{
-            literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
-            literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
-            distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
-    };
     let input = InputPair(input0, input1);
-    let mut context_map_entropy = if params.high_entropy_detection_quality > 0 {
-        ContextMapEntropy::<AllocU32>::new(m32, input, prediction_mode)
+    let mut serialize_pdf = if params.serialize_cdfs != 0 {
+        find_stride::EntropyBucketPopulation::<AllocU32>::new(m32)
     } else {
-        ContextMapEntropy::<AllocU32>::disabled_placeholder(input, prediction_mode)
+        find_stride::EntropyBucketPopulation::<AllocU32>::disabled_placeholder()
     };
-    if params.high_entropy_detection_quality != 0 {
+    let mut prediction_mode = interface::PredictionModeContextMap::<InputReference>{
+        literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
+        literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
+        distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
+        high_nibble_pdf: InputReference(&[]),
+        low_nibble_pdf: InputReference(&[]),
+    };
+    let mut context_map_entropy = if params.high_entropy_detection_quality > 0 {
+        ContextMapEntropy::<AllocU32>::new(m32, input, prediction_mode, serialize_pdf)
+    } else {
+        ContextMapEntropy::<AllocU32>::disabled_placeholder(input, prediction_mode, serialize_pdf)
+    };
+    if params.high_entropy_detection_quality != 0 || params.serialize_cdfs != 0{
         
         process_command_queue(&mut context_map_entropy,
                               input,
@@ -655,7 +757,13 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                               context_type,
                               &mut |_x|());
      }
-     let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
+     if params.serialize_cdfs != 0 {
+         local_high_nibble_pdf = m8.alloc_cell(256 * 16);
+         local_low_nibble_pdf = m8.alloc_cell(256 * 16);
+         prediction_mode.high_nibble_pdf = InputReference(context_map_entropy.get_high_nibble_pdf(local_high_nibble_pdf.slice_mut()));
+         prediction_mode.low_nibble_pdf = InputReference(context_map_entropy.get_low_nibble_pdf(local_low_nibble_pdf.slice_mut()));
+     }
+     let mut command_queue = CommandQueue::new(m8, m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
                                               params.high_entropy_detection_quality,
                                               params.serialize_cdfs != 0,
@@ -675,7 +783,10 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
                                            params,
                                            context_type,
                                            callback);
-    command_queue.free(m32, callback);
+    command_queue.free(m8, m32, callback);
+    }
+    m8.free_cell(local_high_nibble_pdf);
+    m8.free_cell(local_low_nibble_pdf);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
 }
@@ -2227,7 +2338,7 @@ pub fn BrotliStoreMetaBlock<'a,
   callback: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m32, commands.split_at(n_commands).0, input0, input1,
+      LogMetaBlock(m8, m32, commands.split_at(n_commands).0, input0, input1,
                    distance_postfix_bits, num_direct_distance_codes, distance_cache,
                    recoder_state,
                    block_split_reference(mb),
@@ -2504,9 +2615,11 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
 fn nop<'a>(_data:&[interface::Command<InputReference>]){
 }
 pub fn BrotliStoreMetaBlockTrivial<'a,
+                                   AllocU8:alloc::Allocator<u8>,
                                    AllocU32:alloc::Allocator<u32>,
                                    Cb>
-    (m32:&mut AllocU32,
+    (m8:&mut AllocU8,
+     m32:&mut AllocU32,
      input: &'a [u8],
      start_pos: usize,
      length: usize,
@@ -2522,7 +2635,8 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
     f:&mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m32,
+      LogMetaBlock(m8,
+                   m32,
                    commands.split_at(n_commands).0,
                    input0,
                    input1,
@@ -2685,8 +2799,10 @@ impl RecoderState {
 
 
 pub fn BrotliStoreMetaBlockFast<Cb,
+                                AllocU8:alloc::Allocator<u8>,
                                 AllocU32:alloc::Allocator<u32>,
                                 AllocHT: alloc::Allocator<HuffmanTree>>(m : &mut AllocHT,
+                                                                        m8: &mut AllocU8,
                                                                         m32: &mut AllocU32,
                                 input: &[u8],
                                 start_pos: usize,
@@ -2703,7 +2819,8 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                 cb: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m32,
+      LogMetaBlock(m8,
+                   m32,
                    commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache, recoder_state,
                    block_split_nop(),
                    params,
@@ -2847,8 +2964,9 @@ fn InputPairFromMaskedInput<'a>(input:&'a [u8], position: usize, len: usize, mas
   return (&input[masked_pos..masked_pos + len], &[]);
 
 }
-pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU32:alloc::Allocator<u32>>
-    (m32:&mut AllocU32,
+pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU8:alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32>>
+    (m8:&mut AllocU8,
+     m32:&mut AllocU32,
      is_final_block: i32,
      input: &[u8],
      position: usize,
@@ -2878,7 +2996,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU32:alloc::Allocator<u32>>
                         dist_prefix_:0
     }];
 
-    LogMetaBlock(m32, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
+    LogMetaBlock(m8, m32, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
                  block_split_nop(),
                  params,
                  None,

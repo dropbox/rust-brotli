@@ -450,6 +450,10 @@ fn main() {
          params.serialize_cdfs = 1;
          continue;
       }
+      if argument == "-pdf" {
+         params.serialize_cdfs = 1;
+         continue;
+      }
       if argument == "-basicstride" {
           params.stride_detection_quality = 1;
           continue;

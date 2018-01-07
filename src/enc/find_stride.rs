@@ -53,6 +53,9 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
                                    AllocU32::AllocatedMemory::default()));
 
     }
+    pub fn is_disabled_placeholder(&mut self) -> bool{
+        return self.bucket_populations.slice().len() == 0;
+    }
    fn clone_from(&mut self, other: &EntropyBucketPopulation<AllocU32>) {
         self.bucket_populations.slice_mut().clone_from_slice(other.bucket_populations.slice());
    }
@@ -126,6 +129,11 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
        scratch.cached_bit_entropy = HuffmanCost(scratch.bucket_populations.slice());
        self.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
    }
+}
+impl<AllocU32:alloc::Allocator<u32>> SliceWrapper<u32> for EntropyBucketPopulation<AllocU32> {
+    fn slice(&self) -> &[u32] {
+        self.bucket_populations.slice()
+    }
 }
 
 const NUM_STRIDES:usize = 8;

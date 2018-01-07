@@ -47,6 +47,11 @@ macro_rules! println_stderr(
         writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
     } }
 );
+macro_rules! print_stderr(
+    ($($val:tt)*) => { {
+        write!(&mut ::std::io::stderr(), $($val)*).unwrap();
+    } }
+);
 
 fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNibble) -> &'static str {
    match prediction_mode_nibble.prediction_mode() {
@@ -82,12 +87,22 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
             println_stderr!("dtype {}", bsd.0);
         },
         &interface::Command::PredictionMode(ref prediction) => {
-            println_stderr!("prediction {} lcontextmap{} dcontextmap{}",
+            print_stderr!("prediction {} lcontextmap{} dcontextmap{}",
                             prediction_mode_str(prediction.literal_prediction_mode),
                             prediction.literal_context_map.slice().iter().fold(::std::string::String::new(),
                                                                                |res, &val| res + " " + &val.to_string()),
                             prediction.distance_context_map.slice().iter().fold(::std::string::String::new(),
                                                                                 |res, &val| res + " " + &val.to_string()));
+            if prediction.high_nibble_pdf.slice().len() == 256 * 16 && prediction.low_nibble_pdf.slice().len() == 256 * 16 {
+                println_stderr!(" highnibblepdf{} lownibblepdf{}",
+                                prediction.high_nibble_pdf.slice().iter().fold(::std::string::String::new(),
+                                                                               |res, &val| res + " " + &val.to_string()),
+                                
+                            prediction.low_nibble_pdf.slice().iter().fold(::std::string::String::new(),
+                                                                          |res, &val| res + " " + &val.to_string()));
+            } else {
+                println_stderr!("");
+            }
         },
         &interface::Command::Copy(ref copy) => {
             println_stderr!("copy {} from {}", copy.num_bytes, copy.distance);
