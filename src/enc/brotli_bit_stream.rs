@@ -317,7 +317,10 @@ fn renormalize_pdf(pdf:&mut [u32; 16]) {
     }
     if sum >= 256 {
         for item in pdf.iter_mut() {
-            *item = (u64::from(*item) * 255 / u64::from(sum)) as u32;
+            if *item != 0 {
+                *item = core::cmp::max((u64::from(*item) * 255 / u64::from(sum)) as u32,
+                                       1);
+            }
         }
     }
 }
@@ -363,7 +366,6 @@ impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
        }
        let high_nibble_offset = 16 * 256;
        for prior in 0..256 {
-           let mut sum = 0;
            let mut local_sum = [0u32; 16];
            for high_val in 0..16 {
                for low_val in 0..16 {
@@ -379,7 +381,6 @@ impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
        }
         for lower_prior in 0..16 {
             for high_val in 0..16 {
-                let mut sum = 0;
                 let mut local_sum = [0u32; 16];
                 for high_prior in 0..16 {
                     for low_val in 0..16 {
