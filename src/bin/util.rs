@@ -93,13 +93,13 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                                                                                |res, &val| res + " " + &val.to_string()),
                             prediction.distance_context_map.slice().iter().fold(::std::string::String::new(),
                                                                                 |res, &val| res + " " + &val.to_string()));
-            if prediction.high_nibble_pdf.slice().len() == 256 * 16 && prediction.low_nibble_pdf.slice().len() == 256 * 16 {
+            if prediction.nibble_pdf.slice().len() == 256 * 16 * 2 {
                 println_stderr!(" highnibblepdf{} lownibblepdf{}",
-                                prediction.high_nibble_pdf.slice().iter().fold(::std::string::String::new(),
+                                prediction.nibble_pdf.slice()[256 * 16..].iter().fold(::std::string::String::new(),
                                                                                |res, &val| res + " " + &val.to_string()),
                                 
-                            prediction.low_nibble_pdf.slice().iter().fold(::std::string::String::new(),
-                                                                          |res, &val| res + " " + &val.to_string()));
+                                prediction.nibble_pdf.slice()[..256*16].iter().fold(::std::string::String::new(),
+                                                                               |res, &val| res + " " + &val.to_string()));
             } else {
                 println_stderr!("");
             }

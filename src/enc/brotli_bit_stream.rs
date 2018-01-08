@@ -80,7 +80,7 @@ fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) ->
         _ => len >= 8,
     }
 }
-const COMMAND_BUFFER_SIZE: usize = 16384;
+const COMMAND_BUFFER_SIZE: usize = 14400;
 trait CommandProcessor<'a> {
    fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
                                                              val: interface::Command<InputReference<'a> >,
@@ -357,10 +357,11 @@ impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
          serialize_pdf:serialize_pdf,
       }
    }
-   fn get_high_nibble_pdf(&mut self, local_high_nibble_pdf: &'a mut [u8]) -> &'a [u8]{
-       if self.serialize_pdf.slice().len() != 65536 || local_high_nibble_pdf.len() != 16 * 256 {
+   fn get_nibble_pdf(&mut self, local_nibble_pdf: &'a mut [u8]) -> &'a [u8]{
+       if self.serialize_pdf.slice().len() != 65536 || local_nibble_pdf.len() != 16 * 256 * 2 {
            return &[];
        }
+       let high_nibble_offset = 16 * 256;
        for prior in 0..256 {
            let mut sum = 0;
            let mut local_sum = [0u32; 16];
@@ -373,16 +374,9 @@ impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
            renormalize_pdf(&mut local_sum);
            for high_val in 0..16 {
                let target_index = ((prior << 4) | high_val) as usize;
-               local_high_nibble_pdf[target_index] = local_sum[high_val] as u8;
+               local_nibble_pdf[high_nibble_offset + target_index] = local_sum[high_val] as u8;
            }
        }
-       self.context_map.high_nibble_pdf = InputReference(local_high_nibble_pdf);
-       local_high_nibble_pdf
-   }
-    fn get_low_nibble_pdf(&mut self, local_low_nibble_pdf: &'a mut [u8]) -> &'a [u8]{
-        if self.serialize_pdf.slice().len() != 65536 || local_low_nibble_pdf.len() != 16 * 256 {
-            return &[];
-        }
         for lower_prior in 0..16 {
             for high_val in 0..16 {
                 let mut sum = 0;
@@ -396,12 +390,12 @@ impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
                 renormalize_pdf(&mut local_sum);
                 for low_val in 0..16 {
                     let target_index = ((lower_prior << 8) | (high_val << 4) | low_val) as usize;
-                    local_low_nibble_pdf[target_index] = local_sum[low_val] as u8;
+                    local_nibble_pdf[target_index] = local_sum[low_val] as u8;
                 }
             }
         }
-        self.context_map.low_nibble_pdf = InputReference(local_low_nibble_pdf);
-        local_low_nibble_pdf
+        self.context_map.nibble_pdf = InputReference(local_nibble_pdf);
+        local_nibble_pdf
    }
    fn compute_bit_cost_of_data_subset(&mut self,
                                      data: &[u8],
@@ -706,8 +700,7 @@ fn LogMetaBlock<'a, AllocU8: alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32
                     callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
-    let mut local_high_nibble_pdf = AllocU8::AllocatedMemory::default();
-    let mut local_low_nibble_pdf = AllocU8::AllocatedMemory::default();
+    let mut local_nibble_pdf = AllocU8::AllocatedMemory::default();
     {
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btypel.num_types);
@@ -735,8 +728,7 @@ fn LogMetaBlock<'a, AllocU8: alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32
         literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
         literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
         distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
-        high_nibble_pdf: InputReference(&[]),
-        low_nibble_pdf: InputReference(&[]),
+        nibble_pdf: InputReference(&[]),
     };
     let mut context_map_entropy = if params.high_entropy_detection_quality > 0 {
         ContextMapEntropy::<AllocU32>::new(m32, input, prediction_mode, serialize_pdf)
@@ -758,10 +750,8 @@ fn LogMetaBlock<'a, AllocU8: alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32
                               &mut |_x|());
      }
      if params.serialize_cdfs != 0 {
-         local_high_nibble_pdf = m8.alloc_cell(256 * 16);
-         local_low_nibble_pdf = m8.alloc_cell(256 * 16);
-         prediction_mode.high_nibble_pdf = InputReference(context_map_entropy.get_high_nibble_pdf(local_high_nibble_pdf.slice_mut()));
-         prediction_mode.low_nibble_pdf = InputReference(context_map_entropy.get_low_nibble_pdf(local_low_nibble_pdf.slice_mut()));
+         local_nibble_pdf = m8.alloc_cell(256 * 16  * 2);
+         prediction_mode.nibble_pdf = InputReference(context_map_entropy.get_nibble_pdf(local_nibble_pdf.slice_mut()));
      }
      let mut command_queue = CommandQueue::new(m8, m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
@@ -785,8 +775,7 @@ fn LogMetaBlock<'a, AllocU8: alloc::Allocator<u8>, AllocU32:alloc::Allocator<u32
                                            callback);
     command_queue.free(m8, m32, callback);
     }
-    m8.free_cell(local_high_nibble_pdf);
-    m8.free_cell(local_low_nibble_pdf);
+    m8.free_cell(local_nibble_pdf);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
 }
