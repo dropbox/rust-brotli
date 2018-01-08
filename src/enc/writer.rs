@@ -98,7 +98,11 @@ impl<W: Write,
                          "Invalid Data"),
               q, lgwin))
     }
+
+    pub fn get_ref(&self) -> &W {
+      &self.0.get_ref().0
     }
+}
 
 #[cfg(not(feature="no-stdlib"))]
 impl<W: Write,
@@ -181,6 +185,10 @@ impl<W: Write> CompressorWriter<W> {
                                                            alloc_ht,
                                                            q,
                                                            lgwin))
+  }
+
+  pub fn get_ref(&self) -> &W {
+    self.0.get_ref()
   }
 }
 
@@ -341,6 +349,10 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
               return Ok(());
            }
         }        
+    }
+    
+    pub fn get_ref(&self) -> &W {
+      &self.output
     }
 }
 
