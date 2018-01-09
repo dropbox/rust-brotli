@@ -318,7 +318,7 @@ fn renormalize_pdf(pdf:&mut [u32; 16]) {
     if sum >= 256 {
         for item in pdf.iter_mut() {
             if *item != 0 {
-                *item = core::cmp::max((u64::from(*item) * 255 / u64::from(sum)) as u32,
+                *item = core::cmp::max(((u64::from(*item) * 255 + u64::from(sum)/2)/ u64::from(sum)) as u32,
                                        1);
             }
         }
