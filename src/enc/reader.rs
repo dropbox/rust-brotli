@@ -99,7 +99,11 @@ impl<R: Read,
                          "Invalid Data"),
               q, lgwin))
     }
+
+    pub fn get_ref(&self) -> &R {
+        &self.0.get_ref().0
     }
+}
 
 #[cfg(not(feature="no-stdlib"))]
 impl<R: Read,
@@ -179,6 +183,10 @@ impl<R: Read> CompressorReader<R> {
                                                            alloc_ht,
                                                            q,
                                                            lgwin))
+  }
+
+  pub fn get_ref(&self) -> &R {
+      self.0.get_ref()
   }
 }
 
@@ -307,6 +315,10 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
             self.input_len -= self.input_offset;
             self.input_offset = 0;
         }
+    }
+
+    pub fn get_ref(&self) -> &R {
+        &self.input
     }
 }
 
