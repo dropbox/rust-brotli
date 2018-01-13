@@ -336,8 +336,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                                                 1i32);
     }
     (*self).buckets_.slice_mut()[(key as (usize)).wrapping_add((cur_ix >> 3)
-                                    .wrapping_rem(self.buckets_.BUCKET_SWEEP() as
-                                                  usize))] = cur_ix as (u32);
+                                    .wrapping_rem(BUCKET_SWEEP as usize))] = cur_ix as (u32);
     is_match_found != 0
 
   }
