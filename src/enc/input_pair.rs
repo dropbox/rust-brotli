@@ -1,4 +1,13 @@
 use core;
+use super::super::alloc::SliceWrapper;
+
+#[derive(Copy,Clone,Default)]
+pub struct InputReference<'a>(pub &'a [u8]);
+impl<'a> SliceWrapper<u8> for InputReference<'a> {
+    fn slice(&self) -> & [u8] {
+        self.0
+    }
+}
 
 #[derive(Clone, Debug,Copy)]
 pub struct InputPair<'a>(pub &'a [u8],pub &'a [u8]);

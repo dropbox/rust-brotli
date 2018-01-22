@@ -24,7 +24,7 @@ pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState};
 use brotli_decompressor::HuffmanCode;
 use core::ops;
 use super::interface;
-use super::brotli_bit_stream;
+use super::input_pair;
 declare_stack_allocator_struct!(MemPool, 128, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);
 declare_stack_allocator_struct!(CallocatedFreelist2048, 64, calloc);
@@ -116,7 +116,7 @@ fn oneshot_compress(input: &[u8],
       } else {
         op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
       }
-      let mut nop = |_data:&[interface::Command<brotli_bit_stream::InputReference>]|();
+      let mut nop = |_data:&[interface::Command<input_pair::InputReference>]|();
       let result = BrotliEncoderCompressStream(s,
                                                &mut mf64,
                                                &mut mfv,

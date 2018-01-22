@@ -1,5 +1,6 @@
 use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
+use super::input_pair;
 use super::command::Command;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
@@ -7,7 +8,6 @@ use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
 use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use super::interface;
-use super::brotli_bit_stream;
 use brotli_decompressor::CustomRead;
 
 #[cfg(not(feature="no-stdlib"))]
@@ -363,7 +363,7 @@ impl<ErrType,
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocCommand,
                          AllocF64, AllocFV, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT> {
 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, ErrType > {
-        let mut nop_callback = |_data:&[interface::Command<brotli_bit_stream::InputReference>]|();
+        let mut nop_callback = |_data:&[interface::Command<input_pair::InputReference>]|();
         let mut output_offset : usize = 0;
         let mut avail_out = buf.len() - output_offset;
         let mut avail_in = self.input_len - self.input_offset;

@@ -1,6 +1,7 @@
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
 use alloc::{SliceWrapper, Allocator, SliceWrapperMut};
+use super::input_pair::{InputPair,InputReference};
 use super::histogram;
 #[derive(Debug,Copy,Clone,Default)]
 pub struct BlockSwitch(pub u8);
@@ -311,3 +312,44 @@ pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceType
     }
 }
 
+
+pub trait CommandProcessor<'a> {
+   fn push<Cb: FnMut(&[Command<InputReference>])>(&mut self,
+                                                             val: Command<InputReference<'a> >,
+                                                             callback :&mut Cb);
+   fn push_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[Command<InputReference>]) {
+        if data.0.len() != 0 {
+            self.push(Command::Literal(LiteralCommand{
+                data:InputReference(data.0),
+                prob:FeatureFlagSliceType::<InputReference>::default(),
+                high_entropy: false,
+            }), callback);
+        }
+        if data.1.len() != 0 {
+            self.push(Command::Literal(LiteralCommand{
+                data:InputReference(data.1),
+                prob:FeatureFlagSliceType::<InputReference>::default(),
+                high_entropy: false,
+            }), callback);
+        }
+   }
+   fn push_rand_literals<Cb>(&mut self, data:&InputPair<'a>, callback: &mut Cb) where Cb:FnMut(&[Command<InputReference>]) {
+        if data.0.len() != 0 {
+            self.push(Command::Literal(LiteralCommand{
+                data:InputReference(data.0),
+                prob:FeatureFlagSliceType::<InputReference>::default(),
+                high_entropy: true,
+            }), callback);
+        }
+        if data.1.len() != 0 {
+            self.push(Command::Literal(LiteralCommand{
+                data:InputReference(data.1),
+                prob:FeatureFlagSliceType::<InputReference>::default(),
+                high_entropy: true,
+            }), callback);
+        }
+   }
+   fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[Command<InputReference>]) {
+       self.push(Command::BlockSwitchLiteral(LiteralBlockSwitch::new(block_type, 0)), callback)
+   }
+}

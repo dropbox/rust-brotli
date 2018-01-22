@@ -26,6 +26,7 @@ pub mod reader;
 pub mod writer;
 pub mod find_stride;
 pub mod interface;
+pub mod context_map_entropy;
 mod test;
 pub use self::util::floatX;
 pub use self::backward_references::BrotliEncoderParams;
@@ -134,7 +135,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
   where InputType: Read,
         OutputType: Write
 {
-  let mut nop_callback = |_data:&[interface::Command<brotli_bit_stream::InputReference>]|();
+  let mut nop_callback = |_data:&[interface::Command<input_pair::InputReference>]|();
   BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
                            &mut IoWriterWrapper::<OutputType>(w),
                            input_buffer,
@@ -173,7 +174,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocHP: Allocator<HistogramPair>,
                               AllocCT: Allocator<ContextType>,
                               AllocHT: Allocator<HuffmanTree>,
-                              MetablockCallback: FnMut(&[interface::Command<brotli_bit_stream::InputReference>])>
+                              MetablockCallback: FnMut(&[interface::Command<input_pair::InputReference>])>
   (r: &mut InputType,
    w: &mut OutputType,
    input_buffer: &mut [u8],

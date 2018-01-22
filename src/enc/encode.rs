@@ -14,8 +14,9 @@ use super::block_split::BlockSplit;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
                                BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
                                BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
-                               MetaBlockSplit, RecoderState,
-                               InputReference};
+                               MetaBlockSplit, RecoderState};
+                               
+use enc::input_pair::InputReference;
 use super::command::{Command, GetLengthCode, RecomputeDistancePrefixes};
 use super::compress_fragment::BrotliCompressFragmentFast;
 use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
