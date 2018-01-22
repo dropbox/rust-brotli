@@ -4,21 +4,37 @@ use super::interface;
 use super::input_pair::{InputPair, InputReference};
 use super::histogram::ContextType;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
-pub struct ContextMapEntropy<'a, AllocU32:alloc::Allocator<u32>> {
+use super::util::floatX;
+pub struct ContextMapEntropy<'a,
+                             AllocU16:alloc::Allocator<u16>,
+                             AllocU32:alloc::Allocator<u32>,
+                             AllocF:alloc::Allocator<floatX>,
+                             > {
     input: InputPair<'a>,
     context_map: interface::PredictionModeContextMap<InputReference<'a>>,
     block_type: u8,
     local_byte_offset: usize,
     nop: AllocU32::AllocatedMemory,
+    nopa: AllocU16::AllocatedMemory,
+    nopb: AllocF::AllocatedMemory,
 }
-impl<'a, AllocU32:alloc::Allocator<u32>> ContextMapEntropy<'a, AllocU32> {
-   pub fn new(m32: &mut AllocU32, input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
-      ContextMapEntropy::<AllocU32>{
+impl<'a,
+     AllocU16:alloc::Allocator<u16>,
+     AllocU32:alloc::Allocator<u32>,
+     AllocF:alloc::Allocator<floatX>,
+     > ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
+   pub fn new(m16: &mut AllocU16,
+              m32: &mut AllocU32,
+              mf: &mut AllocF,
+              input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+      ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
          input: input,
          context_map: prediction_mode,
          block_type: 0,
          local_byte_offset: 0,
          nop:  AllocU32::AllocatedMemory::default(),
+         nopa:  AllocU16::AllocatedMemory::default(),
+         nopb:  AllocF::AllocatedMemory::default(),
       }
    }
    pub fn track_cdf_speed(&mut self,
@@ -94,7 +110,9 @@ fn compute_huffman_table_index_for_context_map<SliceType: alloc::SliceWrapper<u8
     }
 }
 
-impl<'a, 'b, AllocU32:alloc::Allocator<u32>> interface::CommandProcessor<'b> for ContextMapEntropy<'a, AllocU32> {
+impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
+     AllocU32:alloc::Allocator<u32>,
+     AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'b> for ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
     fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
                                                              val: interface::Command<InputReference<'b>>,
                                                              callback: &mut Cb) {

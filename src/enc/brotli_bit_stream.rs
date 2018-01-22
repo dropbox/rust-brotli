@@ -4,6 +4,7 @@
 #![allow(unused_macros)]
 #[cfg(not(feature="no-stdlib"))]
 use std::io::Write;
+use super::util::floatX;
 use super::input_pair::{InputPair, InputReference};
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
@@ -63,7 +64,7 @@ fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNi
 const COMMAND_BUFFER_SIZE: usize = 16384;
 
 
-struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
+struct CommandQueue<'a, AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>, AllocF:alloc::Allocator<floatX>> {
     mb: InputPair<'a>,
     mb_byte_offset: usize,
     queue: [interface::Command<InputReference<'a> >;COMMAND_BUFFER_SIZE],
@@ -71,18 +72,22 @@ struct CommandQueue<'a, AllocU32:alloc::Allocator<u32> > {
     last_btypel_index: Option<usize>,
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
     entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
-    context_map_entropy: ContextMapEntropy<'a, AllocU32>,
+    context_map_entropy: ContextMapEntropy<'a, AllocU16, AllocU32, AllocF>,
     stride_detection_quality: u8,
     high_entropy_detection_quality: u8,
     block_type_literal: u8,
 }
 
-impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
-    fn new(m32:&mut AllocU32, mb: InputPair<'a>,
+impl<'a,
+     AllocU16:alloc::Allocator<u16>,
+     AllocU32:alloc::Allocator<u32>,
+     AllocF:alloc::Allocator<floatX> > CommandQueue<'a, AllocU16, AllocU32, AllocF> {
+    fn new(m32: &mut AllocU32,
+           mb: InputPair<'a>,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
-           context_map_entropy: ContextMapEntropy<'a, AllocU32>,
-           ) -> CommandQueue <'a, AllocU32> {
+           context_map_entropy: ContextMapEntropy<'a, AllocU16, AllocU32, AllocF>,
+           ) -> CommandQueue <'a, AllocU16, AllocU32, AllocF> {
         let mut entropy_tally_scratch = if stride_detection_quality == 0 {
             find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
         } else {
@@ -182,7 +187,9 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
 
     }
 }
-impl<'a, AllocU32: alloc::Allocator<u32> > interface::CommandProcessor<'a> for CommandQueue<'a, AllocU32 > {
+impl<'a, AllocU16: alloc::Allocator<u16>,
+     AllocU32: alloc::Allocator<u32>,
+     AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'a> for CommandQueue<'a, AllocU16, AllocU32, AllocF> {
     fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
      where Cb: FnMut(&[interface::Command<InputReference>]) {
         self.queue[self.loc] = val;
@@ -208,7 +215,10 @@ fn warn_on_missing_free() {
 fn warn_on_missing_free() {
      // no way to warn in this case
 }
-impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
+impl<'a,
+     AllocU16: alloc::Allocator<u16>,
+     AllocU32: alloc::Allocator<u32>,
+     AllocF: alloc::Allocator<floatX>> Drop for CommandQueue<'a, AllocU16, AllocU32, AllocF> {
   fn drop(&mut self) {
       if !self.entropy_tally_scratch.is_free() {
           warn_on_missing_free();
@@ -383,8 +393,13 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     recoder_state
 }
 
-fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
-                Cb>(m32:&mut AllocU32,
+fn LogMetaBlock<'a,
+                AllocU16:alloc::Allocator<u16>,
+                AllocU32:alloc::Allocator<u32>,
+                AllocF:alloc::Allocator<floatX>,
+                Cb>(m16: &mut AllocU16,
+                    m32: &mut AllocU32,
+                    mf: &mut AllocF,
                     commands: &[Command], input0: &'a[u8],input1: &'a[u8],
                     n_postfix: u32,
                     n_direct: u32,
@@ -418,7 +433,7 @@ fn LogMetaBlock<'a, AllocU32:alloc::Allocator<u32>,
             literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
             distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
     };
-    let mut context_map_entropy = ContextMapEntropy::<AllocU32>::new(m32, InputPair(input0, input1), prediction_mode);
+    let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1), prediction_mode);
     let input = InputPair(input0, input1);
     process_command_queue(&mut context_map_entropy,
                          input,
@@ -1972,6 +1987,7 @@ pub fn BrotliStoreMetaBlock<'a,
                             AllocU8: alloc::Allocator<u8>,
                             AllocU16: alloc::Allocator<u16>,
                             AllocU32: alloc::Allocator<u32>,
+                            AllocF: alloc::Allocator<floatX>,
                             AllocHT: alloc::Allocator<HuffmanTree>,
                             AllocHL: alloc::Allocator<HistogramLiteral>,
                             AllocHC: alloc::Allocator<HistogramCommand>,
@@ -1980,6 +1996,7 @@ pub fn BrotliStoreMetaBlock<'a,
   (m8: &mut AllocU8,
    m16: &mut AllocU16,
    m32: &mut AllocU32,
+   mf: &mut AllocF,
    mht: &mut AllocHT,
    input: &'a[u8],
    start_pos: usize,
@@ -2002,7 +2019,7 @@ pub fn BrotliStoreMetaBlock<'a,
   callback: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m32, commands.split_at(n_commands).0, input0, input1,
+      LogMetaBlock(m16, m32, mf, commands.split_at(n_commands).0, input0, input1,
                    distance_postfix_bits, num_direct_distance_codes, distance_cache,
                    recoder_state,
                    block_split_reference(mb),
@@ -2279,9 +2296,13 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
 fn nop<'a>(_data:&[interface::Command<InputReference>]){
 }
 pub fn BrotliStoreMetaBlockTrivial<'a,
+                                   AllocU16:alloc::Allocator<u16>,
                                    AllocU32:alloc::Allocator<u32>,
+                                   AllocF:alloc::Allocator<floatX>,
                                    Cb>
-    (m32:&mut AllocU32,
+    (m16:&mut AllocU16,
+     m32:&mut AllocU32,
+     mf:&mut AllocF,
      input: &'a [u8],
      start_pos: usize,
      length: usize,
@@ -2297,7 +2318,9 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
     f:&mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m32,
+      LogMetaBlock(m16,
+                   m32,
+                   mf,
                    commands.split_at(n_commands).0,
                    input0,
                    input1,
@@ -2460,9 +2483,13 @@ impl RecoderState {
 
 
 pub fn BrotliStoreMetaBlockFast<Cb,
+                                AllocU16:alloc::Allocator<u16>,
                                 AllocU32:alloc::Allocator<u32>,
+                                AllocF:alloc::Allocator<floatX>,
                                 AllocHT: alloc::Allocator<HuffmanTree>>(m : &mut AllocHT,
+                                                                        m16: &mut AllocU16,
                                                                         m32: &mut AllocU32,
+                                                                        mf: &mut AllocF,
                                 input: &[u8],
                                 start_pos: usize,
                                 length: usize,
@@ -2478,7 +2505,9 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                 cb: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m32,
+      LogMetaBlock(m16,
+                   m32,
+                   mf,
                    commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache, recoder_state,
                    block_split_nop(),
                    params,
@@ -2622,8 +2651,10 @@ fn InputPairFromMaskedInput<'a>(input:&'a [u8], position: usize, len: usize, mas
   return (&input[masked_pos..masked_pos + len], &[]);
 
 }
-pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU32:alloc::Allocator<u32>>
-    (m32:&mut AllocU32,
+pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>, AllocF:alloc::Allocator<floatX>>
+    (m16:&mut AllocU16,
+     m32:&mut AllocU32,
+     mf:&mut AllocF,
      is_final_block: i32,
      input: &[u8],
      position: usize,
@@ -2653,7 +2684,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, AllocU32:alloc::Allocator<u32>>
                         dist_prefix_:0
     }];
 
-    LogMetaBlock(m32, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
+    LogMetaBlock(m16, m32, mf, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
                  block_split_nop(),
                  params,
                  None,
