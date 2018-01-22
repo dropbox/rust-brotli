@@ -1,6 +1,6 @@
 use core;
 use super::super::alloc;
-use super::super::alloc::SliceWrapper;
+use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::interface;
 use super::input_pair::{InputPair, InputReference};
 use super::histogram::ContextType;
@@ -9,41 +9,59 @@ use super::util::floatX;
 const NUM_SPEEDS_TO_TRY: usize = 32;
 const NIBBLE_PRIOR_SIZE: usize = 16 * NUM_SPEEDS_TO_TRY;
 // the high nibble, followed by the low nibbles
-const BYTE_PRIOR_SIZE: usize = NIBBLE_PRIOR_SIZE * 17;
-const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * BYTE_PRIOR_SIZE;
-const CONTEXT_MAP_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY;
-const STRIDE_PRIOR_SIZE: usize = 256 * CONTEXT_MAP_PRIOR_SIZE * 2;
-const STRIDE_COST_SIZE: usize = 256 * STRIDE_PRIOR_SIZE * 2;
-fn get_stride_cost(data: &mut [floatX], stride_prior: u8, cm_prior: usize, is_high_nibble: bool) -> &mut [floatX] {
-    let index = (is_high_nibble as usize) | ((cm_prior as usize) << 9) | ((stride_prior as usize) << 17);
+const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
+const CONTEXT_MAP_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
+const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
+const STRIDE_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
+fn get_stride_cost_high(data: &mut [floatX], stride_prior: u8, cm_prior: usize) -> &mut [floatX] {
+    let index: usize = 2 * stride_prior as usize;
     data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
 }
 
-fn get_cm_cost(data: &mut [floatX], cm_prior: u8, is_high_nibble: bool) -> &mut [floatX] {
+fn get_stride_cost_low(data: &mut [floatX], stride_prior: u8, cm_prior: usize, high_nibble: u8) -> &mut [floatX] {
+    let index: usize = 1 + 2 * (stride_prior as usize & 0xf) + 2 * 16 * high_nibble as usize;// (is_high_nibble as usize) + 2 * (cm_prior as usize | ((stride_prior as usize & 0xf) << 8));
+    data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
+}
+
+fn get_cm_cost(data: &mut [floatX], cm_prior: usize, is_high_nibble: bool) -> &mut [floatX] {
     let index = ((is_high_nibble as usize) | ((cm_prior as usize) << 9));
     data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
 }
 
 fn get_stride_cdf_low(data: &mut [u16], stride_prior: u8, cm_prior: usize, high_nibble: u8) -> &mut [u16] {
-    let index: usize = (high_nibble as usize + 1) + 17 * (cm_prior as usize | ((stride_prior as usize) << 8));
+    let index: usize =  1 + 2 * (cm_prior as usize | ((stride_prior as usize & 0xf) << 8) | ((high_nibble as usize) << 12));
     data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
 }
 
 fn get_stride_cdf_high(data: &mut [u16], stride_prior: u8, cm_prior: usize) -> &mut [u16] {
-    let index: usize = 17 * (cm_prior as usize | ((stride_prior as usize) << 8));
+    let index: usize = 2 * (cm_prior as usize | ((stride_prior as usize) << 8));
     data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
 }
 
-fn get_cm_cdf_low(data: &mut [u16], stride_prior: u8, cm_prior: usize, high_nibble: u8) -> &mut [u16] {
+fn get_cm_cdf_low(data: &mut [u16], cm_prior: usize, high_nibble: u8) -> &mut [u16] {
     let index: usize = (high_nibble as usize + 1) + 17 * cm_prior as usize;
     data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
 }
 
-fn get_cm_cdf_high(data: &mut [u16], stride_prior: u8, cm_prior: usize) -> &mut [u16] {
+fn get_cm_cdf_high(data: &mut [u16], cm_prior: usize) -> &mut [u16] {
     let index: usize = 17 * cm_prior as usize;
     data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
 }
 
+fn compute_cost(cost: &mut [floatX],
+                cdfs: &[u16],
+                nibble_u8: u8) {
+    assert_eq!(cost.len(), NUM_SPEEDS_TO_TRY);
+    assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
+    let nibble = nibble_u8 as usize & 0xf;
+    
+}
+fn update_cdf(cdfs: &mut [u16],
+              nibble_u8: u8) {
+    assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
+    let nibble = nibble_u8 as usize & 0xf;
+    
+}
 
 pub struct ContextMapEntropy<'a,
                              AllocU16:alloc::Allocator<u16>,
@@ -123,11 +141,27 @@ impl<'a,
         mf64.free_cell(core::mem::replace(&mut self.stride_cost, AllocF::AllocatedMemory::default()));
    }
    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+       let upper_nibble = (literal >> 4);
+       let lower_nibble = literal & 0xf;
        {
-           let upper_nibble = (literal >> 4);
-           let lower_nibble = literal & 0xf;
-           let delta_cost = [0 as floatX; NUM_SPEEDS_TO_TRY];
-           
+           let stride_cdf_high = get_stride_cdf_high(self.stride_priors.slice_mut(), stride_prior, cm_prior);
+           compute_cost(get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior, cm_prior), stride_cdf_high, upper_nibble);
+           update_cdf(stride_cdf_high, upper_nibble);
+       }
+       {
+           let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior, upper_nibble);
+           compute_cost(get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior, cm_prior, upper_nibble), stride_cdf_low, lower_nibble);
+           update_cdf(stride_cdf_low, lower_nibble);
+       }
+       {
+           let cm_cdf_high = get_cm_cdf_high(self.stride_priors.slice_mut(), cm_prior);
+           compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, true), cm_cdf_high, upper_nibble);
+           update_cdf(cm_cdf_high, upper_nibble);
+       }
+       {
+           let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
+           compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, false), cm_cdf_low, lower_nibble);
+           update_cdf(cm_cdf_low, lower_nibble);
        }
    }
 }
