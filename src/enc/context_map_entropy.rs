@@ -24,7 +24,7 @@ fn get_stride_cost_low(data: &mut [floatX], stride_prior: u8, cm_prior: usize, h
 }
 
 fn get_cm_cost(data: &mut [floatX], cm_prior: usize, is_high_nibble: bool) -> &mut [floatX] {
-    let index = ((is_high_nibble as usize) | ((cm_prior as usize) << 9));
+    let index = ((is_high_nibble as usize) | ((cm_prior as usize) << 1));
     data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
 }
 
@@ -47,20 +47,65 @@ fn get_cm_cdf_high(data: &mut [u16], cm_prior: usize) -> &mut [u16] {
     let index: usize = 17 * cm_prior as usize;
     data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
 }
-
+fn init_cdfs(cdfs: &mut [u16]) {
+    assert_eq!(cdfs.len() % (16 * NUM_SPEEDS_TO_TRY), 0);
+    let mut total_index = 0usize;
+    let len = cdfs.len();
+    loop {
+        for cdf_index in 0..16 {
+            let mut vec = cdfs.split_at_mut(total_index).1.split_at_mut(NUM_SPEEDS_TO_TRY).0;
+            for item in vec {
+                *item = cdf_index as u16;
+            }
+            total_index += NUM_SPEEDS_TO_TRY;
+        }
+        if total_index == len {
+            break;
+        }
+    }
+}
 fn compute_cost(cost: &mut [floatX],
                 cdfs: &[u16],
                 nibble_u8: u8) {
     assert_eq!(cost.len(), NUM_SPEEDS_TO_TRY);
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
     let nibble = nibble_u8 as usize & 0xf;
-    
+    let mut pdf = [0u16; NUM_SPEEDS_TO_TRY];
+    pdf.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * nibble).1.split_at(NUM_SPEEDS_TO_TRY).0);
+    if nibble_u8 != 0 {
+        let mut tmp = [0u16; NUM_SPEEDS_TO_TRY];
+        tmp.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * (nibble - 1)).1.split_at(NUM_SPEEDS_TO_TRY).0);
+        for i in 0..NUM_SPEEDS_TO_TRY {
+            pdf[i] -= tmp[i];
+        }
+    }
+    let mut max = [0u16; NUM_SPEEDS_TO_TRY];
+    max.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
+    for i in 0..NUM_SPEEDS_TO_TRY {
+        cost[i] = pdf[i] as floatX / max[i] as floatX;
+    }
 }
 fn update_cdf(cdfs: &mut [u16],
-              nibble_u8: u8) {
+              nibble_u8: u8,
+              speeds: &[u16; NUM_SPEEDS_TO_TRY],
+              maxes: &[u16; NUM_SPEEDS_TO_TRY]) {
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
-    let nibble = nibble_u8 as usize & 0xf;
-    
+    let mut overall_index = nibble_u8 as usize * NUM_SPEEDS_TO_TRY;
+    for nibble in (nibble_u8 as usize & 0xf) .. 16 {
+        for speed_index in 0..NUM_SPEEDS_TO_TRY {
+            cdfs[overall_index + speed_index] += speeds[speed_index];
+        }
+        overall_index += NUM_SPEEDS_TO_TRY;
+    }
+    for max_index in 0..NUM_SPEEDS_TO_TRY {
+        if cdfs[15 * NUM_SPEEDS_TO_TRY + max_index] >= maxes[max_index] {
+            for nibble_index in 0..16  {
+                let tmp = &mut cdfs[nibble_index * NUM_SPEEDS_TO_TRY + max_index];
+                *tmp += 1;
+                *tmp >>= 1;
+            }
+        }
+    }
 }
 
 pub struct ContextMapEntropy<'a,
@@ -89,7 +134,7 @@ impl<'a,
               mf: &mut AllocF,
               input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
        
-      ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
+      let mut ret = ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
          input: input,
          context_map: prediction_mode,
          block_type: 0,
@@ -99,7 +144,10 @@ impl<'a,
          stride_priors: m16.alloc_cell(STRIDE_PRIOR_SIZE),
          cm_cost: mf.alloc_cell(CONTEXT_MAP_COST_SIZE),
          stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
-      }
+      };
+      init_cdfs(ret.cm_priors.slice_mut());
+      init_cdfs(ret.stride_priors.slice_mut());
+      ret
    }
    pub fn track_cdf_speed(&mut self,
                       data: &[u8],
@@ -141,27 +189,51 @@ impl<'a,
         mf64.free_cell(core::mem::replace(&mut self.stride_cost, AllocF::AllocatedMemory::default()));
    }
    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+       let speeds_to_search: [u16; NUM_SPEEDS_TO_TRY]= [0,
+                                                        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                                        2, 2, 2,
+                                                        3, 3,
+                                                        4, 4,
+                                                        5, 5, 5,
+                                                        6, 6, 6,
+                                                        8, 8,
+                                                        12, 12,
+                                                        16, 16,
+                                                        32,
+                                                        64];
+       let maxes_to_search: [u16; NUM_SPEEDS_TO_TRY] = [32,
+                                                        96, 128, 256, 384, 512, 1024, 2048, 4096, 8192, 16384,
+                                                        1024, 2048, 4096,
+                                                        512, 2048,
+                                                        1024, 2048,
+                                                        2048, 4096, 8192,
+                                                        2048, 4096, 8192,
+                                                        4096, 8192,
+                                                        8192, 16384,
+                                                        8192, 16384,
+                                                        16384,
+                                                        16384];
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
        {
            let stride_cdf_high = get_stride_cdf_high(self.stride_priors.slice_mut(), stride_prior, cm_prior);
            compute_cost(get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior, cm_prior), stride_cdf_high, upper_nibble);
-           update_cdf(stride_cdf_high, upper_nibble);
+           update_cdf(stride_cdf_high, upper_nibble, &speeds_to_search, &maxes_to_search);
        }
        {
            let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior, upper_nibble);
            compute_cost(get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior, cm_prior, upper_nibble), stride_cdf_low, lower_nibble);
-           update_cdf(stride_cdf_low, lower_nibble);
+           update_cdf(stride_cdf_low, lower_nibble, &speeds_to_search, &maxes_to_search);
        }
        {
            let cm_cdf_high = get_cm_cdf_high(self.stride_priors.slice_mut(), cm_prior);
            compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, true), cm_cdf_high, upper_nibble);
-           update_cdf(cm_cdf_high, upper_nibble);
+           update_cdf(cm_cdf_high, upper_nibble, &speeds_to_search, &maxes_to_search);
        }
        {
            let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
            compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, false), cm_cdf_low, lower_nibble);
-           update_cdf(cm_cdf_low, lower_nibble);
+           update_cdf(cm_cdf_low, lower_nibble, &speeds_to_search, &maxes_to_search);
        }
    }
 }
