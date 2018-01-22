@@ -179,11 +179,12 @@ impl<'a,
        callback(self.queue.split_at(self.loc).0);
        self.clear();
     }
-    fn free<Cb>(&mut self, m32: &mut AllocU32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+    fn free<Cb>(&mut self, m16: &mut AllocU16, m32: &mut AllocU32, mf64: &mut AllocF,
+                callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
-       self.context_map_entropy.free(m32);
+       self.context_map_entropy.free(m16, m32, mf64);
 
     }
 }
@@ -465,7 +466,7 @@ fn LogMetaBlock<'a,
                                            params,
                                            context_type,
                                            callback);
-    command_queue.free(m32, callback);
+    command_queue.free(m16, m32, mf, callback);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
 }

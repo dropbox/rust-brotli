@@ -1,3 +1,4 @@
+use core;
 use super::super::alloc;
 use super::super::alloc::SliceWrapper;
 use super::interface;
@@ -5,6 +6,45 @@ use super::input_pair::{InputPair, InputReference};
 use super::histogram::ContextType;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::floatX;
+const NUM_SPEEDS_TO_TRY: usize = 32;
+const NIBBLE_PRIOR_SIZE: usize = 16 * NUM_SPEEDS_TO_TRY;
+// the high nibble, followed by the low nibbles
+const BYTE_PRIOR_SIZE: usize = NIBBLE_PRIOR_SIZE * 17;
+const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * BYTE_PRIOR_SIZE;
+const CONTEXT_MAP_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY;
+const STRIDE_PRIOR_SIZE: usize = 256 * CONTEXT_MAP_PRIOR_SIZE * 2;
+const STRIDE_COST_SIZE: usize = 256 * STRIDE_PRIOR_SIZE * 2;
+fn get_stride_cost(data: &mut [floatX], stride_prior: u8, cm_prior: usize, is_high_nibble: bool) -> &mut [floatX] {
+    let index = (is_high_nibble as usize) | ((cm_prior as usize) << 9) | ((stride_prior as usize) << 17);
+    data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
+}
+
+fn get_cm_cost(data: &mut [floatX], cm_prior: u8, is_high_nibble: bool) -> &mut [floatX] {
+    let index = ((is_high_nibble as usize) | ((cm_prior as usize) << 9));
+    data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
+}
+
+fn get_stride_cdf_low(data: &mut [u16], stride_prior: u8, cm_prior: usize, high_nibble: u8) -> &mut [u16] {
+    let index: usize = (high_nibble as usize + 1) + 17 * (cm_prior as usize | ((stride_prior as usize) << 8));
+    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
+}
+
+fn get_stride_cdf_high(data: &mut [u16], stride_prior: u8, cm_prior: usize) -> &mut [u16] {
+    let index: usize = 17 * (cm_prior as usize | ((stride_prior as usize) << 8));
+    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
+}
+
+fn get_cm_cdf_low(data: &mut [u16], stride_prior: u8, cm_prior: usize, high_nibble: u8) -> &mut [u16] {
+    let index: usize = (high_nibble as usize + 1) + 17 * cm_prior as usize;
+    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
+}
+
+fn get_cm_cdf_high(data: &mut [u16], stride_prior: u8, cm_prior: usize) -> &mut [u16] {
+    let index: usize = 17 * cm_prior as usize;
+    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4).1.split_at_mut(16 * NUM_SPEEDS_TO_TRY).0
+}
+
+
 pub struct ContextMapEntropy<'a,
                              AllocU16:alloc::Allocator<u16>,
                              AllocU32:alloc::Allocator<u32>,
@@ -15,8 +55,11 @@ pub struct ContextMapEntropy<'a,
     block_type: u8,
     local_byte_offset: usize,
     nop: AllocU32::AllocatedMemory,
-    nopa: AllocU16::AllocatedMemory,
-    nopb: AllocF::AllocatedMemory,
+    
+    cm_priors: AllocU16::AllocatedMemory,
+    stride_priors: AllocU16::AllocatedMemory,
+    cm_cost: AllocF::AllocatedMemory,
+    stride_cost: AllocF::AllocatedMemory,
 }
 impl<'a,
      AllocU16:alloc::Allocator<u16>,
@@ -27,14 +70,17 @@ impl<'a,
               m32: &mut AllocU32,
               mf: &mut AllocF,
               input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+       
       ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
          input: input,
          context_map: prediction_mode,
          block_type: 0,
          local_byte_offset: 0,
          nop:  AllocU32::AllocatedMemory::default(),
-         nopa:  AllocU16::AllocatedMemory::default(),
-         nopb:  AllocF::AllocatedMemory::default(),
+         cm_priors: m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE),
+         stride_priors: m16.alloc_cell(STRIDE_PRIOR_SIZE),
+         cm_cost: mf.alloc_cell(CONTEXT_MAP_COST_SIZE),
+         stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
       }
    }
    pub fn track_cdf_speed(&mut self,
@@ -70,8 +116,19 @@ impl<'a,
        self.entropy_tally.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
 */
    }
-   pub fn free(&mut self, m32: &mut AllocU32) {
-       
+   pub fn free(&mut self, m16: &mut AllocU16, _m32: &mut AllocU32, mf64: &mut AllocF) {
+        m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
+        m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
+        mf64.free_cell(core::mem::replace(&mut self.cm_cost, AllocF::AllocatedMemory::default()));
+        mf64.free_cell(core::mem::replace(&mut self.stride_cost, AllocF::AllocatedMemory::default()));
+   }
+   fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+       {
+           let upper_nibble = (literal >> 4);
+           let lower_nibble = literal & 0xf;
+           let delta_cost = [0 as floatX; NUM_SPEEDS_TO_TRY];
+           
+       }
    }
 }
 fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
@@ -135,7 +192,7 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
                }
                for literal in lit.data.slice().iter() {                   
                    let huffman_table_index = compute_huffman_table_index_for_context_map(priors[1], priors[0], self.context_map, self.block_type);
-
+                   self.update_cost(priors[1], huffman_table_index, *literal);
                    // FIXME..... self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
                     //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
                    priors[0] = priors[1];
