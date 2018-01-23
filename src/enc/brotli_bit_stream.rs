@@ -31,7 +31,7 @@ use super::find_stride;
 
 use super::interface;
 use super::interface::CommandProcessor;
-use super::context_map_entropy::ContextMapEntropy;
+use super::context_map_entropy::{ContextMapEntropy, SpeedAndMax};
 pub struct PrefixCodeRange {
   pub offset: u32,
   pub nbits: u32,
@@ -225,6 +225,22 @@ impl<'a,
           warn_on_missing_free();
       }
   }
+}
+
+fn best_speed_log(name:&str,
+                  data:&[[SpeedAndMax;2];256],
+                  cost:&[[floatX;2];256]) {
+    //println!("{}", name);
+    for (index, spd) in data.iter().enumerate() {
+        for high in 0..2 {
+            /*println!("({}, {}) Speed [ inc: {}, max: {}, algo: 0 ] cost: {}",
+                     index,
+                     high != 0,
+                     spd[high].0,
+                     spd[high].1,
+                     cost[index][high]);*/
+        }
+    }
 }
 
 fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), CmdProcessor: interface::CommandProcessor<'a> > (
@@ -447,9 +463,12 @@ fn LogMetaBlock<'a,
                          params,
                          context_type,
                           &mut |_x|());
-     let _a = context_map_entropy.best_speeds(true);
-     let _b = context_map_entropy.best_speeds(false);
-     //print!("Best CM: {:?}\nBest Stride {:?}\n", &a[..], &b[..]);
+     let a = context_map_entropy.best_speeds(true);
+     let b = context_map_entropy.best_speeds(false);
+     let acost = context_map_entropy.best_speeds_costs(true);
+     let bcost = context_map_entropy.best_speeds_costs(false);
+     best_speed_log("CM", &a, &acost);
+     best_speed_log("Stride", &b, &bcost);
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
                                               params.high_entropy_detection_quality,

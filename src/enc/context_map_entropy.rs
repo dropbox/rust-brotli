@@ -5,7 +5,7 @@ use super::interface;
 use super::input_pair::{InputPair, InputReference};
 use super::histogram::ContextType;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
-use super::util::floatX;
+use super::util::{floatX, FastLog2u16};
 const NUM_SPEEDS_TO_TRY: usize = 32;
 const NIBBLE_PRIOR_SIZE: usize = 16 * NUM_SPEEDS_TO_TRY;
 // the high nibble, followed by the low nibbles
@@ -81,7 +81,7 @@ fn init_cdfs(cdfs: &mut [u16]) {
         for cdf_index in 0..16 {
             let mut vec = cdfs.split_at_mut(total_index).1.split_at_mut(NUM_SPEEDS_TO_TRY).0;
             for item in vec {
-                *item = cdf_index as u16;
+                *item = 1 + cdf_index as u16;
             }
             total_index += NUM_SPEEDS_TO_TRY;
         }
@@ -108,7 +108,13 @@ fn compute_cost(cost: &mut [floatX],
     let mut max = [0u16; NUM_SPEEDS_TO_TRY];
     max.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
     for i in 0..NUM_SPEEDS_TO_TRY {
-        cost[i] = pdf[i] as floatX / max[i] as floatX;
+        if pdf[i] == 0 { 
+            assert!(pdf[i] != 0);
+        }
+        if max[i] == 0 {
+            assert!(max[i] != 0);
+        }
+        cost[i] -= FastLog2u16(pdf[i]) - FastLog2u16(max[i]);
     }
 }
 fn update_cdf(cdfs: &mut [u16],
@@ -121,14 +127,36 @@ fn update_cdf(cdfs: &mut [u16],
         }
         overall_index += NUM_SPEEDS_TO_TRY;
     }
-    for max_index in 0..NUM_SPEEDS_TO_TRY {
-        if cdfs[15 * NUM_SPEEDS_TO_TRY + max_index] >= MAXES_TO_SEARCH[max_index] {
-            for nibble_index in 0..16  {
-                let tmp = &mut cdfs[nibble_index * NUM_SPEEDS_TO_TRY + max_index];
-                *tmp += 1;
-                *tmp >>= 1;
+    overall_index = 0;
+    for nibble in 0 .. 16 {
+        for speed_index in 0..NUM_SPEEDS_TO_TRY {
+            if nibble == 0 {
+                assert!(cdfs[overall_index + speed_index] != 0);
+            } else {
+                assert!(cdfs[overall_index + speed_index]  - cdfs[overall_index + speed_index - NUM_SPEEDS_TO_TRY]  != 0);
             }
         }
+        overall_index += NUM_SPEEDS_TO_TRY;
+    }
+    for max_index in 0..NUM_SPEEDS_TO_TRY {
+        if cdfs[15 * NUM_SPEEDS_TO_TRY + max_index] >= MAXES_TO_SEARCH[max_index] {
+            const CDF_BIAS:[u16;16] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+            for nibble_index in 0..16  {
+                let tmp = &mut cdfs[nibble_index * NUM_SPEEDS_TO_TRY + max_index];
+                *tmp = (tmp.wrapping_add(CDF_BIAS[nibble_index])).wrapping_sub(tmp.wrapping_add(CDF_BIAS[nibble_index]) >> 1);
+            }
+        }
+    }
+    overall_index = 0;
+    for nibble in 0 .. 16 {
+        for speed_index in 0..NUM_SPEEDS_TO_TRY {
+            if nibble == 0 {
+                assert!(cdfs[overall_index + speed_index] != 0);
+            } else {
+                assert!(cdfs[overall_index + speed_index]  - cdfs[overall_index + speed_index - NUM_SPEEDS_TO_TRY]  != 0);
+            }
+        }
+        overall_index += NUM_SPEEDS_TO_TRY;
     }
 }
 
@@ -149,6 +177,11 @@ fn min_cost_speed_max(cost: &[floatX]) -> SpeedAndMax {
     SpeedAndMax(
         SPEEDS_TO_SEARCH[best_choice],
         MAXES_TO_SEARCH[best_choice])
+}
+
+fn min_cost_value(cost: &[floatX]) -> floatX {
+    let best_choice = min_cost_index_for_speed(cost);
+    cost[best_choice]
 }
 
     
@@ -246,6 +279,31 @@ impl<'a,
                        cost = get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior as u8 & 0xf, stride_prior as u8 >> 4);
                    }
                    ret[stride_prior][high] = min_cost_speed_max(cost);
+               }
+           }
+       }
+       ret
+   }
+   pub fn best_speeds_costs(&mut self, // mut due to helpers
+                            cm:bool) -> [[floatX;2]; 256] { 
+       let mut ret = [[0.0 as floatX; 2]; 256];
+       if cm {
+           for prior in 0..256 {
+               for high in 0..1 {
+                   let cost = get_cm_cost(self.cm_cost.slice_mut(), prior, high != 0);
+                   ret[prior][high] = min_cost_value(cost);
+               }
+           }
+       } else {
+           for stride_prior in 0..256 {
+               for high in 0..1 {
+                   let cost;
+                   if high == 1 {
+                       cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);
+                   } else {
+                       cost = get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior as u8 & 0xf, stride_prior as u8 >> 4);
+                   }
+                   ret[stride_prior][high] = min_cost_value(cost);
                }
            }
        }
