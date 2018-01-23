@@ -13,12 +13,38 @@ const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
 const CONTEXT_MAP_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
 const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
 const STRIDE_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
-fn get_stride_cost_high(data: &mut [floatX], stride_prior: u8, cm_prior: usize) -> &mut [floatX] {
+const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
+                                                   1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                                   2, 2, 2,
+                                                   3, 3,
+                                                   4, 4,
+                                                   5, 5, 5,
+                                                   6, 6, 6,
+                                                   8, 8,
+                                                   12, 12,
+                                                   16, 16,
+                                                   32,
+                                                   64];
+const MAXES_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY] = [32,
+                                                   96, 128, 256, 384, 512, 1024, 2048, 4096, 8192, 16384,
+                                                   1024, 2048, 4096,
+                                                   512, 2048,
+                                                   1024, 2048,
+                                                   2048, 4096, 8192,
+                                                   2048, 4096, 8192,
+                                                   4096, 8192,
+                                                   8192, 16384,
+                                                   8192, 16384,
+                                                   16384,
+                                                   16384];
+#[derive(Clone,Copy, Debug)]
+pub struct SpeedAndMax(pub u16, pub u16);
+fn get_stride_cost_high(data: &mut [floatX], stride_prior: u8) -> &mut [floatX] {
     let index: usize = 2 * stride_prior as usize;
     data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
 }
 
-fn get_stride_cost_low(data: &mut [floatX], stride_prior: u8, cm_prior: usize, high_nibble: u8) -> &mut [floatX] {
+fn get_stride_cost_low(data: &mut [floatX], stride_prior: u8, high_nibble: u8) -> &mut [floatX] {
     let index: usize = 1 + 2 * (stride_prior as usize & 0xf) + 2 * 16 * high_nibble as usize;// (is_high_nibble as usize) + 2 * (cm_prior as usize | ((stride_prior as usize & 0xf) << 8));
     data.split_at_mut(index * NUM_SPEEDS_TO_TRY).1.split_at_mut(NUM_SPEEDS_TO_TRY).0
 }
@@ -86,19 +112,17 @@ fn compute_cost(cost: &mut [floatX],
     }
 }
 fn update_cdf(cdfs: &mut [u16],
-              nibble_u8: u8,
-              speeds: &[u16; NUM_SPEEDS_TO_TRY],
-              maxes: &[u16; NUM_SPEEDS_TO_TRY]) {
+              nibble_u8: u8) {
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
     let mut overall_index = nibble_u8 as usize * NUM_SPEEDS_TO_TRY;
     for nibble in (nibble_u8 as usize & 0xf) .. 16 {
         for speed_index in 0..NUM_SPEEDS_TO_TRY {
-            cdfs[overall_index + speed_index] += speeds[speed_index];
+            cdfs[overall_index + speed_index] += SPEEDS_TO_SEARCH[speed_index];
         }
         overall_index += NUM_SPEEDS_TO_TRY;
     }
     for max_index in 0..NUM_SPEEDS_TO_TRY {
-        if cdfs[15 * NUM_SPEEDS_TO_TRY + max_index] >= maxes[max_index] {
+        if cdfs[15 * NUM_SPEEDS_TO_TRY + max_index] >= MAXES_TO_SEARCH[max_index] {
             for nibble_index in 0..16  {
                 let tmp = &mut cdfs[nibble_index * NUM_SPEEDS_TO_TRY + max_index];
                 *tmp += 1;
@@ -108,6 +132,26 @@ fn update_cdf(cdfs: &mut [u16],
     }
 }
 
+fn min_cost_index_for_speed(cost: &[floatX]) -> usize {
+    assert_eq!(cost.len(), NUM_SPEEDS_TO_TRY);
+    let mut min_cost = cost[0];
+    let mut best_choice = 0;
+    for i in 1..NUM_SPEEDS_TO_TRY {
+        if cost[i] < min_cost {
+            best_choice = i;
+            min_cost = cost[i];
+        }
+    }
+    best_choice
+}
+fn min_cost_speed_max(cost: &[floatX]) -> SpeedAndMax {
+    let best_choice = min_cost_index_for_speed(cost);
+    SpeedAndMax(
+        SPEEDS_TO_SEARCH[best_choice],
+        MAXES_TO_SEARCH[best_choice])
+}
+
+    
 pub struct ContextMapEntropy<'a,
                              AllocU16:alloc::Allocator<u16>,
                              AllocU32:alloc::Allocator<u32>,
@@ -182,6 +226,31 @@ impl<'a,
        self.entropy_tally.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
 */
    }
+    pub fn best_speeds(&mut self, // mut due to helpers
+                      cm:bool) -> [[SpeedAndMax;2]; 256] { 
+       let mut ret = [[SpeedAndMax(SPEEDS_TO_SEARCH[0],MAXES_TO_SEARCH[0]); 2]; 256];
+       if cm {
+           for prior in 0..256 {
+               for high in 0..1 {
+                   let cost = get_cm_cost(self.cm_cost.slice_mut(), prior, high != 0);
+                   ret[prior][high] = min_cost_speed_max(cost);
+               }
+           }
+       } else {
+           for stride_prior in 0..256 {
+               for high in 0..1 {
+                   let cost;
+                   if high == 1 {
+                       cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);
+                   } else {
+                       cost = get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior as u8 & 0xf, stride_prior as u8 >> 4);
+                   }
+                   ret[stride_prior][high] = min_cost_speed_max(cost);
+               }
+           }
+       }
+       ret
+   }
    pub fn free(&mut self, m16: &mut AllocU16, _m32: &mut AllocU32, mf64: &mut AllocF) {
         m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
         m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
@@ -189,51 +258,27 @@ impl<'a,
         mf64.free_cell(core::mem::replace(&mut self.stride_cost, AllocF::AllocatedMemory::default()));
    }
    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
-       let speeds_to_search: [u16; NUM_SPEEDS_TO_TRY]= [0,
-                                                        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                                        2, 2, 2,
-                                                        3, 3,
-                                                        4, 4,
-                                                        5, 5, 5,
-                                                        6, 6, 6,
-                                                        8, 8,
-                                                        12, 12,
-                                                        16, 16,
-                                                        32,
-                                                        64];
-       let maxes_to_search: [u16; NUM_SPEEDS_TO_TRY] = [32,
-                                                        96, 128, 256, 384, 512, 1024, 2048, 4096, 8192, 16384,
-                                                        1024, 2048, 4096,
-                                                        512, 2048,
-                                                        1024, 2048,
-                                                        2048, 4096, 8192,
-                                                        2048, 4096, 8192,
-                                                        4096, 8192,
-                                                        8192, 16384,
-                                                        8192, 16384,
-                                                        16384,
-                                                        16384];
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
        {
            let stride_cdf_high = get_stride_cdf_high(self.stride_priors.slice_mut(), stride_prior, cm_prior);
-           compute_cost(get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior, cm_prior), stride_cdf_high, upper_nibble);
-           update_cdf(stride_cdf_high, upper_nibble, &speeds_to_search, &maxes_to_search);
+           compute_cost(get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior), stride_cdf_high, upper_nibble);
+           update_cdf(stride_cdf_high, upper_nibble);
        }
        {
            let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior, upper_nibble);
-           compute_cost(get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior, cm_prior, upper_nibble), stride_cdf_low, lower_nibble);
-           update_cdf(stride_cdf_low, lower_nibble, &speeds_to_search, &maxes_to_search);
+           compute_cost(get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior, upper_nibble), stride_cdf_low, lower_nibble);
+           update_cdf(stride_cdf_low, lower_nibble);
        }
        {
            let cm_cdf_high = get_cm_cdf_high(self.stride_priors.slice_mut(), cm_prior);
            compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, true), cm_cdf_high, upper_nibble);
-           update_cdf(cm_cdf_high, upper_nibble, &speeds_to_search, &maxes_to_search);
+           update_cdf(cm_cdf_high, upper_nibble);
        }
        {
            let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
            compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, false), cm_cdf_low, lower_nibble);
-           update_cdf(cm_cdf_low, lower_nibble, &speeds_to_search, &maxes_to_search);
+           update_cdf(cm_cdf_low, lower_nibble);
        }
    }
 }
@@ -272,6 +317,8 @@ fn compute_huffman_table_index_for_context_map<SliceType: alloc::SliceWrapper<u8
         prior as usize
     }
 }
+
+
 
 impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,

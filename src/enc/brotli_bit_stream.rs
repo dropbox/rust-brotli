@@ -446,7 +446,10 @@ fn LogMetaBlock<'a,
                          &block_type,
                          params,
                          context_type,
-                         &mut |_x|());
+                          &mut |_x|());
+     let _a = context_map_entropy.best_speeds(true);
+     let _b = context_map_entropy.best_speeds(false);
+     //print!("Best CM: {:?}\nBest Stride {:?}\n", &a[..], &b[..]);
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
                                               params.high_entropy_detection_quality,
