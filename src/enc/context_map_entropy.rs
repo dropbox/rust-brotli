@@ -15,28 +15,52 @@ const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
 const STRIDE_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
 const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
                                                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                                   2, 2, 2,
-                                                   3, 3,
-                                                   4, 4,
-                                                   5, 5, 5,
-                                                   6, 6, 6,
-                                                   8, 8,
-                                                   12, 12,
-                                                   16, 16,
+                                                   2,
+                                                   2,
+                                                   3,
+                                                   3,
+                                                   4,
+                                                   4,
+                                                   5,
+                                                   6,
+                                                   10,
+                                                   10,
+                                                   12,
+                                                   16,
+                                                   24,
                                                    32,
-                                                   64];
+                                                   48,
+                                                   64,
+                                                   96,
+                                                   768,
+                                                   1024,
+                                                   1200,
+                                                   1600,
+                                                   ];
 const MAXES_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY] = [32,
-                                                   96, 128, 256, 384, 512, 1024, 2048, 4096, 8192, 16384,
-                                                   1024, 2048, 4096,
-                                                   512, 2048,
-                                                   1024, 2048,
-                                                   2048, 4096, 8192,
-                                                   2048, 4096, 8192,
-                                                   4096, 8192,
-                                                   8192, 16384,
-                                                   8192, 16384,
+                                                   32, 64, 128, 256, 384, 512, 1024, 2048, 4096, 16384,
+                                                   512,
+                                                   4096,
+                                                   512,
+                                                   2048,
+                                                   512,
+                                                   2048,
+                                                   8192,
+                                                   2048,
+                                                   2048,
+                                                   4096,
+                                                   4096,
+                                                   8192,
+                                                   16834,
                                                    16384,
-                                                   16384];
+                                                   16384,
+                                                   16384,
+                                                   16384,
+                                                   16384,
+                                                   16384,
+                                                   16384,
+                                                   16384,
+                                                   ];
 #[derive(Clone,Copy, Debug)]
 pub struct SpeedAndMax(pub u16, pub u16);
 fn get_stride_cost_high(data: &mut [floatX], stride_prior: u8) -> &mut [floatX] {
@@ -264,14 +288,14 @@ impl<'a,
        let mut ret = [[SpeedAndMax(SPEEDS_TO_SEARCH[0],MAXES_TO_SEARCH[0]); 2]; 256];
        if cm {
            for prior in 0..256 {
-               for high in 0..1 {
+               for high in 0..2 {
                    let cost = get_cm_cost(self.cm_cost.slice_mut(), prior, high != 0);
                    ret[prior][high] = min_cost_speed_max(cost);
                }
            }
        } else {
            for stride_prior in 0..256 {
-               for high in 0..1 {
+               for high in 0..2 {
                    let cost;
                    if high == 1 {
                        cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);
@@ -289,14 +313,14 @@ impl<'a,
        let mut ret = [[0.0 as floatX; 2]; 256];
        if cm {
            for prior in 0..256 {
-               for high in 0..1 {
+               for high in 0..2 {
                    let cost = get_cm_cost(self.cm_cost.slice_mut(), prior, high != 0);
                    ret[prior][high] = min_cost_value(cost);
                }
            }
        } else {
            for stride_prior in 0..256 {
-               for high in 0..1 {
+               for high in 0..2 {
                    let cost;
                    if high == 1 {
                        cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);

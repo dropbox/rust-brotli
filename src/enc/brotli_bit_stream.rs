@@ -226,19 +226,23 @@ impl<'a,
       }
   }
 }
-
+#[cfg(not(feature="billing"))]
+fn best_speed_log(_name:&str,
+                  _data:&[[SpeedAndMax;2];256],
+                  _cost:&[[floatX;2];256]) {}
+#[cfg(feature="billing")]
 fn best_speed_log(name:&str,
                   data:&[[SpeedAndMax;2];256],
                   cost:&[[floatX;2];256]) {
-    //println!("{}", name);
+    println!("{}", name);
     for (index, spd) in data.iter().enumerate() {
         for high in 0..2 {
-            /*println!("({}, {}) Speed [ inc: {}, max: {}, algo: 0 ] cost: {}",
+            println!("({}, {}) Speed [ inc: {}, max: {}, algo: 0 ] cost: {}",
                      index,
                      high != 0,
                      spd[high].0,
                      spd[high].1,
-                     cost[index][high]);*/
+                     cost[index][high]);
         }
     }
 }
