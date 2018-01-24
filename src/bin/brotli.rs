@@ -438,6 +438,10 @@ fn main() {
         params.quality = 12;
         continue;
       }
+      if argument.starts_with("-l") {
+        params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
+        continue;
+      }
       if argument.starts_with("-w") {
           params.lgwin = argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap();
           continue;
