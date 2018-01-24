@@ -225,6 +225,7 @@ pub struct ContextMapEntropy<'a,
     stride_priors: AllocU16::AllocatedMemory,
     cm_cost: AllocF::AllocatedMemory,
     stride_cost: AllocF::AllocatedMemory,
+    stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
 }
 impl<'a,
      AllocU16:alloc::Allocator<u16>,
@@ -248,6 +249,7 @@ impl<'a,
          stride_priors: m16.alloc_cell(STRIDE_PRIOR_SIZE),
          cm_cost: mf.alloc_cell(CONTEXT_MAP_COST_SIZE),
          stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
+         stride_pyramid_leaves: stride,
       };
       init_cdfs(ret.cm_priors.slice_mut());
       init_cdfs(ret.stride_priors.slice_mut());
@@ -409,8 +411,9 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
      AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'b> for ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
     fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
-                                                             val: interface::Command<InputReference<'b>>,
-                                                             callback: &mut Cb) {
+                                                              val: interface::Command<InputReference<'b>>,
+                                                              callback: &mut Cb) {
+        let mut stride_priors = [0u8;8];
         match val {
            interface::Command::BlockSwitchCommand(_) |
            interface::Command::BlockSwitchDistance(_) |
@@ -423,18 +426,22 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
            },
            interface::Command::BlockSwitchLiteral(block_type) => self.block_type = block_type.block_type(),
            interface::Command::Literal(ref lit) => {
+               let stride = self.stride_pyramid_leaves[self.local_byte_offset * 8 / self.input.len()] as usize;
                let mut priors= [0u8, 0u8];
-               if self.local_byte_offset > 1 {
-                   priors[0] = self.input[self.local_byte_offset - 2];
-                   priors[1] = self.input[self.local_byte_offset - 1];
+               for poffset in 0..core::cmp::max((stride & 7) + 1, 2) {
+                   if self.local_byte_offset >= 8 - poffset {
+                       priors[poffset] = self.input[self.local_byte_offset - 8 + poffset];
+                   }
                }
-               for literal in lit.data.slice().iter() {                   
-                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[1], priors[0], self.context_map, self.block_type);
-                   self.update_cost(priors[1], huffman_table_index, *literal);
+               let mut cur = 0usize;
+               for literal in lit.data.slice().iter() {
+                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], self.context_map, self.block_type);
+                   self.update_cost(priors[(cur + 7 - stride) & 7], huffman_table_index, *literal);
                    // FIXME..... self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
                     //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
-                   priors[0] = priors[1];
-                   priors[1] = *literal;
+                   priors[cur & 7] = *literal;
+                   cur += 1;
+                   cur &= 7;
                }
                self.local_byte_offset += lit.data.slice().len();
            }
