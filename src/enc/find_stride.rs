@@ -148,6 +148,7 @@ pub struct EntropyTally<AllocU32: alloc::Allocator<u32> > {
 
 const NUM_LEVELS: usize = 4;
 const NUM_NODES: usize = (1<<(NUM_LEVELS)) - 1;
+pub const NUM_LEAF_NODES: usize = (NUM_NODES + 1) >> 1;
 
 pub struct EntropyPyramid<AllocU32: alloc::Allocator<u32> > {
     pop: [EntropyBucketPopulation<AllocU32>;NUM_NODES],
@@ -183,6 +184,11 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
             }
             //println!("BASE PYRAMID {} = {}", stride,output.pop[stride].cached_bit_entropy);
         }
+    }
+    pub fn stride_last_level_range(&self) -> [u8; NUM_LEAF_NODES] {
+        let mut ret = [0u8; NUM_LEAF_NODES];
+        ret.clone_from_slice(self.stride.split_at(self.stride.len() - NUM_LEAF_NODES).1);
+        ret
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
         for item in self.pop.iter_mut() {

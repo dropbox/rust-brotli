@@ -87,20 +87,9 @@ impl<'a,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
            context_map_entropy: ContextMapEntropy<'a, AllocU16, AllocU32, AllocF>,
+           entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
+           entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
            ) -> CommandQueue <'a, AllocU16, AllocU32, AllocF> {
-        let mut entropy_tally_scratch = if stride_detection_quality == 0 {
-            find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
-        } else {
-            find_stride::EntropyTally::<AllocU32>::new(m32, None)
-        };
-        let mut entropy_pyramid = if stride_detection_quality == 0{
-            find_stride::EntropyPyramid::<AllocU32>::disabled_placeholder(m32)
-        } else {
-            find_stride::EntropyPyramid::<AllocU32>::new(m32)
-        };
-        if stride_detection_quality > 0 {
-            entropy_pyramid.populate(mb.0, mb.1, &mut entropy_tally_scratch);
-        }
         CommandQueue {
             mb:mb,
             mb_byte_offset:0,
@@ -454,7 +443,22 @@ fn LogMetaBlock<'a,
             literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
             distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
     };
-    let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1), prediction_mode);
+    let mut entropy_tally_scratch = if params.stride_detection_quality == 0 {
+        find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
+    } else {
+        find_stride::EntropyTally::<AllocU32>::new(m32, None)
+    };
+    let mut entropy_pyramid = if params.stride_detection_quality == 0{
+        find_stride::EntropyPyramid::<AllocU32>::disabled_placeholder(m32)
+    } else {
+        find_stride::EntropyPyramid::<AllocU32>::new(m32)
+    };
+    if params.stride_detection_quality > 0 {
+        entropy_pyramid.populate(input0, input1, &mut entropy_tally_scratch);
+    }
+    let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1),
+                                                                                       entropy_pyramid.stride_last_level_range(),
+                                                                                       prediction_mode);
     let input = InputPair(input0, input1);
     process_command_queue(&mut context_map_entropy,
                          input,
@@ -475,8 +479,10 @@ fn LogMetaBlock<'a,
      best_speed_log("Stride", &b, &bcost);
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
-                                              params.high_entropy_detection_quality,
-                                              context_map_entropy);
+                                               params.high_entropy_detection_quality,
+                                               context_map_entropy,
+                                               entropy_tally_scratch,
+                                               entropy_pyramid);
 
     command_queue.push(interface::Command::PredictionMode(
         prediction_mode.clone()), callback);

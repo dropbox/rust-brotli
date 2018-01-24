@@ -6,6 +6,7 @@ use super::input_pair::{InputPair, InputReference};
 use super::histogram::ContextType;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::{floatX, FastLog2u16};
+use super::find_stride;
 const NUM_SPEEDS_TO_TRY: usize = 32;
 const NIBBLE_PRIOR_SIZE: usize = 16 * NUM_SPEEDS_TO_TRY;
 // the high nibble, followed by the low nibbles
@@ -233,7 +234,9 @@ impl<'a,
    pub fn new(m16: &mut AllocU16,
               m32: &mut AllocU32,
               mf: &mut AllocF,
-              input: InputPair<'a>, prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+              input: InputPair<'a>,
+              stride: [u8; find_stride::NUM_LEAF_NODES],
+              prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
        
       let mut ret = ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
          input: input,
