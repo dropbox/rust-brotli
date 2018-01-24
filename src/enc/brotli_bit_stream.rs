@@ -471,12 +471,15 @@ fn LogMetaBlock<'a,
                          params,
                          context_type,
                           &mut |_x|());
-     let a = context_map_entropy.best_speeds(true);
-     let b = context_map_entropy.best_speeds(false);
-     let acost = context_map_entropy.best_speeds_costs(true);
-     let bcost = context_map_entropy.best_speeds_costs(false);
+     let a = context_map_entropy.best_speeds(true, false);
+     let b = context_map_entropy.best_speeds(false, false);
+     let c = context_map_entropy.best_speeds(false, true);
+     let acost = context_map_entropy.best_speeds_costs(true, false);
+     let bcost = context_map_entropy.best_speeds_costs(false, false);
+     let ccost = context_map_entropy.best_speeds_costs(false, true);
      best_speed_log("CM", &a, &acost);
      best_speed_log("Stride", &b, &bcost);
+     best_speed_log("StrideCombined", &c, &ccost);
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
                                                params.high_entropy_detection_quality,
