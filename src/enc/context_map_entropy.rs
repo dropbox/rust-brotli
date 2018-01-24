@@ -427,10 +427,10 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
            interface::Command::BlockSwitchLiteral(block_type) => self.block_type = block_type.block_type(),
            interface::Command::Literal(ref lit) => {
                let stride = self.stride_pyramid_leaves[self.local_byte_offset * 8 / self.input.len()] as usize;
-               let mut priors= [0u8, 0u8];
+               let mut priors= [0u8; 8];
                for poffset in 0..core::cmp::max((stride & 7) + 1, 2) {
-                   if self.local_byte_offset >= 8 - poffset {
-                       priors[poffset] = self.input[self.local_byte_offset - 8 + poffset];
+                   if self.local_byte_offset > poffset {
+                       priors[7 - poffset] = self.input[self.local_byte_offset - poffset -  1];
                    }
                }
                let mut cur = 0usize;
