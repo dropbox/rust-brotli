@@ -61,7 +61,46 @@ fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNi
 }
 
 
-const COMMAND_BUFFER_SIZE: usize = 16384;
+fn speed_to_u8(data: u16) -> u8 {
+    let log_val = core::cmp::max(16 - data.leading_zeros() as u8, 3);
+    let remainder = data >> (log_val - 3);
+    ((log_val - 3) << 3) | remainder as u8
+}
+
+fn u8_to_speed(data: u8) -> u16 {
+    (u16::from(data) & 0x7) << (data >> 3)
+}
+mod test {
+    use super::speed_to_u8;
+    use super::u8_to_speed;
+    fn tst_u8_to_speed(data: u16) {
+        assert_eq!(u8_to_speed(speed_to_u8(data)), data);
+    }
+    #[test]
+    fn test_u8_to_speed() {
+        tst_u8_to_speed(0);
+        tst_u8_to_speed(1);
+        tst_u8_to_speed(2);
+        tst_u8_to_speed(3);
+        tst_u8_to_speed(4);
+        tst_u8_to_speed(5);
+        tst_u8_to_speed(6);
+        tst_u8_to_speed(7);
+        tst_u8_to_speed(8);
+        tst_u8_to_speed(10);
+        tst_u8_to_speed(12);
+        tst_u8_to_speed(16);
+        tst_u8_to_speed(24);
+        tst_u8_to_speed(32);
+        tst_u8_to_speed(48);
+        tst_u8_to_speed(64);
+        tst_u8_to_speed(96);
+        tst_u8_to_speed(768);
+        tst_u8_to_speed(1280);
+        tst_u8_to_speed(1536);
+    }
+}
+const COMMAND_BUFFER_SIZE: usize = 8192;
 
 
 struct CommandQueue<'a, AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>, AllocF:alloc::Allocator<floatX>> {
@@ -421,7 +460,7 @@ fn LogMetaBlock<'a,
                     callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
-
+    let mut local_context_speeds = [0u8; 512 * 3];
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btypel.num_types);
     assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -438,10 +477,11 @@ fn LogMetaBlock<'a,
             local_distance_context_map[index] = *item as u8;
         }
     }
-    let prediction_mode = interface::PredictionModeContextMap::<InputReference>{
-            literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
-            literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
-            distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
+    let mut prediction_mode = interface::PredictionModeContextMap::<InputReference>{
+        literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
+        literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
+        distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
+        context_speeds:InputReference(&[]),
     };
     let mut entropy_tally_scratch = if params.stride_detection_quality == 0 {
         find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
@@ -471,15 +511,42 @@ fn LogMetaBlock<'a,
                          params,
                          context_type,
                           &mut |_x|());
-     let a = context_map_entropy.best_speeds(true, false);
-     let b = context_map_entropy.best_speeds(false, false);
-     let c = context_map_entropy.best_speeds(false, true);
+     let cm_speed = context_map_entropy.best_speeds(true, false);
+     let stride_speed = context_map_entropy.best_speeds(false, false);
+     let combined_speed = context_map_entropy.best_speeds(false, true);
      let acost = context_map_entropy.best_speeds_costs(true, false);
      let bcost = context_map_entropy.best_speeds_costs(false, false);
      let ccost = context_map_entropy.best_speeds_costs(false, true);
-     best_speed_log("CM", &a, &acost);
-     best_speed_log("Stride", &b, &bcost);
-     best_speed_log("StrideCombined", &c, &ccost);
+    if params.high_entropy_detection_quality != 0 {
+        {
+            let stride_speed_start = prediction_mode.stride_context_speed_offset();
+            let stride_max_start = prediction_mode.stride_context_speed_max_offset();
+            for index in 0..512 {
+                local_context_speeds[index + stride_speed_start] = speed_to_u8(stride_speed[index >> 1][index & 1].0);
+                local_context_speeds[index + stride_max_start] = speed_to_u8(stride_speed[index >> 1][index & 1].1);
+            }
+        }
+        {
+            let cm_speed_start = prediction_mode.context_map_speed_offset();
+            let cm_max_start = prediction_mode.context_map_speed_max_offset();
+            for index in 0..512 {
+                local_context_speeds[index + cm_speed_start] = speed_to_u8(cm_speed[index >> 1][index & 1].0);
+                local_context_speeds[index + cm_max_start] = speed_to_u8(cm_speed[index >> 1][index & 1].1);
+            }
+        }
+        {
+            let combined_speed_start = prediction_mode.combined_stride_context_speed_offset();
+            let combined_max_start = prediction_mode.combined_stride_context_speed_max_offset();
+            for index in 0..512 {
+                local_context_speeds[index + combined_speed_start] = speed_to_u8(combined_speed[index >> 1][index & 1].0);
+                local_context_speeds[index + combined_max_start] = speed_to_u8(combined_speed[index >> 1][index & 1].1);
+            }
+        }
+        prediction_mode.context_speeds = InputReference(&local_context_speeds[..])
+     }
+     best_speed_log("CM", &cm_speed, &acost);
+     best_speed_log("Stride", &stride_speed, &bcost);
+     best_speed_log("StrideCombined", &combined_speed, &ccost);
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
                                                params.high_entropy_detection_quality,

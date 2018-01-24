@@ -91,9 +91,10 @@ impl LiteralPredictionModeNibble {
 }
 #[derive(Debug)]
 pub struct PredictionModeContextMap<SliceType:SliceWrapper<u8>> {
-    pub literal_prediction_mode: LiteralPredictionModeNibble,
     pub literal_context_map: SliceType,
     pub distance_context_map: SliceType,
+    pub context_speeds: SliceType,
+    pub literal_prediction_mode: LiteralPredictionModeNibble,
 }
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceType> {
     fn clone(&self) -> PredictionModeContextMap<SliceType>{
@@ -101,7 +102,65 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceT
             literal_prediction_mode:self.literal_prediction_mode,
             literal_context_map:self.literal_context_map.clone(),
             distance_context_map:self.distance_context_map.clone(),
+            context_speeds:self.context_speeds.clone(),
         }
+    }
+}
+impl<SliceType:SliceWrapper<u8>+Clone> PredictionModeContextMap<SliceType> {
+    pub fn has_context_speeds(&self) -> bool {
+        if self.context_speeds.slice().len() == 0 {
+            return false;
+        }
+        assert_eq!(self.context_speeds.slice().len(), 512 * 2 * 3);
+        true
+    }
+    #[inline]
+    pub fn stride_context_speed_offset(&self) -> usize {
+        0
+    }
+    #[inline]
+    pub fn stride_context_speed_max_offset(&self) -> usize {
+        512
+    }
+    #[inline]
+    pub fn combined_stride_context_speed_offset(&self) -> usize {
+        1024
+    }
+    #[inline]
+    pub fn combined_stride_context_speed_max_offset(&self) -> usize {
+        1536
+    }
+    #[inline]
+    pub fn context_map_speed_offset(&self) -> usize {
+        2048
+    }
+    #[inline]
+    pub fn context_map_speed_max_offset(&self) -> usize {
+        (2048 + 512) * 2
+    }
+    #[inline]
+    pub fn stride_context_speeds(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(512).0
+    }
+    #[inline]
+    pub fn stride_context_max(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(512).1.split_at(512).0
+    }
+    #[inline]
+    pub fn combined_stride_context_speeds(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(2048).1.split_at(512).0
+    }
+    #[inline]
+    pub fn combined_stride_context_max(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(2048 + 512).1.split_at(512).0
+    }
+    #[inline]
+    pub fn context_map_speeds(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(1024).1.split_at(512).0
+    }
+    #[inline]
+    pub fn context_map_max(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(1536).1.split_at(512).0
     }
 }
 
@@ -257,6 +316,7 @@ impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
           &mut Command::PredictionMode(ref mut pm) => {
              apply_func(core::mem::replace(&mut pm.literal_context_map, SliceType::default()));
              apply_func(core::mem::replace(&mut pm.distance_context_map, SliceType::default()));
+             apply_func(core::mem::replace(&mut pm.context_speeds, SliceType::default()));
           },
           _ => {},
        }
@@ -303,6 +363,7 @@ pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceType
           Command::PredictionMode(ref mut pm) => {
              m8.free_cell(core::mem::replace(&mut pm.literal_context_map, SliceTypeAllocator::AllocatedMemory::default()));
              m8.free_cell(core::mem::replace(&mut pm.distance_context_map, SliceTypeAllocator::AllocatedMemory::default()));
+             m8.free_cell(core::mem::replace(&mut pm.context_speeds, SliceTypeAllocator::AllocatedMemory::default()));
           },
           Command::Dict(_) |
           Command::Copy(_) |
