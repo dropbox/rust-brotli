@@ -82,12 +82,36 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
             println_stderr!("dtype {}", bsd.0);
         },
         &interface::Command::PredictionMode(ref prediction) => {
-            println_stderr!("prediction {} lcontextmap{} dcontextmap{}",
-                            prediction_mode_str(prediction.literal_prediction_mode),
-                            prediction.literal_context_map.slice().iter().fold(::std::string::String::new(),
-                                                                               |res, &val| res + " " + &val.to_string()),
-                            prediction.distance_context_map.slice().iter().fold(::std::string::String::new(),
-                                                                                |res, &val| res + " " + &val.to_string()));
+            let prediction_mode = prediction_mode_str(prediction.literal_prediction_mode);
+            let lit_cm = prediction.literal_context_map.slice().iter().fold(::std::string::String::new(),
+                                                                            |res, &val| res + " " + &val.to_string());
+            let dist_cm = prediction.distance_context_map.slice().iter().fold(::std::string::String::new(),
+                                                                              |res, &val| res + " " + &val.to_string());
+            if prediction.has_context_speeds() {
+                println_stderr!("prediction {} lcontextmap{} dcontextmap{} cmspeedinc{} cmspeedmax{} stspeedinc{} stspeedmax{} mxspeedinc{} mxspeedmax{}",
+                                prediction_mode,
+                                lit_cm,
+                                dist_cm,
+                                prediction.context_map_speeds().iter().fold(::std::string::String::new(),
+                                                                            |res, &val| res + " " + &val.to_string()),
+                                prediction.context_map_max().iter().fold(::std::string::String::new(),
+                                                                            |res, &val| res + " " + &val.to_string()),
+                                prediction.stride_context_speeds().iter().fold(::std::string::String::new(),
+                                                                            |res, &val| res + " " + &val.to_string()),
+                                prediction.stride_context_max().iter().fold(::std::string::String::new(),
+                                                                            |res, &val| res + " " + &val.to_string()),
+                                prediction.combined_stride_context_speeds().iter().fold(::std::string::String::new(),
+                                                                            |res, &val| res + " " + &val.to_string()),
+                                prediction.combined_stride_context_max().iter().fold(::std::string::String::new(),
+                                                                                     |res, &val| res + " " + &val.to_string()),
+                                );
+            }else {
+                println_stderr!("prediction {} lcontextmap{} dcontextmap{}",
+                                prediction_mode,
+                                lit_cm,
+                                dist_cm,
+                );
+            }
         },
         &interface::Command::Copy(ref copy) => {
             println_stderr!("copy {} from {}", copy.num_bytes, copy.distance);

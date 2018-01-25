@@ -152,7 +152,7 @@ fn update_cdf(cdfs: &mut [u16],
               nibble_u8: u8) {
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
     let mut overall_index = nibble_u8 as usize * NUM_SPEEDS_TO_TRY;
-    for nibble in (nibble_u8 as usize & 0xf) .. 16 {
+    for _nibble in (nibble_u8 as usize & 0xf) .. 16 {
         for speed_index in 0..NUM_SPEEDS_TO_TRY {
             cdfs[overall_index + speed_index] += SPEEDS_TO_SEARCH[speed_index];
         }
@@ -225,7 +225,7 @@ pub struct ContextMapEntropy<'a,
     context_map: interface::PredictionModeContextMap<InputReference<'a>>,
     block_type: u8,
     local_byte_offset: usize,
-    nop: AllocU32::AllocatedMemory,
+    _nop: AllocU32::AllocatedMemory,
     
     cm_priors: AllocU16::AllocatedMemory,
     stride_priors: AllocU16::AllocatedMemory,
@@ -240,7 +240,7 @@ impl<'a,
      AllocF:alloc::Allocator<floatX>,
      > ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
    pub fn new(m16: &mut AllocU16,
-              m32: &mut AllocU32,
+              _m32: &mut AllocU32,
               mf: &mut AllocF,
               input: InputPair<'a>,
               stride: [u8; find_stride::NUM_LEAF_NODES],
@@ -251,7 +251,7 @@ impl<'a,
          context_map: prediction_mode,
          block_type: 0,
          local_byte_offset: 0,
-         nop:  AllocU32::AllocatedMemory::default(),
+         _nop:  AllocU32::AllocatedMemory::default(),
          cm_priors: m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE),
          stride_priors: m16.alloc_cell(STRIDE_PRIOR_SIZE),
          cm_cost: mf.alloc_cell(CONTEXT_MAP_COST_SIZE),
@@ -263,10 +263,11 @@ impl<'a,
       init_cdfs(ret.stride_priors.slice_mut());
       ret
    }
+   #[inline]
    pub fn track_cdf_speed(&mut self,
-                      data: &[u8],
-                      mut prev_byte: u8, mut prev_prev_byte: u8,
-                      block_type: u8) {
+                      _data: &[u8],
+                      mut _prev_byte: u8, mut _prev_prev_byte: u8,
+                          _block_type: u8) {
        /*
        scratch.bucket_populations.slice_mut().clone_from_slice(self.entropy_tally.bucket_populations.slice());
        scratch.bucket_populations.slice_mut()[65535] += 1; // to demonstrate that we have
@@ -434,7 +435,6 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
     fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
                                                               val: interface::Command<InputReference<'b>>,
                                                               callback: &mut Cb) {
-        let mut stride_priors = [0u8;8];
         match val {
            interface::Command::BlockSwitchCommand(_) |
            interface::Command::BlockSwitchDistance(_) |

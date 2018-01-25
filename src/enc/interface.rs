@@ -106,13 +106,25 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceT
         }
     }
 }
-impl<SliceType:SliceWrapper<u8>+Clone> PredictionModeContextMap<SliceType> {
+impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     pub fn has_context_speeds(&self) -> bool {
         if self.context_speeds.slice().len() == 0 {
             return false;
         }
-        assert_eq!(self.context_speeds.slice().len(), 512 * 2 * 3);
+        let l = self.context_speeds_standard_len();
+        assert_eq!(self.context_speeds.slice().len(), l);
         true
+    }
+    pub fn context_speeds_standard_len(&self) -> usize {
+        512 * 2 * 3
+    }
+    #[inline]
+    pub fn f8_to_u16(&self, data: u8) -> u16 {
+        self::u8_to_speed(data)
+    }
+    #[inline]
+    pub fn u16_to_f8(&self, data: u16) -> u8 {
+        self::speed_to_u8(data)
     }
     #[inline]
     pub fn stride_context_speed_offset(&self) -> usize {
@@ -136,7 +148,7 @@ impl<SliceType:SliceWrapper<u8>+Clone> PredictionModeContextMap<SliceType> {
     }
     #[inline]
     pub fn context_map_speed_max_offset(&self) -> usize {
-        (2048 + 512) * 2
+        2048 + 512
     }
     #[inline]
     pub fn stride_context_speeds(&self) -> &[u8] {
@@ -413,4 +425,45 @@ pub trait CommandProcessor<'a> {
    fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[Command<InputReference>]) {
        self.push(Command::BlockSwitchLiteral(LiteralBlockSwitch::new(block_type, 0)), callback)
    }
+}
+
+pub fn speed_to_u8(data: u16) -> u8 {
+    let log_val = core::cmp::max(16 - data.leading_zeros() as u8, 3);
+    let remainder = data >> (log_val - 3);
+    ((log_val - 3) << 3) | remainder as u8
+}
+
+pub fn u8_to_speed(data: u8) -> u16 {
+    (u16::from(data) & 0x7) << (data >> 3)
+}
+#[cfg(test)]
+mod test {
+    use super::speed_to_u8;
+    use super::u8_to_speed;
+    fn tst_u8_to_speed(data: u16) {
+        assert_eq!(u8_to_speed(speed_to_u8(data)), data);
+    }
+    #[test]
+    fn test_u8_to_speed() {
+        tst_u8_to_speed(0);
+        tst_u8_to_speed(1);
+        tst_u8_to_speed(2);
+        tst_u8_to_speed(3);
+        tst_u8_to_speed(4);
+        tst_u8_to_speed(5);
+        tst_u8_to_speed(6);
+        tst_u8_to_speed(7);
+        tst_u8_to_speed(8);
+        tst_u8_to_speed(10);
+        tst_u8_to_speed(12);
+        tst_u8_to_speed(16);
+        tst_u8_to_speed(24);
+        tst_u8_to_speed(32);
+        tst_u8_to_speed(48);
+        tst_u8_to_speed(64);
+        tst_u8_to_speed(96);
+        tst_u8_to_speed(768);
+        tst_u8_to_speed(1280);
+        tst_u8_to_speed(1536);
+    }
 }

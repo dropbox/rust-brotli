@@ -61,45 +61,6 @@ fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNi
 }
 
 
-fn speed_to_u8(data: u16) -> u8 {
-    let log_val = core::cmp::max(16 - data.leading_zeros() as u8, 3);
-    let remainder = data >> (log_val - 3);
-    ((log_val - 3) << 3) | remainder as u8
-}
-
-fn u8_to_speed(data: u8) -> u16 {
-    (u16::from(data) & 0x7) << (data >> 3)
-}
-mod test {
-    use super::speed_to_u8;
-    use super::u8_to_speed;
-    fn tst_u8_to_speed(data: u16) {
-        assert_eq!(u8_to_speed(speed_to_u8(data)), data);
-    }
-    #[test]
-    fn test_u8_to_speed() {
-        tst_u8_to_speed(0);
-        tst_u8_to_speed(1);
-        tst_u8_to_speed(2);
-        tst_u8_to_speed(3);
-        tst_u8_to_speed(4);
-        tst_u8_to_speed(5);
-        tst_u8_to_speed(6);
-        tst_u8_to_speed(7);
-        tst_u8_to_speed(8);
-        tst_u8_to_speed(10);
-        tst_u8_to_speed(12);
-        tst_u8_to_speed(16);
-        tst_u8_to_speed(24);
-        tst_u8_to_speed(32);
-        tst_u8_to_speed(48);
-        tst_u8_to_speed(64);
-        tst_u8_to_speed(96);
-        tst_u8_to_speed(768);
-        tst_u8_to_speed(1280);
-        tst_u8_to_speed(1536);
-    }
-}
 const COMMAND_BUFFER_SIZE: usize = 8192;
 
 
@@ -121,7 +82,7 @@ impl<'a,
      AllocU16:alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
      AllocF:alloc::Allocator<floatX> > CommandQueue<'a, AllocU16, AllocU32, AllocF> {
-    fn new(m32: &mut AllocU32,
+    fn new(_m32: &mut AllocU32,
            mb: InputPair<'a>,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
@@ -158,7 +119,6 @@ impl<'a,
     }
     fn flush<Cb>(&mut self, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        let mut local_byte_offset = self.mb_byte_offset;
-       let mb_len = self.mb.0.len() + self.mb.1.len();
        let cur_stride = self.entropy_tally_scratch.pick_best_stride(self.queue.split_at(self.loc).0,
                                                                     self.mb.0,
                                                                     self.mb.1,
@@ -460,7 +420,7 @@ fn LogMetaBlock<'a,
                     callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64];
-    let mut local_context_speeds = [0u8; 512 * 3];
+    let mut local_context_speeds = [0u8; 1024 * 3];
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btypel.num_types);
     assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -522,24 +482,24 @@ fn LogMetaBlock<'a,
             let stride_speed_start = prediction_mode.stride_context_speed_offset();
             let stride_max_start = prediction_mode.stride_context_speed_max_offset();
             for index in 0..512 {
-                local_context_speeds[index + stride_speed_start] = speed_to_u8(stride_speed[index >> 1][index & 1].0);
-                local_context_speeds[index + stride_max_start] = speed_to_u8(stride_speed[index >> 1][index & 1].1);
+                local_context_speeds[index + stride_speed_start] = prediction_mode.u16_to_f8(stride_speed[index >> 1][index & 1].0);
+                local_context_speeds[index + stride_max_start] = prediction_mode.u16_to_f8(stride_speed[index >> 1][index & 1].1);
             }
         }
         {
             let cm_speed_start = prediction_mode.context_map_speed_offset();
             let cm_max_start = prediction_mode.context_map_speed_max_offset();
             for index in 0..512 {
-                local_context_speeds[index + cm_speed_start] = speed_to_u8(cm_speed[index >> 1][index & 1].0);
-                local_context_speeds[index + cm_max_start] = speed_to_u8(cm_speed[index >> 1][index & 1].1);
+                local_context_speeds[index + cm_speed_start] = prediction_mode.u16_to_f8(cm_speed[index >> 1][index & 1].0);
+                local_context_speeds[index + cm_max_start] = prediction_mode.u16_to_f8(cm_speed[index >> 1][index & 1].1);
             }
         }
         {
             let combined_speed_start = prediction_mode.combined_stride_context_speed_offset();
             let combined_max_start = prediction_mode.combined_stride_context_speed_max_offset();
             for index in 0..512 {
-                local_context_speeds[index + combined_speed_start] = speed_to_u8(combined_speed[index >> 1][index & 1].0);
-                local_context_speeds[index + combined_max_start] = speed_to_u8(combined_speed[index >> 1][index & 1].1);
+                local_context_speeds[index + combined_speed_start] = prediction_mode.u16_to_f8(combined_speed[index >> 1][index & 1].0);
+                local_context_speeds[index + combined_max_start] =  prediction_mode.u16_to_f8(combined_speed[index >> 1][index & 1].1);
             }
         }
         prediction_mode.context_speeds = InputReference(&local_context_speeds[..])
