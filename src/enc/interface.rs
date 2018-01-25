@@ -135,19 +135,19 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
         512
     }
     #[inline]
-    pub fn combined_stride_context_speed_offset(&self) -> usize {
+    pub fn context_map_speed_offset(&self) -> usize {
         1024
     }
     #[inline]
-    pub fn combined_stride_context_speed_max_offset(&self) -> usize {
+    pub fn context_map_speed_max_offset(&self) -> usize {
         1536
     }
     #[inline]
-    pub fn context_map_speed_offset(&self) -> usize {
+    pub fn combined_stride_context_speed_offset(&self) -> usize {
         2048
     }
     #[inline]
-    pub fn context_map_speed_max_offset(&self) -> usize {
+    pub fn combined_stride_context_speed_max_offset(&self) -> usize {
         2048 + 512
     }
     #[inline]
@@ -159,20 +159,20 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
         self.context_speeds.slice().split_at(512).1.split_at(512).0
     }
     #[inline]
-    pub fn combined_stride_context_speeds(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(2048).1.split_at(512).0
-    }
-    #[inline]
-    pub fn combined_stride_context_max(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(2048 + 512).1.split_at(512).0
-    }
-    #[inline]
     pub fn context_map_speeds(&self) -> &[u8] {
         self.context_speeds.slice().split_at(1024).1.split_at(512).0
     }
     #[inline]
     pub fn context_map_max(&self) -> &[u8] {
         self.context_speeds.slice().split_at(1536).1.split_at(512).0
+    }
+    #[inline]
+    pub fn combined_stride_context_speeds(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(2048).1.split_at(512).0
+    }
+    #[inline]
+    pub fn combined_stride_context_max(&self) -> &[u8] {
+        self.context_speeds.slice().split_at(2048 + 512).1.split_at(512).0
     }
 }
 
