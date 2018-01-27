@@ -28,6 +28,7 @@ pub mod find_stride;
 pub mod interface;
 pub mod context_map_entropy;
 mod test;
+mod weights;
 pub use self::util::floatX;
 pub use self::backward_references::BrotliEncoderParams;
 pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};

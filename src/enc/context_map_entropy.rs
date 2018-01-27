@@ -7,6 +7,7 @@ use super::histogram::ContextType;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::{floatX, FastLog2u16};
 use super::find_stride;
+use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
 const NUM_SPEEDS_TO_TRY: usize = 32;
 const NIBBLE_PRIOR_SIZE: usize = 16 * NUM_SPEEDS_TO_TRY;
 // the high nibble, followed by the low nibbles
@@ -121,6 +122,45 @@ fn init_cdfs(cdfs: &mut [u16]) {
         }
     }
 }
+fn compute_combined_cost(cost: &mut [floatX],
+                cdfs: &[u16],
+                mixing_cdf: [u16;16],
+                nibble_u8: u8,
+                weights: &mut [Weights; NUM_SPEEDS_TO_TRY]) {
+    assert_eq!(cost.len(), NUM_SPEEDS_TO_TRY);
+    assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
+    let nibble = nibble_u8 as usize & 0xf;
+    let mut stride_pdf = [0u16; NUM_SPEEDS_TO_TRY];
+    stride_pdf.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * nibble).1.split_at(NUM_SPEEDS_TO_TRY).0);
+    let mut cm_pdf:u16 = mixing_cdf[nibble] << BLEND_FIXED_POINT_PRECISION;
+    if nibble_u8 != 0 {
+        let mut tmp = [0u16; NUM_SPEEDS_TO_TRY];
+        tmp.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * (nibble - 1)).1.split_at(NUM_SPEEDS_TO_TRY).0);
+        for i in 0..NUM_SPEEDS_TO_TRY {
+            stride_pdf[i] -= tmp[i];
+        }
+        cm_pdf -= mixing_cdf[nibble - 1]
+    }
+    let mut stride_max = [0u16; NUM_SPEEDS_TO_TRY];
+    stride_max.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
+    let cm_max = mixing_cdf[15];
+    let norm_cm_prob = (u32::from(cm_pdf) << BLEND_FIXED_POINT_PRECISION) / u32::from(cm_max);
+    for i in 0..NUM_SPEEDS_TO_TRY {
+        if stride_pdf[i] == 0 { 
+            assert!(stride_pdf[i] != 0);
+        }
+        if stride_max[i] == 0 {
+            assert!(stride_max[i] != 0);
+        }
+        let w = u32::from(weights[i].norm_weight());
+        let combined_pdf = w * u32::from(stride_pdf[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_pdf);
+        let combined_max = w * u32::from(stride_max[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_max);
+        cost[i] -= FastLog2u16((combined_pdf >> BLEND_FIXED_POINT_PRECISION) as u16) - FastLog2u16((combined_max >> BLEND_FIXED_POINT_PRECISION) as u16);
+        let combined_prob = combined_pdf / (combined_max >> BLEND_FIXED_POINT_PRECISION);
+        let stride_prob = (u32::from(stride_pdf[i]) << BLEND_FIXED_POINT_PRECISION) / u32::from(stride_max[i]);
+        weights[i].update([norm_cm_prob as u16, stride_prob as u16], combined_prob as u16);
+    }
+}
 fn compute_cost(cost: &mut [floatX],
                 cdfs: &[u16],
                 nibble_u8: u8) {
@@ -191,6 +231,28 @@ fn update_cdf(cdfs: &mut [u16],
     }
 }
 
+fn extract_single_cdf(cdf_bundle:&[u16], index:usize) -> [u16;16] {
+    assert_eq!(cdf_bundle.len(), 16 * NUM_SPEEDS_TO_TRY);
+    [
+        cdf_bundle[0 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[1 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[2 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[3 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[4 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[5 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[6 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[7 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[8 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[9 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[10 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[11 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[12 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[13 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[14 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[15 * NUM_SPEEDS_TO_TRY],
+        ]
+}
+
 fn min_cost_index_for_speed(cost: &[floatX]) -> usize {
     assert_eq!(cost.len(), NUM_SPEEDS_TO_TRY);
     let mut min_cost = cost[0];
@@ -225,6 +287,7 @@ pub struct ContextMapEntropy<'a,
     context_map: interface::PredictionModeContextMap<InputReference<'a>>,
     block_type: u8,
     local_byte_offset: usize,
+    weight: [[Weights; NUM_SPEEDS_TO_TRY];2],
     _nop: AllocU32::AllocatedMemory,
     
     cm_priors: AllocU16::AllocatedMemory,
@@ -258,6 +321,74 @@ impl<'a,
          stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
          combined_stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
          stride_pyramid_leaves: stride,
+         weight:[[
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         ],
+         [
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         Weights::new(),
+         ]],
       };
       init_cdfs(ret.cm_priors.slice_mut());
       init_cdfs(ret.stride_priors.slice_mut());
@@ -367,26 +498,40 @@ impl<'a,
    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
+       let provisional_cm_high_cdf: [u16; 16];
+       let provisional_cm_low_cdf: [u16; 16];
+       {
+           let cm_cdf_high = get_cm_cdf_high(self.cm_priors.slice_mut(), cm_prior);
+           let cm_high_cost = get_cm_cost(self.cm_cost.slice_mut(), cm_prior, true);
+           compute_cost(cm_high_cost, cm_cdf_high, upper_nibble);
+           let best_cm_index = min_cost_index_for_speed(cm_high_cost);
+           provisional_cm_high_cdf = extract_single_cdf(cm_cdf_high, best_cm_index);
+       }
+       {
+           let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
+           let cm_low_cost = get_cm_cost(self.cm_cost.slice_mut(), cm_prior, false);
+           compute_cost(cm_low_cost, cm_cdf_low, lower_nibble);
+           let best_cm_index = min_cost_index_for_speed(cm_low_cost);
+           provisional_cm_low_cdf = extract_single_cdf(cm_cdf_low, best_cm_index);
+       }
        {
            let stride_cdf_high = get_stride_cdf_high(self.stride_priors.slice_mut(), stride_prior, cm_prior);
-           compute_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, true), stride_cdf_high, upper_nibble);
+           compute_combined_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, true), stride_cdf_high, provisional_cm_high_cdf, upper_nibble, &mut self.weight[1]);
            compute_cost(get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior), stride_cdf_high, upper_nibble);
            update_cdf(stride_cdf_high, upper_nibble);
        }
        {
            let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior, upper_nibble);
-           compute_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, false), stride_cdf_low, lower_nibble);
+           compute_combined_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, false), stride_cdf_low, provisional_cm_low_cdf, lower_nibble, &mut self.weight[0]);
            compute_cost(get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior, upper_nibble), stride_cdf_low, lower_nibble);
            update_cdf(stride_cdf_low, lower_nibble);
        }
        {
-           let cm_cdf_high = get_cm_cdf_high(self.stride_priors.slice_mut(), cm_prior);
-           compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, true), cm_cdf_high, upper_nibble);
+           let cm_cdf_high = get_cm_cdf_high(self.cm_priors.slice_mut(), cm_prior);
            update_cdf(cm_cdf_high, upper_nibble);
        }
        {
            let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
-           compute_cost(get_cm_cost(self.cm_cost.slice_mut(), cm_prior, false), cm_cdf_low, lower_nibble);
            update_cdf(cm_cdf_low, lower_nibble);
        }
    }
