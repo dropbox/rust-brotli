@@ -214,12 +214,12 @@ impl<'a,
       }
   }
 }
-/*
+
 #[cfg(not(feature="billing"))]
 fn best_speed_log(_name:&str,
                   _data:&[[SpeedAndMax;2];256],
                   _cost:&[[floatX;2];256]) {}
-#[cfg(feature="billing")]*/
+#[cfg(feature="billing")]
 fn best_speed_log(name:&str,
                   data:&[[SpeedAndMax;2];256],
                   cost:&[[floatX;2];256]) {

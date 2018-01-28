@@ -126,7 +126,7 @@ fn compute_combined_cost(cost: &mut [floatX],
                 cdfs: &[u16],
                 mixing_cdf: [u16;16],
                 nibble_u8: u8,
-                weights: &mut [Weights; NUM_SPEEDS_TO_TRY]) {
+                _weights: &mut [Weights; NUM_SPEEDS_TO_TRY]) {
     assert_eq!(cost.len(), NUM_SPEEDS_TO_TRY);
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
     let nibble = nibble_u8 as usize & 0xf;
@@ -144,7 +144,6 @@ fn compute_combined_cost(cost: &mut [floatX],
     let mut stride_max = [0u16; NUM_SPEEDS_TO_TRY];
     stride_max.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
     let cm_max = mixing_cdf[15];
-    let norm_cm_prob = (u32::from(cm_pdf) << BLEND_FIXED_POINT_PRECISION) / u32::from(cm_max);
     for i in 0..NUM_SPEEDS_TO_TRY {
         if stride_pdf[i] == 0 { 
             assert!(stride_pdf[i] != 0);
@@ -152,20 +151,12 @@ fn compute_combined_cost(cost: &mut [floatX],
         if stride_max[i] == 0 {
             assert!(stride_max[i] != 0);
         }
-        let mut w = u32::from(weights[i].norm_weight());
-        w = 1<<(BLEND_FIXED_POINT_PRECISION - 1);
-        let combined_pdf = w * u32::from(cm_pdf) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(stride_pdf[i]);
-        let combined_max = w * u32::from(cm_max) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(stride_max[i]);
+        let w;
+        w = (1<<(BLEND_FIXED_POINT_PRECISION - 2)) ; // a quarter of weight to stride
+        let combined_pdf = w * u32::from(stride_pdf[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_pdf);
+        let combined_max = w * u32::from(stride_max[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_max);
         cost[i] -= FastLog2u16((combined_pdf >> BLEND_FIXED_POINT_PRECISION) as u16) - FastLog2u16((combined_max >> BLEND_FIXED_POINT_PRECISION) as u16);
-        let combined_prob = combined_pdf / (combined_max >> BLEND_FIXED_POINT_PRECISION);
-        let stride_prob = (u32::from(stride_pdf[i]) << BLEND_FIXED_POINT_PRECISION) / u32::from(stride_max[i]);
-        weights[i].update([stride_prob as u16, norm_cm_prob as u16], combined_prob as u16);
     }
-    let mut nweight = [0u16; NUM_SPEEDS_TO_TRY];
-    for i in 0..NUM_SPEEDS_TO_TRY {
-        nweight[i] = weights[i].norm_weight();
-    }
-    //println!("{:?}\n{:?}", &cost[..], &nweight[..])
 }
 fn compute_cost(cost: &mut [floatX],
                 cdfs: &[u16],
@@ -328,26 +319,8 @@ impl<'a,
          stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
          combined_stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
          stride_pyramid_leaves: stride,
-         weight:[[
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-         ],
-         [
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
-         ]],
+         weight:[[Weights::new(); NUM_SPEEDS_TO_TRY],
+                 [Weights::new(); NUM_SPEEDS_TO_TRY]],
       };
       init_cdfs(ret.cm_priors.slice_mut());
       init_cdfs(ret.stride_priors.slice_mut());
@@ -412,6 +385,10 @@ impl<'a,
                        }
                    }
                    ret[stride_prior][high] = min_cost_speed_max(cost);
+                   if combined && (ret[stride_prior][high].0 == 0 || ret[stride_prior][high].1 == 0) {
+                       // make sure no nonzeros
+                       //ret[stride_prior][high] = SpeedAndMax(SPEEDS_TO_SEARCH[1], MAXES_TO_SEARCH[1]);
+                   }
                }
            }
        }

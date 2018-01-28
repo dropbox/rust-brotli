@@ -2,7 +2,7 @@ use core;
 type Prob = u16;
 
 pub const BLEND_FIXED_POINT_PRECISION : i8 = 15;
-pub const LOG2_SCALE: u32 = BLEND_FIXED_POINT_PRECISION as u32;
+pub const LOG2_SCALE : i32 = 15;
 #[derive(Debug,Copy, Clone)]
 pub struct Weights {
     model_weights: [i32;2],
@@ -22,6 +22,7 @@ impl Weights {
             normalized_weight: 1 << (BLEND_FIXED_POINT_PRECISION - 1),
         }
     }
+    #[allow(unused)]
     #[inline(always)]
     pub fn update(&mut self, model_probs: [Prob; 2], weighted_prob: Prob) {
         debug_assert!(self.mixing_param != 0);
@@ -39,6 +40,7 @@ impl Weights {
         self.model_weights = [w0new, w1new];
         self.normalized_weight = compute_normalized_weight(self.model_weights);
     }
+    #[allow(dead_code)]
     #[inline(always)]
     pub fn norm_weight(&self) -> Prob {
         self.normalized_weight
