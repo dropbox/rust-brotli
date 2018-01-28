@@ -132,7 +132,7 @@ fn compute_combined_cost(cost: &mut [floatX],
     let nibble = nibble_u8 as usize & 0xf;
     let mut stride_pdf = [0u16; NUM_SPEEDS_TO_TRY];
     stride_pdf.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * nibble).1.split_at(NUM_SPEEDS_TO_TRY).0);
-    let mut cm_pdf:u16 = mixing_cdf[nibble] << BLEND_FIXED_POINT_PRECISION;
+    let mut cm_pdf:u16 = mixing_cdf[nibble];
     if nibble_u8 != 0 {
         let mut tmp = [0u16; NUM_SPEEDS_TO_TRY];
         tmp.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * (nibble - 1)).1.split_at(NUM_SPEEDS_TO_TRY).0);
@@ -152,14 +152,20 @@ fn compute_combined_cost(cost: &mut [floatX],
         if stride_max[i] == 0 {
             assert!(stride_max[i] != 0);
         }
-        let w = u32::from(weights[i].norm_weight());
-        let combined_pdf = w * u32::from(stride_pdf[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_pdf);
-        let combined_max = w * u32::from(stride_max[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_max);
+        let mut w = u32::from(weights[i].norm_weight());
+        w = 1<<(BLEND_FIXED_POINT_PRECISION - 1);
+        let combined_pdf = w * u32::from(cm_pdf) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(stride_pdf[i]);
+        let combined_max = w * u32::from(cm_max) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(stride_max[i]);
         cost[i] -= FastLog2u16((combined_pdf >> BLEND_FIXED_POINT_PRECISION) as u16) - FastLog2u16((combined_max >> BLEND_FIXED_POINT_PRECISION) as u16);
         let combined_prob = combined_pdf / (combined_max >> BLEND_FIXED_POINT_PRECISION);
         let stride_prob = (u32::from(stride_pdf[i]) << BLEND_FIXED_POINT_PRECISION) / u32::from(stride_max[i]);
-        weights[i].update([norm_cm_prob as u16, stride_prob as u16], combined_prob as u16);
+        weights[i].update([stride_prob as u16, norm_cm_prob as u16], combined_prob as u16);
     }
+    let mut nweight = [0u16; NUM_SPEEDS_TO_TRY];
+    for i in 0..NUM_SPEEDS_TO_TRY {
+        nweight[i] = weights[i].norm_weight();
+    }
+    //println!("{:?}\n{:?}", &cost[..], &nweight[..])
 }
 fn compute_cost(cost: &mut [floatX],
                 cdfs: &[u16],
@@ -233,23 +239,24 @@ fn update_cdf(cdfs: &mut [u16],
 
 fn extract_single_cdf(cdf_bundle:&[u16], index:usize) -> [u16;16] {
     assert_eq!(cdf_bundle.len(), 16 * NUM_SPEEDS_TO_TRY);
+    assert!(index < NUM_SPEEDS_TO_TRY);
     [
-        cdf_bundle[0 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[1 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[2 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[3 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[4 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[5 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[6 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[7 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[8 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[9 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[10 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[11 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[12 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[13 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[14 * NUM_SPEEDS_TO_TRY],
-        cdf_bundle[15 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 0 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 1 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 2 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 3 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 4 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 5 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 6 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 7 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 8 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 9 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 10 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 11 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 12 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 13 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 14 * NUM_SPEEDS_TO_TRY],
+        cdf_bundle[index + 15 * NUM_SPEEDS_TO_TRY],
         ]
 }
 
@@ -322,72 +329,24 @@ impl<'a,
          combined_stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
          stride_pyramid_leaves: stride,
          weight:[[
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
          ],
          [
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
-         Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
+           Weights::new(), Weights::new(), Weights::new(), Weights::new(),
          ]],
       };
       init_cdfs(ret.cm_priors.slice_mut());

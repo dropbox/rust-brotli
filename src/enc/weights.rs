@@ -3,6 +3,7 @@ type Prob = u16;
 
 pub const BLEND_FIXED_POINT_PRECISION : i8 = 15;
 pub const LOG2_SCALE: u32 = BLEND_FIXED_POINT_PRECISION as u32;
+#[derive(Debug,Copy, Clone)]
 pub struct Weights {
     model_weights: [i32;2],
     mixing_param: u8,
@@ -39,14 +40,6 @@ impl Weights {
         self.normalized_weight = compute_normalized_weight(self.model_weights);
     }
     #[inline(always)]
-    pub fn set_mixing_param(&mut self, param: u8) {
-        self.mixing_param = param;
-    }
-    #[inline(always)]
-    pub fn should_mix(&self) -> bool {
-        self.mixing_param > 1
-    }
-    #[inline(always)]
     pub fn norm_weight(&self) -> Prob {
         self.normalized_weight
     }
@@ -56,7 +49,7 @@ impl Weights {
 fn compute_normalized_weight(model_weights: [i32;2]) -> Prob {
     let total = i64::from(model_weights[0]) + i64::from(model_weights[1]);
     let leading_zeros = total.leading_zeros();
-    let shift = core::cmp::max(56 - (leading_zeros as Prob), 0);
+    let shift = core::cmp::max(56 - (leading_zeros as i8), 0);
     let total_8bit = total >> shift;
     /*::probability::numeric::fast_divide_16bit_by_8bit(
         ((model_weights[0] >> shift) as u16)<< 8,
@@ -81,9 +74,6 @@ fn normalize_weights(weights: &mut [i32;2]) {
     if ((weights[0]|weights[1])&0x7f000000) != 0 {
         fix_weights(weights);
     }
-}
-fn ilog2(item: i64) -> u32 {
-    64 - item.leading_zeros()
 }
 #[cfg(features="floating_point_context_mixing")]
 fn compute_new_weight(probs: [Prob; 2],
