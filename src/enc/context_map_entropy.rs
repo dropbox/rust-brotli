@@ -8,13 +8,8 @@ use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
+/*
 const NUM_SPEEDS_TO_TRY: usize = 32;
-const NIBBLE_PRIOR_SIZE: usize = 16 * NUM_SPEEDS_TO_TRY;
-// the high nibble, followed by the low nibbles
-const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
-const CONTEXT_MAP_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
-const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
-const STRIDE_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
 const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
                                                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                                                    2,
@@ -63,6 +58,42 @@ const MAXES_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY] = [32,
                                                    16384,
                                                    16384,
                                                    ];
+*/
+const NUM_SPEEDS_TO_TRY: usize = 16;
+const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
+                                                   1, 1, 1,
+                                                   2,
+                                                   4,
+                                                   8,
+                                                   16,
+                                                   32,
+                                                   64,
+                                                   128, 128,
+                                                   512,
+                                                   1024,
+                                                   1664,
+                                                   1664,
+                                                   ];
+const MAXES_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY] = [32,
+                                                   32, 128, 16384,
+                                                   1024,
+                                                   1024,
+                                                   8192,
+                                                   48,
+                                                   4096,
+                                                   16384,
+                                                   256, 16384,
+                                                   16834,
+                                                   16384,
+                                                   16384,
+                                                   16384,
+                                                   ];
+const NIBBLE_PRIOR_SIZE: usize = 16 * NUM_SPEEDS_TO_TRY;
+// the high nibble, followed by the low nibbles
+const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
+const CONTEXT_MAP_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
+const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
+const STRIDE_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
 #[derive(Clone,Copy, Debug)]
 pub struct SpeedAndMax(pub u16, pub u16);
 fn get_combined_stride_cost(data: &mut [floatX], cm_prior: usize, is_high_nibble: bool) -> &mut [floatX] {
