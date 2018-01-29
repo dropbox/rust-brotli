@@ -452,7 +452,6 @@ mod test {
     use super::speed_to_u8;
     use super::u8_to_speed;
     fn tst_u8_to_speed(data: u16) {
-        print!("Intermediate {} orig {}\n", speed_to_u8(data), data);
         assert_eq!(u8_to_speed(speed_to_u8(data)), data);
     }
     #[test]
