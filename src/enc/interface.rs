@@ -428,19 +428,31 @@ pub trait CommandProcessor<'a> {
 }
 
 pub fn speed_to_u8(data: u16) -> u8 {
-    let log_val = core::cmp::max(16 - data.leading_zeros() as u8, 3);
-    let remainder = data >> (log_val - 3);
-    ((log_val - 3) << 3) | remainder as u8
+    let length = 16 - data.leading_zeros() as u8;
+    let mantissa = if data != 0 {
+        let rem = data - (1 << (length - 1));
+        (rem << 3) >> (length - 1)
+    } else {
+        0
+    };
+    (length << 3) | mantissa as u8
 }
 
 pub fn u8_to_speed(data: u8) -> u16 {
-    (u16::from(data) & 0x7) << (data >> 3)
+    if data < 8 {
+        0
+    } else {
+        let log_val = (data >> 3) - 1;
+        let rem = (u16::from(data) & 0x7) << log_val;
+        (1u16 << log_val) | (rem >> 3)
+    }
 }
 #[cfg(test)]
 mod test {
     use super::speed_to_u8;
     use super::u8_to_speed;
     fn tst_u8_to_speed(data: u16) {
+        print!("Intermediate {} orig {}\n", speed_to_u8(data), data);
         assert_eq!(u8_to_speed(speed_to_u8(data)), data);
     }
     #[test]
@@ -465,5 +477,6 @@ mod test {
         tst_u8_to_speed(768);
         tst_u8_to_speed(1280);
         tst_u8_to_speed(1536);
+        tst_u8_to_speed(1664);
     }
 }
