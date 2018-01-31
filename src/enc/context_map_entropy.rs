@@ -8,57 +8,7 @@ use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
-/*
-const NUM_SPEEDS_TO_TRY: usize = 32;
-const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
-                                                   1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                                   2,
-                                                   2,
-                                                   3,
-                                                   3,
-                                                   4,
-                                                   4,
-                                                   5,
-                                                   6,
-                                                   10,
-                                                   10,
-                                                   12,
-                                                   16,
-                                                   24,
-                                                   32,
-                                                   48,
-                                                   64,
-                                                   96,
-                                                   768,
-                                                   1024,
-                                                   1280,
-                                                   1664,
-                                                   ];
-const MAXES_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY] = [32,
-                                                   32, 64, 128, 256, 384, 512, 1024, 2048, 4096, 16384,
-                                                   512,
-                                                   4096,
-                                                   512,
-                                                   2048,
-                                                   512,
-                                                   2048,
-                                                   8192,
-                                                   2048,
-                                                   2048,
-                                                   4096,
-                                                   4096,
-                                                   8192,
-                                                   16834,
-                                                   16384,
-                                                   16384,
-                                                   16384,
-                                                   16384,
-                                                   16384,
-                                                   16384,
-                                                   16384,
-                                                   16384,
-                                                   ];
-*/
+
 const NUM_SPEEDS_TO_TRY: usize = 16;
 const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
                                                    1, 1, 1,
@@ -154,6 +104,7 @@ fn init_cdfs(cdfs: &mut [u16]) {
     }
 }
 fn compute_combined_cost(cost: &mut [floatX],
+                         singleton_cost: &mut [floatX;NUM_SPEEDS_TO_TRY],
                 cdfs: &[u16],
                 mixing_cdf: [u16;16],
                 nibble_u8: u8,
@@ -186,10 +137,13 @@ fn compute_combined_cost(cost: &mut [floatX],
         w = (1<<(BLEND_FIXED_POINT_PRECISION - 2)) ; // a quarter of weight to stride
         let combined_pdf = w * u32::from(stride_pdf[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_pdf);
         let combined_max = w * u32::from(stride_max[i]) + ((1<<BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_max);
-        cost[i] -= FastLog2u16((combined_pdf >> BLEND_FIXED_POINT_PRECISION) as u16) - FastLog2u16((combined_max >> BLEND_FIXED_POINT_PRECISION) as u16);
+        let del = FastLog2u16((combined_pdf >> BLEND_FIXED_POINT_PRECISION) as u16) - FastLog2u16((combined_max >> BLEND_FIXED_POINT_PRECISION) as u16);
+        cost[i] -= del;
+        singleton_cost[i] -= del;
     }
 }
 fn compute_cost(cost: &mut [floatX],
+                singleton_cost: &mut [floatX;NUM_SPEEDS_TO_TRY],
                 cdfs: &[u16],
                 nibble_u8: u8) {
     assert_eq!(cost.len(), NUM_SPEEDS_TO_TRY);
@@ -213,7 +167,9 @@ fn compute_cost(cost: &mut [floatX],
         if max[i] == 0 {
             assert!(max[i] != 0);
         }
-        cost[i] -= FastLog2u16(pdf[i]) - FastLog2u16(max[i]);
+        let del = FastLog2u16(pdf[i]) - FastLog2u16(max[i]);
+        cost[i] -= del;
+        singleton_cost[i] -= del;
     }
 }
 fn update_cdf(cdfs: &mut [u16],
@@ -325,12 +281,16 @@ pub struct ContextMapEntropy<'a,
     stride_cost: AllocF::AllocatedMemory,
     combined_stride_cost: AllocF::AllocatedMemory,
     stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
+    singleton_costs: [[[floatX;NUM_SPEEDS_TO_TRY];2];3],
 }
 impl<'a,
      AllocU16:alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
      AllocF:alloc::Allocator<floatX>,
      > ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
+   const SINGLETON_COMBINED_STRATEGY: usize = 2;
+   const SINGLETON_STRIDE_STRATEGY: usize = 1;
+   const SINGLETON_CM_STRATEGY: usize = 0;
    pub fn new(m16: &mut AllocU16,
               _m32: &mut AllocU32,
               mf: &mut AllocF,
@@ -352,6 +312,7 @@ impl<'a,
          stride_pyramid_leaves: stride,
          weight:[[Weights::new(); NUM_SPEEDS_TO_TRY],
                  [Weights::new(); NUM_SPEEDS_TO_TRY]],
+         singleton_costs:[[[0.0 as floatX;NUM_SPEEDS_TO_TRY];2];3],
       };
       init_cdfs(ret.cm_priors.slice_mut());
       init_cdfs(ret.stride_priors.slice_mut());
@@ -391,6 +352,33 @@ impl<'a,
        self.entropy_tally.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
 */
    }
+    pub fn best_singleton_speeds(&self,
+                                 cm: bool,
+                                 combined: bool) -> ([SpeedAndMax;2], [floatX; 2]) {
+        let cost_type_index = if combined {
+            2usize
+        } else if cm {
+            0usize
+        } else {
+            1usize
+        };
+        let mut ret_cost = [self.singleton_costs[cost_type_index][0][0],
+                            self.singleton_costs[cost_type_index][1][0]];
+        let mut best_indexes = [0,0];
+        for speed_index in 1..NUM_SPEEDS_TO_TRY {
+            for highness in 0..2 {
+                if ret_cost[highness] < self.singleton_costs[cost_type_index][highness][speed_index] {
+                    best_indexes[highness] = speed_index;
+                    ret_cost[highness] = self.singleton_costs[cost_type_index][highness][speed_index];
+                }
+            }
+        }
+        let ret_speed = [SpeedAndMax(SPEEDS_TO_SEARCH[best_indexes[0]],
+                                 MAXES_TO_SEARCH[best_indexes[0]]),
+                     SpeedAndMax(SPEEDS_TO_SEARCH[best_indexes[1]],
+                                 MAXES_TO_SEARCH[best_indexes[1]])];
+       (ret_speed, ret_cost)
+    }
     pub fn best_speeds(&mut self, // mut due to helpers
                        cm:bool,
                        combined: bool) -> [[SpeedAndMax;2]; 256] { 
@@ -470,27 +458,40 @@ impl<'a,
        {
            let cm_cdf_high = get_cm_cdf_high(self.cm_priors.slice_mut(), cm_prior);
            let cm_high_cost = get_cm_cost(self.cm_cost.slice_mut(), cm_prior, true);
-           compute_cost(cm_high_cost, cm_cdf_high, upper_nibble);
+           compute_cost(cm_high_cost,
+                        &mut self.singleton_costs[Self::SINGLETON_CM_STRATEGY][1],
+                        cm_cdf_high, upper_nibble);
            let best_cm_index = min_cost_index_for_speed(cm_high_cost);
            provisional_cm_high_cdf = extract_single_cdf(cm_cdf_high, best_cm_index);
        }
        {
            let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
            let cm_low_cost = get_cm_cost(self.cm_cost.slice_mut(), cm_prior, false);
-           compute_cost(cm_low_cost, cm_cdf_low, lower_nibble);
+           compute_cost(cm_low_cost,
+                        &mut self.singleton_costs[Self::SINGLETON_CM_STRATEGY][0],
+                        cm_cdf_low, lower_nibble);
            let best_cm_index = min_cost_index_for_speed(cm_low_cost);
            provisional_cm_low_cdf = extract_single_cdf(cm_cdf_low, best_cm_index);
        }
        {
            let stride_cdf_high = get_stride_cdf_high(self.stride_priors.slice_mut(), stride_prior, cm_prior);
-           compute_combined_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, true), stride_cdf_high, provisional_cm_high_cdf, upper_nibble, &mut self.weight[1]);
-           compute_cost(get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior), stride_cdf_high, upper_nibble);
+           compute_combined_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, true),
+                                 &mut self.singleton_costs[Self::SINGLETON_COMBINED_STRATEGY][1],
+                                 stride_cdf_high, provisional_cm_high_cdf, upper_nibble, &mut self.weight[1]);
+           compute_cost(get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior),
+                        &mut self.singleton_costs[Self::SINGLETON_STRIDE_STRATEGY][1],
+                        stride_cdf_high, upper_nibble);
            update_cdf(stride_cdf_high, upper_nibble);
        }
        {
            let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior, upper_nibble);
-           compute_combined_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, false), stride_cdf_low, provisional_cm_low_cdf, lower_nibble, &mut self.weight[0]);
-           compute_cost(get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior, upper_nibble), stride_cdf_low, lower_nibble);
+           compute_combined_cost(get_combined_stride_cost(self.combined_stride_cost.slice_mut(), cm_prior, false),
+                                 &mut self.singleton_costs[Self::SINGLETON_COMBINED_STRATEGY][0],
+                                 stride_cdf_low, provisional_cm_low_cdf, lower_nibble, &mut self.weight[0]);
+           compute_cost(get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior, upper_nibble),
+                        &mut self.singleton_costs[Self::SINGLETON_STRIDE_STRATEGY][0],
+                        stride_cdf_low,
+                        lower_nibble);
            update_cdf(stride_cdf_low, lower_nibble);
        }
        {

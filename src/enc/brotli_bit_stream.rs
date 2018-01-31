@@ -215,6 +215,13 @@ impl<'a,
   }
 }
 
+fn best_singleton_speed_log(name:&str,
+                            data:&[SpeedAndMax;2],
+                            cost:&[floatX;2]) {
+    println!("{} hi cost: {} lo cost: {}   speeds {:?} {:?}", name, cost[1], cost[0], data[1], data[0]);
+}
+    
+
 #[cfg(not(feature="billing"))]
 fn best_speed_log(_name:&str,
                   _data:&[[SpeedAndMax;2];256],
@@ -478,6 +485,15 @@ fn LogMetaBlock<'a,
                          params,
                          context_type,
                           &mut |_x|());
+    {
+        let (cm_speed, cm_cost) = context_map_entropy.best_singleton_speeds(true, false);
+        let (stride_speed, stride_cost) = context_map_entropy.best_singleton_speeds(false, false);
+        let (combined_speed, combined_cost) = context_map_entropy.best_singleton_speeds(false, true);
+        best_singleton_speed_log("CM", &cm_speed, &cm_cost);
+        best_singleton_speed_log("stride", &stride_speed, &stride_cost);
+        best_singleton_speed_log("combined", &combined_speed, &combined_cost);
+    }
+    
      let cm_speed = context_map_entropy.best_speeds(true, false);
      let stride_speed = context_map_entropy.best_speeds(false, false);
      let combined_speed = context_map_entropy.best_speeds(false, true);
