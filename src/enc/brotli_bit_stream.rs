@@ -214,7 +214,12 @@ impl<'a,
       }
   }
 }
-
+#[cfg(not(feature="billing"))]
+fn best_singleton_speed_log(name:&str,
+                            data:&[SpeedAndMax;2],
+                            cost:&[floatX;2]) {
+}
+#[cfg(feature="billing")]
 fn best_singleton_speed_log(name:&str,
                             data:&[SpeedAndMax;2],
                             cost:&[floatX;2]) {

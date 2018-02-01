@@ -367,9 +367,10 @@ impl<'a,
         let mut best_indexes = [0,0];
         for speed_index in 1..NUM_SPEEDS_TO_TRY {
             for highness in 0..2 {
-                if ret_cost[highness] < self.singleton_costs[cost_type_index][highness][speed_index] {
+                let cur_cost = self.singleton_costs[cost_type_index][highness][speed_index];
+                if cur_cost < ret_cost[highness] {
                     best_indexes[highness] = speed_index;
-                    ret_cost[highness] = self.singleton_costs[cost_type_index][highness][speed_index];
+                    ret_cost[highness] = cur_cost;
                 }
             }
         }
