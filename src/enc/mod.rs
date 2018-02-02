@@ -26,6 +26,7 @@ pub mod reader;
 pub mod writer;
 pub mod find_stride;
 pub mod interface;
+pub mod bit_array;
 mod test;
 pub use self::util::floatX;
 pub use self::backward_references::BrotliEncoderParams;

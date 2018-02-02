@@ -6,6 +6,7 @@ use super::static_dict::BrotliDictionary;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{Log2FloorNonZero, brotli_max_size_t};
+use super::bit_array::{BitArrayTrait};
 use core;
 static kBrotliMinWindowBits: i32 = 10i32;
 
@@ -107,33 +108,37 @@ pub trait AnyHasher {
                       max_backward: usize,
                       out: &mut HasherSearchResult)
                       -> bool;
-  fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
-  fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
+  fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize);
+  fn StoreRange<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix_start: usize, ix_end: usize);
   fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared;
-  fn StitchToPreviousBlock(&mut self,
+  fn StitchToPreviousBlock<BA:BitArrayTrait>(&mut self,
                            num_bytes: usize,
                            position: usize,
                            ringbuffer: &[u8],
+                           ringbuffer_invalid: &BA,
                            ringbuffer_mask: usize);
 }
 
-pub fn StitchToPreviousBlockInternal<T: AnyHasher>(handle: &mut T,
+pub fn StitchToPreviousBlockInternal<T: AnyHasher,
+                                     BA: BitArrayTrait>(handle: &mut T,
                                                    num_bytes: usize,
                                                    position: usize,
                                                    ringbuffer: &[u8],
+                                                   ringbuffer_invalid: &BA,
                                                    ringbuffer_mask: usize) {
   if num_bytes >= handle.HashTypeLength().wrapping_sub(1) && (position >= 3) {
-    handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(3));
-    handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(2));
-    handle.Store(ringbuffer, ringbuffer_mask, position.wrapping_sub(1));
+    handle.Store(ringbuffer, ringbuffer_invalid, ringbuffer_mask, position.wrapping_sub(3));
+    handle.Store(ringbuffer, ringbuffer_invalid, ringbuffer_mask, position.wrapping_sub(2));
+    handle.Store(ringbuffer, ringbuffer_invalid, ringbuffer_mask, position.wrapping_sub(1));
   }
 }
 
-pub fn StoreLookaheadThenStore<T: AnyHasher>(hasher: &mut T, size: usize, dict: &[u8]) {
+pub fn StoreLookaheadThenStore<T: AnyHasher,
+                               BA: BitArrayTrait>(hasher: &mut T, size: usize, dict: &[u8], dict_valid: &BA) {
   let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
   let mut i: usize = 0;
   while i.wrapping_add(overlap) < size {
-    hasher.Store(dict, !(0usize), i);
+    hasher.Store(dict, dict_valid, !(0usize), i);
     i = i.wrapping_add(1 as (usize));
   }
 }
@@ -160,12 +165,13 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
   fn StoreLookahead(&self) -> usize {
     8
   }
-  fn StitchToPreviousBlock(&mut self,
-                           num_bytes: usize,
-                           position: usize,
-                           ringbuffer: &[u8],
-                           ringbuffer_mask: usize) {
-    StitchToPreviousBlockInternal(self, num_bytes, position, ringbuffer, ringbuffer_mask);
+  fn StitchToPreviousBlock<BA: BitArrayTrait>(&mut self,
+                                              num_bytes: usize,
+                                              position: usize,
+                                              ringbuffer: &[u8],
+                                              ringbuffer_invalid: &BA,
+                                              ringbuffer_mask: usize) {
+    StitchToPreviousBlockInternal(self, num_bytes, position, ringbuffer, ringbuffer_invalid, ringbuffer_mask);
   }
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
     return &mut self.GetHasherCommon;
@@ -173,18 +179,22 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
   fn HashBytes(&self, data: &[u8]) -> usize {
     self.buckets_.HashBytes(data) as usize
   }
-  fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-    let (_, data_window) = data.split_at((ix & mask) as (usize));
+  fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize) {
+    let start_index = (ix & mask) as (usize);
+    let (_, data_window) = data.split_at(start_index);
+    if data_invalid.first_set(start_index, start_index + self.HashTypeLength()) != start_index + self.HashTypeLength() {
+          return // not valid to insert into hash table, don't want to clutter it
+    }
     let key: u32 = self.HashBytes(data_window) as u32;
     let off: u32 = (ix >> 3i32).wrapping_rem(self.buckets_.BUCKET_SWEEP() as usize) as (u32);
     self.buckets_.slice_mut()[key.wrapping_add(off) as (usize)] = ix as (u32);
   }
-  fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+  fn StoreRange<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix_start: usize, ix_end: usize) {
     let mut i: usize;
     i = ix_start;
     while i < ix_end {
       {
-        self.Store(data, mask, i);
+        self.Store(data, data_invalid, mask, i);
       }
       i = i.wrapping_add(1 as (usize));
     }
@@ -681,17 +691,21 @@ impl<AllocU16: alloc::Allocator<u16>,
         is_match_found != 0
     }
 
-    fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-        let (_, data_window) = data.split_at((ix & mask) as (usize));
+    fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize) {
+        let start_index = (ix & mask);
+        let (_, data_window) = data.split_at(start_index as (usize));
+        if data_invalid.first_set(start_index, start_index + self.HashTypeLength()) != start_index + 4 {
+            return // not valid to insert into hash table, don't want to clutter it
+        }
         let key: u32 = self.HashBytes(data_window) as u32;
         let self_num_key = &mut self.num_.slice_mut()[key as usize];
         let minor_ix: usize = (*self_num_key as usize & H9_BLOCK_MASK);
         self.buckets_.slice_mut()[minor_ix.wrapping_add((key as usize) << H9_BLOCK_BITS)] = ix as u32;
         *self_num_key = self_num_key.wrapping_add(1);
     }
-    fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+    fn StoreRange<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix_start: usize, ix_end: usize) {
         for i in ix_start..ix_end {
-            self.Store(data, mask, i);
+            self.Store(data, data_invalid, mask, i);
         }
     }
     fn Prepare(&mut self, _one_shot: bool, _input_size:usize, _data:&[u8]) ->HowPrepared {
@@ -704,15 +718,17 @@ impl<AllocU16: alloc::Allocator<u16>,
         self.GetHasherCommon().is_prepared_ = 1;
         HowPrepared::NEWLY_PREPARED
     }
-    fn StitchToPreviousBlock(&mut self,
-                             num_bytes: usize,
-                             position: usize,
-                             ringbuffer: &[u8],
-                             ringbuffer_mask: usize) {
+    fn StitchToPreviousBlock<BA:BitArrayTrait>(&mut self,
+                                               num_bytes: usize,
+                                               position: usize,
+                                               ringbuffer: &[u8],
+                                               ringbuffer_invalid: &BA,
+                                               ringbuffer_mask: usize) {
         StitchToPreviousBlockInternal(self,
                                       num_bytes,
                                       position,
                                       ringbuffer,
+                                      ringbuffer_invalid,
                                       ringbuffer_mask)
     }
 }
@@ -798,15 +814,17 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
     let num_distances = self.GetHasherCommon.params.num_last_distances_to_check;
     adv_prepare_distance_cache(distance_cache, num_distances);
   }
-  fn StitchToPreviousBlock(&mut self,
-                           num_bytes: usize,
-                           position: usize,
-                           ringbuffer: &[u8],
-                           ringbuffer_mask: usize) {
+  fn StitchToPreviousBlock<BA:BitArrayTrait>(&mut self,
+                                             num_bytes: usize,
+                                             position: usize,
+                                             ringbuffer: &[u8],
+                                             ringbuffer_invalid: &BA,
+                                             ringbuffer_mask: usize) {
       StitchToPreviousBlockInternal(self,
                                     num_bytes,
                                     position,
                                     ringbuffer,
+                                    ringbuffer_invalid,
                                     ringbuffer_mask);
   }
   fn Prepare(&mut self, one_shot: bool, input_size:usize, data:&[u8]) ->HowPrepared {
@@ -842,8 +860,12 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
     let h: u64 = self.specialization.load_and_mix_word(data);
     (h >> shift) as (u32) as usize
   }
-  fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-    let (_, data_window) = data.split_at((ix & mask) as (usize));
+  fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize) {
+    let start_index = (ix & mask) as (usize);
+    let (_, data_window) = data.split_at(start_index);
+    if data_invalid.first_set(start_index, start_index + self.HashTypeLength()) != start_index + self.HashTypeLength() {
+          return // not valid to insert into hash table, don't want to clutter it
+    }
     let key: u32 = self.HashBytes(data_window) as u32;
     let minor_ix: usize = (self.num.slice()[(key as (usize))] as (u32) & (*self).block_mask_) as (usize);
     let offset: usize = minor_ix.wrapping_add((key << (self.GetHasherCommon).params.block_bits) as
@@ -854,9 +876,9 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
       *_lhs = (*_lhs as (i32) + 1) as (u16);
     }
   }
-  fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+  fn StoreRange<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid:&BA, mask: usize, ix_start: usize, ix_end: usize) {
     for i in ix_start..ix_end {
-      self.Store(data, mask, i);
+      self.Store(data, data_invalid, mask, i);
     }
   }
 
@@ -1238,16 +1260,18 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
   fn PrepareDistanceCache(&self, distance_cache: &mut [i32]) {
     return match_all_hashers!(self, PrepareDistanceCache, distance_cache);
   }
-  fn StitchToPreviousBlock(&mut self,
+  fn StitchToPreviousBlock<BA:BitArrayTrait>(&mut self,
                            num_bytes: usize,
                            position: usize,
-                           ringbuffer: &[u8],
+                               ringbuffer: &[u8],
+                               ringbuffer_invalid:&BA,
                            ringbuffer_mask: usize) {
     return match_all_hashers_mut!(self,
                                   StitchToPreviousBlock,
                                   num_bytes,
                                   position,
                                   ringbuffer,
+                                  ringbuffer_invalid,
                                   ringbuffer_mask);
   }
   fn FindLongestMatch(&mut self,
@@ -1273,11 +1297,11 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
                                   max_backward,
                                   out);
   }
-  fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-    return match_all_hashers_mut!(self, Store, data, mask, ix);
+  fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize) {
+    return match_all_hashers_mut!(self, Store, data, data_invalid, mask, ix);
   }
-  fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-    return match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end);
+  fn StoreRange<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix_start: usize, ix_end: usize) {
+    return match_all_hashers_mut!(self, StoreRange, data, data_invalid, mask, ix_start, ix_end);
   }
 }
 impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> Default
@@ -1303,11 +1327,13 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> Default
           },
           })
           */
-fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
+fn CreateBackwardReferences<AH: AnyHasher,
+                            BA: BitArrayTrait>(dictionary: &BrotliDictionary,
                                            dictionary_hash: &[u16],
                                            num_bytes: usize,
                                            mut position: usize,
                                            ringbuffer: &[u8],
+                                           ringbuffer_invalid: &BA,
                                            ringbuffer_mask: usize,
                                            params: &BrotliEncoderParams,
                                            hasher: &mut AH,
@@ -1427,6 +1453,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
       *num_literals = (*num_literals).wrapping_add(insert_length);
       insert_length = 0usize;
       hasher.StoreRange(ringbuffer,
+                        ringbuffer_invalid,
                         ringbuffer_mask,
                         position.wrapping_add(2usize),
                         brotli_min_size_t(position.wrapping_add(sr.len), store_end));
@@ -1444,7 +1471,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                                   pos_end.wrapping_sub(kMargin));
           while position < pos_jump {
             {
-              hasher.Store(ringbuffer, ringbuffer_mask, position);
+              hasher.Store(ringbuffer, ringbuffer_invalid, ringbuffer_mask, position);
               insert_length = insert_length.wrapping_add(4usize);
             }
             position = position.wrapping_add(4usize);
@@ -1456,7 +1483,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                                   pos_end.wrapping_sub(kMargin));
           while position < pos_jump {
             {
-              hasher.Store(ringbuffer, ringbuffer_mask, position);
+              hasher.Store(ringbuffer, ringbuffer_invalid, ringbuffer_mask, position);
               insert_length = insert_length.wrapping_add(2usize);
             }
             position = position.wrapping_add(2usize);
@@ -1470,11 +1497,13 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
   *num_commands = (*num_commands).wrapping_add(new_commands_count);
 }
 pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
-                                      AllocU32: alloc::Allocator<u32>>
+                                      AllocU32: alloc::Allocator<u32>,
+                                      BA:BitArrayTrait>
   (dictionary: &BrotliDictionary,
    num_bytes: usize,
    position: usize,
    ringbuffer: &[u8],
+   ringbuffer_invalid: &BA,
    ringbuffer_mask: usize,
    params: &BrotliEncoderParams,
    hasher_union: &mut UnionHasher<AllocU16, AllocU32>,
@@ -1491,6 +1520,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_bytes,
                                position,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                params,
                                hasher,
@@ -1506,6 +1536,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_bytes,
                                position,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                params,
                                hasher,
@@ -1521,6 +1552,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_bytes,
                                position,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                params,
                                hasher,
@@ -1536,6 +1568,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_bytes,
                                position,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                params,
                                hasher,
@@ -1551,6 +1584,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_bytes,
                                position,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                params,
                                hasher,
@@ -1566,6 +1600,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_bytes,
                                position,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                params,
                                hasher,
@@ -1581,6 +1616,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                                num_bytes,
                                position,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                params,
                                hasher,

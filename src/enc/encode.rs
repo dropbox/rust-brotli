@@ -6,6 +6,7 @@ use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionH
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 
 use super::vectorization::Mem256f;
+use super::bit_array::{BitArray, AlwaysZero, BitArrayTrait};
 use super::interface;
 use super::bit_cost::{BitsEntropy, ShannonEntropy};
 #[allow(unused_imports)]
@@ -30,7 +31,7 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
 use core;
-
+static zero_24mb:[u8;24 * 1024 * 1024] = [0u8;24 * 1024 * 1024];// wasteful but lets just run with it for now
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
 //                                          dictionary: &[BrotliDictionary],
 //                                          num_bytes: usize,
@@ -88,14 +89,16 @@ pub enum BrotliEncoderParameter {
 }
 
 
-pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
+pub struct RingBuffer<AllocU8: alloc::Allocator<u8>,
+                      AllocU32:alloc::Allocator<u32>> {
   pub size_: u32,
   pub mask_: u32,
   pub tail_size_: u32,
   pub total_size_: u32,
   pub cur_size_: u32,
   pub pos_: u32,
-  pub data_mo: AllocU8::AllocatedMemory,
+  pub data_: AllocU8::AllocatedMemory,
+  pub data_invalid_: BitArray<AllocU8, AllocU32>,
   pub buffer_index: usize,
 }
 
@@ -168,7 +171,7 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub mc: AllocCommand,
   pub hasher_: UnionHasher<AllocU16, AllocU32>,
   pub input_pos_: u64,
-  pub ringbuffer_: RingBuffer<AllocU8>,
+  pub ringbuffer_: RingBuffer<AllocU8, AllocU32>,
   pub cmd_alloc_size_: usize,
   pub commands_: AllocCommand::AllocatedMemory, // not sure about this one
   pub num_commands_: usize,
@@ -289,7 +292,9 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
 }
 
 
-fn RingBufferInit<AllocU8: alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
+fn RingBufferInit<AllocU8: alloc::Allocator<u8>,
+                  AllocU32: alloc::Allocator<u32>>() -> RingBuffer<AllocU8,
+                                                                   AllocU32> {
   return RingBuffer {
            size_: 0,
            mask_: 0, // 0xff??
@@ -298,7 +303,8 @@ fn RingBufferInit<AllocU8: alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
 
            cur_size_: 0,
            pos_: 0,
-           data_mo: AllocU8::AllocatedMemory::default(),
+           data_: AllocU8::AllocatedMemory::default(),
+           data_invalid_: BitArray::<AllocU8, AllocU32>::default(),
            buffer_index: 0usize,
          };
 }
@@ -364,9 +370,12 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
   }
 }
 
-fn RingBufferFree<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
-                                                 rb: &mut RingBuffer<AllocU8>) {
-  m.free_cell(core::mem::replace(&mut rb.data_mo, AllocU8::AllocatedMemory::default()));
+fn RingBufferFree<AllocU8: alloc::Allocator<u8>,
+                  AllocU32: alloc::Allocator<u32>>(m: &mut AllocU8,
+                                                   m32: &mut AllocU32,
+                                                 rb: &mut RingBuffer<AllocU8, AllocU32>) {
+    m.free_cell(core::mem::replace(&mut rb.data_, AllocU8::AllocatedMemory::default()));
+    rb.data_invalid_.free(m, m32);
 }
 
 fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>(
@@ -415,7 +424,7 @@ fn BrotliEncoderCleanupState<AllocU8: alloc::Allocator<u8>,
     s.mc.free_cell(core::mem::replace(&mut (*s).commands_,
                                       AllocCommand::AllocatedMemory::default()));
   }
-  RingBufferFree(&mut s.m8, &mut (*s).ringbuffer_);
+  RingBufferFree(&mut s.m8, &mut s.m32, &mut (*s).ringbuffer_);
   DestroyHasher(&mut s.m16, &mut s.m32, &mut (*s).hasher_);
   {
     s.mi32.free_cell(core::mem::replace(&mut (*s).large_table_,
@@ -477,8 +486,9 @@ fn ComputeRbBits(params: &BrotliEncoderParams) -> i32 {
   1i32 + brotli_max_int((*params).lgwin, (*params).lgblock)
 }
 
-fn RingBufferSetup<AllocU8: alloc::Allocator<u8>>(params: &BrotliEncoderParams,
-                                                  rb: &mut RingBuffer<AllocU8>) {
+fn RingBufferSetup<AllocU8: alloc::Allocator<u8>,
+                   AllocU32: alloc::Allocator<u32>>(params: &BrotliEncoderParams,
+                                                  rb: &mut RingBuffer<AllocU8, AllocU32>) {
   let window_bits: i32 = ComputeRbBits(params);
   let tail_bits: i32 = (*params).lgblock;
   *(&mut (*rb).size_) = 1u32 << window_bits;
@@ -858,29 +868,34 @@ fn EnsureInitialized<AllocU8: alloc::Allocator<u8>,
   1i32
 }
 
-fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
-                                                       buflen: u32,
-                                                       rb: &mut RingBuffer<AllocU8>) {
+fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>,
+                        AllocU32: alloc::Allocator<u32>>(m: &mut AllocU8,
+                                                         m32: &mut AllocU32,
+                                                         buflen: u32,
+                                                         rb: &mut RingBuffer<AllocU8,
+                                                                             AllocU32>) {
   static kSlackForEightByteHashingEverywhere: usize = 7usize;
+  let internal_size = ((2u32).wrapping_add(buflen) as (usize))
+        .wrapping_add(kSlackForEightByteHashingEverywhere);
   let mut new_data =
-    m.alloc_cell(((2u32).wrapping_add(buflen) as (usize))
-                   .wrapping_add(kSlackForEightByteHashingEverywhere));
+    m.alloc_cell(internal_size);
   let mut i: usize;
-  if (*rb).data_mo.slice().len() != 0 {
+  if (*rb).data_.slice().len() != 0 {
     let lim: usize = ((2u32).wrapping_add((*rb).cur_size_) as (usize))
       .wrapping_add(kSlackForEightByteHashingEverywhere);
-    new_data.slice_mut()[..lim].clone_from_slice(&(*rb).data_mo.slice()[..lim]);
-    m.free_cell(core::mem::replace(&mut (*rb).data_mo, AllocU8::AllocatedMemory::default()));
+    new_data.slice_mut()[..lim].clone_from_slice(&(*rb).data_.slice()[..lim]);
+    m.free_cell(core::mem::replace(&mut (*rb).data_, AllocU8::AllocatedMemory::default()));
   }
-  core::mem::replace(&mut (*rb).data_mo, new_data);
+  core::mem::replace(&mut (*rb).data_, new_data);
   (*rb).cur_size_ = buflen;
   (*rb).buffer_index = 2usize;
-  (*rb).data_mo.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize))] = 0;
-  (*rb).data_mo.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize))] = 0;
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize))] = 0;
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize))] = 0;
+  (*rb).data_invalid_.resize(m, m32, internal_size);
   i = 0usize;
   while i < kSlackForEightByteHashingEverywhere {
     {
-      (*rb).data_mo.slice_mut()[((*rb)
+      (*rb).data_.slice_mut()[((*rb)
          .buffer_index
          .wrapping_add((*rb).cur_size_ as (usize))
          .wrapping_add(i) as (usize))] = 0;
@@ -890,74 +905,93 @@ fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
 }
 
 
-fn RingBufferWriteTail<AllocU8: alloc::Allocator<u8>>(bytes: &[u8],
-                                                      n: usize,
-                                                      rb: &mut RingBuffer<AllocU8>) {
+fn RingBufferWriteTail<AllocU8: alloc::Allocator<u8>,
+                       AllocU32: alloc::Allocator<u32>>(bytes: &[u8],
+                                                        invalid_mask: &[u8],
+                                                        n: usize,
+                                                        rb: &mut RingBuffer<AllocU8, AllocU32>) {
   let masked_pos: usize = ((*rb).pos_ & (*rb).mask_) as (usize);
   if masked_pos < (*rb).tail_size_ as (usize) {
     let p: usize = ((*rb).size_ as (usize)).wrapping_add(masked_pos);
     let begin = ((*rb).buffer_index.wrapping_add(p) as (usize));
     let lim = brotli_min_size_t(n, ((*rb).tail_size_ as (usize)).wrapping_sub(masked_pos));
-    (*rb).data_mo.slice_mut()[begin..(begin + lim)].clone_from_slice(&bytes[..lim]);
+    (*rb).data_.slice_mut().split_at_mut(begin).1.split_at_mut(lim).0.clone_from_slice(bytes.split_at(lim).0);
+    (*rb).data_invalid_.copy_from_byte_slice(begin, &invalid_mask.split_at(lim).0);
   }
 }
 
-fn RingBufferWrite<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
-                                                  bytes: &[u8],
+fn RingBufferWrite<AllocU8: alloc::Allocator<u8>,
+                   AllocU32: alloc::Allocator<u32>>(m: &mut AllocU8,
+                                                    m32: &mut AllocU32,
+                                                    bytes: &[u8],
+                                                    invalid_mask: &[u8],
                                                   n: usize,
-                                                  rb: &mut RingBuffer<AllocU8>) {
+                                                    rb: &mut RingBuffer<AllocU8,
+                                                                        AllocU32>) {
   if (*rb).pos_ == 0u32 && (n < (*rb).tail_size_ as (usize)) {
     (*rb).pos_ = n as (u32);
-    RingBufferInitBuffer(m, (*rb).pos_, rb);
-    (*rb).data_mo.slice_mut()[((*rb).buffer_index as (usize))..(((*rb).buffer_index as (usize)) + n)]
-      .clone_from_slice(&bytes[..n]);
+    RingBufferInitBuffer(m, m32, (*rb).pos_, rb);
+    (*rb).data_.slice_mut().split_at_mut((*rb).buffer_index as (usize)).1.split_at_mut(n).0
+          .clone_from_slice(&bytes[..n]);
+    (*rb).data_invalid_.copy_from_byte_slice((*rb).buffer_index as (usize),
+                                             &invalid_mask.split_at(n).0);  
     return;
   }
   if (*rb).cur_size_ < (*rb).total_size_ {
-    RingBufferInitBuffer(m, (*rb).total_size_, rb);
-    if !(0i32 == 0) {
-      return;
-    }
-    (*rb).data_mo.slice_mut()[((*rb)
-       .buffer_index
-       .wrapping_add((*rb).size_ as (usize))
-       .wrapping_sub(2usize) as (usize))] = 0i32 as (u8);
-    (*rb).data_mo.slice_mut()[((*rb)
-       .buffer_index
-       .wrapping_add((*rb).size_ as (usize))
-       .wrapping_sub(1usize) as (usize))] = 0i32 as (u8);
+    RingBufferInitBuffer(m, m32, (*rb).total_size_, rb);
+    let zerozero = [0u8, 0u8];
+      (*rb).data_.slice_mut().split_at_mut(
+          (*rb).buffer_index
+              .wrapping_add((*rb).size_ as usize)
+              .wrapping_sub(2)).1.split_at_mut(2).0.clone_from_slice(&zerozero[..]);
+      (*rb).data_invalid_.copy_from_byte_slice((*rb).buffer_index.wrapping_add((*rb).size_ as usize).wrapping_sub(2),
+                                               &zerozero[..]);
   }
   {
     let masked_pos: usize = ((*rb).pos_ & (*rb).mask_) as (usize);
-    RingBufferWriteTail(bytes, n, rb);
+    RingBufferWriteTail(bytes, invalid_mask, n, rb);
     if masked_pos.wrapping_add(n) <= (*rb).size_ as (usize) {
       // a single write fits
       let start = ((*rb).buffer_index.wrapping_add(masked_pos) as (usize));
-      (*rb).data_mo.slice_mut()[start..(start + n)].clone_from_slice(&bytes[..n]);
+      (*rb).data_.slice_mut()[start..(start + n)].clone_from_slice(&bytes[..n]);
+      (*rb).data_invalid_.copy_from_byte_slice(start, &invalid_mask[..n]);
     } else {
       {
         let start = ((*rb).buffer_index.wrapping_add(masked_pos) as (usize));
         let mid = brotli_min_size_t(n, ((*rb).total_size_ as (usize)).wrapping_sub(masked_pos));
-        (*rb).data_mo.slice_mut()[start..(start + mid)].clone_from_slice(&bytes[..mid]);
+        (*rb).data_.slice_mut()[start..(start + mid)].clone_from_slice(&bytes[..mid]);
+        (*rb).data_invalid_.copy_from_byte_slice(start, &invalid_mask[..mid]);
       }
       let xstart = ((*rb).buffer_index.wrapping_add(0usize) as (usize));
       let size = n.wrapping_sub(((*rb).size_ as (usize)).wrapping_sub(masked_pos));
       let bytes_start = (((*rb).size_ as (usize)).wrapping_sub(masked_pos) as (usize));
-      (*rb).data_mo.slice_mut()[xstart..(xstart + size)].clone_from_slice(&bytes[bytes_start..
+      (*rb).data_.slice_mut()[xstart..(xstart + size)].clone_from_slice(&bytes[bytes_start..
                                                                          (bytes_start +
                                                                           size)]);
+      (*rb).data_invalid_.copy_from_byte_slice(xstart, &invalid_mask[bytes_start..
+                                                                     (bytes_start +
+                                                                      size)]);
     }
   }
-  let data_2 = (*rb).data_mo.slice()[((*rb)
+  let read_start = ((*rb)
      .buffer_index
      .wrapping_add((*rb).size_ as (usize))
-     .wrapping_sub(2usize) as (usize))];
-  (*rb).data_mo.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize) as (usize))] = data_2;
-  let data_1 = (*rb).data_mo.slice()[((*rb)
-     .buffer_index
-     .wrapping_add((*rb).size_ as (usize))
-     .wrapping_sub(1usize) as (usize))];
-  (*rb).data_mo.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize) as (usize))] = data_1;
+     .wrapping_sub(2usize) as (usize));
+  let data_2 = (*rb).data_.slice()[read_start];
+  let mut invalid_tmp = [0u8, 0u8];
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize) as (usize))] = data_2;
+  let data_1 = (*rb).data_.slice()[read_start + 1];
+  (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize) as (usize))] = data_1;
+  // read invalid buffer and copy end bytes to the beginning of the ring buffer
+  let first_set = (*rb).data_invalid_.first_set(read_start, read_start + 2);
+  if first_set != read_start + 2 {
+      invalid_tmp[first_set - read_start] = 0xff;
+      let second_set = (*rb).data_invalid_.first_set(read_start+ 1, read_start + 2);
+      if second_set != read_start + 2 {
+          invalid_tmp[1] = 0xff;
+      }
+  }
+  (*rb).data_invalid_.copy_from_byte_slice((*rb).buffer_index.wrapping_sub(2usize), &invalid_tmp[..]);
   (*rb).pos_ = (*rb).pos_.wrapping_add(n as (u32));
   if (*rb).pos_ > 1u32 << 30i32 {
     (*rb).pos_ = (*rb).pos_ & (1u32 << 30i32).wrapping_sub(1u32) | 1u32 << 30i32;
@@ -971,21 +1005,20 @@ fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
                          AllocCommand: alloc::Allocator<Command>>
   (s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
    input_size: usize,
-   input_buffer: &[u8]) {
+   input_buffer: &[u8],
+   invalid_byte_mask: &[u8]) {
   if EnsureInitialized(s) == 0 {
     return;
   }
-  RingBufferWrite(&mut s.m8, input_buffer, input_size, &mut s.ringbuffer_);
-  if !(0i32 == 0) {
-    return;
-  }
+  RingBufferWrite(&mut s.m8, &mut s.m32, input_buffer, invalid_byte_mask, input_size, &mut s.ringbuffer_);
+
   (*s).input_pos_ = (*s).input_pos_.wrapping_add(input_size as u64);
   if (s.ringbuffer_).pos_ <= (s.ringbuffer_).mask_ {
     let start = ((s.ringbuffer_).buffer_index.wrapping_add((s.ringbuffer_).pos_ as (usize)) as
                  (usize));
-    for item in (s.ringbuffer_).data_mo.slice_mut()[start..(start + 7)].iter_mut() {
-      *item = 0;
-    }
+    let zeros = [0u8;7];
+    (s.ringbuffer_).data_.slice_mut()[start..(start + 7)].clone_from_slice(&zeros[..]);
+    (s.ringbuffer_).data_invalid_.copy_from_byte_slice(start, &zeros[..]); // set these zeros valid
   }
 }
 
@@ -1251,22 +1284,25 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
   }
 }
 
-fn HasherPrependCustomDictionary<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+fn HasherPrependCustomDictionary<AllocU16: alloc::Allocator<u16>,
+                                 AllocU32: alloc::Allocator<u32>,
+                                 BA:BitArrayTrait>
   (m16: &mut AllocU16,
    m32: &mut AllocU32,
    handle: &mut UnionHasher<AllocU16, AllocU32>,
    params: &mut BrotliEncoderParams,
    size: usize,
-   dict: &[u8]) {
+   dict: &[u8],
+   dict_invalid: &BA) {
   HasherSetup(m16, m32, handle, params, dict, 0usize, size, 0i32);
   match handle {
-    &mut UnionHasher::H2(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
-    &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
-    &mut UnionHasher::H4(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
-    &mut UnionHasher::H5(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
-    &mut UnionHasher::H6(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
-    &mut UnionHasher::H9(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
-    &mut UnionHasher::H54(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H2(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict, dict_invalid),
+    &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict, dict_invalid),
+    &mut UnionHasher::H4(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict, dict_invalid),
+    &mut UnionHasher::H5(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict, dict_invalid),
+    &mut UnionHasher::H6(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict, dict_invalid),
+    &mut UnionHasher::H9(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict, dict_invalid),
+    &mut UnionHasher::H54(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict, dict_invalid),
     &mut UnionHasher::Uninit => panic!("Uninitialized"),
   }
 }
@@ -1291,7 +1327,9 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
     dict = &dict[(size.wrapping_sub(max_dict_size) as (usize))..];
     dict_size = max_dict_size;
   }
-  CopyInputToRingBuffer(s, dict_size, dict);
+  let all_valid = s.ringbuffer_.data_invalid_.allocate_valid_range(&mut s.m8, dict_size); // can mock this out
+  CopyInputToRingBuffer(s, dict_size, dict, all_valid.slice());
+  s.m8.free_cell(all_valid); // wasteful...but this only happens once
   (*s).last_flush_pos_ = dict_size as u64;
   (*s).last_processed_pos_ = dict_size as u64;
   if dict_size > 0 {
@@ -1307,7 +1345,8 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
                                 &mut (*s).hasher_,
                                 &mut (*s).params,
                                 dict_size,
-                                dict);
+                                dict,
+                                &AlwaysZero{size:dict_size}); // FIXME: allow invalid in dictionary
 }
 
 
@@ -1330,11 +1369,14 @@ pub fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
   if result < input_size { 0usize } else { result }
 }
 
-fn InitOrStitchToPreviousBlock<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
+fn InitOrStitchToPreviousBlock<AllocU16: alloc::Allocator<u16>,
+                               AllocU32: alloc::Allocator<u32>,
+                               BA: BitArrayTrait>
   (m16: &mut AllocU16,
    m32: &mut AllocU32,
    handle: &mut UnionHasher<AllocU16, AllocU32>,
    data: &[u8],
+   data_invalid: &BA,
    mask: usize,
    params: &mut BrotliEncoderParams,
    position: usize,
@@ -1348,7 +1390,7 @@ fn InitOrStitchToPreviousBlock<AllocU16: alloc::Allocator<u16>, AllocU32: alloc:
               position,
               input_size,
               is_last);
-  handle.StitchToPreviousBlock(input_size, position, data, mask);
+  handle.StitchToPreviousBlock(input_size, position, data, data_invalid, mask);
 }
 
 
@@ -2705,8 +2747,10 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     }
     GetBrotliStorage(s,
                      (2u32).wrapping_mul(bytes).wrapping_add(502u32) as (usize));
-    let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
-      
+    let data = &mut (*s).ringbuffer_.data_.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
+    let invalid_len = (*s).ringbuffer_.data_invalid_.len();
+    let data_valid = &mut (*s).ringbuffer_.data_invalid_.view_mut(((*s).ringbuffer_.buffer_index as (usize)), invalid_len);
+
     (*s).storage_.slice_mut()[(0usize)] = (*s).last_byte_;
     table = GetHashTable!(s, (*s).params.quality, bytes as (usize), &mut table_size);
     if (*s).params.quality == 0i32 {
@@ -2757,9 +2801,11 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
       (*s).commands_ = new_commands;
     }
   }
+  let data_invalid_len = (*s).ringbuffer_.data_invalid_.len();
   InitOrStitchToPreviousBlock(&mut (*s).m16, &mut (*s).m32,
                               &mut (*s).hasher_,
-                              &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as (usize))..],
+                              &mut (*s).ringbuffer_.data_.slice_mut()[((*s).ringbuffer_.buffer_index as (usize))..],
+                              &(*s).ringbuffer_.data_invalid_.view_mut(((*s).ringbuffer_.buffer_index as (usize)), data_invalid_len),
                               mask as (usize),
                               &mut (*s).params,
                               wrapped_last_processed_pos as (usize),
@@ -2796,10 +2842,12 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                            &mut (*s).num_commands_,
                                            &mut (*s).num_literals_);"####);
   } else {
+    let data_invalid_len = (*s).ringbuffer_.data_invalid_.len();
     BrotliCreateBackwardReferences(&dictionary,
                                    bytes as (usize),
                                    wrapped_last_processed_pos as (usize),
-                                   &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
+                                   &mut (*s).ringbuffer_.data_.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
+                                   &(*s).ringbuffer_.data_invalid_.view_mut(((*s).ringbuffer_.buffer_index as usize), data_invalid_len),
                                    mask as (usize),
                                    &mut (*s).params,
                                    &mut (*s).hasher_,
@@ -2858,7 +2906,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     let mut storage_ix: usize = (*s).last_byte_bits_ as (usize);
     (*s).storage_.slice_mut()[(0usize)] = (*s).last_byte_;
     WriteMetaBlockInternal(&mut (*s).m8, &mut (*s).m16, &mut (*s).m32, mf64, mfv, mhl, mhc, mhd, mhp, mct, mht,
-                           &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
+                           &mut (*s).ringbuffer_.data_.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                            mask as (usize),
                            (*s).last_flush_pos_,
                            metablock_size as (usize),
@@ -2885,7 +2933,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     if UpdateLastProcessedPos(s) != 0 {
       HasherReset(&mut (*s).hasher_);
     }
-    let data = &(*s).ringbuffer_.data_mo.slice()[(*s).ringbuffer_.buffer_index as usize..];
+    let data = &(*s).ringbuffer_.data_.slice()[(*s).ringbuffer_.buffer_index as usize..];
     if (*s).last_flush_pos_ > 0 {
       (*s).prev_byte_ = data[((((*s).last_flush_pos_ as (u32)).wrapping_sub(1u32) & mask) as
        (usize))];
@@ -3327,7 +3375,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
     let remaining_block_size: usize = RemainingInputBlockSize(s);
     if remaining_block_size != 0usize && (*available_in != 0usize) {
       let copy_input_size: usize = brotli_min_size_t(remaining_block_size, *available_in);
-      CopyInputToRingBuffer(s, copy_input_size, &next_in_array[*next_in_offset..]);
+      CopyInputToRingBuffer(s, copy_input_size, &next_in_array[*next_in_offset..], &zero_24mb[..]);
       *next_in_offset += copy_input_size as (usize);
       *available_in = (*available_in).wrapping_sub(copy_input_size);
       {
@@ -3475,7 +3523,7 @@ pub fn BrotliEncoderCopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
                      AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
                                           input_size: usize,
                                           input_buffer: &[u8]) {
-  CopyInputToRingBuffer(s, input_size, input_buffer);
+  CopyInputToRingBuffer(s, input_size, input_buffer, &zero_24mb[..]);
 }
 
 
