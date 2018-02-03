@@ -6,7 +6,7 @@ use super::static_dict::BrotliDictionary;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{Log2FloorNonZero, brotli_max_size_t};
-use super::bit_array::{BitArrayTrait};
+use super::bit_array::{BitArrayTrait, AlwaysZero};
 use core;
 static kBrotliMinWindowBits: i32 = 10i32;
 
@@ -97,10 +97,11 @@ pub trait AnyHasher {
   fn HashTypeLength(&self) -> usize;
   fn StoreLookahead(&self) -> usize;
   fn PrepareDistanceCache(&self, distance_cache: &mut [i32]);
-  fn FindLongestMatch(&mut self,
+  fn FindLongestMatch<BV:BitArrayTrait>(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
                       data: &[u8],
+                      data_invalid:&BV,
                       ring_buffer_mask: usize,
                       distance_cache: &[i32],
                       cur_ix: usize,
@@ -221,10 +222,11 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
     HowPrepared::NEWLY_PREPARED
   }
 
-  fn FindLongestMatch(&mut self,
+  fn FindLongestMatch<BV:BitArrayTrait>(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
                       data: &[u8],
+                      data_invalid: &BV,
                       ring_buffer_mask: usize,
                       distance_cache: &[i32],
                       cur_ix: usize,
@@ -247,6 +249,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
       if compare_char == data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
         let len: usize = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
                                                   &data[(cur_ix_masked as (usize))..],
+                                                  data_invalid,
+                                                  prev_ix as usize,
                                                   max_length);
         if len >= 4usize {
           best_score = BackwardReferenceScoreUsingLastDistance(len);
@@ -280,6 +284,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
       }
       len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
                                      &data[(cur_ix_masked as (usize))..],
+                                     data_invalid,
+                                     prev_ix as usize,
                                      max_length);
       if len >= 4usize {
         (*out).len = len;
@@ -311,6 +317,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
             }
             len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
                                            &data[(cur_ix_masked as (usize))..],
+                                           data_invalid,
+                                           prev_ix as usize,
                                            max_length);
             if len >= 4usize {
               let score: usize = BackwardReferenceScore(len, backward);
@@ -577,10 +585,11 @@ impl<AllocU16: alloc::Allocator<u16>,
         let num_distances = H9_NUM_LAST_DISTANCES_TO_CHECK as i32;
         adv_prepare_distance_cache(distance_cache, num_distances);
     }
-    fn FindLongestMatch(&mut self,
+    fn FindLongestMatch<BV:BitArrayTrait>(&mut self,
                         dictionary: &BrotliDictionary,
                         dictionary_hash: &[u16],
                         data: &[u8],
+                        data_invalid: &BV,
                         ring_buffer_mask: usize,
                         distance_cache: &[i32],
                         cur_ix: usize,
@@ -613,6 +622,8 @@ impl<AllocU16: alloc::Allocator<u16>,
             {
                 let len: usize = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
                                                           &data[(cur_ix_masked as (usize))..],
+                                                          data_invalid,
+                                                          prev_ix as usize,
                                                           max_length);
                 if len >= 3 || (len == 2 && i < 2) {
                     let score = BackwardReferenceScoreUsingLastDistanceH9(len, i);
@@ -653,6 +664,8 @@ impl<AllocU16: alloc::Allocator<u16>,
                 {
                     let len = FindMatchLengthWithLimit(&data.split_at(prev_ix).1,
                                                        &data.split_at((cur_ix_masked as usize)).1,
+                                                       data_invalid,
+                                                       prev_ix as usize,
                                                        max_length);
                     if (len >= 4) {
                         /* Comparing for >= 3 does not change the semantics, but just saves
@@ -882,10 +895,11 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
     }
   }
 
-  fn FindLongestMatch(&mut self,
+  fn FindLongestMatch<BV:BitArrayTrait>(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
                       data: &[u8],
+                      data_invalid:&BV,
                       ring_buffer_mask: usize,
                       distance_cache: &[i32],
                       cur_ix: usize,
@@ -930,6 +944,8 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
 
             let len: usize = FindMatchLengthWithLimit(&prev_data,
                                                       &cur_data,
+                                                      data_invalid,
+                                                      prev_ix as usize,
                                                       max_length);
             if len >= 3usize || len == 2usize && (i < 2usize) {
               let mut score: usize = BackwardReferenceScoreUsingLastDistance(len);
@@ -992,6 +1008,8 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
           let (_, cur_data) = data.split_at(cur_ix_masked as usize);
           let len: usize = FindMatchLengthWithLimit(&prev_data,
                                                     &cur_data,
+                                                    data_invalid,
+                                                    prev_ix as usize,
                                                     max_length);
           if len >= 4usize {
             let score: usize = BackwardReferenceScore(len, backward);
@@ -1142,7 +1160,7 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
   if len > max_length {
     return 0i32;
   }
-  matchlen = FindMatchLengthWithLimit(data, &(*dictionary).data[offset..], len);
+  matchlen = FindMatchLengthWithLimit(data, &(*dictionary).data[offset..], &AlwaysZero{size:len}, 0, len);
   if matchlen.wrapping_add(kCutoffTransformsCount as usize) <= len || matchlen == 0usize {
     return 0i32;
   }
@@ -1274,10 +1292,11 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
                                   ringbuffer_invalid,
                                   ringbuffer_mask);
   }
-  fn FindLongestMatch(&mut self,
+  fn FindLongestMatch<BV:BitArrayTrait>(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
                       data: &[u8],
+                      data_invalid: &BV,
                       ring_buffer_mask: usize,
                       distance_cache: &[i32],
                       cur_ix: usize,
@@ -1290,6 +1309,7 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
                                   dictionary,
                                   dictionary_hash,
                                   data,
+                                  data_invalid,
                                   ring_buffer_mask,
                                   distance_cache,
                                   cur_ix,
@@ -1373,6 +1393,7 @@ fn CreateBackwardReferences<AH: AnyHasher,
     if hasher.FindLongestMatch(dictionary,
                                dictionary_hash,
                                ringbuffer,
+                               ringbuffer_invalid,
                                ringbuffer_mask,
                                dist_cache,
                                position,
@@ -1403,6 +1424,7 @@ fn CreateBackwardReferences<AH: AnyHasher,
           is_match_found = hasher.FindLongestMatch(dictionary,
                                                    dictionary_hash,
                                                    ringbuffer,
+                                                   ringbuffer_invalid,
                                                    ringbuffer_mask,
                                                    dist_cache,
                                                    position.wrapping_add(1usize),

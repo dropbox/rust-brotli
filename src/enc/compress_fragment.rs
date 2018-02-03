@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use super::backward_references::kHashMul32;
 //use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-
+use super::bit_array::{BitArrayTrait};
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
 //caution: lots of the functions look structurally the same as two_pass,
 // but have subtle index differences
@@ -32,13 +32,12 @@ fn Hash(p: &[u8], shift: usize) -> u32 {
   let h: u64 = (BROTLI_UNALIGNED_LOAD64(p) << 24i32).wrapping_mul(kHashMul32 as (u64));
   (h >> shift) as (u32)
 }
-fn IsMatch(p1: &[u8], p2: &[u8]) -> i32 {
+fn IsMatch<BV:BitArrayTrait>(p1: &[u8], p2: &[u8], invalid: &BV, invalid_offset: usize) -> bool {
   if !!(BROTLI_UNALIGNED_LOAD32(p1) == BROTLI_UNALIGNED_LOAD32(p2) &&
         (p1[(4usize)] as (i32) == p2[(4usize)] as (i32))) {
-    1i32
-  } else {
-    0i32
+    return invalid.first_bit_set(invalid_offset, 4) == 4
   }
+  false
 }
 
 fn BuildAndStoreLiteralPrefixCode<AllocHT:alloc::Allocator<HuffmanTree>>(mht: &mut AllocHT,
@@ -657,8 +656,10 @@ fn BuildAndStoreCommandPrefixCode(histogram: &[u32],
                          storage);
 }
 #[allow(unused_assignments)]
-fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
+fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>,
+                                  BV:BitArrayTrait>(m: &mut AllocHT,
                                   input_ptr: &[u8],
+                                  input_invalid: &BV,
                                   mut input_size: usize,
                                   is_last: i32,
                                   table: &mut [i32],
@@ -761,7 +762,9 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
                   next_hash = Hash(&input_ptr[(next_ip as (usize))..], shift);
                   candidate = ip_index.wrapping_sub(last_distance as (usize));
                   if IsMatch(&input_ptr[(ip_index as (usize))..],
-                             &input_ptr[(candidate as (usize))..]) != 0 {
+                             &input_ptr[(candidate as (usize))..],
+                             input_invalid,
+                             ip_index as usize) {
                     if candidate < ip_index {
                       table[(hash as (usize))] = ip_index.wrapping_sub(base_ip) as (i32);
                       {
@@ -776,8 +779,10 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
                   0i32;
                   table[(hash as (usize))] = ip_index.wrapping_sub(base_ip) as (i32);
                 }
-                if !(IsMatch(&input_ptr[(ip_index as (usize))..],
-                             &input_ptr[(candidate as (usize))..]) == 0) {
+                if IsMatch(&input_ptr[(ip_index as (usize))..],
+                           &input_ptr[(candidate as (usize))..],
+                           input_invalid,
+                           ip_index as usize) {
                   break;
                 }
               }
@@ -796,8 +801,10 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
           {
             let base: usize = ip_index;
             let matched: usize = (5usize)
-              .wrapping_add(FindMatchLengthWithLimit(&input_ptr[((candidate + 5) as (usize))..],
-                                                     &input_ptr[((ip_index + 5) as (usize))..],
+              .wrapping_add(FindMatchLengthWithLimit(&input_ptr[(candidate as usize + 5)..],
+                                                     &input_ptr[(ip_index as usize + 5)..],
+                                                     input_invalid,
+                                                     candidate as usize + 5,
                                                      ip_end.wrapping_sub(ip_index)
                                                        .wrapping_sub(5usize)));
             let distance: i32 = base.wrapping_sub(candidate) as (i32);
@@ -896,11 +903,15 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
             }
           }
           while IsMatch(&input_ptr[(ip_index as (usize))..],
-                        &input_ptr[(candidate as (usize))..]) != 0 {
+                        &input_ptr[(candidate as (usize))..],
+                        input_invalid,
+                        ip_index as usize) {
             let base: usize = ip_index;
             let matched: usize = (5usize)
               .wrapping_add(FindMatchLengthWithLimit(&input_ptr[(candidate as (usize) + 5)..],
                                                      &input_ptr[(ip_index as (usize) + 5)..],
+                                                     input_invalid,
+                                                     candidate as usize,
                                                      ip_end.wrapping_sub(ip_index)
                                                        .wrapping_sub(5usize)));
             if ip_index.wrapping_sub(candidate) >
@@ -1083,8 +1094,10 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
 }
 macro_rules! compress_specialization {
     ($table_bits : expr, $fname: ident) => {
-fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mht: &mut AllocHT,
+fn $fname<AllocHT:alloc::Allocator<HuffmanTree>,
+          BV:BitArrayTrait>(mht: &mut AllocHT,
                                    input: &[u8],
+                                   input_invalid: &BV,
                                    input_size: usize,
                                    is_last: i32,
                                    table: &mut [i32],
@@ -1096,6 +1109,7 @@ fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mht: &mut AllocHT,
                                    storage: &mut [u8]) {
   BrotliCompressFragmentFastImpl(mht,
                                  input,
+                                 input_invalid,
                                  input_size,
                                  is_last,
                                  table,
@@ -1116,8 +1130,9 @@ compress_specialization!(13, BrotliCompressFragmentFastImpl13);
 compress_specialization!(15, BrotliCompressFragmentFastImpl15);
 
 
-pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
+pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>, BV:BitArrayTrait>(m: &mut AllocHT,
                                   input: &[u8],
+                                  input_invalid : &BV,
                                   input_size: usize,
                                   is_last: i32,
                                   table: &mut [i32],
@@ -1140,6 +1155,7 @@ pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
   if table_bits == 9usize {
     BrotliCompressFragmentFastImpl9(m,
                                     input,
+                                    input_invalid,
                                     input_size,
                                     is_last,
                                     table,
@@ -1153,6 +1169,7 @@ pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
   if table_bits == 11usize {
     BrotliCompressFragmentFastImpl11(m,
                                      input,
+                                     input_invalid,                                     
                                      input_size,
                                      is_last,
                                      table,
@@ -1166,6 +1183,7 @@ pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
   if table_bits == 13usize {
     BrotliCompressFragmentFastImpl13(m,
                                      input,
+                                     input_invalid,
                                      input_size,
                                      is_last,
                                      table,
@@ -1179,6 +1197,7 @@ pub fn BrotliCompressFragmentFast<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
   if table_bits == 15usize {
     BrotliCompressFragmentFastImpl15(m,
                                      input,
+                                     input_invalid,
                                      input_size,
                                      is_last,
                                      table,

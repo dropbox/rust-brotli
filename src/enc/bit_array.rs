@@ -16,7 +16,7 @@ pub struct AlwaysZero{
     pub size:usize
 }
 impl BitArrayTrait for AlwaysZero {
-    fn first_bit_set(&self, start: usize, size:usize) -> usize{
+    fn first_bit_set(&self, _start: usize, size:usize) -> usize{
         size
     }
     fn len(&self) -> usize{

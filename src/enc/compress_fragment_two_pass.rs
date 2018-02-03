@@ -8,6 +8,7 @@ use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffman
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BROTLI_UNALIGNED_STORE64,
                          FindMatchLengthWithLimit};
 use super::super::alloc;
+use super::bit_array::{BitArrayTrait};
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
 use core;
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
@@ -146,21 +147,21 @@ fn Hash(p: &[u8], shift: usize) -> u32 {
   (h >> shift) as (u32)
 }
 
-fn IsMatch(p1: &[u8], p2: &[u8]) -> i32 {
+fn IsMatch<BV:BitArrayTrait>(p1: &[u8], p2: &[u8], invalid: &BV, invalid_offset:usize) -> bool {
   if !!(BROTLI_UNALIGNED_LOAD32(p1) == BROTLI_UNALIGNED_LOAD32(p2) &&
         (p1[(4usize)] as (i32) == p2[(4usize)] as (i32)) &&
         (p1[(5usize)] as (i32) == p2[(5usize)] as (i32))) {
-    1i32
-  } else {
-    0i32
+    return invalid.first_bit_set(invalid_offset, 6) == 6;
   }
+  false
 }
 
 #[allow(unused_assignments)]
-fn CreateCommands(input_index: usize,
+fn CreateCommands<BV:BitArrayTrait>(input_index: usize,
                   block_size: usize,
                   input_size: usize,
                   base_ip: &[u8],
+                  invalid: &BV,
                   table: &mut [i32],
                   table_bits: usize,
                   literals: &mut &mut [u8],
@@ -216,7 +217,9 @@ fn CreateCommands(input_index: usize,
               0i32;
               candidate = ip_index.wrapping_sub(last_distance as (usize));
               if IsMatch(&base_ip[(ip_index as (usize))..],
-                         &base_ip[(candidate as (usize))..]) != 0 {
+                         &base_ip[(candidate as (usize))..],
+                         invalid,
+                         ip_index) {
                 if candidate < ip_index {
                   table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
                   {
@@ -231,8 +234,10 @@ fn CreateCommands(input_index: usize,
               0i32;
               table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
             }
-            if !(IsMatch(&base_ip[(ip_index as (usize))..],
-                         &base_ip[(candidate as (usize))..]) == 0) {
+            if IsMatch(&base_ip[(ip_index as (usize))..],
+                         &base_ip[(candidate as (usize))..],
+                         invalid,
+                         ip_index as usize) {
               break;
             }
           }
@@ -253,6 +258,8 @@ fn CreateCommands(input_index: usize,
         let matched: usize = (6usize)
           .wrapping_add(FindMatchLengthWithLimit(&base_ip[(candidate as (usize) + 6)..],
                                                  &base_ip[(ip_index as (usize) + 6)..],
+                                                 invalid,
+                                                 candidate as usize + 6,
                                                  ip_end.wrapping_sub(ip_index)
                                                    .wrapping_sub(6usize)));
         let distance: i32 = base.wrapping_sub(candidate) as (i32);
@@ -309,12 +316,16 @@ fn CreateCommands(input_index: usize,
       }
       while ip_index.wrapping_sub(candidate) <=
             (1usize << 18i32).wrapping_sub(16usize) as (isize) as (usize) &&
-            (IsMatch(&base_ip[(ip_index as (usize))..],
-                     &base_ip[(candidate as (usize))..]) != 0) {
+            IsMatch(&base_ip[(ip_index as (usize))..],
+                     &base_ip[(candidate as (usize))..],
+                     invalid,
+                     ip_index as usize) {
         let base_index: usize = ip_index;
         let matched: usize = (6usize)
           .wrapping_add(FindMatchLengthWithLimit(&base_ip[(candidate as (usize) + 6)..],
                                                  &base_ip[(ip_index as (usize) + 6)..],
+                                                 invalid,
+                                                 candidate as usize,
                                                  ip_end.wrapping_sub(ip_index)
                                                    .wrapping_sub(6usize)));
         ip_index = ip_index.wrapping_add(matched);
@@ -674,16 +685,19 @@ fn EmitUncompressedMetaBlock(input: &[u8],
   storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
 }
 #[allow(unused_variables)]
-fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
-                                     base_ip: &[u8],
-                                     mut input_size: usize,
-                                     is_last: i32,
-                                     command_buf: &mut [u32],
-                                     literal_buf: &mut [u8],
-                                     table: &mut [i32],
-                                     table_bits: usize,
-                                     storage_ix: &mut usize,
-                                     storage: &mut [u8]){
+fn BrotliCompressFragmentTwoPassImpl<
+    AllocHT:alloc::Allocator<HuffmanTree>,
+    BV:BitArrayTrait>(m: &mut AllocHT,
+                      base_ip: &[u8],
+                      invalid: &BV,
+                      mut input_size: usize,
+                      is_last: i32,
+                      command_buf: &mut [u32],
+                      literal_buf: &mut [u8],
+                      table: &mut [i32],
+                      table_bits: usize,
+                      storage_ix: &mut usize,
+                      storage: &mut [u8]){
   let mut input_index: usize = 0usize;
   while input_size > 0usize {
     let block_size: usize = brotli_min_size_t(input_size, kCompressFragmentTwoPassBlockSize);
@@ -696,6 +710,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
                      block_size,
                      input_size,
                      base_ip,
+                     invalid,
                      table,
                      table_bits,
                      &mut literals,
@@ -727,8 +742,9 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
 }
 macro_rules! compress_specialization {
     ($table_bits : expr, $fname: ident) => {
-        fn $fname<AllocHT:alloc::Allocator<HuffmanTree>>(mht: &mut AllocHT,
+        fn $fname<AllocHT:alloc::Allocator<HuffmanTree>, BV:BitArrayTrait>(mht: &mut AllocHT,
                                       input: &[u8],
+                                      input_invalid: &BV,
                                       input_size: usize,
                                       is_last: i32,
                                       command_buf: &mut [u32],
@@ -738,6 +754,7 @@ macro_rules! compress_specialization {
                                       storage: &mut [u8]) {
             BrotliCompressFragmentTwoPassImpl(mht,
                                               input,
+                                              input_invalid,
                                               input_size,
                                               is_last,
                                               command_buf,
@@ -771,8 +788,9 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
   *storage_ix = new_storage_ix;
 }
 
-pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
+pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>, BV:BitArrayTrait>(m: &mut AllocHT,
                                      input: &[u8],
+                                     input_invalid: &BV,
                                      input_size: usize,
                                      is_last: i32,
                                      command_buf: &mut [u32],
@@ -786,6 +804,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 8usize {
     BrotliCompressFragmentTwoPassImpl8(m,
                                        input,
+                                       input_invalid,
                                        input_size,
                                        is_last,
                                        command_buf,
@@ -797,6 +816,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 9usize {
     BrotliCompressFragmentTwoPassImpl9(m,
                                        input,
+                                       input_invalid,
                                        input_size,
                                        is_last,
                                        command_buf,
@@ -808,6 +828,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 10usize {
     BrotliCompressFragmentTwoPassImpl10(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
@@ -819,6 +840,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 11usize {
     BrotliCompressFragmentTwoPassImpl11(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
@@ -830,6 +852,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 12usize {
     BrotliCompressFragmentTwoPassImpl12(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
@@ -841,6 +864,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 13usize {
     BrotliCompressFragmentTwoPassImpl13(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
@@ -852,6 +876,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 14usize {
     BrotliCompressFragmentTwoPassImpl14(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
@@ -863,6 +888,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 15usize {
     BrotliCompressFragmentTwoPassImpl15(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
@@ -874,6 +900,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 16usize {
     BrotliCompressFragmentTwoPassImpl16(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
@@ -885,6 +912,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
   if table_bits == 17usize {
     BrotliCompressFragmentTwoPassImpl17(m,
                                         input,
+                                        input_invalid,
                                         input_size,
                                         is_last,
                                         command_buf,
