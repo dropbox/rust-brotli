@@ -1336,6 +1336,7 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
   CopyInputToRingBuffer(s, dict_size, dict, invalid);
   (*s).last_flush_pos_ = dict_size as u64;
   (*s).last_processed_pos_ = dict_size as u64;
+  (*s).recoder_state.num_bytes_encoded = dict_size as u64;
   if dict_size > 0 {
     (*s).prev_byte_ = dict[(dict_size.wrapping_sub(1usize) as (usize))];
   }

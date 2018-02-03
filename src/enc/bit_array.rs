@@ -50,7 +50,7 @@ impl<'a> BitArrayTrait for BitArrayViewMut<'a> {
 
 impl<'a> BitArrayMutTrait for BitArrayViewMut<'a> {
     fn copy_from_byte_slice(&mut self, start: usize, size: usize, data: &[u8]) {
-        let dst = self.bitvec.split_at_mut(start).1.split_at_mut(data.len()).0;
+        let dst = self.bitvec.split_at_mut(start).1.split_at_mut(size).0;
         if data.len() >= size {
             dst.clone_from_slice(data.split_at(size).0);
         } else {
@@ -144,7 +144,7 @@ impl<AllocU8: alloc::Allocator<u8>,
 impl<AllocU8: alloc::Allocator<u8>,
      AllocU32: alloc::Allocator<u32>> BitArrayMutTrait for BitArray<AllocU8, AllocU32> {
     fn copy_from_byte_slice(&mut self, start: usize, size: usize, data: &[u8]) {
-        let dst = self.bitvec.slice_mut().split_at_mut(start).1.split_at_mut(data.len()).0;
+        let dst = self.bitvec.slice_mut().split_at_mut(start).1.split_at_mut(size).0;
         if data.len() >= size {
             dst.clone_from_slice(data.split_at(size).0);
         } else {

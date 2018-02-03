@@ -34,7 +34,8 @@ pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                    BrotliEncoderParameter,
                    BrotliEncoderOperation,
-                   BrotliEncoderCompressStream, BrotliEncoderIsFinished};
+                   BrotliEncoderCompressStream, BrotliEncoderIsFinished,
+                   BrotliEncoderSetCustomDictionary};
 use self::cluster::{HistogramPair};
 use self::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use self::command::{Command};
@@ -52,10 +53,11 @@ pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, 
 
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
-
 #[cfg(not(any(feature="no-stdlib")))]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                                              w: &mut OutputType,
+                                             dict: &[u8],
+                                             dict_mask: &[u8],
                                              params: &BrotliEncoderParams)
                                                -> Result<usize, io::Error>
   where InputType: Read,
@@ -68,6 +70,8 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             &mut input_buffer[..],
                             &mut output_buffer[..],
                             params,
+                            dict,
+                            dict_mask,
                             HeapAlloc::<u8> { default_value: 0 },
                             HeapAlloc::<u16> { default_value: 0 },
                             HeapAlloc::<i32> { default_value: 0 },
@@ -118,6 +122,8 @@ pub fn BrotliCompressCustomAlloc<InputType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
    params: &BrotliEncoderParams,
+   dict: &[u8],
+   dict_invalid: &[u8],
    alloc_u8: AllocU8,
    alloc_u16: AllocU16,
    alloc_i32: AllocI32,
@@ -141,6 +147,8 @@ pub fn BrotliCompressCustomAlloc<InputType,
                            input_buffer,
                            output_buffer,
                            params,
+                           dict,
+                           dict_invalid,
                            alloc_u8,
                            alloc_u16,
                            alloc_i32,
@@ -180,6 +188,8 @@ pub fn BrotliCompressCustomIo<ErrType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
    params: &BrotliEncoderParams,
+   dict: &[u8],
+   dict_invalid: &[u8],
    mu8: AllocU8,
    mu16: AllocU16,
    mi32: AllocI32,
@@ -213,6 +223,9 @@ pub fn BrotliCompressCustomIo<ErrType,
       //BrotliEncoderSetParameter(s,
       //                          BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
       //                          input.len() as (u32));
+      if dict.len() != 0 {
+          BrotliEncoderSetCustomDictionary(s, dict.len(), dict, dict_invalid);
+      }
       let mut available_in: usize = 0;
       let mut available_out: usize = output_buffer.len();
       let mut eof = false;

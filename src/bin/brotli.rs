@@ -255,7 +255,9 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
 pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        w: &mut OutputType,
                                        buffer_size: usize,
-                                       params:&brotli::enc::BrotliEncoderParams) -> Result<usize, io::Error>
+                                       params:&brotli::enc::BrotliEncoderParams,
+                                       dictionary: &[u8],
+                                       dictionary_invalid_ranges: &[u8]) -> Result<usize, io::Error>
     where InputType: Read,
           OutputType: Write {
     let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
@@ -270,6 +272,8 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    &mut input_buffer.slice_mut(),
                                    &mut output_buffer.slice_mut(),
                                    params,
+                                   dictionary,
+                                   dictionary_invalid_ranges,
                                    alloc_u8,
                                    HeapAllocator::<u16>{default_value:0},
                                    HeapAllocator::<i32>{default_value:0},
@@ -357,6 +361,8 @@ fn main() {
   params.quality = 10; // default
   let mut filenames = [std::string::String::new(), std::string::String::new()];
   let mut num_benchmarks = 1;
+  let mut dictionary = Vec::<u8>::new();
+  let mut dictionary_invalid_ranges = Vec::<u8>::new();;
   if env::args_os().len() > 1 {
     let mut first = true;
     for argument in env::args() {
@@ -364,8 +370,21 @@ fn main() {
         first = false;
         continue;
       }
-      if argument == "-d" {
-        continue;
+      if argument.starts_with("-dict=") {
+          let mut input = match File::open(&Path::new(&argument[6..])) {
+              Err(why) => panic!("couldn't open {:}\n{:}", &argument[6..], why),
+              Ok(file) => file,
+          };
+          input.read_to_end(&mut dictionary).unwrap();
+          continue;
+      }
+      if argument.starts_with("-dictmask=") {
+          let mut input = match File::open(&Path::new(&argument[10..])) {
+              Err(why) => panic!("couldn't open {:}\n{:}", &argument[10..], why),
+              Ok(file) => file,
+          };
+          input.read_to_end(&mut dictionary_invalid_ranges).unwrap();
+          continue;
       }
       if argument == "--dump-dictionary" {
         util::print_dictionary(util::permute_dictionary());
@@ -498,7 +517,7 @@ fn main() {
         };
         for i in 0..num_benchmarks {
           if do_compress {
-            match compress(&mut input, &mut output, 65536, &params) {
+            match compress(&mut input, &mut output, 65536, &params, &dictionary[..], &dictionary_invalid_ranges[..]) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
@@ -517,7 +536,7 @@ fn main() {
       } else {
         assert_eq!(num_benchmarks, 1);
         if do_compress {
-          match compress(&mut input, &mut io::stdout(), 65536, &params) {
+          match compress(&mut input, &mut io::stdout(), 65536, &params, &dictionary[..], &dictionary_invalid_ranges[..]) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
           }
@@ -532,7 +551,7 @@ fn main() {
    } else {
       assert_eq!(num_benchmarks, 1);
       if do_compress {
-        match compress(&mut io::stdin(), &mut io::stdout(), 65536, &params) {
+        match compress(&mut io::stdin(), &mut io::stdout(), 65536, &params, &dictionary[..], &dictionary_invalid_ranges[..]) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),
         }

@@ -451,7 +451,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     for cmd in commands.iter() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
                                                                      mb_len));
-        recoder_state.num_bytes_encoded += inserts.len();
+        recoder_state.num_bytes_encoded += inserts.len() as u64;
         let _copy_cursor = input.len() - interim.len();
         // let distance_context = CommandDistanceContext(cmd);
         let copylen_code: u32 = CommandCopyLenCode(cmd);
@@ -465,7 +465,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
         }
         let copy_len = copylen_code as usize;
         let actual_copy_len : usize;
-        let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size_from_lgwin(params.lgwin));
+        let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size_from_lgwin(params.lgwin) as u64);
         assert!(inserts.len() <= mb_len);
         {
             btypec_sub -= 1;
@@ -530,10 +530,10 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
                 }
             }
         }
-        if final_distance > max_distance { // is dictionary
+        if final_distance as u64 > max_distance { // is dictionary
             assert!(copy_len >= 4);
             assert!(copy_len < 25);
-            let dictionary_offset = final_distance - max_distance - 1;
+            let dictionary_offset = (final_distance as u64 - max_distance) as usize - 1;
             let ndbits = kBrotliDictionarySizeBitsByLength[copy_len] as usize;
             let action = dictionary_offset >> ndbits;
             let word_sub_index = dictionary_offset & ((1 << ndbits) - 1);
@@ -583,7 +583,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
             }
         }
         let (copied, remainder) = interim.split_at(actual_copy_len);
-        recoder_state.num_bytes_encoded += copied.len();
+        recoder_state.num_bytes_encoded += copied.len() as u64;
         input_iter = remainder;
     }
     recoder_state
@@ -2653,7 +2653,7 @@ fn block_split_reference<'a,
      
 #[derive(Clone, Copy)]
 pub struct RecoderState {
-    pub num_bytes_encoded : usize,
+    pub num_bytes_encoded : u64,
 }
 
 impl RecoderState {
