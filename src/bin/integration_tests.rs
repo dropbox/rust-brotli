@@ -284,7 +284,7 @@ fn test_roundtrip_64x() {
   let mut params = super::brotli::enc::BrotliEncoderInitParams();
   params.quality = q;
   params.lgwin = lgwin;
-  match super::compress(&mut input, &mut compressed, 65536, &params) {
+  match super::compress(&mut input, &mut compressed, 65536, &params, &[], &[]) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -308,7 +308,7 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  match super::compress(&mut input, &mut compressed, 4096, &params) {
+  match super::compress(&mut input, &mut compressed, 4096, &params, &[], &[]) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -734,7 +734,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
     let mut compressed = LimitedBuffer::new(&mut compressed_array[..]);
     let mut rt = LimitedBuffer::new(&mut rt_array[..]);
     if !bench_compress {
-        match super::compress(&mut input, &mut compressed, compress_buffer_size, &params) {
+        match super::compress(&mut input, &mut compressed, compress_buffer_size, &params, &[], &[]) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
         }
@@ -743,7 +743,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
         input.reset_read();
         if bench_compress {
             compressed.reset();
-            match super::compress(&mut input, &mut compressed, compress_buffer_size, &params) {
+            match super::compress(&mut input, &mut compressed, compress_buffer_size, &params, &[], &[]) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
