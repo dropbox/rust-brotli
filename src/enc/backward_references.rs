@@ -182,7 +182,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
   fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize) {
     let start_index = (ix & mask) as (usize);
     let (_, data_window) = data.split_at(start_index);
-    if data_invalid.first_set(start_index, start_index + self.HashTypeLength()) != start_index + self.HashTypeLength() {
+    if data_invalid.first_bit_set(start_index, self.HashTypeLength()) != self.HashTypeLength() {
           return // not valid to insert into hash table, don't want to clutter it
     }
     let key: u32 = self.HashBytes(data_window) as u32;
@@ -694,7 +694,7 @@ impl<AllocU16: alloc::Allocator<u16>,
     fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize) {
         let start_index = (ix & mask);
         let (_, data_window) = data.split_at(start_index as (usize));
-        if data_invalid.first_set(start_index, start_index + self.HashTypeLength()) != start_index + 4 {
+        if data_invalid.first_bit_set(start_index, self.StoreLookahead()) != self.StoreLookahead() {
             return // not valid to insert into hash table, don't want to clutter it
         }
         let key: u32 = self.HashBytes(data_window) as u32;
@@ -863,7 +863,7 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
   fn Store<BA:BitArrayTrait>(&mut self, data: &[u8], data_invalid: &BA, mask: usize, ix: usize) {
     let start_index = (ix & mask) as (usize);
     let (_, data_window) = data.split_at(start_index);
-    if data_invalid.first_set(start_index, start_index + self.HashTypeLength()) != start_index + self.HashTypeLength() {
+    if data_invalid.first_bit_set(start_index, self.HashTypeLength()) != self.HashTypeLength() {
           return // not valid to insert into hash table, don't want to clutter it
     }
     let key: u32 = self.HashBytes(data_window) as u32;

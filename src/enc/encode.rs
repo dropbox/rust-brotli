@@ -988,11 +988,11 @@ fn RingBufferWrite<AllocU8: alloc::Allocator<u8>,
   let data_1 = (*rb).data_.slice()[read_start + 1];
   (*rb).data_.slice_mut()[((*rb).buffer_index.wrapping_sub(1usize) as (usize))] = data_1;
   // read invalid buffer and copy end bytes to the beginning of the ring buffer
-  let first_set = (*rb).data_invalid_.first_set(read_start, read_start + 2);
-  if first_set != read_start + 2 {
-      invalid_tmp[first_set - read_start] = 0xff;
-      let second_set = (*rb).data_invalid_.first_set(read_start+ 1, read_start + 2);
-      if second_set != read_start + 2 {
+  let first_set = (*rb).data_invalid_.first_bit_set(read_start, 2);
+  if first_set != 2 {
+      invalid_tmp[first_set] = 0xff;
+      let second_set = (*rb).data_invalid_.first_bit_set(read_start + 1, 1);
+      if second_set != 1 {
           invalid_tmp[1] = 0xff;
       }
   }
