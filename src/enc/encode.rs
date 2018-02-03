@@ -1333,9 +1333,7 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
     dict = &dict[(size.wrapping_sub(max_dict_size) as (usize))..];
     dict_size = max_dict_size;
   }
-  let all_valid = s.ringbuffer_.data_invalid_.allocate_valid_range(&mut s.m8, dict_size); // can mock this out
-  CopyInputToRingBuffer(s, dict_size, dict, all_valid.slice());
-  s.m8.free_cell(all_valid); // wasteful...but this only happens once
+  CopyInputToRingBuffer(s, dict_size, dict, invalid);
   (*s).last_flush_pos_ = dict_size as u64;
   (*s).last_processed_pos_ = dict_size as u64;
   if dict_size > 0 {
