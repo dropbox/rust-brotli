@@ -5,8 +5,11 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 
 pub trait BitArrayTrait {
     fn first_set(&self, start: usize, stop:usize) -> usize;
-    fn copy_from_byte_slice(&mut self, start: usize, data: &[u8]);
     fn len(&self) -> usize;
+}
+
+pub trait BitArrayMutTrait : BitArrayTrait {
+    fn copy_from_byte_slice(&mut self, start: usize, size: usize, data: &[u8]);
 }
 #[derive(Default)]
 pub struct AlwaysZero{
@@ -16,20 +19,51 @@ impl BitArrayTrait for AlwaysZero {
     fn first_set(&self, start: usize, stop:usize) -> usize{
         stop
     }
-    fn copy_from_byte_slice(&mut self, _start: usize, data: &[u8]) {
-        for item in data.iter() {
-            if *item != 0 {
-                panic!("Always zero bit array cannot be set to nonzero value");
-            }
-        }
-    }
     fn len(&self) -> usize{
         self.size
     }
 }
+pub struct BitArrayViewMut<'a> {
+    bitvec: &'a mut [u8],
+}
+
+impl<'a> BitArrayTrait for BitArrayViewMut<'a> {
+    fn first_set(&self, start: usize, stop:usize) -> usize{
+        for (index, item) in self.bitvec[start..stop].iter().enumerate() {
+            if *item != 0 {
+                return start + index;
+            }
+        }
+        stop
+    }
+    fn len(&self) -> usize{
+        self.bitvec.len()
+    }
+}
+
+impl<'a> BitArrayMutTrait for BitArrayViewMut<'a> {
+    fn copy_from_byte_slice(&mut self, start: usize, size: usize, data: &[u8]) {
+        let dst = self.bitvec.split_at_mut(start).1.split_at_mut(data.len()).0;
+        if data.len() >= size {
+            dst.clone_from_slice(data.split_at(size).0);
+        } else {
+            for item in dst.iter_mut() {
+                *item = 0;
+            }
+            assert_eq!(data.len(), 0);
+        }
+    }
+}
 
 pub struct BitArrayView<'a> {
-    bitvec: &'a mut [u8],
+    bitvec: &'a [u8],
+}
+impl<'a> BitArrayView<'a> {
+    pub fn new(data:&'a [u8]) -> Self {
+        BitArrayView {
+            bitvec:data,
+        }
+    }
 }
 impl<'a> BitArrayTrait for BitArrayView<'a> {
     fn first_set(&self, start: usize, stop:usize) -> usize{
@@ -40,14 +74,10 @@ impl<'a> BitArrayTrait for BitArrayView<'a> {
         }
         stop
     }
-    fn copy_from_byte_slice(&mut self, start: usize, data: &[u8]) {
-        self.bitvec.split_at_mut(start).1.split_at_mut(data.len()).0.clone_from_slice(data);
-    }
     fn len(&self) -> usize{
         self.bitvec.len()
     }
 }
-
 pub struct BitArray<AllocU8: alloc::Allocator<u8>,
                     AllocU32:alloc::Allocator<u32> > {
     bitvec: AllocU8::AllocatedMemory,
@@ -71,8 +101,11 @@ impl<AllocU8: alloc::Allocator<u8>,
             _m32: PhantomData::<AllocU32>::default()
         }
     }
-    pub fn view_mut(&mut self, start: usize, end: usize) -> BitArrayView {
-        BitArrayView{bitvec:&mut self.bitvec.slice_mut()[start..end]}
+    pub fn view_mut(&mut self, start: usize, end: usize) -> BitArrayViewMut {
+        BitArrayViewMut{bitvec:&mut self.bitvec.slice_mut()[start..end]}
+    }
+    pub fn view(&self, start: usize, end: usize) -> BitArrayView {
+        BitArrayView{bitvec:&self.bitvec.slice()[start..end]}
     }
     pub fn free(&mut self, m8: &mut AllocU8, _m32: &mut AllocU32) {
         m8.free_cell(mem::replace(&mut self.bitvec, AllocU8::AllocatedMemory::default()));
@@ -100,17 +133,26 @@ impl<AllocU8: alloc::Allocator<u8>,
         }
         stop
     }
-    fn copy_from_byte_slice(&mut self, start: usize, data: &[u8]) {
-        self.bitvec.slice_mut().split_at_mut(start).1.split_at_mut(data.len()).0.clone_from_slice(data);
-    }
     fn len(&self) -> usize{
         self.bitvec.slice().len()
     }
 }
 
 
-
-
+impl<AllocU8: alloc::Allocator<u8>,
+     AllocU32: alloc::Allocator<u32>> BitArrayMutTrait for BitArray<AllocU8, AllocU32> {
+    fn copy_from_byte_slice(&mut self, start: usize, size: usize, data: &[u8]) {
+        let dst = self.bitvec.slice_mut().split_at_mut(start).1.split_at_mut(data.len()).0;
+        if data.len() >= size {
+            dst.clone_from_slice(data.split_at(size).0);
+        } else {
+            for item in dst.iter_mut() {
+                *item = 0;
+            }
+            assert_eq!(data.len(), 0);
+        }
+    }
+}
 /*
 pub struct BitArray<AllocU8: alloc::Allocator<u8>> {
     bitvec: AllocU8::AllocatedMemory,
