@@ -272,6 +272,30 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
                invalid_data_error_type : ErrType,
                q: u32,
                lgwin: u32) -> Self {
+         Self::new_with_custom_dictionary(w, buffer, alloc_u8, alloc_u16, alloc_u32, alloc_c, alloc_f64, alloc_fv
+                                    alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct, alloc_ht,
+                                    invalid_data_error_type, q, lgwin,
+                                    &[], AlwaysZero::new(0))
+    }
+    pub fn new_with_custom_dictionary<BV:BitArrayTrait>(r: R, buffer : BufferType,
+                              alloc_u8 : AllocU8,
+               alloc_u16 : AllocU16,
+               alloc_i32 : AllocI32,
+               alloc_u32 : AllocU32,
+               alloc_c : AllocCommand,
+               alloc_f64 : AllocF64,
+               alloc_fv : AllocFV,
+               alloc_hl:AllocHL,
+               alloc_hc:AllocHC,
+               alloc_hd:AllocHD,
+               alloc_hp:AllocHP,
+               alloc_ct:AllocCT,
+               alloc_ht:AllocHT,
+               invalid_data_error_type : ErrType,
+               q: u32,
+               lgwin: u32,
+               dict: &[u8],
+               dict_invalid: &BV) -> Self {
         let mut ret = CompressorReaderCustomIo{
             input_buffer : buffer,
             total_out : Some(0),
