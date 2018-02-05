@@ -2,14 +2,13 @@ use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
 use super::command::Command;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-                    BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
+                    BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation, BrotliEncoderSetCustomDictionary,
                     BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use super::interface;
 use super::brotli_bit_stream;
 use brotli_decompressor::CustomRead;
-
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
@@ -272,12 +271,12 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
                invalid_data_error_type : ErrType,
                q: u32,
                lgwin: u32) -> Self {
-         Self::new_with_custom_dictionary(w, buffer, alloc_u8, alloc_u16, alloc_u32, alloc_c, alloc_f64, alloc_fv
+         Self::new_with_custom_dictionary(r, buffer, alloc_u8, alloc_u16, alloc_i32, alloc_u32, alloc_c, alloc_f64, alloc_fv,
                                     alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct, alloc_ht,
                                     invalid_data_error_type, q, lgwin,
-                                    &[], AlwaysZero::new(0))
+                                    &[], &[])
     }
-    pub fn new_with_custom_dictionary<BV:BitArrayTrait>(r: R, buffer : BufferType,
+    pub fn new_with_custom_dictionary(r: R, buffer : BufferType,
                               alloc_u8 : AllocU8,
                alloc_u16 : AllocU16,
                alloc_i32 : AllocI32,
@@ -295,7 +294,7 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
                q: u32,
                lgwin: u32,
                dict: &[u8],
-               dict_invalid: &BV) -> Self {
+               dict_invalid: &[u8]) -> Self {
         let mut ret = CompressorReaderCustomIo{
             input_buffer : buffer,
             total_out : Some(0),
@@ -325,7 +324,12 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
         BrotliEncoderSetParameter(&mut ret.state,
                                   BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
                                   lgwin as (u32));
-
+        if dict.len() != 0 {
+            BrotliEncoderSetCustomDictionary(&mut ret.state,
+                                             dict.len(),
+                                             dict,
+                                             dict_invalid);
+        }
         ret
     }
     pub fn copy_to_front(&mut self) {
