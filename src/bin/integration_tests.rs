@@ -300,7 +300,7 @@ fn test_roundtrip_64x() {
   assert_eq!(input.read_offset, in_buf.len());
 }
 
-fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
+fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32, mut dict: Vec<u8>, invalid: &[u8]) -> usize {
   let mut params = super::brotli::enc::BrotliEncoderInitParams();
   params.quality = q;
   params.lgwin = lgwin;
@@ -308,12 +308,19 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  match super::compress(&mut input, &mut compressed, 4096, &params, &[], &[]) {
+  match super::compress(&mut input, &mut compressed, 4096, &params, &dict[..], invalid) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
-  match super::decompress(&mut compressed_in, &mut output, 4096, Vec::<u8>::new()) {
+  if invalid.len() != 0 { // tweak the invalid bytes
+     for (val,inv) in dict.iter_mut().zip(invalid) {
+        if *inv != 0 {
+           *val = val.wrapping_add(*inv);
+        }
+     }
+  }
+  match super::decompress(&mut compressed_in, &mut output, 4096, dict) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -327,59 +334,74 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
 
 fn total_roundtrip_helper(data: &[u8]) {
     for q in 0..10 {
-        roundtrip_helper(data, q as i32, (q + 13) as i32);
+        roundtrip_helper(data, q as i32, (q + 13) as i32, Vec::<u8>::new(), &[]);
     }
-    roundtrip_helper(data, 10, 23);
+    roundtrip_helper(data, 10, 23, Vec::<u8>::new(), &[]);
 }
 static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("testdata/random_then_unicode");
 #[test]
 fn test_random_then_unicode_0() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13, Vec::<u8>::new(), &[]);
 }
 
 #[test]
 fn test_random_then_unicode_1() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 1, 14);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 1, 14, Vec::<u8>::new(), &[]);
 }
 
 #[test]
 fn test_random_then_unicode_2() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 2, 15);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 2, 15, Vec::<u8>::new(), &[]);
 }
 
 #[test]
 fn test_random_then_unicode_3() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 3, 16);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 3, 16, Vec::<u8>::new(), &[]);
 }
 
 #[test]
 fn test_random_then_unicode_4() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 4, 17);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 4, 17, Vec::<u8>::new(), &[]);
 }
 
 #[test]
 fn test_random_then_unicode_5() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 5, 18);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 5, 18, Vec::<u8>::new(), &[]);
 }
 
 #[test]
 fn test_random_then_unicode_6() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 6, 19);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 6, 19, Vec::<u8>::new(), &[]);
 }
 
 #[test]
 fn test_random_then_unicode_7() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 7, 20);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 7, 20, Vec::<u8>::new(), &[]);
 }
 
 #[test]
-fn test_random_then_unicode_8() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 8, 21);
+fn test_random_then_unicode_8_with_partially_valid_dictionary() {
+    let mut dict = Vec::new();
+    dict.extend_from_slice(&RANDOM_THEN_UNICODE[6384..16000]);
+    let mut invalid = Vec::new();
+    invalid.reserve(dict.len());
+    for index in 0..dict.len() {
+      let mut ibyte = 0u8;
+      if index % 29 == 0 {
+         ibyte = 0xff;
+      }
+      if index % 47 == 0 {
+         ibyte = 0x3f;
+      }
+      invalid.push(ibyte);
+    }
+    let c_size = roundtrip_helper(&RANDOM_THEN_UNICODE[..21036], 5, 22, dict, &invalid[..]);
+    assert_eq!(c_size, 10440);
 }
 
 #[test]
 fn test_random_then_unicode_9() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22, Vec::<u8>::new(), &[]);
 }
 #[cfg(not(feature="no-stdlib"))]
 const random_then_unicode_compressed_size_9_5 : usize = 136534;
@@ -393,13 +415,13 @@ const random_then_unicode_compressed_size_9_5x : usize = 136091;
 
 #[test]
 fn test_random_then_unicode_9_5() {
-    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28);
+    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28, Vec::<u8>::new(), &[]);
     assert_eq!(c_size, random_then_unicode_compressed_size_9_5);
 }
 
 #[test]
 fn test_random_then_unicode_9_5x() {
-    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22);
+    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22, Vec::<u8>::new(), &[]);
     assert_eq!(c_size, random_then_unicode_compressed_size_9_5x);
 }
 
