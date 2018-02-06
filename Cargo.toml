@@ -20,7 +20,7 @@ lto=true
 
 [dependencies]
 "alloc-no-stdlib" = "~1.2"
-"brotli-decompressor" = "~1"
+"brotli-decompressor" = "~1.2"
 
 [features]
 float64 = []

@@ -128,7 +128,7 @@ pub fn SlowInternalFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) 
   }
   return limit;
 }
-pub fn FindMatchLengthWithLimit<BV:BitArrayTrait>(mut s1: &[u8], mut s2: &[u8], data_invalid: &BV, data_invalid_offset: usize, limit: usize) -> usize {
+pub fn FindMatchLengthWithLimit<BV:BitArrayTrait>(s1: &[u8], s2: &[u8], data_invalid: &BV, data_invalid_offset: usize, limit: usize) -> usize {
   let len = InternalFindMatchLengthWithLimit(s1, s2, limit);
   return data_invalid.first_bit_set(data_invalid_offset, len);
 }

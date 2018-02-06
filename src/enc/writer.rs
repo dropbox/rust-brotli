@@ -234,6 +234,7 @@ pub struct CompressorWriterCustomIo<ErrType,
   alloc_ct: AllocCT,
   alloc_ht: AllocHT,
   state: BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+  bad_dict: bool,
 }
 pub fn write_all<ErrType, W: CustomWrite<ErrType>>(writer: &mut W, mut buf : &[u8]) -> Result<(), ErrType> {
     while buf.len() != 0 {
@@ -323,6 +324,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
             alloc_ct:alloc_ct,
             alloc_ht:alloc_ht,
             error_if_invalid_data : Some(invalid_data_error_type),
+            bad_dict: false,
         };
         BrotliEncoderSetParameter(&mut ret.state,
                                   BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
@@ -331,10 +333,13 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
                                   BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
                                   lgwin as (u32));
         if dict.len() != 0 {
-            BrotliEncoderSetCustomDictionary(&mut ret.state,
+            match BrotliEncoderSetCustomDictionary(&mut ret.state,
                                              dict.len(),
                                              dict,
-                                             dict_invalid);
+                                             dict_invalid) {
+               Ok(_) => {},
+               Err(_) => ret.bad_dict = true,
+            }
         }
         ret
     }
@@ -375,6 +380,9 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
            }
 
            if BrotliEncoderIsFinished(&mut self.state) != 0 {
+              if self.bad_dict {
+                 return Err(self.error_if_invalid_data.take().unwrap());
+              }
               return Ok(());
            }
         }        

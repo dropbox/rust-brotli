@@ -224,7 +224,10 @@ pub fn BrotliCompressCustomIo<ErrType,
       //                          BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
       //                          input.len() as (u32));
       if dict.len() != 0 {
-          BrotliEncoderSetCustomDictionary(s, dict.len(), dict, dict_invalid);
+          match BrotliEncoderSetCustomDictionary(s, dict.len(), dict, dict_invalid) {
+            Err(_) => return Err(unexpected_eof_error_constant),
+            Ok(_) => {},
+          }
       }
       let mut available_in: usize = 0;
       let mut available_out: usize = output_buffer.len();

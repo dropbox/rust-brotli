@@ -70,12 +70,16 @@ pub use enc::writer::{CompressorWriterCustomIo};
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::BrotliDecompress;
 
+#[cfg(not(feature="no-stdlib"))]
+pub use brotli_decompressor::BrotliDecompressCustomDict;
+
 
 
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::BrotliDecompressCustomAlloc;
 
 pub use brotli_decompressor::BrotliDecompressCustomIo;
+pub use brotli_decompressor::BrotliDecompressCustomIoCustomDict;
 
 
 #[cfg(not(feature="no-stdlib"))]

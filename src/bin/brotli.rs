@@ -31,6 +31,14 @@ impl<T> core::default::Default for Rebox<T> {
   }
 }
 
+impl<T> From<Vec<T>> for Rebox<T> {
+   fn from(data:Vec<T>) -> Self {
+      Rebox::<T>{
+        b:data.into_boxed_slice(),
+      }
+   }
+}
+
 impl<T> ops::Index<usize> for Rebox<T> {
   type Output = T;
   fn index(&self, index: usize) -> &T {
@@ -181,7 +189,8 @@ impl<InputType: Read> brotli::CustomRead<io::Error> for IntoIoReader<InputType> 
 #[cfg(not(feature="seccomp"))]
 pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                          w: &mut OutputType,
-                                         buffer_size: usize)
+                                         buffer_size: usize,
+                                         custom_dict: Vec<u8>)
                                          -> Result<(), io::Error>
   where InputType: Read,
         OutputType: Write
@@ -189,7 +198,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
   let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
   let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
   let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
-  brotli::BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
+  brotli::BrotliDecompressCustomIoCustomDict(&mut IoReaderWrapper::<InputType>(r),
                                    &mut IoWriterWrapper::<OutputType>(w),
                                    input_buffer.slice_mut(),
                                    output_buffer.slice_mut(),
@@ -198,6 +207,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<HuffmanCode> {
                                      default_value: HuffmanCode::default(),
                                    },
+                                   Rebox::<u8>::from(custom_dict),
                                    Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 #[cfg(feature="seccomp")]
@@ -218,7 +228,8 @@ declare_stack_allocator_struct!(CallocAllocatedFreelist, 8192, calloc);
 #[cfg(feature="seccomp")]
 pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                          mut w: &mut OutputType,
-                                         buffer_size: usize)
+                                         buffer_size: usize,
+                                         custom_dict: Vec<u8>)
                                          -> Result<(), io::Error>
   where InputType: Read,
         OutputType: Write
@@ -236,13 +247,14 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
   if ret != 0 {
     panic!("Unable to activate seccomp");
   }
-  match brotli::BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
+  match brotli::BrotliDecompressCustomIoCustomDict(&mut IoReaderWrapper::<InputType>(r),
                                          &mut IoWriterWrapper::<OutputType>(w),
                                          &mut alloc_u8.alloc_cell(buffer_size).slice_mut(),
                                          &mut alloc_u8.alloc_cell(buffer_size).slice_mut(),
                                          alloc_u8,
                                          alloc_u32,
                                          alloc_hc,
+                                         Rebox::<u8>::from(custom_dict),
                                          Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF")) {
     Err(e) => Err(e),
     Ok(()) => {
@@ -522,7 +534,7 @@ fn main() {
                 Err(e) => panic!("Error {:?}", e),
             }
           } else {
-            match decompress(&mut input, &mut output, 65536) {
+            match decompress(&mut input, &mut output, 65536, core::mem::replace(&mut dictionary, Vec::<u8>::new())) {
               Ok(_) => {}
               Err(e) => panic!("Error {:?}", e),
             }
@@ -541,7 +553,7 @@ fn main() {
             Err(e) => panic!("Error {:?}", e),
           }
         } else {
-          match decompress(&mut input, &mut io::stdout(), 65536) {
+          match decompress(&mut input, &mut io::stdout(), 65536, core::mem::replace(&mut dictionary, Vec::<u8>::new())) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
           }
@@ -556,7 +568,7 @@ fn main() {
           Err(e) => panic!("Error {:?}", e),
         }
       } else {
-        match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
+        match decompress(&mut io::stdin(), &mut io::stdout(), 65536, core::mem::replace(&mut dictionary, Vec::<u8>::new())) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),
         }
@@ -564,7 +576,7 @@ fn main() {
     }
   } else {
     assert_eq!(num_benchmarks, 1);
-    match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
+    match decompress(&mut io::stdin(), &mut io::stdout(), 65536, dictionary) {
       Ok(_) => return,
       Err(e) => panic!("Error {:?}", e),
     }

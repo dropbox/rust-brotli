@@ -1320,18 +1320,27 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
   (s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
    size: usize,
    mut dict: &[u8],
-   mut invalid:&[u8]) {
+   invalid:&[u8]) -> Result<(),()>{
   let max_dict_size: usize = (1usize << (*s).params.lgwin).wrapping_sub(16usize);
   let mut dict_size: usize = size;
   if EnsureInitialized(s) == 0 {
-    return;
+    return Err(());
   }
   if dict_size == 0usize || (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
-    return;
+    return Ok(());
   }
   if size > max_dict_size {
     dict = &dict[(size.wrapping_sub(max_dict_size) as (usize))..];
     dict_size = max_dict_size;
+  }
+  if invalid.len() != 0 && invalid.len() < size {
+     return Err(());
+  }
+  if invalid.len() != 0 && invalid[size - 1] != 0 {
+     return Err(()); // we can't set the last byte as invalid since it can be used for prediction
+  }
+  if invalid.len() > 1 && invalid[size - 2] != 0 {
+     return Err(()) // we can't set the last two bytes as invalid since it can be used for prediction
   }
   CopyInputToRingBuffer(s, dict_size, dict, invalid);
   (*s).last_flush_pos_ = dict_size as u64;
@@ -1362,6 +1371,7 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
                                     dict,
                                     &AlwaysZero{size:dict_size});
   }
+  Ok(())
 }
 
 

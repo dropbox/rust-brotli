@@ -289,7 +289,7 @@ fn test_roundtrip_64x() {
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
-  match super::decompress(&mut compressed_in, &mut output, 65536) {
+  match super::decompress(&mut compressed_in, &mut output, 65536, Vec::<u8>::new()) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -313,7 +313,7 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
-  match super::decompress(&mut compressed_in, &mut output, 4096) {
+  match super::decompress(&mut compressed_in, &mut output, 4096, Vec::<u8>::new()) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -557,7 +557,7 @@ fn test_10x_10y() {
   let mut input = Buffer::new(&in_buf);
   let mut output = Buffer::new(&[]);
   output.read_offset = 20;
-  match super::decompress(&mut input, &mut output, 65536) {
+  match super::decompress(&mut input, &mut output, 65536, Vec::<u8>::new()) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -620,7 +620,7 @@ fn assert_decompressed_input_matches_output(input_slice: &[u8],
   let mut output = Buffer::new(&[]);
   output.read_offset = output_slice.len();
   if input_buffer_size == output_buffer_size {
-    match super::decompress(&mut input, &mut output, input_buffer_size) {
+    match super::decompress(&mut input, &mut output, input_buffer_size, Vec::<u8>::new()) {
       Ok(_) => {}
       Err(e) => panic!("Error {:?}", e),
     }
@@ -751,7 +751,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
         if bench_decompress {
             compressed.reset_read();
             rt.reset();
-            match super::decompress(&mut compressed, &mut rt, decompress_buffer_size) {
+            match super::decompress(&mut compressed, &mut rt, decompress_buffer_size, Vec::<u8>::new()) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
@@ -760,7 +760,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
     if !bench_decompress {
         compressed.reset_read();
         rt.reset();
-        match super::decompress(&mut compressed, &mut rt, decompress_buffer_size) {
+        match super::decompress(&mut compressed, &mut rt, decompress_buffer_size, Vec::<u8>::new()) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
         }

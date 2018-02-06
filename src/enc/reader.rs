@@ -325,10 +325,13 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
                                   BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
                                   lgwin as (u32));
         if dict.len() != 0 {
-            BrotliEncoderSetCustomDictionary(&mut ret.state,
+            match BrotliEncoderSetCustomDictionary(&mut ret.state,
                                              dict.len(),
                                              dict,
-                                             dict_invalid);
+                                             dict_invalid) {
+               Ok(_) => {},
+               Err(_) => ret.read_error = Some(ret.error_if_invalid_data.take().unwrap()),
+            }
         }
         ret
     }
