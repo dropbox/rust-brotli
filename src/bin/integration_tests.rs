@@ -21,7 +21,8 @@ use std::time::Duration;
 #[cfg(not(feature="disable-timer"))]
 use std::time::SystemTime;
 use brotli::BrotliDecompressStream;
-
+#[allow(unused_imports)]
+use brotli;
 
 #[cfg(feature="benchmark")]
 extern crate test;
@@ -382,21 +383,21 @@ fn test_random_then_unicode_7() {
 #[test]
 fn test_random_then_unicode_8_with_partially_valid_dictionary() {
     let mut dict = Vec::new();
-    dict.extend_from_slice(&RANDOM_THEN_UNICODE[6384..16000]);
+    dict.extend_from_slice(&RANDOM_THEN_UNICODE[..]);
     let mut invalid = Vec::new();
     invalid.reserve(dict.len());
     for index in 0..dict.len() {
       let mut ibyte = 0u8;
-      if index % 29 == 0 {
+      if index %  89 == 0 {
          ibyte = 0xff;
       }
-      if index % 47 == 0 {
+      if index % 127 == 0 {
          ibyte = 0x3f;
       }
       invalid.push(ibyte);
     }
-    let c_size = roundtrip_helper(&RANDOM_THEN_UNICODE[..21036], 5, 22, dict, &invalid[..]);
-    assert_eq!(c_size, 10440);
+    let c_size = roundtrip_helper(&RANDOM_THEN_UNICODE[..], 5, 22, dict, &invalid[..]);
+    assert_eq!(c_size, 9201);
 }
 
 #[test]
@@ -659,6 +660,113 @@ fn assert_decompressed_input_matches_output(input_slice: &[u8],
   assert_eq!(output.data.len(), output_slice.len());
   assert_eq!(output.data, output_slice)
 }
+#[cfg(feature="benchmark")]
+fn benchmark_vec_find_partial_match(a: &[u8], b: &[u8], bench: &mut Bencher) {
+    let first = test::black_box(&a[..]);
+    let second = test::black_box(&b[..]);
+    bench.iter(&mut || {
+        brotli::vectorized_internal_find_match_length_with_limit(test::black_box(first), test::black_box(second), test::black_box(first.len()))
+        });
+}
+#[cfg(feature="benchmark")]
+fn benchmark_scalar_find_partial_match(a: &[u8], b: &[u8], bench: &mut Bencher) {
+    let first = test::black_box(&a[..]);
+    let second = test::black_box(&b[..]);
+    bench.iter(&mut || {
+        brotli::plain_internal_find_match_length_with_limit(test::black_box(first), test::black_box(second), test::black_box(first.len()))
+        });
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_short_vec_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;19];
+    let mut b = [0u8;19];
+    b[17] = 1;
+    benchmark_vec_find_partial_match(&a[..], &b[..], bench)
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_tiny_vec_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;3];
+    let mut b = [0u8;3];
+    b[1] = 1;
+    benchmark_vec_find_partial_match(&a[..], &b[..], bench)
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_med_vec_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;34];
+    let mut b = [0u8;34];
+    b[33] = 1;
+    benchmark_vec_find_partial_match(&a[..], &b[..], bench)
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_long_vec_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;255];
+    let mut b = [0u8;255];
+    b[193] = 1;
+    benchmark_vec_find_partial_match(&a[..], &b[..], bench)
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_huge_vec_find_partial_match(bench: &mut Bencher) {
+    let a = [254u8;65533];
+    let mut b = [254u8;65533];
+    b[65500] = 1;
+    benchmark_vec_find_partial_match(&a[..], &b[..], bench)
+}
+
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_short_scalar_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;19];
+    let mut b = [0u8;19];
+    b[17] = 1;
+    benchmark_scalar_find_partial_match(&a[..], &b[..], bench)
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_tiny_scalar_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;3];
+    let mut b = [0u8;3];
+    b[1] = 1;
+    benchmark_scalar_find_partial_match(&a[..], &b[..], bench)
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_med_scalar_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;34];
+    let mut b = [0u8;34];
+    b[33] = 1;
+    benchmark_scalar_find_partial_match(&a[..], &b[..], bench)
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_long_scalar_find_partial_match(bench: &mut Bencher) {
+    let a = [0u8;255];
+    let mut b = [0u8;255];
+    b[193] = 1;
+    benchmark_scalar_find_partial_match(&a[..], &b[..], bench)
+}
+#[cfg(feature="benchmark")]
+#[bench]
+fn benchmark_huge_scalar_find_partial_match(bench: &mut Bencher) {
+    let a = [254u8;65533];
+    let mut b = [254u8;65533];
+    b[65500] = 1;
+    benchmark_scalar_find_partial_match(&a[..], &b[..], bench)
+}
+
 
 #[cfg(feature="benchmark")]
 fn benchmark_decompressed_input(input_slice: &[u8],

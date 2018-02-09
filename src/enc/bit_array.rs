@@ -5,6 +5,7 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 
 pub trait BitArrayTrait {
     fn first_bit_set(&self, start: usize, size:usize) -> usize;
+    fn first_bit_unset(&self, start: usize, size:usize) -> usize;
     fn len(&self) -> usize;
 }
 
@@ -18,6 +19,9 @@ pub struct AlwaysZero{
 impl BitArrayTrait for AlwaysZero {
     fn first_bit_set(&self, _start: usize, size:usize) -> usize{
         size
+    }
+    fn first_bit_unset(&self, start: usize, _size:usize) -> usize{
+        start
     }
     fn len(&self) -> usize{
         self.size
@@ -42,6 +46,9 @@ impl<'a> BitArrayViewMut<'a> {
 impl<'a> BitArrayTrait for BitArrayViewMut<'a> {
     fn first_bit_set(&self, start: usize, size:usize) -> usize{
         self.full_view().first_bit_set(start, size)
+    }
+    fn first_bit_unset(&self, start: usize, size:usize) -> usize{
+        self.full_view().first_bit_unset(start, size)
     }
     fn len(&self) -> usize{
         self.bitvec.len()
@@ -76,6 +83,14 @@ impl<'a> BitArrayTrait for BitArrayView<'a> {
     fn first_bit_set(&self, start: usize, size:usize) -> usize{
         for (index, item) in self.bitvec.split_at(start).1.split_at(size).0.iter().enumerate() {
             if *item != 0 {
+                return index;
+            }
+        }
+        size
+    }
+    fn first_bit_unset(&self, start: usize, size:usize) -> usize{
+        for (index, item) in self.bitvec.split_at(start).1.split_at(size).0.iter().enumerate() {
+            if *item == 0 {
                 return index;
             }
         }
@@ -134,6 +149,9 @@ impl<AllocU8: alloc::Allocator<u8>,
      AllocU32: alloc::Allocator<u32>> BitArrayTrait for BitArray<AllocU8, AllocU32> {
     fn first_bit_set(&self, start: usize, size:usize) -> usize{
         BitArrayView{bitvec:self.bitvec.slice()}.first_bit_set(start, size)
+    }
+    fn first_bit_unset(&self, start: usize, size:usize) -> usize{
+        BitArrayView{bitvec:self.bitvec.slice()}.first_bit_unset(start, size)
     }
     fn len(&self) -> usize{
         self.bitvec.slice().len()

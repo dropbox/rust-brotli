@@ -136,6 +136,17 @@ pub fn StitchToPreviousBlockInternal<T: AnyHasher,
 
 pub fn StoreLookaheadThenStore<T: AnyHasher,
                                BA: BitArrayTrait>(hasher: &mut T, size: usize, dict: &[u8], dict_valid: &BA) {
+  let mut next_bit = dict_valid.first_bit_set(0, size);
+  next_bit += dict_valid.first_bit_unset(next_bit, size - next_bit);
+  if next_bit != size {
+      hasher.Store(dict, dict_valid, !(0usize), 0);
+      while next_bit + hasher.StoreLookahead() <= size {
+          hasher.Store(dict, dict_valid, !(0usize), next_bit);
+          next_bit += dict_valid.first_bit_set(next_bit, size - next_bit);
+          next_bit += dict_valid.first_bit_unset(next_bit, size - next_bit);
+      }
+      return
+  }
   let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
   let mut i: usize = 0;
   while i.wrapping_add(overlap) < size {

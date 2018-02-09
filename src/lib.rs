@@ -40,6 +40,7 @@ pub use brotli_decompressor::io_wrappers::{CustomRead, CustomWrite};
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 pub use enc::interface;
+pub use enc::static_dict::{vectorized_internal_find_match_length_with_limit, plain_internal_find_match_length_with_limit};
 pub use enc::brotli_bit_stream::InputReference;
 // interface
 // pub fn BrotliDecompressStream(mut available_in: &mut usize,

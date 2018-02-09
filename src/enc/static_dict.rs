@@ -67,7 +67,6 @@ pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
        ((v >> 56) & 0xff) as u8];
   outp.split_at_mut(8).0.clone_from_slice(&p[..]);
 }
-
 macro_rules! sub_match {
     ($s1 : expr, $s2 : expr, $limit : expr, $matched : expr, $split_pair1 : expr, $split_pair2 : expr, $s1_lo : expr, $s2_lo : expr, $s1_as_64 : expr, $s2_as_64 : expr, $vec_len: expr) => {
         $split_pair1 = $s1.split_at($vec_len);
@@ -90,7 +89,6 @@ macro_rules! sub_match {
         }
     }
 }
-
 macro_rules! sub_match8 {
     ($s1 : expr, $s2 : expr, $limit : expr, $matched : expr, $s1_as_64 : expr, $s2_as_64 : expr) => {
         $limit -= 8;
@@ -118,22 +116,37 @@ pub fn SlowerInternalFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize
   }
   return limit;
 }
-// factor of 5 slower (example takes 90 seconds)
+// factor of 5 slower (example takes 90 seconds) // but now it seems to be faster with newer rustc
 #[allow(unused)]
-pub fn SlowInternalFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
-  for (index, pair) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
+//#[cfg(debug_assertions)]
+pub fn plain_internal_find_match_length_with_limit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+  for (index, pair) in s1.split_at(limit).0.iter().zip(s2.split_at(limit).0.iter()).enumerate() {
     if *pair.0 != *pair.1 {
       return index;
     }
   }
   return limit;
 }
+
 pub fn FindMatchLengthWithLimit<BV:BitArrayTrait>(s1: &[u8], s2: &[u8], data_invalid: &BV, data_invalid_offset: usize, limit: usize) -> usize {
   let len = InternalFindMatchLengthWithLimit(s1, s2, limit);
   return data_invalid.first_bit_set(data_invalid_offset, len);
 }
+/*
+#[cfg(not(debug_assertions))]
+#[inline(always)]
+pub fn InternalFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+    vectorized_internal_find_match_length_with_limit(s1, s2, limit)
+}
 
-pub fn InternalFindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
+#[cfg(debug_assertions)]
+*/
+#[inline(always)]
+pub fn InternalFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+    plain_internal_find_match_length_with_limit(s1, s2, limit)
+}
+//#[cfg(not(debug_assertions))]
+pub fn vectorized_internal_find_match_length_with_limit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
   let mut s1_as_64 : u64;
   let mut s2_as_64 : u64;
@@ -188,47 +201,47 @@ mod test {
             a[i] = (a[i - 1] % 19u8).wrapping_add(17u8);
         }
         construct_situation(&a[..], &mut b[..], a.len(), 0);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 0);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 0);
         construct_situation(&a[..], &mut b[..], a.len(), 1);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 1);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 1);
         construct_situation(&a[..], &mut b[..], a.len(), 10);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 10);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 10);
         construct_situation(&a[..], &mut b[..], a.len(), 9);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 9);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 9);
         construct_situation(&a[..], &mut b[..], a.len(), 7);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 7);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 7);
         construct_situation(&a[..], &mut b[..], a.len(), 8);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 8);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 8);
         construct_situation(&a[..], &mut b[..], a.len(), 48);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 48);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 48);
         construct_situation(&a[..], &mut b[..], a.len(), 49);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 49);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 49);
         construct_situation(&a[..], &mut b[..], a.len(), 63);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 63);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 63);
         construct_situation(&a[..], &mut b[..], a.len(), 222);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 222);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 222);
         construct_situation(&a[..], &mut b[..], a.len(), 1590);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 1590);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 1590);
         construct_situation(&a[..], &mut b[..], a.len(), 12590);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 12590);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 12590);
         construct_situation(&a[..], &mut b[..], a.len(), 52592);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 52592);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 52592);
         construct_situation(&a[..], &mut b[..], a.len(), 152592);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 152592);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 152592);
         construct_situation(&a[..], &mut b[..], a.len(), 252591);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 252591);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 252591);
         construct_situation(&a[..], &mut b[..], a.len(), 131072);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 131072);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 131072);
         construct_situation(&a[..], &mut b[..], a.len(), 131073);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 131073);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 131073);
         construct_situation(&a[..], &mut b[..], a.len(), 131072 + 64 + 32 + 16 + 8);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 131072 + 64 + 32 + 16 + 8);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 131072 + 64 + 32 + 16 + 8);
         construct_situation(&a[..], &mut b[..], a.len(), 272144 + 64 + 32 + 16 + 8 + 1);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 272144 + 64 + 32 + 16 + 8 + 1);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 272144 + 64 + 32 + 16 + 8 + 1);
         construct_situation(&a[..], &mut b[..], a.len(), 2*272144 + 64 + 32 + 16 + 8);
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), 2*272144 + 64 + 32 + 16 + 8);
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), 2*272144 + 64 + 32 + 16 + 8);
         construct_situation(&a[..], &mut b[..], a.len(), a.len());
-        assert_eq!(super::InternalFindMatchLengthWithLimit(&a[..], &b[..], a.len()), a.len());
+        assert_eq!(super::vectorized_internal_find_match_length_with_limit(&a[..], &b[..], a.len()), a.len());
     }
 }
 #[allow(unused)]
