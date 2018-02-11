@@ -397,7 +397,7 @@ fn test_random_then_unicode_8_with_partially_valid_dictionary() {
       invalid.push(ibyte);
     }
     let c_size = roundtrip_helper(&RANDOM_THEN_UNICODE[..], 5, 22, dict, &invalid[..]);
-    assert_eq!(c_size, 9201);
+    assert_eq!(c_size, 9267);
 }
 
 #[test]

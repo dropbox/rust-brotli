@@ -133,19 +133,21 @@ pub fn StitchToPreviousBlockInternal<T: AnyHasher,
     handle.Store(ringbuffer, ringbuffer_invalid, ringbuffer_mask, position.wrapping_sub(1));
   }
 }
-
+const PERFECT_DICT_MATCH_ONLY: bool = false;
 pub fn StoreLookaheadThenStore<T: AnyHasher,
                                BA: BitArrayTrait>(hasher: &mut T, size: usize, dict: &[u8], dict_valid: &BA) {
-  let mut next_bit = dict_valid.first_bit_set(0, size);
-  next_bit += dict_valid.first_bit_unset(next_bit, size - next_bit);
-  if next_bit != size {
+  if PERFECT_DICT_MATCH_ONLY {
+      let mut next_bit = dict_valid.first_bit_set(0, size);
+      next_bit += dict_valid.first_bit_unset(next_bit, size - next_bit);
+      if next_bit != size {
       hasher.Store(dict, dict_valid, !(0usize), 0);
-      while next_bit + hasher.StoreLookahead() <= size {
-          hasher.Store(dict, dict_valid, !(0usize), next_bit);
-          next_bit += dict_valid.first_bit_set(next_bit, size - next_bit);
-          next_bit += dict_valid.first_bit_unset(next_bit, size - next_bit);
+          while next_bit + hasher.StoreLookahead() <= size {
+              hasher.Store(dict, dict_valid, !(0usize), next_bit);
+              next_bit += dict_valid.first_bit_set(next_bit, size - next_bit);
+              next_bit += dict_valid.first_bit_unset(next_bit, size - next_bit);
+          }
+          return
       }
-      return
   }
   let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
   let mut i: usize = 0;
