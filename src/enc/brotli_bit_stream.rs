@@ -80,7 +80,7 @@ fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) ->
         _ => len >= 8,
     }
 }
-const COMMAND_BUFFER_SIZE: usize = 16384;
+const COMMAND_BUFFER_SIZE: usize = 4096;
 trait CommandProcessor<'a> {
    fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
                                                              val: interface::Command<InputReference<'a> >,

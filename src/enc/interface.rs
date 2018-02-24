@@ -90,9 +90,9 @@ impl LiteralPredictionModeNibble {
 }
 #[derive(Debug)]
 pub struct PredictionModeContextMap<SliceType:SliceWrapper<u8>> {
-    pub literal_prediction_mode: LiteralPredictionModeNibble,
     pub literal_context_map: SliceType,
     pub distance_context_map: SliceType,
+    pub literal_prediction_mode: LiteralPredictionModeNibble,
 }
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceType> {
     fn clone(&self) -> PredictionModeContextMap<SliceType>{
