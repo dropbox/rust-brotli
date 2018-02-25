@@ -3,7 +3,7 @@ use core;
 use alloc::{SliceWrapper, Allocator, SliceWrapperMut};
 use super::histogram;
 #[derive(Debug,Copy,Clone,Default)]
-pub struct BlockSwitch(pub u8);
+pub struct BlockSwitch(u32, u8);
 // Commands that can instantiate as a no-op should implement this.
 pub trait Nop<T> {
     fn nop() -> T;
@@ -11,25 +11,33 @@ pub trait Nop<T> {
 
 impl BlockSwitch {
     #[inline(always)]
-    pub fn new(block_type: u8) -> Self {
-        BlockSwitch(block_type)
+    pub fn new(block_type: u8, count :u32) -> Self {
+        BlockSwitch(count, block_type)
     }
     #[inline(always)]
     pub fn block_type(&self) -> u8 {
+        self.1
+    }
+    #[inline(always)]
+    pub fn count(&self) -> u32 {
         self.0
     }
 }
 
 #[derive(Debug,Copy,Clone,Default)]
-pub struct LiteralBlockSwitch(pub BlockSwitch, pub u8);
+pub struct LiteralBlockSwitch(pub BlockSwitch, u8);
 
 impl LiteralBlockSwitch {
-    pub fn new(block_type: u8, stride: u8) -> Self {
-        LiteralBlockSwitch(BlockSwitch::new(block_type), stride)
+    pub fn new(block_type: u8, stride: u8, count: u32) -> Self {
+        LiteralBlockSwitch(BlockSwitch::new(block_type, count), stride)
     }
     #[inline(always)]
     pub fn block_type(&self) -> u8 {
         self.0.block_type()
+    }
+    #[inline(always)]
+    pub fn count(&self) -> u32 {
+        self.0.count()
     }
     #[inline(always)]
     pub fn stride(&self) -> u8 {

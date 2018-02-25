@@ -117,8 +117,8 @@ trait CommandProcessor<'a> {
             }), callback);
         }
    }
-   fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
-       self.push(interface::Command::BlockSwitchLiteral(interface::LiteralBlockSwitch::new(block_type, 0)), callback)
+   fn push_block_switch_literal<Cb>(&mut self, block_type: u8, count: u32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+       self.push(interface::Command::BlockSwitchLiteral(interface::LiteralBlockSwitch::new(block_type, 0, count)), callback)
    }
 }
 
@@ -265,7 +265,7 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandQueue<'a, AllocU32 > {
            None => {},
            Some(literal_block_type_offset) => {
                match &mut self.queue[literal_block_type_offset] {
-                   &mut interface::Command::BlockSwitchLiteral(ref mut cmd) => cmd.1 = cur_stride,
+                   &mut interface::Command::BlockSwitchLiteral(ref mut cmd) => cmd.update_stride(cur_stride),
                    _ => panic!("Logic Error: literal block type index must point to literal block type"),
                }
            },
@@ -291,11 +291,11 @@ impl<'a, AllocU32: alloc::Allocator<u32> > CommandProcessor<'a> for CommandQueue
             self.flush(callback);
         }
     }
-    fn push_block_switch_literal<Cb>(&mut self, block_type: u8, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
+    fn push_block_switch_literal<Cb>(&mut self, block_type: u8, lit_count: u32, callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
         self.flush(callback);
         self.last_btypel_index = Some(self.size());
         self.push(interface::Command::BlockSwitchLiteral(
-            interface::LiteralBlockSwitch::new(block_type, 0)), callback)
+            interface::LiteralBlockSwitch::new(block_type, 0, lit_count)), callback)
     }
 }
 
@@ -445,7 +445,11 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     let mut btypec_sub = if block_type.btypec.num_types == 1 { 1u32<<31 } else {block_type.btypec.lengths[0]};
     let mut btyped_sub = if block_type.btyped.num_types == 1 { 1u32<<31 } else {block_type.btyped.lengths[0]};
     {
-        command_queue.push_block_switch_literal(0, callback);
+        command_queue.push_block_switch_literal(0, btypel_sub, callback);
+        command_queue.push(interface::Command::BlockSwitchDistance(
+            interface::BlockSwitch::new(0, btyped_sub)), callback);
+        command_queue.push(interface::Command::BlockSwitchCommand(
+            interface::BlockSwitch::new(0, btypec_sub)), callback);
     }
     let mut mb_len = input.len();
     for cmd in commands.iter() {
@@ -474,7 +478,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
                 if block_type.btypec.types.len() > btypec_counter {
                     btypec_sub = block_type.btypec.lengths[btypec_counter];
                     command_queue.push(interface::Command::BlockSwitchCommand(
-                        interface::BlockSwitch(block_type.btypec.types[btypec_counter])),
+                        interface::BlockSwitch::new(block_type.btypec.types[btypec_counter], btypec_sub)),
                                        callback);
                 } else {
                     btypec_sub = 1u32 << 31;
@@ -500,7 +504,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
                 btypel_counter += 1;
                 if block_type.btypel.types.len() > btypel_counter {
                     btypel_sub = block_type.btypel.lengths[btypel_counter];
-                    command_queue.push_block_switch_literal(block_type.btypel.types[btypel_counter], callback);
+                    command_queue.push_block_switch_literal(block_type.btypel.types[btypel_counter], btypel_sub, callback);
                 } else {
                     btypel_sub = 1u32<<31;
                 }
@@ -524,7 +528,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
                 if block_type.btyped.types.len() > btyped_counter {
                     btyped_sub = block_type.btyped.lengths[btyped_counter];
                     command_queue.push(interface::Command::BlockSwitchDistance(
-                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])), callback);
+                        interface::BlockSwitch::new(block_type.btyped.types[btyped_counter], btyped_sub)), callback);
                 } else {
                     btyped_sub = 1u32 << 31;
                 }

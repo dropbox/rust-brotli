@@ -73,13 +73,13 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
     use std::io::Write;
     match cmd {
         &interface::Command::BlockSwitchLiteral(ref bsl) => {
-            println_stderr!("ltype {} {}", bsl.0.block_type(), bsl.1);
+            println_stderr!("ltype {} {} {}", bsl.block_type(), bsl.stride(), bsl.count());
         },
         &interface::Command::BlockSwitchCommand(ref bsc) => {
-            println_stderr!("ctype {}", bsc.0);
+            println_stderr!("ctype {} {}", bsc.block_type(), bsc.count());
         },
         &interface::Command::BlockSwitchDistance(ref bsd) => {
-            println_stderr!("dtype {}", bsd.0);
+            println_stderr!("dtype {} {}", bsd.block_type(), bsd.count());
         },
         &interface::Command::PredictionMode(ref prediction) => {
             println_stderr!("prediction {} lcontextmap{} dcontextmap{}",
