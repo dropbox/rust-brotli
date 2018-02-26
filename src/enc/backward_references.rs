@@ -507,7 +507,7 @@ const kDistanceCacheOffset : [i8;16]= [
     -3i8,
     3i8];
 
-const BROTLI_LITERAL_BYTE_SCORE: usize = 540;
+const BROTLI_LITERAL_BYTE_SCORE: usize = 320;
 const BROTLI_DISTANCE_BIT_PENALTY: usize = 120;
 
 
@@ -1124,15 +1124,17 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
   if matchlen.wrapping_add(kCutoffTransformsCount as usize) <= len || matchlen == 0usize {
     return 0i32;
   }
+  let absolute_dist;
   {
     let cut: u64 = len.wrapping_sub(matchlen) as u64;
     let transform_id: usize =
-      (cut << 2i32).wrapping_add(kCutoffTransforms as u64 >> cut.wrapping_mul(6) & 0x3f) as usize;
-    backward = max_backward.wrapping_add(dist)
+          (cut << 2i32).wrapping_add(kCutoffTransforms as u64 >> cut.wrapping_mul(6) & 0x3f) as usize;
+    absolute_dist = dist
       .wrapping_add(1usize)
       .wrapping_add(transform_id << (*dictionary).size_bits_by_length[len] as (i32));
+    backward = max_backward.wrapping_add(absolute_dist);
   }
-  score = BackwardReferenceScore(matchlen, backward);
+  score = BackwardReferenceScore(matchlen,absolute_dist);
   if score < (*out).score {
     return 0i32;
   }
