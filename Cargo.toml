@@ -15,8 +15,8 @@ exclude = ["src/bin/testdata/*"]
 doc = false
 name = "brotli"
 
-[profile.release]
-lto=true
+#[profile.release]
+#lto=true
 
 [dependencies]
 "alloc-no-stdlib" = "~1.2"

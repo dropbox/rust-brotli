@@ -422,6 +422,48 @@ impl<'a, AllocU32: alloc::Allocator<u32>> Drop for CommandQueue<'a, AllocU32> {
   }
 }
 
+fn find_next_distance_switch(
+    commands: &[Command],
+    mut btyped: u32) -> u32 {
+    if btyped == 0 {
+        return 0
+    }
+    let mut index = 0u32;
+    for cmd in commands.iter() {
+        let copylen_code: u32 = CommandCopyLenCode(cmd);
+        if copylen_code != 0 {
+            index += 1;
+            if cmd.cmd_prefix_ >= 128 {
+                btyped -= 1;
+                if btyped == 0 {
+                    return index as u32;
+                }
+            }
+        }
+    }
+    index as u32
+}
+
+fn find_next_command_switch(
+    commands: &[Command],
+    mut btypec: u32) -> u32 {
+    if btypec == 0 {
+        return 0
+    }
+    let mut index = 0u32;
+    for cmd in commands.iter() {
+        let copylen_code: u32 = CommandCopyLenCode(cmd);
+        if copylen_code != 0 {
+            index += 1;
+        }
+        btypec -= 1;
+        if btypec == 0 {
+            return index;
+        }
+    }
+    return index; // FIXME: truncate at end
+}
+
 fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), CmdProcessor: CommandProcessor<'a> > (
     command_queue: &mut CmdProcessor,
     input: InputPair<'a>,
@@ -446,13 +488,15 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     let mut btyped_sub = if block_type.btyped.num_types == 1 { 1u32<<31 } else {block_type.btyped.lengths[0]};
     {
         command_queue.push_block_switch_literal(0, btypel_sub, callback);
+        let next_dist = find_next_distance_switch(commands, btyped_sub);
         command_queue.push(interface::Command::BlockSwitchDistance(
-            interface::BlockSwitch::new(0, btyped_sub)), callback);
+            interface::BlockSwitch::new(0, next_dist)), callback);
+        let next_cmd = find_next_command_switch(commands, btypec_sub);
         command_queue.push(interface::Command::BlockSwitchCommand(
-            interface::BlockSwitch::new(0, btypec_sub)), callback);
+            interface::BlockSwitch::new(0, next_cmd)), callback);
     }
     let mut mb_len = input.len();
-    for cmd in commands.iter() {
+    for (index, cmd) in commands.iter().enumerate() {
         let (inserts, interim) = input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize,
                                                                      mb_len));
         recoder_state.num_bytes_encoded += inserts.len();
@@ -471,20 +515,6 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
         let actual_copy_len : usize;
         let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size_from_lgwin(params.lgwin));
         assert!(inserts.len() <= mb_len);
-        {
-            btypec_sub -= 1;
-            if btypec_sub == 0 {
-                btypec_counter += 1;
-                if block_type.btypec.types.len() > btypec_counter {
-                    btypec_sub = block_type.btypec.lengths[btypec_counter];
-                    command_queue.push(interface::Command::BlockSwitchCommand(
-                        interface::BlockSwitch::new(block_type.btypec.types[btypec_counter], btypec_sub)),
-                                       callback);
-                } else {
-                    btypec_sub = 1u32 << 31;
-                }
-            }
-        }
         if inserts.len() != 0 {
             let mut tmp_inserts = inserts;
             while tmp_inserts.len() > btypel_sub as usize {
@@ -519,19 +549,6 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
             if tmp_inserts.len() != 0 {
                 mb_len -= tmp_inserts.len();
                 btypel_sub -= tmp_inserts.len() as u32;
-            }
-        }
-        if copy_len != 0 && cmd.cmd_prefix_ >= 128 {
-            btyped_sub -= 1;
-            if btyped_sub == 0 {
-                btyped_counter += 1;
-                if block_type.btyped.types.len() > btyped_counter {
-                    btyped_sub = block_type.btyped.lengths[btyped_counter];
-                    command_queue.push(interface::Command::BlockSwitchDistance(
-                        interface::BlockSwitch::new(block_type.btyped.types[btyped_counter], btyped_sub)), callback);
-                } else {
-                    btyped_sub = 1u32 << 31;
-                }
             }
         }
         if final_distance > max_distance { // is dictionary
@@ -584,6 +601,35 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
                local_dist_cache[1..].clone_from_slice(&tmp_dist_cache[..]);
                local_dist_cache[0] = final_distance as i32;
 
+            }
+        }
+        {
+            btypec_sub -= 1;
+            if btypec_sub == 0 {
+                btypec_counter += 1;
+                if block_type.btypec.types.len() > btypec_counter {
+                    btypec_sub = block_type.btypec.lengths[btypec_counter];
+                    let next_cmd = find_next_command_switch(commands.split_at(index + 1).1, btypec_sub);
+                    command_queue.push(interface::Command::BlockSwitchCommand(
+                        interface::BlockSwitch::new(block_type.btypec.types[btypec_counter], next_cmd)),
+                                       callback);
+                } else {
+                    btypec_sub = 1u32 << 31;
+                }
+            }
+        }
+        if copy_len != 0 && cmd.cmd_prefix_ >= 128 {
+            btyped_sub -= 1;
+            if btyped_sub == 0 {
+                btyped_counter += 1;
+                if block_type.btyped.types.len() > btyped_counter {
+                    btyped_sub = block_type.btyped.lengths[btyped_counter];
+                    let next_dist = find_next_distance_switch(commands.split_at(index + 1).1, btyped_sub);
+                    command_queue.push(interface::Command::BlockSwitchDistance(
+                        interface::BlockSwitch::new(block_type.btyped.types[btyped_counter], next_dist)), callback);
+                } else {
+                    btyped_sub = 1u32 << 31;
+                }
             }
         }
         let (copied, remainder) = interim.split_at(actual_copy_len);
