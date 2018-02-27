@@ -487,13 +487,13 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     let mut btypec_sub = if block_type.btypec.num_types == 1 { 1u32<<31 } else {block_type.btypec.lengths[0]};
     let mut btyped_sub = if block_type.btyped.num_types == 1 { 1u32<<31 } else {block_type.btyped.lengths[0]};
     {
-        command_queue.push_block_switch_literal(0, btypel_sub, callback);
-        let next_dist = find_next_distance_switch(commands, btyped_sub);
-        command_queue.push(interface::Command::BlockSwitchDistance(
-            interface::BlockSwitch::new(0, next_dist)), callback);
         let next_cmd = find_next_command_switch(commands, btypec_sub);
         command_queue.push(interface::Command::BlockSwitchCommand(
             interface::BlockSwitch::new(0, next_cmd)), callback);
+        let next_dist = find_next_distance_switch(commands, btyped_sub);
+        command_queue.push(interface::Command::BlockSwitchDistance(
+            interface::BlockSwitch::new(0, next_dist)), callback);
+        command_queue.push_block_switch_literal(0, btypel_sub, callback);
     }
     let mut mb_len = input.len();
     for (index, cmd) in commands.iter().enumerate() {
