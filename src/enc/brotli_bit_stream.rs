@@ -467,20 +467,6 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
         let actual_copy_len : usize;
         let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size_from_lgwin(params.lgwin));
         assert!(inserts.len() <= mb_len);
-        {
-            btypec_sub -= 1;
-            if btypec_sub == 0 {
-                btypec_counter += 1;
-                if block_type.btypec.types.len() > btypec_counter {
-                    btypec_sub = block_type.btypec.lengths[btypec_counter];
-                    command_queue.push(interface::Command::BlockSwitchCommand(
-                        interface::BlockSwitch(block_type.btypec.types[btypec_counter])),
-                                       callback);
-                } else {
-                    btypec_sub = 1u32 << 31;
-                }
-            }
-        }
         if inserts.len() != 0 {
             let mut tmp_inserts = inserts;
             while tmp_inserts.len() > btypel_sub as usize {
@@ -515,19 +501,6 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
             if tmp_inserts.len() != 0 {
                 mb_len -= tmp_inserts.len();
                 btypel_sub -= tmp_inserts.len() as u32;
-            }
-        }
-        if copy_len != 0 && cmd.cmd_prefix_ >= 128 {
-            btyped_sub -= 1;
-            if btyped_sub == 0 {
-                btyped_counter += 1;
-                if block_type.btyped.types.len() > btyped_counter {
-                    btyped_sub = block_type.btyped.lengths[btyped_counter];
-                    command_queue.push(interface::Command::BlockSwitchDistance(
-                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])), callback);
-                } else {
-                    btyped_sub = 1u32 << 31;
-                }
             }
         }
         if final_distance > max_distance { // is dictionary
@@ -582,6 +555,34 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
 
             }
         }
+        {
+            btypec_sub -= 1;
+            if btypec_sub == 0 {
+                btypec_counter += 1;
+                if block_type.btypec.types.len() > btypec_counter {
+                    btypec_sub = block_type.btypec.lengths[btypec_counter];
+                    command_queue.push(interface::Command::BlockSwitchCommand(
+                        interface::BlockSwitch(block_type.btypec.types[btypec_counter])),
+                                       callback);
+                } else {
+                    btypec_sub = 1u32 << 31;
+                }
+            }
+        }
+        if copy_len != 0 && cmd.cmd_prefix_ >= 128 {
+            btyped_sub -= 1;
+            if btyped_sub == 0 {
+                btyped_counter += 1;
+                if block_type.btyped.types.len() > btyped_counter {
+                    btyped_sub = block_type.btyped.lengths[btyped_counter];
+                    command_queue.push(interface::Command::BlockSwitchDistance(
+                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])), callback);
+                } else {
+                    btyped_sub = 1u32 << 31;
+                }
+            }
+        }
+
         let (copied, remainder) = interim.split_at(actual_copy_len);
         recoder_state.num_bytes_encoded += copied.len();
         input_iter = remainder;
