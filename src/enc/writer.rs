@@ -439,7 +439,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
         Ok(buf.len())
       }
       fn flush(&mut self) -> Result<(), ErrType > {
-        match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FLUSH) {
+        match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
               Ok(_) => {},
               Err(e) => return Err(e),
         }
