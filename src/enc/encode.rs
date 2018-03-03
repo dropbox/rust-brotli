@@ -85,8 +85,8 @@ pub enum BrotliEncoderParameter {
   BROTLI_METABLOCK_CALLBACK = 151,
   BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
   BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY = 153,
+  BROTLI_PARAM_LITERAL_BYTE_SCORE = 154,
 }
-
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
   pub size_: u32,
@@ -242,6 +242,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.high_entropy_detection_quality = value as (u8);
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_LITERAL_BYTE_SCORE as (i32) {
+    (*state).params.hasher.literal_byte_score = value as i32;
+    return 1i32;
+  }
   if p as (i32) == BrotliEncoderParameter::BROTLI_METABLOCK_CALLBACK as (i32) {
     (*state).params.log_meta_block = if value != 0 {true} else {false};
     return 1i32;
@@ -284,6 +288,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
              bucket_bits: 15,
              hash_len: 5,
              num_last_distances_to_check: 16,
+             literal_byte_score: 0,
            },
          };
 }
@@ -1098,6 +1103,7 @@ fn InitializeH9<AllocU16:alloc::Allocator<u16>,
         },
         num_:m16.alloc_cell(1<<H9_BUCKET_BITS),
         buckets_:m32.alloc_cell(H9_BLOCK_SIZE<<H9_BUCKET_BITS),
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 

@@ -364,9 +364,6 @@ fn main() {
         first = false;
         continue;
       }
-      if argument == "-d" {
-        continue;
-      }
       if argument == "--dump-dictionary" {
         util::print_dictionary(util::permute_dictionary());
         return
@@ -440,6 +437,10 @@ fn main() {
       }
       if argument.starts_with("-l") {
         params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
+        continue;
+      }
+      if argument.starts_with("-bytescore=") {
+        params.hasher.literal_byte_score = argument.trim_matches('-').trim_matches('b').trim_matches('y').trim_matches('t').trim_matches('e').trim_matches('s').trim_matches('c').trim_matches('o').trim_matches('r').trim_matches('e').trim_matches('=').parse::<i32>().unwrap();
         continue;
       }
       if argument.starts_with("-w") {
