@@ -1054,6 +1054,7 @@ fn InitializeH2<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &Br
             dict_num_matches:0,
         },
         buckets_:H2Sub{buckets_:m32.alloc_cell(65537 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 fn InitializeH3<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H3Sub<AllocU32>> {
@@ -1065,6 +1066,7 @@ fn InitializeH3<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &Br
             dict_num_matches:0,
         },
         buckets_:H3Sub{buckets_:m32.alloc_cell(65538 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 fn InitializeH4<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H4Sub<AllocU32>> {
@@ -1076,6 +1078,7 @@ fn InitializeH4<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &Br
             dict_num_matches:0,
         },
         buckets_:H4Sub{buckets_:m32.alloc_cell(131072 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 fn InitializeH54<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H54Sub<AllocU32>> {
@@ -1087,6 +1090,7 @@ fn InitializeH54<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &B
             dict_num_matches:0,
         },
         buckets_:H54Sub{buckets_:m32.alloc_cell(1048580 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 
@@ -1118,6 +1122,7 @@ fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
   let num = m16.alloc_cell(bucket_size as usize);
   AdvHasher {
     buckets: buckets,
+    h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     num: num,
     GetHasherCommon: Struct1 {
       params: params.hasher,
@@ -1144,6 +1149,7 @@ fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
   AdvHasher {
     buckets: buckets,
     num: num,
+    h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     GetHasherCommon: Struct1 {
       params: params.hasher,
       is_prepared_: 1,
