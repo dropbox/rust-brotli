@@ -89,93 +89,135 @@ impl LiteralPredictionModeNibble {
         }
     }
 }
+pub const NUM_SPEED_VALUES: usize = 6;
+pub const NUM_PREDMODE_VALUES: usize = 1;
+pub const PREDMODE_OFFSET: usize = 0;
+pub const SPEED_OFFSET: usize = NUM_PREDMODE_VALUES + PREDMODE_OFFSET;
+pub const DISTANCE_CONTEXT_MAP_OFFSET: usize = SPEED_OFFSET + NUM_SPEED_VALUES;
+
 #[derive(Debug)]
 pub struct PredictionModeContextMap<SliceType:SliceWrapper<u8>> {
     pub literal_context_map: SliceType,
-    pub distance_context_map: SliceType,
-    pub context_speeds: SliceType,
-    pub literal_prediction_mode: LiteralPredictionModeNibble,
+    pub predmode_speed_and_distance_context_map: SliceType,
 }
-impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceType> {
-    fn clone(&self) -> PredictionModeContextMap<SliceType>{
-        PredictionModeContextMap::<SliceType>{
-            literal_prediction_mode:self.literal_prediction_mode,
-            literal_context_map:self.literal_context_map.clone(),
-            distance_context_map:self.distance_context_map.clone(),
-            context_speeds:self.context_speeds.clone(),
-        }
+impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<SliceType> {
+    #[inline]
+    pub fn distance_context_map_mut(&mut self) -> &mut [u8] {
+        self.predmode_speed_and_distance_context_map.slice_mut().split_at_mut(DISTANCE_CONTEXT_MAP_OFFSET).1
+    }
+    #[inline]
+    pub fn set_stride_context_speed(&mut self, speed_max: (u16, u16)) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        cm_slice[Self::stride_context_speed_offset()] = Self::u16_to_f8(speed_max.0);
+        cm_slice[Self::stride_context_speed_max_offset()] = Self::u16_to_f8(speed_max.1);
+    }
+    #[inline]
+    pub fn set_context_map_speed(&mut self, speed_max: (u16, u16)) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        cm_slice[Self::context_map_speed_offset()] = Self::u16_to_f8(speed_max.0);
+        cm_slice[Self::context_map_speed_max_offset()] = Self::u16_to_f8(speed_max.1);
+    }
+    #[inline]
+    pub fn set_combined_stride_context_speed(&mut self, speed_max: (u16, u16)) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        cm_slice[Self::combined_stride_context_speed_offset()] = Self::u16_to_f8(speed_max.0);
+        cm_slice[Self::combined_stride_context_speed_max_offset()] = Self::u16_to_f8(speed_max.1);
+    }
+    pub fn set_literal_prediction_mode(&mut self, val: LiteralPredictionModeNibble) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        cm_slice[PREDMODE_OFFSET] = val.0;
     }
 }
 impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
-    pub fn has_context_speeds(&self) -> bool {
-        if self.context_speeds.slice().len() == 0 {
-            return false;
+    pub fn from_mut<Other:SliceWrapper<u8>>(other: PredictionModeContextMap<Other>) -> PredictionModeContextMap<SliceType> where SliceType: From<Other>{
+        PredictionModeContextMap::<SliceType>{
+            literal_context_map:SliceType::from(other.literal_context_map),
+            predmode_speed_and_distance_context_map: SliceType::from(other.predmode_speed_and_distance_context_map),
         }
-        let l = self.context_speeds_standard_len();
-        assert_eq!(self.context_speeds.slice().len(), l);
+    }
+    pub fn has_context_speeds(&self) -> bool {
         true
     }
-    pub fn context_speeds_standard_len(&self) -> usize {
-        512 * 2 * 3
+    #[inline]
+    pub fn size_of_combined_array(distance_context_map_size: usize) -> usize {
+       distance_context_map_size + DISTANCE_CONTEXT_MAP_OFFSET
     }
     #[inline]
-    pub fn f8_to_u16(&self, data: u8) -> u16 {
+    pub fn context_speeds_standard_len(&self) -> usize {
+        NUM_SPEED_VALUES
+    }
+    #[inline]
+    pub fn context_speeds_f8(&self) -> &[u8] {
+        &self.predmode_speed_and_distance_context_map.slice()[SPEED_OFFSET..DISTANCE_CONTEXT_MAP_OFFSET]
+    }
+    #[inline]
+    pub fn distance_context_map(&self) -> &[u8] {
+        self.predmode_speed_and_distance_context_map.slice().split_at(DISTANCE_CONTEXT_MAP_OFFSET).1
+    }
+    #[inline]
+    pub fn f8_to_u16(data: u8) -> u16 {
         self::u8_to_speed(data)
     }
     #[inline]
-    pub fn u16_to_f8(&self, data: u16) -> u8 {
+    pub fn u16_to_f8(data: u16) -> u8 {
         self::speed_to_u8(data)
     }
     #[inline]
-    pub fn stride_context_speed_offset(&self) -> usize {
-        0
+    pub fn stride_context_speed_offset() -> usize {
+        SPEED_OFFSET
     }
     #[inline]
-    pub fn stride_context_speed_max_offset(&self) -> usize {
-        512
+    pub fn stride_context_speed_max_offset() -> usize {
+        SPEED_OFFSET + 1
     }
     #[inline]
-    pub fn context_map_speed_offset(&self) -> usize {
-        1024
+    pub fn context_map_speed_offset() -> usize {
+        SPEED_OFFSET + 2
     }
     #[inline]
-    pub fn context_map_speed_max_offset(&self) -> usize {
-        1536
+    pub fn context_map_speed_max_offset() -> usize {
+        SPEED_OFFSET + 3
     }
     #[inline]
-    pub fn combined_stride_context_speed_offset(&self) -> usize {
-        2048
+    pub fn combined_stride_context_speed_offset() -> usize {
+        SPEED_OFFSET + 4
     }
     #[inline]
-    pub fn combined_stride_context_speed_max_offset(&self) -> usize {
-        2048 + 512
+    pub fn combined_stride_context_speed_max_offset() -> usize {
+        SPEED_OFFSET + 5
+    }
+    pub fn literal_prediction_mode(&self) -> LiteralPredictionModeNibble {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        LiteralPredictionModeNibble(cm_slice[PREDMODE_OFFSET])
     }
     #[inline]
-    pub fn stride_context_speeds(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(512).0
+    pub fn stride_context_speed(&self) -> (u16, u16) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        (self::u8_to_speed(cm_slice[Self::stride_context_speed_offset()]),
+         self::u8_to_speed(cm_slice[Self::stride_context_speed_max_offset()]))
     }
     #[inline]
-    pub fn stride_context_max(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(512).1.split_at(512).0
+    pub fn context_map_speed(&self) -> (u16, u16) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        (self::u8_to_speed(cm_slice[Self::context_map_speed_offset()]),
+         self::u8_to_speed(cm_slice[Self::context_map_speed_max_offset()]))
     }
     #[inline]
-    pub fn context_map_speeds(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(1024).1.split_at(512).0
-    }
-    #[inline]
-    pub fn context_map_max(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(1536).1.split_at(512).0
-    }
-    #[inline]
-    pub fn combined_stride_context_speeds(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(2048).1.split_at(512).0
-    }
-    #[inline]
-    pub fn combined_stride_context_max(&self) -> &[u8] {
-        self.context_speeds.slice().split_at(2048 + 512).1.split_at(512).0
+    pub fn combined_stride_context_speed(&self) -> (u16, u16) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        (self::u8_to_speed(cm_slice[Self::combined_stride_context_speed_offset()]),
+         self::u8_to_speed(cm_slice[Self::combined_stride_context_speed_max_offset()]))
     }
 }
 
+impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceType> {
+   fn clone(&self) -> Self {
+      PredictionModeContextMap::<SliceType> {
+         literal_context_map:self.literal_context_map.clone(),
+         predmode_speed_and_distance_context_map:self.predmode_speed_and_distance_context_map.clone(),
+      }
+   }
+}
 impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for PredictionModeContextMap<SliceType> {
 }
 
@@ -327,8 +369,7 @@ impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
           },
           &mut Command::PredictionMode(ref mut pm) => {
              apply_func(core::mem::replace(&mut pm.literal_context_map, SliceType::default()));
-             apply_func(core::mem::replace(&mut pm.distance_context_map, SliceType::default()));
-             apply_func(core::mem::replace(&mut pm.context_speeds, SliceType::default()));
+             apply_func(core::mem::replace(&mut pm.predmode_speed_and_distance_context_map, SliceType::default()));
           },
           _ => {},
        }
@@ -374,8 +415,7 @@ pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceType
           },
           Command::PredictionMode(ref mut pm) => {
              m8.free_cell(core::mem::replace(&mut pm.literal_context_map, SliceTypeAllocator::AllocatedMemory::default()));
-             m8.free_cell(core::mem::replace(&mut pm.distance_context_map, SliceTypeAllocator::AllocatedMemory::default()));
-             m8.free_cell(core::mem::replace(&mut pm.context_speeds, SliceTypeAllocator::AllocatedMemory::default()));
+             m8.free_cell(core::mem::replace(&mut pm.predmode_speed_and_distance_context_map, SliceTypeAllocator::AllocatedMemory::default()));
           },
           Command::Dict(_) |
           Command::Copy(_) |

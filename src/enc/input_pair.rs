@@ -1,5 +1,6 @@
 use core;
 use super::super::alloc::SliceWrapper;
+use super::super::alloc::SliceWrapperMut;
 
 #[derive(Copy,Clone,Default)]
 pub struct InputReference<'a>(pub &'a [u8]);
@@ -7,6 +8,24 @@ impl<'a> SliceWrapper<u8> for InputReference<'a> {
     fn slice(&self) -> & [u8] {
         self.0
     }
+}
+
+pub struct InputReferenceMut<'a>(pub &'a mut [u8]);
+impl<'a> SliceWrapper<u8> for InputReferenceMut<'a> {
+    fn slice(&self) -> & [u8] {
+        self.0
+    }
+}
+impl<'a> SliceWrapperMut<u8> for InputReferenceMut<'a> {
+    fn slice_mut(&mut self) -> &mut [u8] {
+        self.0
+    }
+}
+
+impl <'a> From<InputReferenceMut<'a>> for InputReference<'a> {
+   fn from(val: InputReferenceMut<'a>) -> InputReference<'a> {
+       InputReference(val.0)
+   }
 }
 
 #[derive(Clone, Debug,Copy)]

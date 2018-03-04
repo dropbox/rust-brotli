@@ -2,7 +2,7 @@ use core;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::interface;
-use super::input_pair::{InputPair, InputReference};
+use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::histogram::ContextType;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::{floatX, FastLog2u16};
@@ -269,7 +269,7 @@ pub struct ContextMapEntropy<'a,
                              AllocF:alloc::Allocator<floatX>,
                              > {
     input: InputPair<'a>,
-    context_map: interface::PredictionModeContextMap<InputReference<'a>>,
+    context_map: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
     block_type: u8,
     local_byte_offset: usize,
     weight: [[Weights; NUM_SPEEDS_TO_TRY];2],
@@ -296,7 +296,7 @@ impl<'a,
               mf: &mut AllocF,
               input: InputPair<'a>,
               stride: [u8; find_stride::NUM_LEAF_NODES],
-              prediction_mode: interface::PredictionModeContextMap<InputReference<'a>>) -> Self {
+              prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>) -> Self {
        
       let mut ret = ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
          input: input,
@@ -317,6 +317,12 @@ impl<'a,
       init_cdfs(ret.cm_priors.slice_mut());
       init_cdfs(ret.stride_priors.slice_mut());
       ret
+   }
+   pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
+       core::mem::replace(&mut self.context_map, interface::PredictionModeContextMap::<InputReferenceMut<'a>>{
+          literal_context_map:InputReferenceMut(&mut[]),
+          predmode_speed_and_distance_context_map:InputReferenceMut(&mut[]),
+       })
    }
    #[inline]
    pub fn track_cdf_speed(&mut self,
@@ -528,10 +534,10 @@ fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
 fn compute_huffman_table_index_for_context_map<SliceType: alloc::SliceWrapper<u8> > (
     prev_byte: u8,
     prev_prev_byte: u8,
-    context_map: interface::PredictionModeContextMap<SliceType>,
+    context_map: &interface::PredictionModeContextMap<SliceType>,
     block_type: u8,
 ) -> usize {
-    let prior = Context(prev_byte, prev_prev_byte, context_map.literal_prediction_mode.to_context_enum().unwrap());
+    let prior = Context(prev_byte, prev_prev_byte, context_map.literal_prediction_mode().to_context_enum().unwrap());
     assert!(prior < 64);
     let context_map_index = ((block_type as usize)<< 6) | prior as usize;
     if context_map_index < context_map.literal_context_map.slice().len() {
@@ -570,7 +576,7 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
                }
                let mut cur = 0usize;
                for literal in lit.data.slice().iter() {
-                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], self.context_map, self.block_type);
+                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], &self.context_map, self.block_type);
                    self.update_cost(priors[(cur + 7 - stride) & 7], huffman_table_index, *literal);
                    // FIXME..... self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
                     //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);

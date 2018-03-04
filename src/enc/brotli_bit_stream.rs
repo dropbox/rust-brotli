@@ -5,7 +5,7 @@
 #[cfg(not(feature="no-stdlib"))]
 use std::io::Write;
 use super::util::floatX;
-use super::input_pair::{InputPair, InputReference};
+use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
 
@@ -454,8 +454,7 @@ fn LogMetaBlock<'a,
                     context_type:Option<ContextType>,
                     callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
     let mut local_literal_context_map = [0u8; 256 * 64];
-    let mut local_distance_context_map = [0u8; 256 * 64];
-    let mut local_context_speeds = [0u8; 1024 * 3];
+    let mut local_distance_context_map = [0u8; 256 * 64 + interface::DISTANCE_CONTEXT_MAP_OFFSET];
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btypel.num_types);
     assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -469,15 +468,14 @@ fn LogMetaBlock<'a,
     }
     if block_type.distance_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.distance_context_map.iter().enumerate() {
-            local_distance_context_map[index] = *item as u8;
+            local_distance_context_map[interface::DISTANCE_CONTEXT_MAP_OFFSET + index] = *item as u8;
         }
     }
-    let mut prediction_mode = interface::PredictionModeContextMap::<InputReference>{
-        literal_prediction_mode: interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8),
-        literal_context_map:InputReference(&local_literal_context_map.split_at(block_type.literal_context_map.len()).0),
-        distance_context_map:InputReference(&local_distance_context_map.split_at(block_type.distance_context_map.len()).0),
-        context_speeds:InputReference(&[]),
+    let mut prediction_mode = interface::PredictionModeContextMap::<InputReferenceMut>{
+        literal_context_map:InputReferenceMut(local_literal_context_map.split_at_mut(block_type.literal_context_map.len()).0),
+        predmode_speed_and_distance_context_map:InputReferenceMut(local_distance_context_map.split_at_mut(interface::PredictionModeContextMap::<InputReference>::size_of_combined_array(block_type.distance_context_map.len())).0),
     };
+    prediction_mode.set_literal_prediction_mode(interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8));
     let mut entropy_tally_scratch = if params.stride_detection_quality == 0 {
         find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32)
     } else {
@@ -522,6 +520,7 @@ fn LogMetaBlock<'a,
     let bcost = context_map_entropy.best_speeds_costs(false, false);
     let ccost = context_map_entropy.best_speeds_costs(false, true);
     if params.high_entropy_detection_quality != 0 {
+    /*
         {
             let stride_speed_start = prediction_mode.stride_context_speed_offset();
             let stride_max_start = prediction_mode.stride_context_speed_max_offset();
@@ -545,12 +544,13 @@ fn LogMetaBlock<'a,
                 local_context_speeds[index + combined_speed_start] = prediction_mode.u16_to_f8(combined_speed[index >> 1][index & 1].0);
                 local_context_speeds[index + combined_max_start] =  prediction_mode.u16_to_f8(combined_speed[index >> 1][index & 1].1);
             }
-        }
-        prediction_mode.context_speeds = InputReference(&local_context_speeds[..])
+        }*/
+        //FIXME FIXME
      }
      best_speed_log("CM", &cm_speed, &acost);
      best_speed_log("Stride", &stride_speed, &bcost);
      best_speed_log("StrideCombined", &combined_speed, &ccost);
+     let prediction_mode = context_map_entropy.take_prediction_mode();
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                               params.stride_detection_quality,
                                                params.high_entropy_detection_quality,
@@ -559,7 +559,8 @@ fn LogMetaBlock<'a,
                                                entropy_pyramid);
 
     command_queue.push(interface::Command::PredictionMode(
-        prediction_mode.clone()), callback);
+        interface::PredictionModeContextMap::<InputReference>::from_mut(prediction_mode)),
+        callback);
      
     *recoder_state = process_command_queue(&mut command_queue,
                                            input,
@@ -2443,7 +2444,7 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
   let mut lit_histo: HistogramLiteral = HistogramLiteral::default();
   let mut cmd_histo: HistogramCommand = HistogramCommand::default();
   let mut dist_histo: HistogramDistance = HistogramDistance::default();
-  let mut lit_depth: [u8; 256] = [0; 256]; // FIXME these zero-initializations are costly
+  let mut lit_depth: [u8; 256] = [0; 256];
   let mut lit_bits: [u16; 256] = [0; 256];
   let mut cmd_depth: [u8; 704] = [0; 704];
   let mut cmd_bits: [u16; 704] = [0; 704];
