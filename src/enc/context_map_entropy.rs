@@ -46,6 +46,17 @@ const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
 const STRIDE_COST_SIZE: usize = 256 * NUM_SPEEDS_TO_TRY * 2;
 #[derive(Clone,Copy, Debug)]
 pub struct SpeedAndMax(pub u16, pub u16);
+
+pub fn speed_to_tuple(inp:[SpeedAndMax;2]) -> [(u16,u16);2] {
+   [(inp[0].0, inp[0].1), (inp[1].0, inp[1].1)]
+}
+
+fn add_costs(costs: &mut [floatX; NUM_SPEEDS_TO_TRY], cost:&[floatX]) {
+   for (dst, src) in costs.iter_mut().zip(cost.iter()) {
+      *dst += *src;
+   }
+}
+
 fn get_combined_stride_cost(data: &mut [floatX], cm_prior: usize, is_high_nibble: bool) -> &mut [floatX] {
     //let index: usize = 2 * stride_prior as usize;
     let index: usize = (is_high_nibble as usize) | (cm_prior << 1);
@@ -324,6 +335,9 @@ impl<'a,
           predmode_speed_and_distance_context_map:InputReferenceMut(&mut[]),
        })
    }
+   pub fn prediction_mode_mut(&mut self) -> &mut interface::PredictionModeContextMap<InputReferenceMut<'a>> {
+       &mut self.context_map
+   }
    #[inline]
    pub fn track_cdf_speed(&mut self,
                       _data: &[u8],
@@ -388,65 +402,73 @@ impl<'a,
     }
     pub fn best_speeds(&mut self, // mut due to helpers
                        cm:bool,
-                       combined: bool) -> [[SpeedAndMax;2]; 256] { 
-       let mut ret = [[SpeedAndMax(SPEEDS_TO_SEARCH[0],MAXES_TO_SEARCH[0]); 2]; 256];
+                       combined: bool) -> [SpeedAndMax;2] { 
+       let mut ret = [SpeedAndMax(SPEEDS_TO_SEARCH[0],MAXES_TO_SEARCH[0]); 2];
+       let mut costs = [[0.0 as floatX; NUM_SPEEDS_TO_TRY];2];
        if cm && !combined{
            for prior in 0..256 {
                for high in 0..2 {
                    let cost = get_cm_cost(self.cm_cost.slice_mut(), prior, high != 0);
-                   ret[prior][high] = min_cost_speed_max(cost);
+                   add_costs(&mut costs[high], cost)
                }
            }
        } else {
-           for stride_prior in 0..256 {
-               for high in 0..2 {
-                   let cost;
-                   if combined {
-                       cost = get_combined_stride_cost(self.combined_stride_cost.slice_mut(), stride_prior as usize, high != 0);
-                   } else {
-                       if high == 1 {
-                           cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);
-                       } else {
-                           cost = get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior as u8 & 0xf, stride_prior as u8 >> 4);
-                       }
-                   }
-                   ret[stride_prior][high] = min_cost_speed_max(cost);
-                   if combined && (ret[stride_prior][high].0 == 0 || ret[stride_prior][high].1 == 0) {
-                       // make sure no nonzeros
-                       //ret[stride_prior][high] = SpeedAndMax(SPEEDS_TO_SEARCH[1], MAXES_TO_SEARCH[1]);
+           if combined {
+               for stride_prior in 0..256 {
+                   for high in 0..2 {
+                       let cost = get_combined_stride_cost(self.combined_stride_cost.slice_mut(), stride_prior as usize, high != 0);
+                       add_costs(&mut costs[high], cost);
                    }
                }
+            }else {
+               for stride_prior in 0..256 {
+                   {
+                       let cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);
+                       add_costs(&mut costs[1], cost);
+                   }
+                   let cost = get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior as u8 & 0xf, stride_prior as u8 >> 4);
+                   add_costs(&mut costs[0], cost);
+               }
            }
+       }
+       for high in 0..2 {
+         ret[high] = min_cost_speed_max(&costs[high][..]);
        }
        ret
    }
    pub fn best_speeds_costs(&mut self, // mut due to helpers
                             cm:bool,
-                            combined: bool) -> [[floatX;2]; 256] { 
-       let mut ret = [[0.0 as floatX; 2]; 256];
-       if cm && !combined {
+                            combined: bool) -> [floatX;2] { 
+       let mut ret = [0.0 as floatX; 2];
+       let mut costs = [[0.0 as floatX; NUM_SPEEDS_TO_TRY];2];
+       if cm && !combined{
            for prior in 0..256 {
                for high in 0..2 {
                    let cost = get_cm_cost(self.cm_cost.slice_mut(), prior, high != 0);
-                   ret[prior][high] = min_cost_value(cost);
+                   add_costs(&mut costs[high], cost)
                }
            }
        } else {
-           for stride_prior in 0..256 {
-               for high in 0..2 {
-                   let cost;
-                   if combined {
-                       cost = get_combined_stride_cost(self.combined_stride_cost.slice_mut(), stride_prior as usize, high != 0);
-                   } else {
-                       if high == 1 {
-                           cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);
-                       } else {
-                           cost = get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior as u8 & 0xf, stride_prior as u8 >> 4);
-                       }
+           if combined {
+               for stride_prior in 0..256 {
+                   for high in 0..2 {
+                       let cost = get_combined_stride_cost(self.combined_stride_cost.slice_mut(), stride_prior as usize, high != 0);
+                       add_costs(&mut costs[high], cost);
                    }
-                   ret[stride_prior][high] = min_cost_value(cost);
+               }
+            }else {
+               for stride_prior in 0..256 {
+                   {
+                      let cost = get_stride_cost_high(self.stride_cost.slice_mut(), stride_prior as u8);
+                       add_costs(&mut costs[1], cost);
+                   }
+                   let cost = get_stride_cost_low(self.stride_cost.slice_mut(), stride_prior as u8 & 0xf, stride_prior as u8 >> 4);
+                   add_costs(&mut costs[0], cost);
                }
            }
+       }
+       for high in 0..2 {
+         ret[high] = min_cost_value(&costs[high][..]);
        }
        ret
    }

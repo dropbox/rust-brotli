@@ -31,7 +31,7 @@ use super::find_stride;
 
 use super::interface;
 use super::interface::CommandProcessor;
-use super::context_map_entropy::{ContextMapEntropy, SpeedAndMax};
+use super::context_map_entropy::{ContextMapEntropy, SpeedAndMax, speed_to_tuple};
 pub struct PrefixCodeRange {
   pub offset: u32,
   pub nbits: u32,
@@ -244,29 +244,21 @@ fn best_singleton_speed_log(name:&str,
 
 #[cfg(not(feature="billing"))]
 fn best_speed_log(_name:&str,
-                  _data:&[[SpeedAndMax;2];256],
-                  _cost:&[[floatX;2];256]) {}
+                  _data:&[SpeedAndMax;2],
+                  _cost:&[floatX;2]) {}
 #[cfg(feature="billing")]
 fn best_speed_log(name:&str,
-                  data:&[[SpeedAndMax;2];256],
-                  cost:&[[floatX;2];256]) {
-    let mut total_cost:floatX = 0.0;
-    for (index, _spd) in data.iter().enumerate() {
-        for high in 0..2 {
-           total_cost += cost[index][high];
-        }
+                  data:&[SpeedAndMax;2],
+                  cost:&[floatX;2]) {
+  for high in 0..2 {
+     println!("{} Speed [ inc: {}, max: {}, algo: 0 ] cost: {}",
+              name,
+              if high != 0 {"hi" } else {"lo"},
+              data[high].0,
+              data[high].1,
+              cost[high]);
     }
-    println!("{} cost: {}", name, total_cost);
-    for (index, spd) in data.iter().enumerate() {
-        for high in 0..2 {
-            println!("({}, {}) Speed [ inc: {}, max: {}, algo: 0 ] cost: {}",
-                     index,
-                     high != 0,
-                     spd[high].0,
-                     spd[high].1,
-                     cost[index][high]);
-        }
-    }
+
 }
 
 fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), CmdProcessor: interface::CommandProcessor<'a> > (
@@ -520,6 +512,9 @@ fn LogMetaBlock<'a,
     let bcost = context_map_entropy.best_speeds_costs(false, false);
     let ccost = context_map_entropy.best_speeds_costs(false, true);
     if params.high_entropy_detection_quality != 0 {
+        context_map_entropy.prediction_mode_mut().set_stride_context_speed(speed_to_tuple(stride_speed));
+        context_map_entropy.prediction_mode_mut().set_context_map_speed(speed_to_tuple(cm_speed));
+        context_map_entropy.prediction_mode_mut().set_combined_stride_context_speed(speed_to_tuple(combined_speed));
     /*
         {
             let stride_speed_start = prediction_mode.stride_context_speed_offset();

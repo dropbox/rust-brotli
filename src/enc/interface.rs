@@ -89,7 +89,7 @@ impl LiteralPredictionModeNibble {
         }
     }
 }
-pub const NUM_SPEED_VALUES: usize = 6;
+pub const NUM_SPEED_VALUES: usize = 16;
 pub const NUM_PREDMODE_VALUES: usize = 1;
 pub const PREDMODE_OFFSET: usize = 0;
 pub const SPEED_OFFSET: usize = NUM_PREDMODE_VALUES + PREDMODE_OFFSET;
@@ -106,22 +106,28 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
         self.predmode_speed_and_distance_context_map.slice_mut().split_at_mut(DISTANCE_CONTEXT_MAP_OFFSET).1
     }
     #[inline]
-    pub fn set_stride_context_speed(&mut self, speed_max: (u16, u16)) {
+    pub fn set_stride_context_speed(&mut self, speed_max: [(u16, u16);2]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
-        cm_slice[Self::stride_context_speed_offset()] = Self::u16_to_f8(speed_max.0);
-        cm_slice[Self::stride_context_speed_max_offset()] = Self::u16_to_f8(speed_max.1);
+        for high in 0..2 {
+          cm_slice[Self::stride_context_speed_offset()+high] = Self::u16_to_f8(speed_max[high].0);
+          cm_slice[Self::stride_context_speed_max_offset()+high] = Self::u16_to_f8(speed_max[high].1);
+        }
     }
     #[inline]
-    pub fn set_context_map_speed(&mut self, speed_max: (u16, u16)) {
+    pub fn set_context_map_speed(&mut self, speed_max: [(u16, u16);2]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
-        cm_slice[Self::context_map_speed_offset()] = Self::u16_to_f8(speed_max.0);
-        cm_slice[Self::context_map_speed_max_offset()] = Self::u16_to_f8(speed_max.1);
+        for high in 0..2 {
+          cm_slice[Self::context_map_speed_offset()+high] = Self::u16_to_f8(speed_max[high].0);
+          cm_slice[Self::context_map_speed_max_offset()+high] = Self::u16_to_f8(speed_max[high].1);
+        }
     }
     #[inline]
-    pub fn set_combined_stride_context_speed(&mut self, speed_max: (u16, u16)) {
+    pub fn set_combined_stride_context_speed(&mut self, speed_max: [(u16, u16);2]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
-        cm_slice[Self::combined_stride_context_speed_offset()] = Self::u16_to_f8(speed_max.0);
-        cm_slice[Self::combined_stride_context_speed_max_offset()] = Self::u16_to_f8(speed_max.1);
+        for high in 0..2 {
+          cm_slice[Self::combined_stride_context_speed_offset()+high] = Self::u16_to_f8(speed_max[high].0);
+          cm_slice[Self::combined_stride_context_speed_max_offset()+high] = Self::u16_to_f8(speed_max[high].1);
+        }
     }
     pub fn set_literal_prediction_mode(&mut self, val: LiteralPredictionModeNibble) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
@@ -168,45 +174,63 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     }
     #[inline]
     pub fn stride_context_speed_max_offset() -> usize {
-        SPEED_OFFSET + 1
-    }
-    #[inline]
-    pub fn context_map_speed_offset() -> usize {
         SPEED_OFFSET + 2
     }
     #[inline]
-    pub fn context_map_speed_max_offset() -> usize {
-        SPEED_OFFSET + 3
-    }
-    #[inline]
-    pub fn combined_stride_context_speed_offset() -> usize {
+    pub fn context_map_speed_offset() -> usize {
         SPEED_OFFSET + 4
     }
     #[inline]
+    pub fn context_map_speed_max_offset() -> usize {
+        SPEED_OFFSET + 6
+    }
+    #[inline]
+    pub fn combined_stride_context_speed_offset() -> usize {
+        SPEED_OFFSET + 8
+    }
+    #[inline]
     pub fn combined_stride_context_speed_max_offset() -> usize {
-        SPEED_OFFSET + 5
+        SPEED_OFFSET + 10
     }
     pub fn literal_prediction_mode(&self) -> LiteralPredictionModeNibble {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         LiteralPredictionModeNibble(cm_slice[PREDMODE_OFFSET])
     }
     #[inline]
-    pub fn stride_context_speed(&self) -> (u16, u16) {
+    pub fn stride_context_speed(&self) -> [(u16, u16);2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
-        (self::u8_to_speed(cm_slice[Self::stride_context_speed_offset()]),
-         self::u8_to_speed(cm_slice[Self::stride_context_speed_max_offset()]))
+        let low_speed = cm_slice[Self::stride_context_speed_offset()];
+        let high_speed = cm_slice[Self::stride_context_speed_offset() + 1];
+        let low_max = cm_slice[Self::stride_context_speed_max_offset()];
+        let high_max = cm_slice[Self::stride_context_speed_max_offset() + 1];
+        [(self::u8_to_speed(low_speed),
+          self::u8_to_speed(low_max)),
+          (self::u8_to_speed(high_speed),
+          self::u8_to_speed(high_max))]
     }
     #[inline]
-    pub fn context_map_speed(&self) -> (u16, u16) {
+    pub fn combined_stride_context_speed(&self) -> [(u16, u16);2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
-        (self::u8_to_speed(cm_slice[Self::context_map_speed_offset()]),
-         self::u8_to_speed(cm_slice[Self::context_map_speed_max_offset()]))
+        let low_speed = cm_slice[Self::combined_stride_context_speed_offset()];
+        let high_speed = cm_slice[Self::combined_stride_context_speed_offset() + 1];
+        let low_max = cm_slice[Self::combined_stride_context_speed_max_offset()];
+        let high_max = cm_slice[Self::combined_stride_context_speed_max_offset() + 1];
+        [(self::u8_to_speed(low_speed),
+          self::u8_to_speed(low_max)),
+          (self::u8_to_speed(high_speed),
+          self::u8_to_speed(high_max))]
     }
     #[inline]
-    pub fn combined_stride_context_speed(&self) -> (u16, u16) {
+    pub fn context_map_speed(&self) -> [(u16, u16);2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
-        (self::u8_to_speed(cm_slice[Self::combined_stride_context_speed_offset()]),
-         self::u8_to_speed(cm_slice[Self::combined_stride_context_speed_max_offset()]))
+        let low_speed = cm_slice[Self::context_map_speed_offset()];
+        let high_speed = cm_slice[Self::context_map_speed_offset() + 1];
+        let low_max = cm_slice[Self::context_map_speed_max_offset()];
+        let high_max = cm_slice[Self::context_map_speed_max_offset() + 1];
+        [(self::u8_to_speed(low_speed),
+          self::u8_to_speed(low_max)),
+          (self::u8_to_speed(high_speed),
+          self::u8_to_speed(high_max))]
     }
 }
 
