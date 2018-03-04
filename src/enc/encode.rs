@@ -86,8 +86,8 @@ pub enum BrotliEncoderParameter {
   BROTLI_METABLOCK_CALLBACK = 151,
   BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
   BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY = 153,
+  BROTLI_PARAM_LITERAL_BYTE_SCORE = 154,
 }
-
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
   pub size_: u32,
@@ -243,6 +243,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.high_entropy_detection_quality = value as (u8);
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_LITERAL_BYTE_SCORE as (i32) {
+    (*state).params.hasher.literal_byte_score = value as i32;
+    return 1i32;
+  }
   if p as (i32) == BrotliEncoderParameter::BROTLI_METABLOCK_CALLBACK as (i32) {
     (*state).params.log_meta_block = if value != 0 {true} else {false};
     return 1i32;
@@ -285,6 +289,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
              bucket_bits: 15,
              hash_len: 5,
              num_last_distances_to_check: 16,
+             literal_byte_score: 0,
            },
          };
 }
@@ -1050,6 +1055,7 @@ fn InitializeH2<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &Br
             dict_num_matches:0,
         },
         buckets_:H2Sub{buckets_:m32.alloc_cell(65537 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 fn InitializeH3<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H3Sub<AllocU32>> {
@@ -1061,6 +1067,7 @@ fn InitializeH3<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &Br
             dict_num_matches:0,
         },
         buckets_:H3Sub{buckets_:m32.alloc_cell(65538 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 fn InitializeH4<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H4Sub<AllocU32>> {
@@ -1072,6 +1079,7 @@ fn InitializeH4<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &Br
             dict_num_matches:0,
         },
         buckets_:H4Sub{buckets_:m32.alloc_cell(131072 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 fn InitializeH54<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &BrotliEncoderParams) -> BasicHasher<H54Sub<AllocU32>> {
@@ -1083,6 +1091,7 @@ fn InitializeH54<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &B
             dict_num_matches:0,
         },
         buckets_:H54Sub{buckets_:m32.alloc_cell(1048580 + 8)},
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 
@@ -1099,6 +1108,7 @@ fn InitializeH9<AllocU16:alloc::Allocator<u16>,
         },
         num_:m16.alloc_cell(1<<H9_BUCKET_BITS),
         buckets_:m32.alloc_cell(H9_BLOCK_SIZE<<H9_BUCKET_BITS),
+        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 
@@ -1113,6 +1123,7 @@ fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
   let num = m16.alloc_cell(bucket_size as usize);
   AdvHasher {
     buckets: buckets,
+    h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     num: num,
     GetHasherCommon: Struct1 {
       params: params.hasher,
@@ -1139,6 +1150,7 @@ fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
   AdvHasher {
     buckets: buckets,
     num: num,
+    h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     GetHasherCommon: Struct1 {
       params: params.hasher,
       is_prepared_: 1,

@@ -60,9 +60,24 @@ fn prediction_mode_str(prediction_mode_nibble:interface::LiteralPredictionModeNi
    }
 }
 
-
-const COMMAND_BUFFER_SIZE: usize = 8192;
-
+fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) -> bool{
+    return match high_entropy_detection_quality {
+        0 => false,
+        1 => false,
+        2 => len >= 128,
+        3 => len >= 96,
+        4 => len >= 64,
+        5 => len >= 48,
+        6 => len >= 32,
+        7 => len >= 24,
+        8 => len >= 16,
+        9 => len >= 8,
+        10 => len >= 4,
+        11 => len >= 1,
+        _ => len >= 8,
+    }
+}
+const COMMAND_BUFFER_SIZE: usize = 4096;
 
 struct CommandQueue<'a, AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>, AllocF:alloc::Allocator<floatX>> {
     mb: InputPair<'a>,
@@ -215,9 +230,9 @@ impl<'a,
   }
 }
 #[cfg(not(feature="billing"))]
-fn best_singleton_speed_log(name:&str,
-                            data:&[SpeedAndMax;2],
-                            cost:&[floatX;2]) {
+fn best_singleton_speed_log(_name:&str,
+                            _data:&[SpeedAndMax;2],
+                            _cost:&[floatX;2]) {
 }
 #[cfg(feature="billing")]
 fn best_singleton_speed_log(name:&str,
@@ -299,20 +314,6 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
         let actual_copy_len : usize;
         let max_distance = core::cmp::min(recoder_state.num_bytes_encoded, window_size_from_lgwin(params.lgwin));
         assert!(inserts.len() <= mb_len);
-        {
-            btypec_sub -= 1;
-            if btypec_sub == 0 {
-                btypec_counter += 1;
-                if block_type.btypec.types.len() > btypec_counter {
-                    btypec_sub = block_type.btypec.lengths[btypec_counter];
-                    command_queue.push(interface::Command::BlockSwitchCommand(
-                        interface::BlockSwitch(block_type.btypec.types[btypec_counter])),
-                                       callback);
-                } else {
-                    btypec_sub = 1u32 << 31;
-                }
-            }
-        }
         if inserts.len() != 0 {
             let mut tmp_inserts = inserts;
             while tmp_inserts.len() > btypel_sub as usize {
@@ -347,19 +348,6 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
             if tmp_inserts.len() != 0 {
                 mb_len -= tmp_inserts.len();
                 btypel_sub -= tmp_inserts.len() as u32;
-            }
-        }
-        if copy_len != 0 && cmd.cmd_prefix_ >= 128 {
-            btyped_sub -= 1;
-            if btyped_sub == 0 {
-                btyped_counter += 1;
-                if block_type.btyped.types.len() > btyped_counter {
-                    btyped_sub = block_type.btyped.lengths[btyped_counter];
-                    command_queue.push(interface::Command::BlockSwitchDistance(
-                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])), callback);
-                } else {
-                    btyped_sub = 1u32 << 31;
-                }
             }
         }
         if final_distance > max_distance { // is dictionary
@@ -414,6 +402,34 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
 
             }
         }
+        {
+            btypec_sub -= 1;
+            if btypec_sub == 0 {
+                btypec_counter += 1;
+                if block_type.btypec.types.len() > btypec_counter {
+                    btypec_sub = block_type.btypec.lengths[btypec_counter];
+                    command_queue.push(interface::Command::BlockSwitchCommand(
+                        interface::BlockSwitch(block_type.btypec.types[btypec_counter])),
+                                       callback);
+                } else {
+                    btypec_sub = 1u32 << 31;
+                }
+            }
+        }
+        if copy_len != 0 && cmd.cmd_prefix_ >= 128 {
+            btyped_sub -= 1;
+            if btyped_sub == 0 {
+                btyped_counter += 1;
+                if block_type.btyped.types.len() > btyped_counter {
+                    btyped_sub = block_type.btyped.lengths[btyped_counter];
+                    command_queue.push(interface::Command::BlockSwitchDistance(
+                        interface::BlockSwitch(block_type.btyped.types[btyped_counter])), callback);
+                } else {
+                    btyped_sub = 1u32 << 31;
+                }
+            }
+        }
+
         let (copied, remainder) = interim.split_at(actual_copy_len);
         recoder_state.num_bytes_encoded += copied.len();
         input_iter = remainder;
@@ -499,12 +515,12 @@ fn LogMetaBlock<'a,
         best_singleton_speed_log("combined", &combined_speed, &combined_cost);
     }
     
-     let cm_speed = context_map_entropy.best_speeds(true, false);
-     let stride_speed = context_map_entropy.best_speeds(false, false);
-     let combined_speed = context_map_entropy.best_speeds(false, true);
-     let acost = context_map_entropy.best_speeds_costs(true, false);
-     let bcost = context_map_entropy.best_speeds_costs(false, false);
-     let ccost = context_map_entropy.best_speeds_costs(false, true);
+    let cm_speed = context_map_entropy.best_speeds(true, false);
+    let stride_speed = context_map_entropy.best_speeds(false, false);
+    let combined_speed = context_map_entropy.best_speeds(false, true);
+    let acost = context_map_entropy.best_speeds_costs(true, false);
+    let bcost = context_map_entropy.best_speeds_costs(false, false);
+    let ccost = context_map_entropy.best_speeds_costs(false, true);
     if params.high_entropy_detection_quality != 0 {
         {
             let stride_speed_start = prediction_mode.stride_context_speed_offset();
