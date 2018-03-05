@@ -89,7 +89,7 @@ impl LiteralPredictionModeNibble {
         }
     }
 }
-pub const NUM_SPEED_VALUES: usize = 16;
+pub const NUM_SPEED_VALUES: usize = 12;
 pub const NUM_PREDMODE_VALUES: usize = 1;
 pub const PREDMODE_OFFSET: usize = 0;
 pub const SPEED_OFFSET: usize = NUM_PREDMODE_VALUES + PREDMODE_OFFSET;
@@ -142,7 +142,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
         }
     }
     pub fn has_context_speeds(&self) -> bool {
-        true
+        self.predmode_speed_and_distance_context_map.slice().len() >= DISTANCE_CONTEXT_MAP_OFFSET
     }
     #[inline]
     pub fn size_of_combined_array(distance_context_map_size: usize) -> usize {
@@ -194,43 +194,53 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     }
     pub fn literal_prediction_mode(&self) -> LiteralPredictionModeNibble {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
-        LiteralPredictionModeNibble(cm_slice[PREDMODE_OFFSET])
+        if PREDMODE_OFFSET < cm_slice.len() {
+           LiteralPredictionModeNibble(cm_slice[PREDMODE_OFFSET])
+        } else {
+           LiteralPredictionModeNibble::default()
+        }
+    }
+    pub fn stride_context_speed(&self) -> [(u16, u16);2] {
+       let v = self.stride_context_speed_f8();
+       [(self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
+        (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1))]
+    }
+    pub fn context_map_speed(&self) -> [(u16, u16);2] {
+       let v = self.context_map_speed_f8();
+       [(self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
+        (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1))]
+    }
+    pub fn combined_stride_context_speed(&self) -> [(u16, u16);2] {
+       let v = self.combined_stride_context_speed_f8();
+       [(self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
+        (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1))]
     }
     #[inline]
-    pub fn stride_context_speed(&self) -> [(u16, u16);2] {
+    pub fn stride_context_speed_f8(&self) -> [(u8, u8);2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         let low_speed = cm_slice[Self::stride_context_speed_offset()];
         let high_speed = cm_slice[Self::stride_context_speed_offset() + 1];
         let low_max = cm_slice[Self::stride_context_speed_max_offset()];
         let high_max = cm_slice[Self::stride_context_speed_max_offset() + 1];
-        [(self::u8_to_speed(low_speed),
-          self::u8_to_speed(low_max)),
-          (self::u8_to_speed(high_speed),
-          self::u8_to_speed(high_max))]
+        [(low_speed, low_max), (high_speed, high_max)]
     }
     #[inline]
-    pub fn combined_stride_context_speed(&self) -> [(u16, u16);2] {
+    pub fn combined_stride_context_speed_f8(&self) -> [(u8, u8);2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         let low_speed = cm_slice[Self::combined_stride_context_speed_offset()];
         let high_speed = cm_slice[Self::combined_stride_context_speed_offset() + 1];
         let low_max = cm_slice[Self::combined_stride_context_speed_max_offset()];
         let high_max = cm_slice[Self::combined_stride_context_speed_max_offset() + 1];
-        [(self::u8_to_speed(low_speed),
-          self::u8_to_speed(low_max)),
-          (self::u8_to_speed(high_speed),
-          self::u8_to_speed(high_max))]
+        [(low_speed, low_max), (high_speed, high_max)]
     }
     #[inline]
-    pub fn context_map_speed(&self) -> [(u16, u16);2] {
+    pub fn context_map_speed_f8(&self) -> [(u8, u8);2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         let low_speed = cm_slice[Self::context_map_speed_offset()];
         let high_speed = cm_slice[Self::context_map_speed_offset() + 1];
         let low_max = cm_slice[Self::context_map_speed_max_offset()];
         let high_max = cm_slice[Self::context_map_speed_max_offset() + 1];
-        [(self::u8_to_speed(low_speed),
-          self::u8_to_speed(low_max)),
-          (self::u8_to_speed(high_speed),
-          self::u8_to_speed(high_max))]
+        [(low_speed, low_max), (high_speed, high_max)]
     }
 }
 

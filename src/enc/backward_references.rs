@@ -58,7 +58,11 @@ pub struct BrotliEncoderParams {
   pub high_entropy_detection_quality: u8,
 }
 
-
+impl Default for BrotliEncoderParams {
+   fn default() -> BrotliEncoderParams {
+      super::encode::BrotliEncoderInitParams()
+   }
+}
 
 fn LiteralSpreeLengthForSparseSearch(params: &BrotliEncoderParams) -> usize {
   (if (*params).quality < 9 {
