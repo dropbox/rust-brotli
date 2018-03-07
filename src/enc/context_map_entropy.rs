@@ -307,19 +307,20 @@ impl<'a,
               mf: &mut AllocF,
               input: InputPair<'a>,
               stride: [u8; find_stride::NUM_LEAF_NODES],
-              prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>) -> Self {
-       
+              prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
+              cdf_detection_quality: u8) -> Self {
+      let cdf_detect = cdf_detection_quality != 0;
       let mut ret = ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
          input: input,
          context_map: prediction_mode,
          block_type: 0,
          local_byte_offset: 0,
          _nop:  AllocU32::AllocatedMemory::default(),
-         cm_priors: m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE),
-         stride_priors: m16.alloc_cell(STRIDE_PRIOR_SIZE),
-         cm_cost: mf.alloc_cell(CONTEXT_MAP_COST_SIZE),
-         stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
-         combined_stride_cost: mf.alloc_cell(STRIDE_COST_SIZE),
+         cm_priors: if cdf_detect {m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {AllocU16::AllocatedMemory::default()},
+         stride_priors: if cdf_detect {m16.alloc_cell(STRIDE_PRIOR_SIZE)} else {AllocU16::AllocatedMemory::default()},
+         cm_cost: if cdf_detect {mf.alloc_cell(CONTEXT_MAP_COST_SIZE)} else {AllocF::AllocatedMemory::default()},
+         stride_cost: if cdf_detect {mf.alloc_cell(STRIDE_COST_SIZE)} else {AllocF::AllocatedMemory::default()},
+         combined_stride_cost: if cdf_detect {mf.alloc_cell(STRIDE_COST_SIZE)} else {AllocF::AllocatedMemory::default()},
          stride_pyramid_leaves: stride,
          weight:[[Weights::new(); NUM_SPEEDS_TO_TRY],
                  [Weights::new(); NUM_SPEEDS_TO_TRY]],

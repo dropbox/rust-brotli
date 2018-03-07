@@ -87,6 +87,7 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
   BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY = 153,
   BROTLI_PARAM_LITERAL_BYTE_SCORE = 154,
+  BROTLI_PARAM_CDF_ADAPTATION_DETECTION = 155,
 }
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
@@ -243,6 +244,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.high_entropy_detection_quality = value as (u8);
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CDF_ADAPTATION_DETECTION as (i32) {
+    (*state).params.cdf_adaptation_detection = value as (u8);
+    return 1i32;
+  }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_LITERAL_BYTE_SCORE as (i32) {
     (*state).params.hasher.literal_byte_score = value as i32;
     return 1i32;
@@ -283,6 +288,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            disable_literal_context_modeling: 0i32,
            stride_detection_quality: 0,
            high_entropy_detection_quality: 0,
+           cdf_adaptation_detection: 0,
            hasher: BrotliHasherParams {
              type_: 6,
              block_bits: 9 - 1,

@@ -483,9 +483,11 @@ fn LogMetaBlock<'a,
     }
     let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1),
                                                                                        entropy_pyramid.stride_last_level_range(),
-                                                                                       prediction_mode);
+                                                                                       prediction_mode,
+                                                                                       params.cdf_adaptation_detection);
     let input = InputPair(input0, input1);
-    process_command_queue(&mut context_map_entropy,
+    if params.cdf_adaptation_detection != 0 {
+        process_command_queue(&mut context_map_entropy,
                          input,
                          commands,
                          n_postfix,
@@ -496,58 +498,32 @@ fn LogMetaBlock<'a,
                          params,
                          context_type,
                           &mut |_x|());
-    {
-        let (cm_speed, cm_cost) = context_map_entropy.best_singleton_speeds(true, false);
-        let (stride_speed, stride_cost) = context_map_entropy.best_singleton_speeds(false, false);
-        let (combined_speed, combined_cost) = context_map_entropy.best_singleton_speeds(false, true);
-        best_singleton_speed_log("CM", &cm_speed, &cm_cost);
-        best_singleton_speed_log("stride", &stride_speed, &stride_cost);
-        best_singleton_speed_log("combined", &combined_speed, &combined_cost);
-    }
+        {
+            let (cm_speed, cm_cost) = context_map_entropy.best_singleton_speeds(true, false);
+            let (stride_speed, stride_cost) = context_map_entropy.best_singleton_speeds(false, false);
+            let (combined_speed, combined_cost) = context_map_entropy.best_singleton_speeds(false, true);
+            best_singleton_speed_log("CM", &cm_speed, &cm_cost);
+            best_singleton_speed_log("stride", &stride_speed, &stride_cost);
+            best_singleton_speed_log("combined", &combined_speed, &combined_cost);
+        }
     
-    let cm_speed = context_map_entropy.best_speeds(true, false);
-    let stride_speed = context_map_entropy.best_speeds(false, false);
-    let combined_speed = context_map_entropy.best_speeds(false, true);
-    let acost = context_map_entropy.best_speeds_costs(true, false);
-    let bcost = context_map_entropy.best_speeds_costs(false, false);
-    let ccost = context_map_entropy.best_speeds_costs(false, true);
-    if params.high_entropy_detection_quality != 0 {
+        let cm_speed = context_map_entropy.best_speeds(true, false);
+        let stride_speed = context_map_entropy.best_speeds(false, false);
+        let combined_speed = context_map_entropy.best_speeds(false, true);
+        let acost = context_map_entropy.best_speeds_costs(true, false);
+        let bcost = context_map_entropy.best_speeds_costs(false, false);
+        let ccost = context_map_entropy.best_speeds_costs(false, true);
         context_map_entropy.prediction_mode_mut().set_stride_context_speed(speed_to_tuple(stride_speed));
         context_map_entropy.prediction_mode_mut().set_context_map_speed(speed_to_tuple(cm_speed));
         context_map_entropy.prediction_mode_mut().set_combined_stride_context_speed(speed_to_tuple(combined_speed));
-    /*
-        {
-            let stride_speed_start = prediction_mode.stride_context_speed_offset();
-            let stride_max_start = prediction_mode.stride_context_speed_max_offset();
-            for index in 0..512 {
-                local_context_speeds[index + stride_speed_start] = prediction_mode.u16_to_f8(stride_speed[index >> 1][index & 1].0);
-                local_context_speeds[index + stride_max_start] = prediction_mode.u16_to_f8(stride_speed[index >> 1][index & 1].1);
-            }
-        }
-        {
-            let cm_speed_start = prediction_mode.context_map_speed_offset();
-            let cm_max_start = prediction_mode.context_map_speed_max_offset();
-            for index in 0..512 {
-                local_context_speeds[index + cm_speed_start] = prediction_mode.u16_to_f8(cm_speed[index >> 1][index & 1].0);
-                local_context_speeds[index + cm_max_start] = prediction_mode.u16_to_f8(cm_speed[index >> 1][index & 1].1);
-            }
-        }
-        {
-            let combined_speed_start = prediction_mode.combined_stride_context_speed_offset();
-            let combined_max_start = prediction_mode.combined_stride_context_speed_max_offset();
-            for index in 0..512 {
-                local_context_speeds[index + combined_speed_start] = prediction_mode.u16_to_f8(combined_speed[index >> 1][index & 1].0);
-                local_context_speeds[index + combined_max_start] =  prediction_mode.u16_to_f8(combined_speed[index >> 1][index & 1].1);
-            }
-        }*/
-        //FIXME FIXME
+     
+        best_speed_log("CM", &cm_speed, &acost);
+        best_speed_log("Stride", &stride_speed, &bcost);
+        best_speed_log("StrideCombined", &combined_speed, &ccost);
      }
-     best_speed_log("CM", &cm_speed, &acost);
-     best_speed_log("Stride", &stride_speed, &bcost);
-     best_speed_log("StrideCombined", &combined_speed, &ccost);
      let prediction_mode = context_map_entropy.take_prediction_mode();
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
-                                              params.stride_detection_quality,
+                                               params.stride_detection_quality,
                                                params.high_entropy_detection_quality,
                                                context_map_entropy,
                                                entropy_tally_scratch,

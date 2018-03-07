@@ -55,7 +55,8 @@ pub struct BrotliEncoderParams {
   pub hasher: BrotliHasherParams,
   pub log_meta_block: bool,
   pub stride_detection_quality: u8, // 0 = off (stride 1 always) 1 = on per 16th of a file 2 = on per block type switch
-  pub high_entropy_detection_quality: u8,
+  pub high_entropy_detection_quality: u8, // search for high entropy literal strings and annotate them differently
+  pub cdf_adaptation_detection: u8,
 }
 
 impl Default for BrotliEncoderParams {
