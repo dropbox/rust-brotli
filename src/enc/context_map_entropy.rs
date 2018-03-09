@@ -33,7 +33,7 @@ const MAXES_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY] = [32,
                                                    4096,
                                                    16384,
                                                    256, 16384,
-                                                   16834,
+                                                   16384,
                                                    16384,
                                                    16384,
                                                    16384,
@@ -105,7 +105,7 @@ fn init_cdfs(cdfs: &mut [u16]) {
         for cdf_index in 0..16 {
             let mut vec = cdfs.split_at_mut(total_index).1.split_at_mut(NUM_SPEEDS_TO_TRY).0;
             for item in vec {
-                *item = 1 + cdf_index as u16;
+                *item = 4 + 4 * cdf_index as u16;
             }
             total_index += NUM_SPEEDS_TO_TRY;
         }
@@ -209,7 +209,7 @@ fn update_cdf(cdfs: &mut [u16],
             const CDF_BIAS:[u16;16] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
             for nibble_index in 0..16  {
                 let tmp = &mut cdfs[nibble_index * NUM_SPEEDS_TO_TRY + max_index];
-                *tmp = (tmp.wrapping_add(CDF_BIAS[nibble_index])).wrapping_sub(tmp.wrapping_add(CDF_BIAS[nibble_index]) >> 1);
+                *tmp = (tmp.wrapping_add(CDF_BIAS[nibble_index])).wrapping_sub(tmp.wrapping_add(CDF_BIAS[nibble_index]) >> 2);
             }
         }
     }
@@ -326,8 +326,10 @@ impl<'a,
                  [Weights::new(); NUM_SPEEDS_TO_TRY]],
          singleton_costs:[[[0.0 as floatX;NUM_SPEEDS_TO_TRY];2];3],
       };
-      init_cdfs(ret.cm_priors.slice_mut());
-      init_cdfs(ret.stride_priors.slice_mut());
+      if cdf_detect {
+        init_cdfs(ret.cm_priors.slice_mut());
+        init_cdfs(ret.stride_priors.slice_mut());
+      }
       ret
    }
    pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
@@ -433,6 +435,11 @@ impl<'a,
            }
        }
        for high in 0..2 {
+        /*    eprintln!("TRIAL {} {}", cm, combined);
+            for i in 0..NUM_SPEEDS_TO_TRY {
+                eprintln!("{},{} costs {}", SPEEDS_TO_SEARCH[i], MAXES_TO_SEARCH[i], costs[high][i]);
+            }*/
+
          ret[high] = min_cost_speed_max(&costs[high][..]);
        }
        ret
