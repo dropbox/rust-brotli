@@ -377,10 +377,10 @@ impl<'a,
            1usize
        };
        for high in 0..2 {
-           eprintln!("TRIAL {} {}", cm, combined);
+           /*eprintln!("TRIAL {} {}", cm, combined);
            for i in 0..NUM_SPEEDS_TO_TRY {
                eprintln!("{},{} costs {:?}", SPEEDS_TO_SEARCH[i], MAXES_TO_SEARCH[i], self.singleton_costs[cost_type_index][high][i]);
-           }
+           }*/
          ret[high] = min_cost_speed_max(&self.singleton_costs[cost_type_index][high][..]);
        }
        ret
