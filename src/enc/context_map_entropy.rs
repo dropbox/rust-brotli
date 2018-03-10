@@ -9,7 +9,6 @@ use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
 
-const DEFAULT_CM_SPEED_INDEX: usize = 8;
 const NUM_SPEEDS_TO_TRY: usize = 16;
 const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
                                                    1, 1, 1,
@@ -149,6 +148,23 @@ fn compute_cost(singleton_cost: &mut [floatX;NUM_SPEEDS_TO_TRY],
         singleton_cost[i] -= del;
     }
 }
+fn update_one_cdf(cdfs: &mut [u16], nibble_u8: u8, speed_index: usize, cdf_stride: usize) {
+    assert_eq!(cdfs.len(), 16 * cdf_stride);
+    let mut overall_index = nibble_u8 as usize * cdf_stride;
+    for _nibble in (nibble_u8 as usize & 0xf) .. 16 {
+        cdfs[overall_index + speed_index] += SPEEDS_TO_SEARCH[speed_index];
+        overall_index += cdf_stride;
+    }
+    let max_index = speed_index;
+    if cdfs[15 * cdf_stride + max_index] >= MAXES_TO_SEARCH[max_index] {
+        const CDF_BIAS:[u16;16] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+        for nibble_index in 0..16  {
+            let tmp = &mut cdfs[nibble_index * cdf_stride + max_index];
+            *tmp = (tmp.wrapping_add(CDF_BIAS[nibble_index])).wrapping_sub(tmp.wrapping_add(CDF_BIAS[nibble_index]) >> 2);
+        }
+    }
+}
+
 fn update_cdf(cdfs: &mut [u16],
               nibble_u8: u8) {
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
@@ -238,6 +254,16 @@ fn min_cost_value(cost: &[floatX]) -> floatX {
     let best_choice = min_cost_index_for_speed(cost);
     cost[best_choice]
 }
+fn cost_type_index(cm: bool, combined: bool) -> usize {
+    if combined {
+        2usize
+    } else if cm {
+        0usize
+    } else {
+        1usize
+    }    
+}
+
 
 const SINGLETON_COMBINED_STRATEGY: usize = 2;
 const SINGLETON_STRIDE_STRATEGY: usize = 1;
@@ -260,6 +286,9 @@ pub struct ContextMapEntropy<'a,
     stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
     singleton_costs: [[[floatX;NUM_SPEEDS_TO_TRY];2];3],
     phantom: core::marker::PhantomData<AllocF>,
+    best_cm_speed_index_low: u8,
+    best_cm_speed_index: u8,
+    phase1: bool,
 }
 impl<'a,
      AllocU16:alloc::Allocator<u16>,
@@ -287,12 +316,26 @@ impl<'a,
          weight:[[Weights::new(); NUM_SPEEDS_TO_TRY],
                  [Weights::new(); NUM_SPEEDS_TO_TRY]],
          singleton_costs:[[[0.0 as floatX;NUM_SPEEDS_TO_TRY];2];3],
+         best_cm_speed_index_low: 0,
+         best_cm_speed_index: 0,
+         phase1: false,
       };
       if cdf_detect {
         init_cdfs(ret.cm_priors.slice_mut());
         init_cdfs(ret.stride_priors.slice_mut());
       }
       ret
+   }
+    pub fn finish_phase0(&mut self) {
+       assert_eq!(self.phase1, false);
+       let mut indices = [0usize; 2];
+       for high in 0..2 {
+           indices[high] = min_cost_index_for_speed(&self.singleton_costs[cost_type_index(true, false)][high][..]);
+       }
+       self.best_cm_speed_index_low = indices[0] as u8;
+       self.best_cm_speed_index = indices[1] as u8;
+       self.local_byte_offset = 0;
+       self.phase1 = true;
    }
    pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
        core::mem::replace(&mut self.context_map, interface::PredictionModeContextMap::<InputReferenceMut<'a>>{
@@ -308,79 +351,39 @@ impl<'a,
                       _data: &[u8],
                       mut _prev_byte: u8, mut _prev_prev_byte: u8,
                           _block_type: u8) {
-       /*
-       scratch.bucket_populations.slice_mut().clone_from_slice(self.entropy_tally.bucket_populations.slice());
-       scratch.bucket_populations.slice_mut()[65535] += 1; // to demonstrate that we have
-       scratch.bucket_populations.slice_mut()[65535] -= 1; // to demonstrate that we have write capability
-       let mut stray_count = 0 as find_stride::floatY;
-       for val in data.iter() {
-           let huffman_table_index = compute_huffman_table_index_for_context_map(prev_byte, prev_prev_byte, self.context_map, block_type);
-           let loc = &mut scratch.bucket_populations.slice_mut()[huffman_table_index * 256 + *val as usize];
-           //let mut stray = false;
-           if *loc == 0 {
-               stray_count += 1.0;
-               //stray = true;
-           } else {
-               *loc -= 1;
-           }
-           //println!("{} {:02x}{:02x} => {:02x} (bt: {}, ind: {}, cnt: {})", if stray {"S"} else {"L"}, prev_byte, prev_prev_byte, *val, block_type, huffman_table_index, *loc);
-           prev_prev_byte = prev_byte;
-           prev_byte = *val;
-       }
-       if self.entropy_tally.cached_bit_entropy == 0.0 as find_stride::floatY {
-           self.entropy_tally.cached_bit_entropy = find_stride::HuffmanCost(self.entropy_tally.bucket_populations.slice());
-       }
-       debug_assert_eq!(find_stride::HuffmanCost(self.entropy_tally.bucket_populations.slice()),
-                        self.entropy_tally.cached_bit_entropy);
-
-       scratch.cached_bit_entropy = find_stride::HuffmanCost(scratch.bucket_populations.slice());
-       self.entropy_tally.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
-*/
    }
-    pub fn best_singleton_speeds(&self,
-                                 cm: bool,
-                                 combined: bool) -> ([SpeedAndMax;2], [floatX; 2]) {
-        let cost_type_index = if combined {
-            2usize
-        } else if cm {
-            0usize
-        } else {
-            1usize
-        };
-        let mut ret_cost = [self.singleton_costs[cost_type_index][0][0],
-                            self.singleton_costs[cost_type_index][1][0]];
-        let mut best_indexes = [0,0];
-        for speed_index in 1..NUM_SPEEDS_TO_TRY {
-            for highness in 0..2 {
-                let cur_cost = self.singleton_costs[cost_type_index][highness][speed_index];
-                if cur_cost < ret_cost[highness] {
-                    best_indexes[highness] = speed_index;
-                    ret_cost[highness] = cur_cost;
-                }
-            }
-        }
-        let ret_speed = [SpeedAndMax(SPEEDS_TO_SEARCH[best_indexes[0]],
-                                 MAXES_TO_SEARCH[best_indexes[0]]),
-                     SpeedAndMax(SPEEDS_TO_SEARCH[best_indexes[1]],
-                                 MAXES_TO_SEARCH[best_indexes[1]])];
+   pub fn best_singleton_speeds(&self,
+                                cm: bool,
+                                combined: bool) -> ([SpeedAndMax;2], [floatX; 2]) {
+       let cost_type_index = cost_type_index(cm, combined);
+       let mut ret_cost = [self.singleton_costs[cost_type_index][0][0],
+                           self.singleton_costs[cost_type_index][1][0]];
+       let mut best_indexes = [0,0];
+       for speed_index in 1..NUM_SPEEDS_TO_TRY {
+           for highness in 0..2 {
+               let cur_cost = self.singleton_costs[cost_type_index][highness][speed_index];
+               if cur_cost < ret_cost[highness] {
+                   best_indexes[highness] = speed_index;
+                   ret_cost[highness] = cur_cost;
+               }
+           }
+       }
+       let ret_speed = [SpeedAndMax(SPEEDS_TO_SEARCH[best_indexes[0]],
+                                    MAXES_TO_SEARCH[best_indexes[0]]),
+                        SpeedAndMax(SPEEDS_TO_SEARCH[best_indexes[1]],
+                                    MAXES_TO_SEARCH[best_indexes[1]])];
        (ret_speed, ret_cost)
-    }
-    pub fn best_speeds(&mut self, // mut due to helpers
+   }
+   pub fn best_speeds(&mut self, // mut due to helpers
                        cm:bool,
                        combined: bool) -> [SpeedAndMax;2] { 
        let mut ret = [SpeedAndMax(SPEEDS_TO_SEARCH[0],MAXES_TO_SEARCH[0]); 2];
-       let cost_type_index = if combined {
-           2usize
-       } else if cm {
-           0usize
-       } else {
-           1usize
-       };
+       let cost_type_index = cost_type_index(cm, combined);
        for high in 0..2 {
-           eprintln!("TRIAL {} {}", cm, combined);
+           /*eprintln!("TRIAL {} {}", cm, combined);
            for i in 0..NUM_SPEEDS_TO_TRY {
                eprintln!("{},{} costs {:?}", SPEEDS_TO_SEARCH[i], MAXES_TO_SEARCH[i], self.singleton_costs[cost_type_index][high][i]);
-           }
+           }*/
          ret[high] = min_cost_speed_max(&self.singleton_costs[cost_type_index][high][..]);
        }
        ret
@@ -388,13 +391,7 @@ impl<'a,
    pub fn best_speeds_costs(&mut self, // mut due to helpers
                             cm:bool,
                             combined: bool) -> [floatX;2] { 
-       let cost_type_index = if combined {
-           2usize
-       } else if cm {
-           0usize
-       } else {
-           1usize
-       };
+       let cost_type_index = cost_type_index(cm, combined);
        let mut ret = [0.0 as floatX; 2];
        for high in 0..2 {
          ret[high] = min_cost_value(&self.singleton_costs[cost_type_index][high][..]);
@@ -405,54 +402,71 @@ impl<'a,
         m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
         m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
    }
-   fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+   fn update_cost_phase0(&mut self, stride_prior: u8, cm_prior: usize, precursor_prior: usize, literal: u8) {
+       let upper_nibble = (literal >> 4);
+       let lower_nibble = literal & 0xf;
+       {
+           let cm_cdf_high = get_cm_cdf_high(self.cm_priors.slice_mut(), cm_prior);
+           compute_cost(&mut self.singleton_costs[SINGLETON_CM_STRATEGY][1],
+                        cm_cdf_high, upper_nibble);
+           update_cdf(cm_cdf_high, upper_nibble);
+       }
+       {
+           let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
+           compute_cost(&mut self.singleton_costs[SINGLETON_CM_STRATEGY][0],
+                        cm_cdf_low, lower_nibble);
+           update_cdf(cm_cdf_low, lower_nibble);
+       }
+       {
+           let stride_cdf_high = get_stride_cdf_high(self.stride_priors.slice_mut(), stride_prior, precursor_prior);
+           compute_cost(&mut self.singleton_costs[SINGLETON_STRIDE_STRATEGY][1],
+                        stride_cdf_high, upper_nibble);
+           update_cdf(stride_cdf_high, upper_nibble);
+       }
+       {
+           let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, precursor_prior, upper_nibble);
+           compute_cost(&mut self.singleton_costs[SINGLETON_STRIDE_STRATEGY][0],
+                        stride_cdf_low,
+                        lower_nibble);
+           update_cdf(stride_cdf_low, lower_nibble);
+       }
+   }
+   fn update_cost_phase1(&mut self, stride_prior: u8, cm_prior: usize, literal: u8, cm_speed_index_low: usize, cm_speed_index: usize) {
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
        let provisional_cm_high_cdf: [u16; 16];
        let provisional_cm_low_cdf: [u16; 16];
        {
            let cm_cdf_high = get_cm_cdf_high(self.cm_priors.slice_mut(), cm_prior);
-           compute_cost(&mut self.singleton_costs[SINGLETON_CM_STRATEGY][1],
-                        cm_cdf_high, upper_nibble);
-           // choose a fairly reasonable cm speed rather than a selected one
-           let best_cm_index = DEFAULT_CM_SPEED_INDEX;// = min_cost_index_for_speed(&self.singleton_costs[SINGLETON_CM_STRATEGY][1]);
-           provisional_cm_high_cdf = extract_single_cdf(cm_cdf_high, best_cm_index);
+           provisional_cm_high_cdf = extract_single_cdf(cm_cdf_high, cm_speed_index);
        }
        {
            let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
-           compute_cost(&mut self.singleton_costs[SINGLETON_CM_STRATEGY][0],
-                        cm_cdf_low, lower_nibble);
-           // choose a fairly reasonable cm speed rather than a selected one
-           let best_cm_index = DEFAULT_CM_SPEED_INDEX;//min_cost_index_for_speed(&self.singleton_costs[SINGLETON_CM_STRATEGY][0]);
-           provisional_cm_low_cdf = extract_single_cdf(cm_cdf_low, best_cm_index);
+           provisional_cm_low_cdf = extract_single_cdf(cm_cdf_low, cm_speed_index_low);
        }
        {
            let stride_cdf_high = get_stride_cdf_high(self.stride_priors.slice_mut(), stride_prior, cm_prior);
            compute_combined_cost(&mut self.singleton_costs[SINGLETON_COMBINED_STRATEGY][1],
                                  stride_cdf_high, provisional_cm_high_cdf, upper_nibble, &mut self.weight[1]);
-           compute_cost(&mut self.singleton_costs[SINGLETON_STRIDE_STRATEGY][1],
-                        stride_cdf_high, upper_nibble);
            update_cdf(stride_cdf_high, upper_nibble);
        }
        {
            let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior, upper_nibble);
            compute_combined_cost(&mut self.singleton_costs[SINGLETON_COMBINED_STRATEGY][0],
                                  stride_cdf_low, provisional_cm_low_cdf, lower_nibble, &mut self.weight[0]);
-           compute_cost(&mut self.singleton_costs[SINGLETON_STRIDE_STRATEGY][0],
-                        stride_cdf_low,
-                        lower_nibble);
            update_cdf(stride_cdf_low, lower_nibble);
        }
        {
            let cm_cdf_high = get_cm_cdf_high(self.cm_priors.slice_mut(), cm_prior);
-           update_cdf(cm_cdf_high, upper_nibble);
+           update_one_cdf(cm_cdf_high, upper_nibble, cm_speed_index, NUM_SPEEDS_TO_TRY);
        }
        {
            let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
-           update_cdf(cm_cdf_low, lower_nibble);
+           update_one_cdf(cm_cdf_low, lower_nibble, cm_speed_index_low, NUM_SPEEDS_TO_TRY);
        }
    }
 }
+
 fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
   match mode {
     ContextType::CONTEXT_LSB6 => {
@@ -478,14 +492,14 @@ fn compute_huffman_table_index_for_context_map<SliceType: alloc::SliceWrapper<u8
     prev_prev_byte: u8,
     context_map: &interface::PredictionModeContextMap<SliceType>,
     block_type: u8,
-) -> usize {
+) -> (usize, u8) {
     let prior = Context(prev_byte, prev_prev_byte, context_map.literal_prediction_mode().to_context_enum().unwrap());
     assert!(prior < 64);
     let context_map_index = ((block_type as usize)<< 6) | prior as usize;
     if context_map_index < context_map.literal_context_map.slice().len() {
-        context_map.literal_context_map.slice()[context_map_index] as usize
+        (context_map.literal_context_map.slice()[context_map_index] as usize, prior)
     } else {
-        prior as usize
+        (prior as usize, prior)
     }
 }
 
@@ -518,10 +532,14 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
                }
                let mut cur = 0usize;
                for literal in lit.data.slice().iter() {
-                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], &self.context_map, self.block_type);
-                   self.update_cost(priors[(cur + 7 - stride) & 7], huffman_table_index, *literal);
-                   // FIXME..... self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
-                    //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
+                   let (huffman_table_index, raw_prior) = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], &self.context_map, self.block_type);
+                   if self.phase1 {
+                       let ilow = self.best_cm_speed_index_low as usize;
+                       let ihigh = self.best_cm_speed_index as usize;
+                       self.update_cost_phase1(priors[(cur + 7 - stride) & 7], huffman_table_index, *literal, ilow, ihigh);
+                   } else {
+                       self.update_cost_phase0(priors[(cur + 7 - stride) & 7], huffman_table_index, raw_prior as usize, *literal);
+                   }
                    priors[cur & 7] = *literal;
                    cur += 1;
                    cur &= 7;

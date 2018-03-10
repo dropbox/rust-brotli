@@ -497,6 +497,18 @@ fn LogMetaBlock<'a,
                          &block_type,
                          params,
                          context_type,
+                              &mut |_x|());
+        context_map_entropy.finish_phase0();
+        process_command_queue(&mut context_map_entropy,
+                         input,
+                         commands,
+                         n_postfix,
+                         n_direct,
+                         dist_cache,
+                         *recoder_state,
+                         &block_type,
+                         params,
+                         context_type,
                           &mut |_x|());
         {
             let (cm_speed, cm_cost) = context_map_entropy.best_singleton_speeds(true, false);
