@@ -9,6 +9,7 @@ use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
 
+const DEFAULT_CM_SPEED_INDEX: usize = 8;
 const NUM_SPEEDS_TO_TRY: usize = 16;
 const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
                                                    1, 1, 1,
@@ -16,11 +17,11 @@ const SPEEDS_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY]= [0,
                                                    4,
                                                    8,
                                                    16,
+                                                   16,
                                                    32,
                                                    64,
                                                    128, 128,
                                                    512,
-                                                   1024,
                                                    1664,
                                                    1664,
                                                    ];
@@ -30,10 +31,10 @@ const MAXES_TO_SEARCH: [u16; NUM_SPEEDS_TO_TRY] = [32,
                                                    1024,
                                                    8192,
                                                    48,
+                                                   8192,
                                                    4096,
                                                    16384,
                                                    256, 16384,
-                                                   16384,
                                                    16384,
                                                    16384,
                                                    16384,
@@ -498,7 +499,8 @@ impl<'a,
            compute_cost(cm_high_cost,
                         &mut self.singleton_costs[SINGLETON_CM_STRATEGY][1],
                         cm_cdf_high, upper_nibble);
-           let best_cm_index = min_cost_index_for_speed(cm_high_cost);
+           // choose a fairly reasonable cm speed rather than a selected one
+           let best_cm_index = DEFAULT_CM_SPEED_INDEX;// = min_cost_index_for_speed(&self.singleton_costs[SINGLETON_CM_STRATEGY][1]);
            provisional_cm_high_cdf = extract_single_cdf(cm_cdf_high, best_cm_index);
        }
        {
@@ -507,7 +509,8 @@ impl<'a,
            compute_cost(cm_low_cost,
                         &mut self.singleton_costs[SINGLETON_CM_STRATEGY][0],
                         cm_cdf_low, lower_nibble);
-           let best_cm_index = min_cost_index_for_speed(cm_low_cost);
+           // choose a fairly reasonable cm speed rather than a selected one
+           let best_cm_index = DEFAULT_CM_SPEED_INDEX;//min_cost_index_for_speed(&self.singleton_costs[SINGLETON_CM_STRATEGY][0]);
            provisional_cm_low_cdf = extract_single_cdf(cm_cdf_low, best_cm_index);
        }
        {
