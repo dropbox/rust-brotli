@@ -90,9 +90,11 @@ impl LiteralPredictionModeNibble {
     }
 }
 pub const NUM_SPEED_VALUES: usize = 12;
+pub const NUM_MIXING_VALUES: usize = 256;
 pub const NUM_PREDMODE_VALUES: usize = 1;
 pub const PREDMODE_OFFSET: usize = 0;
-pub const SPEED_OFFSET: usize = NUM_PREDMODE_VALUES + PREDMODE_OFFSET;
+pub const MIXING_OFFSET:usize = NUM_PREDMODE_VALUES + PREDMODE_OFFSET;
+pub const SPEED_OFFSET: usize = MIXING_OFFSET + NUM_MIXING_VALUES;
 pub const DISTANCE_CONTEXT_MAP_OFFSET: usize = SPEED_OFFSET + NUM_SPEED_VALUES;
 
 #[derive(Debug)]
@@ -122,6 +124,16 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
         }
     }
     #[inline]
+    pub fn set_mixing_values(&mut self, mixing_mask: &[u8; NUM_MIXING_VALUES]) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)].clone_from_slice(&mixing_mask[..]);
+    }
+    #[inline]
+    pub fn get_mixing_values_mut(&mut self) -> &mut [u8] {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        &mut cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
+    }
+    #[inline]
     pub fn set_combined_stride_context_speed(&mut self, speed_max: [(u16, u16);2]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
         for high in 0..2 {
@@ -140,6 +152,11 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
             literal_context_map:SliceType::from(other.literal_context_map),
             predmode_speed_and_distance_context_map: SliceType::from(other.predmode_speed_and_distance_context_map),
         }
+    }
+    #[inline]
+    pub fn get_mixing_values(&self) -> &[u8] {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        &cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
     }
     pub fn has_context_speeds(&self) -> bool {
         self.predmode_speed_and_distance_context_map.slice().len() >= DISTANCE_CONTEXT_MAP_OFFSET

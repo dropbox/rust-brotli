@@ -87,11 +87,14 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                                                                             |res, &val| res + " " + &val.to_string());
             let dist_cm = prediction.distance_context_map().iter().fold(::std::string::String::new(),
                                                                         |res, &val| res + " " + &val.to_string());
+            let mixing_values = prediction.get_mixing_values().iter().fold(::std::string::String::new(),
+                                                                           |res, &val| res + " " + &val.to_string());
             if prediction.has_context_speeds() {
-                println_stderr!("prediction {} lcontextmap{} dcontextmap{} cmspeedinc {} {} cmspeedmax {} {} stspeedinc {} {} stspeedmax {} {} mxspeedinc {} {} mxspeedmax {} {}",
+                println_stderr!("prediction {} lcontextmap{} dcontextmap{} mixingvalues{} cmspeedinc {} {} cmspeedmax {} {} stspeedinc {} {} stspeedmax {} {} mxspeedinc {} {} mxspeedmax {} {}",
                                 prediction_mode,
                                 lit_cm,
                                 dist_cm,
+                                mixing_values,
                                 prediction.context_map_speed()[0].0,
                                 prediction.context_map_speed()[1].0,
                                 prediction.context_map_speed()[0].1,
@@ -106,10 +109,11 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                                 prediction.combined_stride_context_speed()[0].1,
                                 );
             }else {
-                println_stderr!("prediction {} lcontextmap{} dcontextmap{}",
+                println_stderr!("prediction {} lcontextmap{} dcontextmap{} mixingvalues{}",
                                 prediction_mode,
                                 lit_cm,
                                 dist_cm,
+                                mixing_values,
                 );
             }
         },
