@@ -90,7 +90,7 @@ impl LiteralPredictionModeNibble {
     }
 }
 pub const NUM_SPEED_VALUES: usize = 12;
-pub const NUM_MIXING_VALUES: usize = 256 + 16 * 256;
+pub const NUM_MIXING_VALUES: usize = 16 * 256 + 16 * 256;
 pub const NUM_PREDMODE_VALUES: usize = 1;
 pub const PREDMODE_OFFSET: usize = 0;
 pub const MIXING_OFFSET:usize = NUM_PREDMODE_VALUES + PREDMODE_OFFSET;
