@@ -26,6 +26,7 @@ pub mod reader;
 pub mod writer;
 pub mod find_stride;
 pub mod interface;
+pub mod ir_interpret;
 pub mod context_map_entropy;
 mod test;
 mod weights;

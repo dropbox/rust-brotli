@@ -1,10 +1,9 @@
 use core;
+pub use super::ir_interpret::{IRInterpreter, Context, push_base};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::interface;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use super::histogram::ContextType;
-use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
@@ -308,36 +307,8 @@ impl<'a,
                       _data: &[u8],
                       mut _prev_byte: u8, mut _prev_prev_byte: u8,
                           _block_type: u8) {
-       /*
-       scratch.bucket_populations.slice_mut().clone_from_slice(self.entropy_tally.bucket_populations.slice());
-       scratch.bucket_populations.slice_mut()[65535] += 1; // to demonstrate that we have
-       scratch.bucket_populations.slice_mut()[65535] -= 1; // to demonstrate that we have write capability
-       let mut stray_count = 0 as find_stride::floatY;
-       for val in data.iter() {
-           let huffman_table_index = compute_huffman_table_index_for_context_map(prev_byte, prev_prev_byte, self.context_map, block_type);
-           let loc = &mut scratch.bucket_populations.slice_mut()[huffman_table_index * 256 + *val as usize];
-           //let mut stray = false;
-           if *loc == 0 {
-               stray_count += 1.0;
-               //stray = true;
-           } else {
-               *loc -= 1;
-           }
-           //println!("{} {:02x}{:02x} => {:02x} (bt: {}, ind: {}, cnt: {})", if stray {"S"} else {"L"}, prev_byte, prev_prev_byte, *val, block_type, huffman_table_index, *loc);
-           prev_prev_byte = prev_byte;
-           prev_byte = *val;
-       }
-       if self.entropy_tally.cached_bit_entropy == 0.0 as find_stride::floatY {
-           self.entropy_tally.cached_bit_entropy = find_stride::HuffmanCost(self.entropy_tally.bucket_populations.slice());
-       }
-       debug_assert_eq!(find_stride::HuffmanCost(self.entropy_tally.bucket_populations.slice()),
-                        self.entropy_tally.cached_bit_entropy);
-
-       scratch.cached_bit_entropy = find_stride::HuffmanCost(scratch.bucket_populations.slice());
-       self.entropy_tally.cached_bit_entropy - scratch.cached_bit_entropy + stray_count * 8.0
-*/
    }
-    pub fn best_singleton_speeds(&self,
+   pub fn best_singleton_speeds(&self,
                                  cm: bool,
                                  combined: bool) -> ([SpeedAndMax;2], [floatX; 2]) {
         let cost_type_index = if combined {
@@ -405,7 +376,7 @@ impl<'a,
         m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
         m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
    }
-   fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+   fn update_cost_base(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
        let provisional_cm_high_cdf: [u16; 16];
@@ -453,43 +424,6 @@ impl<'a,
        }
    }
 }
-fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
-  match mode {
-    ContextType::CONTEXT_LSB6 => {
-      return (p1 as (i32) & 0x3fi32) as (u8);
-    }
-    ContextType::CONTEXT_MSB6 => {
-      return (p1 as (i32) >> 2i32) as (u8);
-    }
-    ContextType::CONTEXT_UTF8 => {
-      return (kUTF8ContextLookup[p1 as (usize)] as (i32) |
-              kUTF8ContextLookup[(p2 as (i32) + 256i32) as (usize)] as (i32)) as (u8);
-    }
-    ContextType::CONTEXT_SIGNED => {
-      return ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32) +
-              kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8);
-    }
-  }
-  //  0i32 as (u8)
-}
-
-fn compute_huffman_table_index_for_context_map<SliceType: alloc::SliceWrapper<u8> > (
-    prev_byte: u8,
-    prev_prev_byte: u8,
-    context_map: &interface::PredictionModeContextMap<SliceType>,
-    block_type: u8,
-) -> usize {
-    let prior = Context(prev_byte, prev_prev_byte, context_map.literal_prediction_mode().to_context_enum().unwrap());
-    assert!(prior < 64);
-    let context_map_index = ((block_type as usize)<< 6) | prior as usize;
-    if context_map_index < context_map.literal_context_map.slice().len() {
-        context_map.literal_context_map.slice()[context_map_index] as usize
-    } else {
-        prior as usize
-    }
-}
-
-
 
 impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
@@ -497,39 +431,40 @@ impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
     fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
                                                               val: interface::Command<InputReference<'b>>,
                                                               callback: &mut Cb) {
-        match val {
-           interface::Command::BlockSwitchCommand(_) |
-           interface::Command::BlockSwitchDistance(_) |
-           interface::Command::PredictionMode(_) => {}
-           interface::Command::Copy(ref copy) => {
-             self.local_byte_offset += copy.num_bytes as usize;
-           },
-           interface::Command::Dict(ref dict) => {
-             self.local_byte_offset += dict.final_size as usize;
-           },
-           interface::Command::BlockSwitchLiteral(block_type) => self.block_type = block_type.block_type(),
-           interface::Command::Literal(ref lit) => {
-               let stride = self.stride_pyramid_leaves[self.local_byte_offset * 8 / self.input.len()] as usize;
-               let mut priors= [0u8; 8];
-               for poffset in 0..core::cmp::max((stride & 7) + 1, 2) {
-                   if self.local_byte_offset > poffset {
-                       priors[7 - poffset] = self.input[self.local_byte_offset - poffset -  1];
-                   }
-               }
-               let mut cur = 0usize;
-               for literal in lit.data.slice().iter() {
-                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], &self.context_map, self.block_type);
-                   self.update_cost(priors[(cur + 7 - stride) & 7], huffman_table_index, *literal);
-                   // FIXME..... self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize] += 1;
-                    //println!("I {:02x}{:02x} => {:02x} (bt: {}, ind: {} cnt: {})", priors[1], priors[0], *literal, self.block_type, huffman_table_index, self.entropy_tally.bucket_populations.slice_mut()[((huffman_table_index as usize) << 8) | *literal as usize]);
-                   priors[cur & 7] = *literal;
-                   cur += 1;
-                   cur &= 7;
-               }
-               self.local_byte_offset += lit.data.slice().len();
-           }
-        }
-        let cbval = [val];
-        callback(&cbval[..]);
+        push_base(self, val, callback)
     }
 }
+
+impl<'a, AllocU16: alloc::Allocator<u16>,
+     AllocU32:alloc::Allocator<u32>,
+     AllocF: alloc::Allocator<floatX>> IRInterpreter for ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
+    fn inc_local_byte_offset(&mut self, inc: usize) {
+        self.local_byte_offset += inc;
+    }
+    fn get_stride(&self, local_byte_offset: usize) -> u8 {
+        self.stride_pyramid_leaves[local_byte_offset * 8 / self.input.len()]
+    }
+    fn local_byte_offset(&self) -> usize {
+        self.local_byte_offset
+    }
+    fn update_block_type(&mut self, new_type: u8) {
+        self.block_type = new_type;
+    }
+    fn block_type(&self) -> u8 {
+        self.block_type
+    }
+    fn literal_data_at_offset(&self, index:usize) -> u8 {
+        self.input[index]
+    }
+    fn literal_context_map(&self) -> &[u8] {
+        self.context_map.literal_context_map.slice()
+    }
+    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
+        self.context_map.literal_prediction_mode()
+    }
+    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+        self.update_cost_base(stride_prior, cm_prior, literal)
+    }
+}
+
+
