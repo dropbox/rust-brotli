@@ -3,6 +3,7 @@ use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::interface;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
+use super::ir_interpret::{IRInterpreter};
 use super::histogram::ContextType;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::{floatX, FastLog2u16};
@@ -110,4 +111,39 @@ impl<'a,
       }
       ret
    }
+   fn update_cost_base(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+   }
 }
+impl<'a, AllocU16: alloc::Allocator<u16>,
+     AllocU32:alloc::Allocator<u32>,
+     AllocF: alloc::Allocator<floatX>> IRInterpreter for PriorEval<'a, AllocU16, AllocU32, AllocF> {
+    fn inc_local_byte_offset(&mut self, inc: usize) {
+        self.local_byte_offset += inc;
+    }
+    fn get_stride(&self, local_byte_offset: usize) -> u8 {
+        self.stride_pyramid_leaves[local_byte_offset * 8 / self.input.len()]
+    }
+    fn local_byte_offset(&self) -> usize {
+        self.local_byte_offset
+    }
+    fn update_block_type(&mut self, new_type: u8) {
+        self.block_type = new_type;
+    }
+    fn block_type(&self) -> u8 {
+        self.block_type
+    }
+    fn literal_data_at_offset(&self, index:usize) -> u8 {
+        self.input[index]
+    }
+    fn literal_context_map(&self) -> &[u8] {
+        self.context_map.literal_context_map.slice()
+    }
+    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
+        self.context_map.literal_prediction_mode()
+    }
+    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+        self.update_cost_base(stride_prior, cm_prior, literal)
+    }
+}
+
+
