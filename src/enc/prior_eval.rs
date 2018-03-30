@@ -19,19 +19,15 @@ const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
 const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
 const PRIOR_SIZES : [usize;2] = [CONTEXT_MAP_PRIOR_SIZE, STRIDE_PRIOR_SIZE];
 pub trait Prior {
-    fn lookup_lin(actual_context:u8, selected_context:u8, stride_byte: u8, high_nibble: Option<u8>) -> usize;
-    fn lookup_mut(data:&mut [u8], actual_context:u8, selected_context:u8, stride_byte: u8, high_nibble: Option<u8>) -> &mut[u8] {
+    fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize;
+    fn lookup_mut(data:&mut [u16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> &mut[u16] {
         data.split_at_mut(
-            Self::lookup_lin(actual_context,
-                             selected_context,
-                             stride_byte,
+            Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble) * NIBBLE_PRIOR_SIZE).1.split_at_mut(16).0
     }
-    fn lookup(data:&[u8], actual_context:u8, selected_context:u8, stride_byte: u8, high_nibble: Option<u8>) -> &[u8] {
+    fn lookup(data:&[u16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> &[u16] {
         data.split_at(
-            Self::lookup_lin(actual_context,
-                             selected_context,
-                             stride_byte,
+            Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble) * NIBBLE_PRIOR_SIZE).1.split_at(16).0
     }
 }
@@ -39,7 +35,7 @@ pub trait Prior {
 pub struct StridePrior {
 }
 impl Prior for StridePrior {
-    fn lookup_lin(actual_context:u8, selected_context:u8, stride_byte: u8, high_nibble: Option<u8>) -> usize {
+    fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         if let Some(nibble) = high_nibble {
             1 + 2 * (actual_context as usize
                      | ((stride_byte as usize & 0xf) << 8)
@@ -53,9 +49,9 @@ impl Prior for StridePrior {
 pub struct CMPrior {
 }
 impl Prior for CMPrior {
-    fn lookup_lin(actual_context:u8, selected_context:u8, stride_byte: u8, high_nibble: Option<u8>) -> usize {
+    fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         if let Some(nibble) = high_nibble {
-            (nibble as usize + 1) + 17 * actual_context as usize
+            (nibble as usize + 1) + 17 * actual_context
         } else {
             17 * actual_context as usize
         }
@@ -80,7 +76,8 @@ pub struct PriorEval<'a,
     block_type: u8,
     local_byte_offset: usize,
     _nop: AllocU32::AllocatedMemory,    
-    priors: [AllocU16::AllocatedMemory; NUM_PRIORS_TO_TRY],
+    cm_priors: AllocU16::AllocatedMemory,
+    stride_priors: AllocU16::AllocatedMemory,
     stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
     phantom: core::marker::PhantomData<AllocF>,
 }
@@ -105,13 +102,12 @@ impl<'a,
          block_type: 0,
          local_byte_offset: 0,
          _nop:  AllocU32::AllocatedMemory::default(),
-         priors: [if do_alloc {m16.alloc_cell(PRIOR_SIZES[0])} else {AllocU16::AllocatedMemory::default()},
-                  if do_alloc {m16.alloc_cell(PRIOR_SIZES[1])} else {AllocU16::AllocatedMemory::default()}],
+         cm_priors: if do_alloc {m16.alloc_cell(PRIOR_SIZES[0])} else {AllocU16::AllocatedMemory::default()},
+         stride_priors: if do_alloc {m16.alloc_cell(PRIOR_SIZES[1])} else {AllocU16::AllocatedMemory::default()},
          stride_pyramid_leaves: stride,
       };
-      for prior in ret.priors.iter_mut() {
-          init_cdfs(prior.slice_mut());
-      }
+      init_cdfs(ret.cm_priors.slice_mut());
+      init_cdfs(ret.stride_priors.slice_mut());
       ret
    }
    pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
@@ -120,7 +116,11 @@ impl<'a,
           predmode_speed_and_distance_context_map:InputReferenceMut(&mut[]),
        })
    }
-   fn update_cost_base(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+   fn update_cost_base(&mut self, stride_prior: u8, selected_bits: u8, cm_prior: usize, literal: u8) {
+       <CMPrior as Prior>::lookup_mut(self.cm_priors.slice_mut(), stride_prior, selected_bits, cm_prior, None);
+       <CMPrior as Prior>::lookup_mut(self.cm_priors.slice_mut(), stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+       <StridePrior as Prior>::lookup_mut(self.stride_priors.slice_mut(), stride_prior, selected_bits, cm_prior, None);
+       <StridePrior as Prior>::lookup_mut(self.stride_priors.slice_mut(), stride_prior, selected_bits, cm_prior, Some(literal >> 4));
    }
 }
 impl<'a, AllocU16: alloc::Allocator<u16>,
@@ -150,8 +150,8 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
-    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
-        self.update_cost_base(stride_prior, cm_prior, literal)
+    fn update_cost(&mut self, stride_prior: u8, selected_bits: u8, cm_prior: usize, literal: u8) {
+        self.update_cost_base(stride_prior, selected_bits, cm_prior, literal)
     }
 }
 

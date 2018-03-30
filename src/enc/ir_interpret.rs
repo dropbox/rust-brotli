@@ -14,7 +14,7 @@ pub trait IRInterpreter {
     fn literal_data_at_offset(&self, index: usize) -> u8;
     fn literal_context_map(&self) -> &[u8];
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble;
-    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8);
+    fn update_cost(&mut self, stride_prior: u8, selected_bits:u8, cm_prior: usize, literal: u8);
 }
 
 
@@ -45,8 +45,8 @@ pub fn push_base<'a,
                }
                let mut cur = 0usize;
                for literal in lit.data.slice().iter() {
-                   let huffman_table_index = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], xself.literal_context_map(), xself.prediction_mode(), xself.block_type());
-                   xself.update_cost(priors[(cur + 7 - stride) & 7], huffman_table_index, *literal);
+                   let (huffman_table_index, selected_bits) = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], xself.literal_context_map(), xself.prediction_mode(), xself.block_type());
+                   xself.update_cost(priors[(cur + 7 - stride) & 7], selected_bits, huffman_table_index, *literal);
                    priors[cur & 7] = *literal;
                    cur += 1;
                    cur &= 7;
@@ -76,14 +76,14 @@ fn compute_huffman_table_index_for_context_map (
     literal_context_map: &[u8],//interface::PredictionModeContextMap<SliceType>,
     prediction_mode: LiteralPredictionModeNibble,
     block_type: u8,
-) -> usize {
+) -> (usize, u8) {
     let prior = Context(prev_byte, prev_prev_byte, prediction_mode.to_context_enum().unwrap());
     assert!(prior < 64);
     let context_map_index = ((block_type as usize)<< 6) | prior as usize;
     if context_map_index < literal_context_map.len() {
-        literal_context_map[context_map_index] as usize
+        (literal_context_map[context_map_index] as usize, prior)
     } else {
-        prior as usize
+        (prior as usize, prior)
     }
 }
 

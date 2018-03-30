@@ -376,7 +376,7 @@ impl<'a,
         m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
         m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
    }
-   fn update_cost_base(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
+   fn update_cost_base(&mut self, stride_prior: u8, selected_bits:u8, cm_prior: usize, literal: u8) {
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
        let provisional_cm_high_cdf: [u16; 16];
@@ -462,8 +462,8 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
-    fn update_cost(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
-        self.update_cost_base(stride_prior, cm_prior, literal)
+    fn update_cost(&mut self, stride_prior: u8, selected_bits: u8, cm_prior: usize, literal: u8) {
+        self.update_cost_base(stride_prior, selected_bits, cm_prior, literal)
     }
 }
 
