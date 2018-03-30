@@ -451,6 +451,10 @@ fn main() {
           params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
           continue;
       }
+      if argument.starts_with("-findprior") {
+          params.prior_bitmask_detection = 1;
+          continue;
+      }
       if argument.starts_with("-findspeed=") {
           params.cdf_adaptation_detection = argument.trim_matches('-').trim_matches('f').trim_matches('i').trim_matches('n').trim_matches('d').trim_matches('r').trim_matches('a').trim_matches('n').trim_matches('d').trim_matches('o').trim_matches('m').trim_matches('=').parse::<u32>().unwrap() as u8;
           continue;

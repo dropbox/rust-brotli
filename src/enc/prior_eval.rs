@@ -95,7 +95,9 @@ impl<'a,
               _mf: &mut AllocF,
               input: InputPair<'a>,
               stride: [u8; find_stride::NUM_LEAF_NODES],
-              prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>) -> Self {
+              prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
+              prior_bitmask_detection: u8) -> Self {
+      let do_alloc = prior_bitmask_detection != 0;
       let mut ret = PriorEval::<AllocU16, AllocU32, AllocF>{
          phantom:core::marker::PhantomData::<AllocF>::default(),
          input: input,
@@ -103,13 +105,20 @@ impl<'a,
          block_type: 0,
          local_byte_offset: 0,
          _nop:  AllocU32::AllocatedMemory::default(),
-         priors: [m16.alloc_cell(PRIOR_SIZES[0]), m16.alloc_cell(PRIOR_SIZES[1])],
+         priors: [if do_alloc {m16.alloc_cell(PRIOR_SIZES[0])} else {AllocU16::AllocatedMemory::default()},
+                  if do_alloc {m16.alloc_cell(PRIOR_SIZES[1])} else {AllocU16::AllocatedMemory::default()}],
          stride_pyramid_leaves: stride,
       };
       for prior in ret.priors.iter_mut() {
           init_cdfs(prior.slice_mut());
       }
       ret
+   }
+   pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
+       core::mem::replace(&mut self.context_map, interface::PredictionModeContextMap::<InputReferenceMut<'a>>{
+          literal_context_map:InputReferenceMut(&mut[]),
+          predmode_speed_and_distance_context_map:InputReferenceMut(&mut[]),
+       })
    }
    fn update_cost_base(&mut self, stride_prior: u8, cm_prior: usize, literal: u8) {
    }

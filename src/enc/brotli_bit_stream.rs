@@ -5,6 +5,7 @@
 #[cfg(not(feature="no-stdlib"))]
 use std::io::Write;
 use super::util::floatX;
+use super::prior_eval;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
@@ -525,7 +526,26 @@ fn LogMetaBlock<'a,
         best_speed_log("Stride", &stride_speed, &bcost);
         best_speed_log("StrideCombined", &combined_speed, &ccost);
      }
-     let prediction_mode = context_map_entropy.take_prediction_mode();
+     let mut prior_selector = prior_eval::PriorEval::<AllocU16,
+                                                      AllocU32,
+                                                      AllocF>::new(m16, m32, mf, InputPair(input0, input1),
+                                                                   entropy_pyramid.stride_last_level_range(),
+                                                                   context_map_entropy.take_prediction_mode(),
+                                                                   params.prior_bitmask_detection);
+     let prediction_mode = prior_selector.take_prediction_mode();
+     if params.prior_bitmask_detection != 0 {
+        process_command_queue(&mut context_map_entropy,
+                         input,
+                         commands,
+                         n_postfix,
+                         n_direct,
+                         dist_cache,
+                         *recoder_state,
+                         &block_type,
+                         params,
+                         context_type,
+                          &mut |_x|());
+     }     
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                                params.stride_detection_quality,
                                                params.high_entropy_detection_quality,

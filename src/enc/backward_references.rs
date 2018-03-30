@@ -74,6 +74,7 @@ pub struct BrotliEncoderParams {
   // if nonzero it will search for the temporal locality and effectiveness of the priors
   // for literals. The best adaptation and forgetfulness will be logged per metablock to the IR
   pub cdf_adaptation_detection: u8,
+  pub prior_bitmask_detection: u8, // whether to search for whether the previous byte or the context_map are better predictors on a per-context-map basis
 }
 
 impl Default for BrotliEncoderParams {
