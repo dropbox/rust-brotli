@@ -376,7 +376,7 @@ impl<'a,
         m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
         m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
    }
-   fn update_cost_base(&mut self, stride_prior: u8, selected_bits:u8, cm_prior: usize, literal: u8) {
+   fn update_cost_base(&mut self, stride_prior: u8, _selected_bits:u8, cm_prior: usize, literal: u8) {
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
        let provisional_cm_high_cdf: [u16; 16];

@@ -532,7 +532,6 @@ fn LogMetaBlock<'a,
                                                                    entropy_pyramid.stride_last_level_range(),
                                                                    context_map_entropy.take_prediction_mode(),
                                                                    params.prior_bitmask_detection);
-     let prediction_mode = prior_selector.take_prediction_mode();
      if params.prior_bitmask_detection != 0 {
         process_command_queue(&mut context_map_entropy,
                          input,
@@ -546,6 +545,8 @@ fn LogMetaBlock<'a,
                          context_type,
                           &mut |_x|());
      }     
+     let prediction_mode = prior_selector.take_prediction_mode();
+     prior_selector.free(m16, m32, mf);
      let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
                                                params.stride_detection_quality,
                                                params.high_entropy_detection_quality,
