@@ -533,7 +533,7 @@ fn LogMetaBlock<'a,
                                                                    context_map_entropy.take_prediction_mode(),
                                                                    params.prior_bitmask_detection);
      if params.prior_bitmask_detection != 0 {
-        process_command_queue(&mut context_map_entropy,
+        process_command_queue(&mut prior_selector,
                          input,
                          commands,
                          n_postfix,
@@ -543,7 +543,8 @@ fn LogMetaBlock<'a,
                          &block_type,
                          params,
                          context_type,
-                          &mut |_x|());
+                              &mut |_x|());
+        prior_selector.choose_bitmask();
      }     
      let prediction_mode = prior_selector.take_prediction_mode();
      prior_selector.free(m16, m32, mf);

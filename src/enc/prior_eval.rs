@@ -2,8 +2,8 @@ use core;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::interface;
-use super::input_pair::{InputPair, InputReferenceMut};
-use super::ir_interpret::{IRInterpreter};
+use super::input_pair::{InputPair, InputReference, InputReferenceMut};
+use super::ir_interpret::{IRInterpreter, push_base};
 use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 
@@ -173,6 +173,19 @@ impl<'a,
       init_cdfs(ret.stride_priors.slice_mut());
       ret
    }
+   pub fn choose_bitmask(&mut self) {
+       let epsilon = 1.5;
+       let max = 8192;
+       let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
+       for i in 0..max {
+           if self.score.slice()[i + WhichPrior::CM as usize] > epsilon + self.score.slice()[max * WhichPrior::CM as usize + i] {
+               bitmask[i] = 1;
+           } else {
+               bitmask[i] = 0;
+           }
+       }
+       self.context_map.set_mixing_values(&bitmask);
+   }
    pub fn free(&mut self,
                m16: &mut AllocU16,
                _m32: &mut AllocU32,
@@ -254,4 +267,14 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     }
 }
 
+
+impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
+     AllocU32:alloc::Allocator<u32>,
+     AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'b> for PriorEval<'a, AllocU16, AllocU32, AllocF> {
+    fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
+                                                              val: interface::Command<InputReference<'b>>,
+                                                              callback: &mut Cb) {
+        push_base(self, val, callback)
+    }
+}
 
