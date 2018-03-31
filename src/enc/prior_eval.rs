@@ -151,8 +151,20 @@ impl<'a,
               prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
               prior_bitmask_detection: u8) -> Self {
       let do_alloc = prior_bitmask_detection != 0;
-      let cm_speed = prediction_mode.context_map_speed();
-      let stride_speed = prediction_mode.stride_context_speed();
+      let mut cm_speed = prediction_mode.context_map_speed();
+      let mut stride_speed = prediction_mode.stride_context_speed();
+      if cm_speed[0] == (0,0) {
+          cm_speed[0] = (8, 8192);
+      }
+      if cm_speed[1] == (0,0) {
+          cm_speed[1] = (8, 8192);
+      }
+      if stride_speed[0] == (0, 0) {
+          stride_speed[0] = (8, 8192);
+      }
+      if stride_speed[1] == (0, 0) {
+          stride_speed[1] = (8, 8192);
+      }
       let mut ret = PriorEval::<AllocU16, AllocU32, AllocF>{
          input: input,
          context_map: prediction_mode,
@@ -178,11 +190,16 @@ impl<'a,
        let max = 8192;
        let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
        for i in 0..max {
-           if self.score.slice()[i + WhichPrior::CM as usize] > epsilon + self.score.slice()[max * WhichPrior::CM as usize + i] {
+           let cm_index = i + WhichPrior::CM as usize;
+           let stride_index = i + max * WhichPrior::STRIDE as usize;
+           let cm_score = self.score.slice()[cm_index];
+           let stride_score = self.score.slice()[stride_index];
+           if cm_score > epsilon + stride_score {
                bitmask[i] = 1;
            } else {
                bitmask[i] = 0;
            }
+           //eprintln!("Score {} {}: {}", cm_score, stride_score, bitmask[i]);
        }
        self.context_map.set_mixing_values(&bitmask);
    }
