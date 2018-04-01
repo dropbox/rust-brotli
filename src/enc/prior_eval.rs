@@ -114,7 +114,7 @@ fn init_cdfs(cdfs: &mut [u16]) {
 #[allow(unused_variables)]
 fn score_index(stride_byte: u8, selected_context: u8, actual_context: usize, high_nibble: Option<u8>, which: WhichPrior) -> usize {
     if let Some(nibble) = high_nibble {
-        actual_context + 256 * nibble as usize + (which as usize * 8192)
+        actual_context + 4096 + 256 * nibble as usize + (which as usize * 8192)
     } else {
         actual_context + 256 * (stride_byte >> 4) as usize + (which as usize * 8192)
     }
@@ -154,16 +154,16 @@ impl<'a,
       let mut cm_speed = prediction_mode.context_map_speed();
       let mut stride_speed = prediction_mode.stride_context_speed();
       if cm_speed[0] == (0,0) {
-          cm_speed[0] = (8, 8192);
+          cm_speed[0] = (12,2048);//(8, 8192);
       }
       if cm_speed[1] == (0,0) {
-          cm_speed[1] = (8, 8192);
+          cm_speed[1] = (12,2048);//(8, 8192);
       }
       if stride_speed[0] == (0, 0) {
-          stride_speed[0] = (8, 8192);
+          stride_speed[0] = (11,768);//(8, 8192);
       }
       if stride_speed[1] == (0, 0) {
-          stride_speed[1] = (8, 8192);
+          stride_speed[1] = (11,768);//(8, 8192);
       }
       let mut ret = PriorEval::<AllocU16, AllocU32, AllocF>{
          input: input,
