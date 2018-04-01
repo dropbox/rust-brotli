@@ -223,9 +223,9 @@ impl<'a,
            let cm_score = self.score.slice()[cm_index];
            let stride_score = self.score.slice()[stride_index];
            let adv_score = self.score.slice()[adv_index];
-           if false && adv_score > epsilon + stride_score  && adv_score > epsilon + cm_score {
+           if adv_score + epsilon < stride_score  && adv_score + epsilon < cm_score {
                bitmask[i] = 3;
-           } else if cm_score > epsilon + stride_score {
+           } else if epsilon + stride_score < cm_score {
                bitmask[i] = 1;
            } else {
                bitmask[i] = 0;
