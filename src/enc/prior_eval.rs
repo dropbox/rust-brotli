@@ -11,23 +11,35 @@ const NIBBLE_PRIOR_SIZE: usize = 16;
 // the high nibble, followed by the low nibbles
 const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
 const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
+const ADV_PRIOR_SIZE: usize = 256 * 256 * 16 * 2 * NIBBLE_PRIOR_SIZE;
 pub enum WhichPrior {
     CM = 0,
     STRIDE = 1,
+    ADV = 2,
     // future ideas
+    NUM_PRIORS =3 
 }
 
 pub trait Prior {
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize;
     fn lookup_mut(data:&mut [u16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> CDF {
-        CDF::from(data.split_at_mut(
-            Self::lookup_lin(stride_byte, selected_context, actual_context,
-                             high_nibble) * NIBBLE_PRIOR_SIZE).1.split_at_mut(16).0)
+        let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
+                             high_nibble) * NIBBLE_PRIOR_SIZE;
+        CDF::from(data.split_at_mut(index).1.split_at_mut(16).0)
     }
     fn lookup(data:&[u16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> &[u16] {
-        data.split_at(
-            Self::lookup_lin(stride_byte, selected_context, actual_context,
-                             high_nibble) * NIBBLE_PRIOR_SIZE).1.split_at(16).0
+        let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
+                             high_nibble) * NIBBLE_PRIOR_SIZE;
+        data.split_at(index).1.split_at(16).0
+    }
+    #[allow(unused_variables)]
+    fn score_index(stride_byte: u8, selected_context: u8, actual_context: usize, high_nibble: Option<u8>) -> usize {
+        let which: WhichPrior = Self::which();
+        if let Some(nibble) = high_nibble {
+        actual_context + 4096 + 256 * nibble as usize + (which as usize * 8192)
+        } else {
+            actual_context + 256 * (stride_byte >> 4) as usize + (which as usize * 8192)
+        }
     }
     fn which() -> WhichPrior;
 }
@@ -63,6 +75,25 @@ impl Prior for CMPrior {
     }
     fn which() -> WhichPrior {
         WhichPrior::CM
+    }
+}
+
+pub struct AdvPrior {
+}
+impl Prior for AdvPrior {
+    #[allow(unused_variables)]
+    fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        if let Some(nibble) = high_nibble {
+            65536 + ((actual_context as usize)
+                  | ((stride_byte as usize) << 8)
+                  | ((nibble as usize & 0xf) << 16))
+        } else {
+            (actual_context as usize)
+             | ((stride_byte as usize & 0xf0) << 8)
+        }
+    }
+    fn which() -> WhichPrior {
+        WhichPrior::ADV
     }
 }
 
@@ -111,14 +142,6 @@ fn init_cdfs(cdfs: &mut [u16]) {
     }
 }
 
-#[allow(unused_variables)]
-fn score_index(stride_byte: u8, selected_context: u8, actual_context: usize, high_nibble: Option<u8>, which: WhichPrior) -> usize {
-    if let Some(nibble) = high_nibble {
-        actual_context + 4096 + 256 * nibble as usize + (which as usize * 8192)
-    } else {
-        actual_context + 256 * (stride_byte >> 4) as usize + (which as usize * 8192)
-    }
-}
 
 pub struct PriorEval<'a,
                      AllocU16:alloc::Allocator<u16>,
@@ -132,6 +155,7 @@ pub struct PriorEval<'a,
     _nop: AllocU32::AllocatedMemory,    
     cm_priors: AllocU16::AllocatedMemory,
     stride_priors: AllocU16::AllocatedMemory,
+    adv_priors: AllocU16::AllocatedMemory,
     stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
     score: AllocF::AllocatedMemory,
     cm_speed: [(u16, u16);2],
@@ -175,26 +199,33 @@ impl<'a,
              AllocU16::AllocatedMemory::default()},
          stride_priors: if do_alloc {m16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
              AllocU16::AllocatedMemory::default()},
+         adv_priors: if do_alloc {m16.alloc_cell(ADV_PRIOR_SIZE)} else {
+             AllocU16::AllocatedMemory::default()},
          stride_pyramid_leaves: stride,
-         score: if do_alloc {mf.alloc_cell(16834)} else {
+         score: if do_alloc {mf.alloc_cell(8192 * WhichPrior::NUM_PRIORS as usize )} else {
              AllocF::AllocatedMemory::default()},
          cm_speed: cm_speed,
          stride_speed: stride_speed,
       };
       init_cdfs(ret.cm_priors.slice_mut());
       init_cdfs(ret.stride_priors.slice_mut());
+      init_cdfs(ret.adv_priors.slice_mut());
       ret
    }
    pub fn choose_bitmask(&mut self) {
-       let epsilon = 1.5;
+       let epsilon = 3.0;
        let max = 8192;
        let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
        for i in 0..max {
-           let cm_index = i + WhichPrior::CM as usize;
+           let cm_index = i + max * WhichPrior::CM as usize;
            let stride_index = i + max * WhichPrior::STRIDE as usize;
+           let adv_index = i + max * WhichPrior::ADV as usize;
            let cm_score = self.score.slice()[cm_index];
            let stride_score = self.score.slice()[stride_index];
-           if cm_score > epsilon + stride_score {
+           let adv_score = self.score.slice()[adv_index];
+           if false && adv_score > epsilon + stride_score  && adv_score > epsilon + cm_score {
+               bitmask[i] = 3;
+           } else if cm_score > epsilon + stride_score {
                bitmask[i] = 1;
            } else {
                bitmask[i] = 0;
@@ -210,6 +241,7 @@ impl<'a,
        mf.free_cell(core::mem::replace(&mut self.score, AllocF::AllocatedMemory::default()));
        m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
        m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
+       m16.free_cell(core::mem::replace(&mut self.adv_priors, AllocU16::AllocatedMemory::default()));
    }
                 
    pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
@@ -221,7 +253,7 @@ impl<'a,
    fn update_cost_base(&mut self, stride_prior: u8, selected_bits: u8, cm_prior: usize, literal: u8) {
        {
            type CurPrior = CMPrior;
-           let score_index = score_index(stride_prior, selected_bits, cm_prior, None, CurPrior::which());
+           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.cm_priors.slice_mut(),
                                               stride_prior, selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
@@ -229,23 +261,39 @@ impl<'a,
        }
        {
            type CurPrior = CMPrior;
-           let score_index = score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4), CurPrior::which());
+           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            let mut cdf = CurPrior::lookup_mut(self.cm_priors.slice_mut(),
                                               stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
            cdf.update(literal&0xf, self.cm_speed[0]);
        }
-       type CurPrior = StridePrior;
        {
-           let score_index = score_index(stride_prior, selected_bits, cm_prior, None, CurPrior::which());
+           type CurPrior = StridePrior;
+           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
                                               stride_prior, selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
            cdf.update(literal >> 4, self.stride_speed[1]);
        }
        {
-           let score_index = score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4), CurPrior::which());
+           type CurPrior = StridePrior;
+           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
+           cdf.update(literal&0xf, self.stride_speed[0]);
+       }
+       type CurPrior = AdvPrior;
+       {
+           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, None);
+           let mut cdf = CurPrior::lookup_mut(self.adv_priors.slice_mut(),
+                                              stride_prior, selected_bits, cm_prior, None);
+           self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
+           cdf.update(literal >> 4, self.stride_speed[1]);
+       }
+       {
+           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let mut cdf = CurPrior::lookup_mut(self.adv_priors.slice_mut(),
                                               stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
            cdf.update(literal&0xf, self.stride_speed[0]);
