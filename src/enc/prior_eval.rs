@@ -298,7 +298,7 @@ impl<'a,
            let mut cdf = CurPrior::lookup_mut(self.slow_cm_priors.slice_mut(),
                                               stride_prior, selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
-           cdf.update(literal >> 4, (1,48));
+           cdf.update(literal >> 4, (0,32));
        }
        {
            type CurPrior = SlowCMPrior;
@@ -306,7 +306,7 @@ impl<'a,
            let mut cdf = CurPrior::lookup_mut(self.slow_cm_priors.slice_mut(),
                                               stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
-           cdf.update(literal&0xf, (1,48));
+           cdf.update(literal&0xf, (0,32));
        }
        {
            type CurPrior = StridePrior;
