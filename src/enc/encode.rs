@@ -89,6 +89,14 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_LITERAL_BYTE_SCORE = 154,
   BROTLI_PARAM_CDF_ADAPTATION_DETECTION = 155,
   BROTLI_PARAM_PRIOR_BITMASK_DETECTION = 156,
+  BROTLI_PARAM_SPEED = 157,
+  BROTLI_PARAM_SPEED_MAX = 158,
+  BROTLI_PARAM_CM_SPEED = 159,
+  BROTLI_PARAM_CM_SPEED_MAX = 160,
+  BROTLI_PARAM_SPEED_LOW = 161,
+  BROTLI_PARAM_SPEED_LOW_MAX = 162,
+  BROTLI_PARAM_CM_SPEED_LOW = 164,
+  BROTLI_PARAM_CM_SPEED_LOW_MAX = 165,
 }
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
@@ -253,6 +261,50 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.prior_bitmask_detection = value as u8;
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_SPEED as (i32) {
+    (*state).params.literal_adaptation[1].0 = value as u16;
+    if (*state).params.literal_adaptation[0] == (0,0) {
+        (*state).params.literal_adaptation[0].0 = value as u16;
+    }
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_SPEED_MAX as (i32) {
+    (*state).params.literal_adaptation[1].1 = value as u16;
+    if (*state).params.literal_adaptation[0].1 == 0 {
+        (*state).params.literal_adaptation[0].1 = value as u16;
+    }
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED as (i32) {
+    (*state).params.literal_adaptation[3].0 = value as u16;
+    if (*state).params.literal_adaptation[2] == (0,0) {
+        (*state).params.literal_adaptation[2].0 = value as u16;
+    }
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED_MAX as (i32) {
+    (*state).params.literal_adaptation[3].1 = value as u16;
+    if (*state).params.literal_adaptation[2].1 == 0 {
+        (*state).params.literal_adaptation[2].1 = value as u16;
+    }
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_SPEED_LOW as (i32) {
+    (*state).params.literal_adaptation[0].0 = value as u16;
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_SPEED_LOW_MAX as (i32) {
+    (*state).params.literal_adaptation[0].1 = value as u16;
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED_LOW as (i32) {
+    (*state).params.literal_adaptation[2].0 = value as u16;
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED_LOW_MAX as (i32) {
+    (*state).params.literal_adaptation[2].1 = value as u16;
+    return 1i32;
+  }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_LITERAL_BYTE_SCORE as (i32) {
     (*state).params.hasher.literal_byte_score = value as i32;
     return 1i32;
@@ -295,6 +347,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            high_entropy_detection_quality: 0,
            cdf_adaptation_detection: 0,
            prior_bitmask_detection: 0,
+           literal_adaptation: [(0,0);4],
            hasher: BrotliHasherParams {
              type_: 6,
              block_bits: 9 - 1,

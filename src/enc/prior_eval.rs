@@ -2,6 +2,7 @@ use core;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::interface;
+use super::backward_references::BrotliEncoderParams;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::ir_interpret::{IRInterpreter, push_base};
 use super::util::{floatX, FastLog2u16};
@@ -190,21 +191,34 @@ impl<'a,
               input: InputPair<'a>,
               stride: [u8; find_stride::NUM_LEAF_NODES],
               prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
-              prior_bitmask_detection: u8) -> Self {
-      let do_alloc = prior_bitmask_detection != 0;
+              params: &BrotliEncoderParams,
+              ) -> Self {
+      let do_alloc = params.prior_bitmask_detection != 0;
       let mut cm_speed = prediction_mode.context_map_speed();
       let mut stride_speed = prediction_mode.stride_context_speed();
       if cm_speed[0] == (0,0) {
+          cm_speed[0] = params.literal_adaptation[2]
+      }
+      if cm_speed[0] == (0,0) {
           cm_speed[0] = (12,2048);//(8, 8192);
+      }
+      if cm_speed[1] == (0,0) {
+          cm_speed[1] = params.literal_adaptation[3]
       }
       if cm_speed[1] == (0,0) {
           cm_speed[1] = (12,2048);//(8, 8192);
       }
       if stride_speed[0] == (0, 0) {
-          stride_speed[0] = (11,768);//(8, 8192);
+          stride_speed[0] = params.literal_adaptation[0]
+      }
+      if stride_speed[0] == (0, 0) {
+          stride_speed[0] = (8, 8192);
       }
       if stride_speed[1] == (0, 0) {
-          stride_speed[1] = (11,768);//(8, 8192);
+          stride_speed[1] = params.literal_adaptation[1]
+      }
+      if stride_speed[1] == (0, 0) {
+          stride_speed[1] = (8, 8192);
       }
       let mut ret = PriorEval::<AllocU16, AllocU32, AllocF>{
          input: input,

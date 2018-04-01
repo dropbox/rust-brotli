@@ -531,7 +531,7 @@ fn LogMetaBlock<'a,
                                                       AllocF>::new(m16, m32, mf, InputPair(input0, input1),
                                                                    entropy_pyramid.stride_last_level_range(),
                                                                    context_map_entropy.take_prediction_mode(),
-                                                                   params.prior_bitmask_detection);
+                                                                   &params);
      if params.prior_bitmask_detection != 0 {
         process_command_queue(&mut prior_selector,
                          input,
