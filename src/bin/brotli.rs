@@ -476,6 +476,32 @@ fn main() {
               }
           }
       }
+      if argument.starts_with("-speed=") {
+          let comma_string = argument.trim_matches('-').trim_matches('s').trim_matches('p').trim_matches('e').trim_matches('e').trim_matches('d').trim_matches('=');
+          let mut split = comma_string.split(",");
+          for (index, s) in split.enumerate() {
+              let data = s.parse::<u16>().unwrap();
+              if data > 16384 {
+                  println_stderr!("Speed must be <= 16384, not {}", data);
+              }
+              if index == 0 {
+                  for item in params.literal_adaptation.iter_mut() {
+                      item.0 = data;
+                  }
+              } else if index == 1 {
+                  for item in params.literal_adaptation.iter_mut() {
+                      item.1 = data;
+                  }
+              } else {
+                  if (index & 1) == 0 {
+                      params.literal_adaptation[index / 2].0 = data;
+                  }else {
+                      params.literal_adaptation[index / 2].1 = data;
+                  }
+              }
+          }
+          continue;
+      }
       if argument.starts_with("-b") {
           num_benchmarks = argument.trim_matches('-').trim_matches('b').parse::<usize>().unwrap();
           continue;
