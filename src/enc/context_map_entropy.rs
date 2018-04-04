@@ -250,6 +250,7 @@ pub struct ContextMapEntropy<'a,
     input: InputPair<'a>,
     context_map: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
     block_type: u8,
+    cur_stride: u8,
     local_byte_offset: usize,
     weight: [[Weights; NUM_SPEEDS_TO_TRY];2],
     _nop: AllocU32::AllocatedMemory,
@@ -278,6 +279,7 @@ impl<'a,
          input: input,
          context_map: prediction_mode,
          block_type: 0,
+         cur_stride: 1,
          local_byte_offset: 0,
          _nop:  AllocU32::AllocatedMemory::default(),
          cm_priors: if cdf_detect {m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {AllocU16::AllocatedMemory::default()},
@@ -447,8 +449,9 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn local_byte_offset(&self) -> usize {
         self.local_byte_offset
     }
-    fn update_block_type(&mut self, new_type: u8) {
+    fn update_block_type(&mut self, new_type: u8, stride: u8) {
         self.block_type = new_type;
+        self.cur_stride = stride;
     }
     fn block_type(&self) -> u8 {
         self.block_type

@@ -9,7 +9,7 @@ pub trait IRInterpreter {
     fn inc_local_byte_offset(&mut self, inc:usize);
     fn get_stride(&self, local_byte_offset: usize) -> u8;
     fn local_byte_offset(&self) -> usize;
-    fn update_block_type(&mut self, new_type: u8);
+    fn update_block_type(&mut self, new_type: u8, new_stride: u8);
     fn block_type(&self) -> u8;
     fn literal_data_at_offset(&self, index: usize) -> u8;
     fn literal_context_map(&self) -> &[u8];
@@ -33,7 +33,8 @@ pub fn push_base<'a,
            interface::Command::Dict(ref dict) => {
                xself.inc_local_byte_offset(dict.final_size as usize);
            },
-           interface::Command::BlockSwitchLiteral(block_type) => xself.update_block_type(block_type.block_type()),
+            interface::Command::BlockSwitchLiteral(block_type) => xself.update_block_type(block_type.block_type(),
+                                                                                          block_type.stride()),
            interface::Command::Literal(ref lit) => {
                let stride = xself.get_stride(xself.local_byte_offset()) as usize;
                let mut priors= [0u8; 8];

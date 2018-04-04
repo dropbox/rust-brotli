@@ -174,10 +174,11 @@ pub struct PriorEval<'a,
     slow_cm_priors: AllocU16::AllocatedMemory,
     stride_priors: AllocU16::AllocatedMemory,
     adv_priors: AllocU16::AllocatedMemory,
-    stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
+    _stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
     score: AllocF::AllocatedMemory,
     cm_speed: [(u16, u16);2],
     stride_speed: [(u16, u16);2],
+    cur_stride: u8,
 }
 
 impl<'a,
@@ -224,6 +225,7 @@ impl<'a,
          input: input,
          context_map: prediction_mode,
          block_type: 0,
+         cur_stride: 1,
          local_byte_offset: 0,
          _nop:  AllocU32::AllocatedMemory::default(),
          cm_priors: if do_alloc {m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {
@@ -234,7 +236,7 @@ impl<'a,
              AllocU16::AllocatedMemory::default()},
          adv_priors: if do_alloc {m16.alloc_cell(ADV_PRIOR_SIZE)} else {
              AllocU16::AllocatedMemory::default()},
-         stride_pyramid_leaves: stride,
+         _stride_pyramid_leaves: stride,
          score: if do_alloc {mf.alloc_cell(8192 * WhichPrior::NUM_PRIORS as usize )} else {
              AllocF::AllocatedMemory::default()},
          cm_speed: cm_speed,
@@ -361,14 +363,15 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
     }
-    fn get_stride(&self, local_byte_offset: usize) -> u8 {
-        self.stride_pyramid_leaves[local_byte_offset * 8 / self.input.len()]
+    fn get_stride(&self, _local_byte_offset: usize) -> u8 {
+        self.cur_stride
     }
     fn local_byte_offset(&self) -> usize {
         self.local_byte_offset
     }
-    fn update_block_type(&mut self, new_type: u8) {
+    fn update_block_type(&mut self, new_type: u8, stride: u8) {
         self.block_type = new_type;
+        self.cur_stride = stride;
     }
     fn block_type(&self) -> u8 {
         self.block_type
