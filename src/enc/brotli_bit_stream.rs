@@ -6,6 +6,8 @@
 use std::io::Write;
 use super::util::floatX;
 use super::prior_eval;
+use super::stride_eval;
+
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
@@ -486,11 +488,31 @@ fn LogMetaBlock<'a,
     if params.stride_detection_quality > 0 {
         entropy_pyramid.populate(input0, input1, &mut entropy_tally_scratch);
     }
+    let input = InputPair(input0, input1);
+    if params.stride_detection_quality == 2 {
+         let mut stride_selector = stride_eval::StrideEval::<AllocU16,
+                                                           AllocU32,
+                                                           AllocF>::new(m16, m32, mf,
+                                                                        InputPair(input0, input1),
+                                                                        &prediction_mode,
+                                                                        &params);
+        process_command_queue(&mut stride_selector,
+                              input,
+                              commands,
+                              n_postfix,
+                              n_direct,
+                              dist_cache,
+                              *recoder_state,
+                              &block_type,
+                              params,
+                              context_type,
+                              &mut |_x|());
+        //prior_selector.choose_bitmask();
+     }
     let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1),
                                                                                        entropy_pyramid.stride_last_level_range(),
                                                                                        prediction_mode,
                                                                                        params.cdf_adaptation_detection);
-    let input = InputPair(input0, input1);
     if params.cdf_adaptation_detection != 0 {
         process_command_queue(&mut context_map_entropy,
                          input,

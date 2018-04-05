@@ -10,10 +10,10 @@ use super::find_stride;
 
 const NIBBLE_PRIOR_SIZE: usize = 16;
 // the high nibble, followed by the low nibbles
-const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
-const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
-const ADV_PRIOR_SIZE: usize = 256 * 256 * 16 * 2 * NIBBLE_PRIOR_SIZE;
-const DEFAULT_SPEED: (u16, u16) = (8, 8192);
+pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
+pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
+pub const ADV_PRIOR_SIZE: usize = 256 * 256 * 16 * 2 * NIBBLE_PRIOR_SIZE;
+pub const DEFAULT_SPEED: (u16, u16) = (8, 8192);
 pub enum WhichPrior {
     CM = 0,
     STRIDE = 1,
@@ -120,7 +120,7 @@ pub struct CDF<'a> {
 }
 
 impl<'a> CDF<'a> {
-    fn cost(&self, nibble_u8:u8) -> floatX {
+    pub fn cost(&self, nibble_u8:u8) -> floatX {
         assert_eq!(self.cdf.len(), 16);
         let nibble = nibble_u8 as usize & 0xf;
         let mut pdf = self.cdf[nibble];
@@ -129,7 +129,7 @@ impl<'a> CDF<'a> {
         }
         FastLog2u16(self.cdf[15]) - FastLog2u16(pdf)
     }
-    fn update(&mut self, nibble_u8:u8, speed: (u16, u16)) {
+    pub fn update(&mut self, nibble_u8:u8, speed: (u16, u16)) {
         assert_eq!(self.cdf.len(), 16);
         for nib_range in (nibble_u8 as usize & 0xf) .. 16 {
             self.cdf[nib_range] += speed.0;
@@ -154,7 +154,7 @@ impl<'a> From<&'a mut[u16]> for CDF<'a> {
     }
 }
 
-fn init_cdfs(cdfs: &mut [u16]) {
+pub fn init_cdfs(cdfs: &mut [u16]) {
     for (index, item) in cdfs.iter_mut().enumerate() {
         *item = 4 + 4 * (index as u16 & 0xf);
     }
