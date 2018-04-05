@@ -41,7 +41,7 @@ impl<'a,
               prediction_mode: &'a interface::PredictionModeContextMap<InputReferenceMut<'a>>,
               params: &BrotliEncoderParams,
               ) -> Self {
-      let do_alloc = params.prior_bitmask_detection != 0;
+      let do_alloc = true;
       let mut stride_speed = prediction_mode.stride_context_speed();
       if stride_speed[0] == (0, 0) {
           stride_speed[0] = params.literal_adaptation[0]
@@ -101,7 +101,26 @@ impl<'a,
       }
       ret
    }
-                
+   pub fn choose_stride(&self, stride_data: &mut[u8]) {
+       assert_eq!(stride_data.len(), self.cur_score_epoch);
+       assert!(self.score.slice().len() > stride_data.len());
+       assert!(self.score.slice().len() > (stride_data.len() << 3) + 7 + 8);
+       for (index, choice) in stride_data.iter_mut().enumerate() {
+           let choices = self.score.slice().split_at((1 + index) << 3).1.split_at(8).0;
+           let mut best_choice: u8 = 0;
+           let mut best_score = choices[0];
+           for (cur_index, cur_score) in choices.iter().enumerate() {
+               if *cur_score + 2.0 < best_score { // needs to be 2 bits better to be worth the type switch
+                   best_score = *cur_score;
+                   best_choice = cur_index as u8;
+               }
+           }
+           *choice = best_choice;
+       }
+   }
+   pub fn num_types(&self) -> usize {
+       self.cur_score_epoch
+   }
    fn update_cost_base(&mut self, stride_prior: [u8;8], selected_bits: u8, cm_prior: usize, literal: u8) {
        type CurPrior = StridePrior;
        {

@@ -465,6 +465,9 @@ fn main() {
       if argument == "-basicstride" {
           params.stride_detection_quality = 1;
           continue;
+      } else if argument == "-advstride" {
+          params.stride_detection_quality = 3;
+          continue;
       } else {
           if argument == "-stride" {
               params.stride_detection_quality = 2;

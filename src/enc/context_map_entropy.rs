@@ -304,12 +304,6 @@ impl<'a,
    pub fn prediction_mode_mut(&mut self) -> &mut interface::PredictionModeContextMap<InputReferenceMut<'a>> {
        &mut self.context_map
    }
-   #[inline]
-   pub fn track_cdf_speed(&mut self,
-                      _data: &[u8],
-                      mut _prev_byte: u8, mut _prev_prev_byte: u8,
-                          _block_type: u8) {
-   }
    pub fn best_singleton_speeds(&self,
                                  cm: bool,
                                  combined: bool) -> ([SpeedAndMax;2], [floatX; 2]) {
