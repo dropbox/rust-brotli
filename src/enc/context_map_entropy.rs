@@ -257,7 +257,7 @@ pub struct ContextMapEntropy<'a,
     
     cm_priors: AllocU16::AllocatedMemory,
     stride_priors: AllocU16::AllocatedMemory,
-    stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
+    _stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
     singleton_costs: [[[floatX;NUM_SPEEDS_TO_TRY];2];3],
     phantom: core::marker::PhantomData<AllocF>,
 }
@@ -284,7 +284,7 @@ impl<'a,
          _nop:  AllocU32::AllocatedMemory::default(),
          cm_priors: if cdf_detect {m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {AllocU16::AllocatedMemory::default()},
          stride_priors: if cdf_detect {m16.alloc_cell(STRIDE_PRIOR_SIZE)} else {AllocU16::AllocatedMemory::default()},
-         stride_pyramid_leaves: stride,
+         _stride_pyramid_leaves: stride,
          weight:[[Weights::new(); NUM_SPEEDS_TO_TRY],
                  [Weights::new(); NUM_SPEEDS_TO_TRY]],
          singleton_costs:[[[0.0 as floatX;NUM_SPEEDS_TO_TRY];2];3],
@@ -443,9 +443,6 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
     }
-    fn get_stride(&self, local_byte_offset: usize) -> u8 {
-        self.stride_pyramid_leaves[local_byte_offset * 8 / self.input.len()]
-    }
     fn local_byte_offset(&self) -> usize {
         self.local_byte_offset
     }
@@ -465,8 +462,9 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
-    fn update_cost(&mut self, stride_prior: u8, selected_bits: u8, cm_prior: usize, literal: u8) {
-        self.update_cost_base(stride_prior, selected_bits, cm_prior, literal)
+    fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, literal: u8) {
+        let stride = self.cur_stride as usize;
+        self.update_cost_base(stride_prior[(stride_prior_offset + 8 - stride) & 7], selected_bits, cm_prior, literal)
     }
 }
 

@@ -13,6 +13,7 @@ const NIBBLE_PRIOR_SIZE: usize = 16;
 const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * NIBBLE_PRIOR_SIZE * 17;
 const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
 const ADV_PRIOR_SIZE: usize = 256 * 256 * 16 * 2 * NIBBLE_PRIOR_SIZE;
+const DEFAULT_SPEED: (u16, u16) = (8, 8192);
 pub enum WhichPrior {
     CM = 0,
     STRIDE = 1,
@@ -201,25 +202,25 @@ impl<'a,
           cm_speed[0] = params.literal_adaptation[2]
       }
       if cm_speed[0] == (0,0) {
-          cm_speed[0] = (12,2048);//(8, 8192);
+          cm_speed[0] = DEFAULT_SPEED;
       }
       if cm_speed[1] == (0,0) {
           cm_speed[1] = params.literal_adaptation[3]
       }
       if cm_speed[1] == (0,0) {
-          cm_speed[1] = (12,2048);//(8, 8192);
+          cm_speed[1] = cm_speed[0];
       }
       if stride_speed[0] == (0, 0) {
           stride_speed[0] = params.literal_adaptation[0]
       }
       if stride_speed[0] == (0, 0) {
-          stride_speed[0] = (8, 8192);
+          stride_speed[0] = DEFAULT_SPEED;
       }
       if stride_speed[1] == (0, 0) {
           stride_speed[1] = params.literal_adaptation[1]
       }
       if stride_speed[1] == (0, 0) {
-          stride_speed[1] = (8, 8192);
+          stride_speed[1] = stride_speed[0];
       }
       let mut ret = PriorEval::<AllocU16, AllocU32, AllocF>{
          input: input,
@@ -363,9 +364,6 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
     }
-    fn get_stride(&self, _local_byte_offset: usize) -> u8 {
-        self.cur_stride
-    }
     fn local_byte_offset(&self) -> usize {
         self.local_byte_offset
     }
@@ -385,8 +383,9 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
-    fn update_cost(&mut self, stride_prior: u8, selected_bits: u8, cm_prior: usize, literal: u8) {
-        self.update_cost_base(stride_prior, selected_bits, cm_prior, literal)
+    fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, literal: u8) {
+        let stride = self.cur_stride;
+        self.update_cost_base(stride_prior[(stride_prior_offset + 8 - stride as usize) & 7], selected_bits, cm_prior, literal)
     }
 }
 

@@ -1,4 +1,3 @@
-use core;
 use super::interface;
 use super::super::alloc::SliceWrapper;
 use super::histogram::ContextType;
@@ -7,14 +6,13 @@ use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::interface::LiteralPredictionModeNibble;
 pub trait IRInterpreter {
     fn inc_local_byte_offset(&mut self, inc:usize);
-    fn get_stride(&self, local_byte_offset: usize) -> u8;
     fn local_byte_offset(&self) -> usize;
     fn update_block_type(&mut self, new_type: u8, new_stride: u8);
     fn block_type(&self) -> u8;
     fn literal_data_at_offset(&self, index: usize) -> u8;
     fn literal_context_map(&self) -> &[u8];
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble;
-    fn update_cost(&mut self, stride_prior: u8, selected_bits:u8, cm_prior: usize, literal: u8);
+    fn update_cost(&mut self, stride_prior: [u8;8], stride_byte_offset: usize, selected_bits:u8, cm_prior: usize, literal: u8);
 }
 
 
@@ -36,9 +34,9 @@ pub fn push_base<'a,
             interface::Command::BlockSwitchLiteral(block_type) => xself.update_block_type(block_type.block_type(),
                                                                                           block_type.stride()),
            interface::Command::Literal(ref lit) => {
-               let stride = xself.get_stride(xself.local_byte_offset()) as usize;
+               //let stride = xself.get_stride(xself.local_byte_offset()) as usize;
                let mut priors= [0u8; 8];
-               for poffset in 0..core::cmp::max((stride & 7) + 1, 2) {
+               for poffset in 0..8 {
                    if xself.local_byte_offset() > poffset {
                        let input_offset = xself.local_byte_offset() - poffset -  1;
                        priors[7 - poffset] = xself.literal_data_at_offset(input_offset);
@@ -47,7 +45,7 @@ pub fn push_base<'a,
                let mut cur = 0usize;
                for literal in lit.data.slice().iter() {
                    let (huffman_table_index, selected_bits) = compute_huffman_table_index_for_context_map(priors[(cur + 7)&7], priors[(cur + 6) &7], xself.literal_context_map(), xself.prediction_mode(), xself.block_type());
-                   xself.update_cost(priors[(cur + 7 - stride) & 7], selected_bits, huffman_table_index, *literal);
+                   xself.update_cost(priors, (cur + 7) & 7, selected_bits, huffman_table_index, *literal);
                    priors[cur & 7] = *literal;
                    cur += 1;
                    cur &= 7;
