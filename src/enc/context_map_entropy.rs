@@ -464,7 +464,7 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     }
     fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, literal: u8) {
         let stride = self.cur_stride as usize;
-        self.update_cost_base(stride_prior[(stride_prior_offset + 8 - stride) & 7], selected_bits, cm_prior, literal)
+        self.update_cost_base(stride_prior[stride_prior_offset.wrapping_sub(stride) & 7], selected_bits, cm_prior, literal)
     }
 }
 

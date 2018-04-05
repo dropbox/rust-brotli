@@ -384,8 +384,8 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
         self.context_map.literal_prediction_mode()
     }
     fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, literal: u8) {
-        let stride = self.cur_stride;
-        self.update_cost_base(stride_prior[(stride_prior_offset + 8 - stride as usize) & 7], selected_bits, cm_prior, literal)
+        let stride = self.cur_stride as usize;
+        self.update_cost_base(stride_prior[stride_prior_offset.wrapping_sub(stride) & 7], selected_bits, cm_prior, literal)
     }
 }
 
