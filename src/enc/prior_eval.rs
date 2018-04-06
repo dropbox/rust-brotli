@@ -16,11 +16,15 @@ pub const ADV_PRIOR_SIZE: usize = 256 * 256 * 16 * 2 * NIBBLE_PRIOR_SIZE;
 pub const DEFAULT_SPEED: (u16, u16) = (8, 8192);
 pub enum WhichPrior {
     CM = 0,
-    STRIDE = 1,
+    ADV = 1,
     SLOW_CM = 2,
-    ADV = 3,
+    STRIDE1 = 4,
+    STRIDE2 = 5,
+    STRIDE3 = 6,
+    STRIDE4 = 7,
+    STRIDE8 = 8,
+    NUM_PRIORS = 9,
     // future ideas
-    NUM_PRIORS = 4
 }
 
 pub trait Prior {
@@ -47,21 +51,112 @@ pub trait Prior {
     fn which() -> WhichPrior;
 }
 
-pub struct StridePrior {
+#[allow(unused_variables)]
+fn stride_lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+    if let Some(nibble) = high_nibble {
+        1 + 2 * (actual_context as usize
+                 | ((stride_byte as usize & 0xf) << 8)
+                 | ((nibble as usize) << 12))
+    } else {
+        2 * (actual_context as usize | ((stride_byte as usize) << 8))
+    }
 }
-impl Prior for StridePrior {
-    #[allow(unused_variables)]
-    fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
-        if let Some(nibble) = high_nibble {
-            1 + 2 * (actual_context as usize
-                     | ((stride_byte as usize & 0xf) << 8)
-                     | ((nibble as usize) << 12))
-        } else {
-            2 * (actual_context as usize | ((stride_byte as usize) << 8))
-        }
+pub trait StridePrior {
+    const STRIDE_OFFSET: usize;
+}
+pub struct Stride1Prior{
+}
+impl Stride1Prior {
+    pub fn offset() -> usize{
+        0
+    }
+}
+
+impl Prior for Stride1Prior {
+    fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
     fn which() -> WhichPrior {
-        WhichPrior::STRIDE
+        WhichPrior::STRIDE1
+    }
+}
+/*impl StridePrior for Stride1Prior {
+    const STRIDE_OFFSET:usize = 0;
+}*/
+pub struct Stride2Prior{
+}
+impl Stride2Prior {
+    pub fn offset() -> usize{
+        1
+    }
+}
+
+impl Prior for Stride2Prior {
+    fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
+    }
+    fn which() -> WhichPrior {
+        WhichPrior::STRIDE2
+    }
+}
+/*impl StridePrior for Stride2Prior {
+    const STRIDE_OFFSET:usize = 1;
+}*/
+pub struct Stride3Prior{
+}
+impl Stride3Prior {
+    pub fn offset() -> usize{
+        2
+    }
+}
+
+impl Prior for Stride3Prior {
+    fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
+    }
+    fn which() -> WhichPrior {
+        WhichPrior::STRIDE3
+    }
+}
+
+/*impl StridePrior for Stride3Prior {
+    const STRIDE_OFFSET:usize = 2;
+}*/
+pub struct Stride4Prior{
+}
+impl Stride4Prior {
+    pub fn offset() -> usize{
+        3
+    }
+}
+impl Prior for Stride4Prior {
+    fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
+    }
+    fn which() -> WhichPrior {
+        WhichPrior::STRIDE4
+    }
+}
+
+/*impl StridePrior for Stride4Prior {
+    const STRIDE_OFFSET:usize = 3;
+}*/
+pub struct Stride8Prior{
+}/*
+impl StridePrior for Stride8Prior {
+    const STRIDE_OFFSET:usize = 7;
+}*/
+impl Stride8Prior {
+    pub fn offset() -> usize{
+        7
+    }
+}
+impl Prior for Stride8Prior {
+    fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
+    }
+    fn which() -> WhichPrior {
+        WhichPrior::STRIDE8
     }
 }
 
@@ -256,18 +351,47 @@ impl<'a,
        for i in 0..max {
            let cm_index = i + max * WhichPrior::CM as usize;
            let slow_cm_index = i + max * WhichPrior::SLOW_CM as usize;
-           let stride_index = i + max * WhichPrior::STRIDE as usize;
+           let stride_index1 = i + max * WhichPrior::STRIDE1 as usize;
+           let stride_index2 = i + max * WhichPrior::STRIDE2 as usize;
+           let stride_index3 = i + max * WhichPrior::STRIDE3 as usize;
+           let stride_index4 = i + max * WhichPrior::STRIDE4 as usize;
+           let stride_index8 = i + max * WhichPrior::STRIDE8 as usize;
            let adv_index = i + max * WhichPrior::ADV as usize;
            let cm_score = self.score.slice()[cm_index];
            let slow_cm_score = self.score.slice()[slow_cm_index];
-           let stride_score = self.score.slice()[stride_index];
+           let stride1_score = self.score.slice()[stride_index1];
+           let stride2_score = self.score.slice()[stride_index2];
+           let stride3_score = self.score.slice()[stride_index3];
+           let stride4_score = self.score.slice()[stride_index4];
+           let stride8_score = self.score.slice()[stride_index8];
+           let stride_score = 1.0 + core::cmp::min(stride1_score as u64,
+                                                 core::cmp::min(stride2_score as u64,
+                                                                core::cmp::min(stride3_score as u64,
+                                                                               core::cmp::min(stride4_score as u64,
+                                                                                              stride8_score as u64)))) as floatX;
+                                  
            let adv_score = self.score.slice()[adv_index];
            if adv_score + epsilon < stride_score  && adv_score + epsilon < cm_score {
-               bitmask[i] = 3;
+               bitmask[i] = 1;
            } else if slow_cm_score + epsilon < stride_score  && slow_cm_score + epsilon < cm_score {
                bitmask[i] = 2;
            } else if epsilon + stride_score < cm_score {
-               bitmask[i] = 1;
+               bitmask[i] = WhichPrior::STRIDE1 as u8;
+               if stride_score == stride8_score {
+                   bitmask[i] = WhichPrior::STRIDE8 as u8;
+               }
+               if stride_score == stride4_score {
+                   bitmask[i] = WhichPrior::STRIDE4 as u8;
+               }
+               if stride_score == stride3_score {
+                   bitmask[i] = WhichPrior::STRIDE3 as u8;
+               }
+               if stride_score == stride2_score {
+                   bitmask[i] = WhichPrior::STRIDE2 as u8;
+               }
+               if stride_score == stride_score {
+                   bitmask[i] = WhichPrior::STRIDE1 as u8;
+               }
            } else {
                bitmask[i] = 0;
            }
@@ -292,67 +416,148 @@ impl<'a,
           predmode_speed_and_distance_context_map:InputReferenceMut(&mut[]),
        })
    }
-   fn update_cost_base(&mut self, stride_prior: u8, selected_bits: u8, cm_prior: usize, literal: u8) {
+   fn update_cost_base(&mut self, stride_prior: [u8;8], stride_prior_offset:usize, selected_bits: u8, cm_prior: usize, literal: u8) {
+       let base_stride_prior = stride_prior[stride_prior_offset.wrapping_sub(self.cur_stride as usize) & 7];
        {
            type CurPrior = CMPrior;
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, None);
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.cm_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, None);
+                                              base_stride_prior, selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
            cdf.update(literal >> 4, self.cm_speed[1]);
        }
        {
            type CurPrior = CMPrior;
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            let mut cdf = CurPrior::lookup_mut(self.cm_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+                                              base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
            cdf.update(literal&0xf, self.cm_speed[0]);
        }
        {
            type CurPrior = SlowCMPrior;
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, None);
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.slow_cm_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, None);
+                                              base_stride_prior, selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
            cdf.update(literal >> 4, (0,128));
        }
        {
            type CurPrior = SlowCMPrior;
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            let mut cdf = CurPrior::lookup_mut(self.slow_cm_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+                                              base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
            cdf.update(literal&0xf, (0,128));
        }
        {
-           type CurPrior = StridePrior;
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, None);
+           type CurPrior = Stride1Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, None);
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
            cdf.update(literal >> 4, self.stride_speed[1]);
        }
        {
-           type CurPrior = StridePrior;
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           type CurPrior = Stride1Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7],
+                                              selected_bits,
+                                              cm_prior,
+                                              Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
            cdf.update(literal&0xf, self.stride_speed[0]);
        }
-       type CurPrior = AdvPrior;
        {
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, None);
-           let mut cdf = CurPrior::lookup_mut(self.adv_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, None);
+           type CurPrior = Stride2Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
            cdf.update(literal >> 4, self.stride_speed[1]);
        }
        {
-           let score_index = CurPrior::score_index(stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           type CurPrior = Stride2Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7],
+                                              selected_bits,
+                                              cm_prior,
+                                              Some(literal >> 4));
+           self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
+           cdf.update(literal&0xf, self.stride_speed[0]);
+       }
+       {
+           type CurPrior = Stride3Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
+           self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
+           cdf.update(literal >> 4, self.stride_speed[1]);
+       }
+       {
+           type CurPrior = Stride3Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7],
+                                              selected_bits,
+                                              cm_prior,
+                                              Some(literal >> 4));
+           self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
+           cdf.update(literal&0xf, self.stride_speed[0]);
+       }
+       {
+           type CurPrior = Stride4Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
+           self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
+           cdf.update(literal >> 4, self.stride_speed[1]);
+       }
+       {
+           type CurPrior = Stride4Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7],
+                                              selected_bits,
+                                              cm_prior,
+                                              Some(literal >> 4));
+           self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
+           cdf.update(literal&0xf, self.stride_speed[0]);
+       }
+       {
+           type CurPrior = Stride8Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
+           self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
+           cdf.update(literal >> 4, self.stride_speed[1]);
+       }
+       {
+           type CurPrior = Stride8Prior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let mut cdf = CurPrior::lookup_mut(self.stride_priors.slice_mut(),
+                                              stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
+                                              selected_bits,
+                                              cm_prior,
+                                              Some(literal >> 4));
+           self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
+           cdf.update(literal&0xf, self.stride_speed[0]);
+       }
+
+       type CurPrior = AdvPrior;
+       {
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.adv_priors.slice_mut(),
-                                              stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+                                              base_stride_prior, selected_bits, cm_prior, None);
+           self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
+           cdf.update(literal >> 4, self.stride_speed[1]);
+       }
+       {
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let mut cdf = CurPrior::lookup_mut(self.adv_priors.slice_mut(),
+                                              base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
            cdf.update(literal&0xf, self.stride_speed[0]);
        }
@@ -384,8 +589,8 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
         self.context_map.literal_prediction_mode()
     }
     fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, literal: u8) {
-        let stride = self.cur_stride as usize;
-        self.update_cost_base(stride_prior[stride_prior_offset.wrapping_sub(stride) & 7], selected_bits, cm_prior, literal)
+        //let stride = self.cur_stride as usize;
+        self.update_cost_base(stride_prior, stride_prior_offset, selected_bits, cm_prior, literal)
     }
 }
 

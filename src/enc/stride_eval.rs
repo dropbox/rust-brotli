@@ -7,7 +7,7 @@ use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::ir_interpret::{IRInterpreter, push_base};
 use super::util::{floatX};
 
-use super::prior_eval::{Prior,StridePrior,init_cdfs, DEFAULT_SPEED, STRIDE_PRIOR_SIZE};
+use super::prior_eval::{Prior,Stride1Prior,init_cdfs, DEFAULT_SPEED, STRIDE_PRIOR_SIZE};
 
 pub struct StrideEval<'a,
                      AllocU16:alloc::Allocator<u16> + 'a,
@@ -122,7 +122,7 @@ impl<'a,
        self.cur_score_epoch
    }
    fn update_cost_base(&mut self, stride_prior: [u8;8], selected_bits: u8, cm_prior: usize, literal: u8) {
-       type CurPrior = StridePrior;
+       type CurPrior = Stride1Prior;
        {
            for i in 0..8 {
                let mut cdf = CurPrior::lookup_mut(self.stride_priors[i].slice_mut(),
