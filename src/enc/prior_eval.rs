@@ -61,9 +61,6 @@ fn stride_lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, 
         2 * (actual_context as usize | ((stride_byte as usize) << 8))
     }
 }
-pub trait StridePrior {
-    const STRIDE_OFFSET: usize;
-}
 pub struct Stride1Prior{
 }
 impl Stride1Prior {

@@ -492,7 +492,7 @@ fn LogMetaBlock<'a,
         predmode_speed_and_distance_context_map:InputReferenceMut(local_distance_context_map.split_at_mut(interface::PredictionModeContextMap::<InputReference>::size_of_combined_array(block_type.distance_context_map.len())).0),
     };
     for item in prediction_mode.get_mixing_values_mut().iter_mut() {
-        *item = 1;
+        *item = prior_eval::WhichPrior::STRIDE1 as u8;
     }
 
     prediction_mode.set_literal_prediction_mode(interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8));
