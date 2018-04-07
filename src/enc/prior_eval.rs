@@ -377,11 +377,11 @@ impl<'a,
            let stride3_score = self.score.slice()[stride_index3];
            let stride4_score = self.score.slice()[stride_index4];
            let stride8_score = self.score.slice()[stride_index8];
-           let stride_score = stride1_score as u64;/*core::cmp::min(stride1_score as u64,
+           let stride_score = core::cmp::min(stride1_score as u64,
                                              core::cmp::min(stride2_score as u64,
                                                             core::cmp::min(stride3_score as u64,
                                                                            core::cmp::min(stride4_score as u64,
-                                                                                          stride8_score as u64))));*/
+                                                                                          stride8_score as u64))));
                                   
            let adv_score = self.score.slice()[adv_index];
            if adv_score + epsilon < stride_score as floatX && adv_score + epsilon < cm_score {
