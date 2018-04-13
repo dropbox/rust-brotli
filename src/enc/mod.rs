@@ -17,6 +17,7 @@ pub mod cluster;
 pub mod literal_cost;
 pub mod histogram;
 pub mod backward_references;
+pub mod backward_references_hq;
 pub mod block_splitter;
 pub mod metablock;
 pub mod compress_fragment_two_pass;
