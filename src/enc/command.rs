@@ -92,7 +92,7 @@ pub fn GetCopyLengthCode(copylen: usize) -> u16 {
   }
 }
 
-fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u16 {
+pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u16 {
   let bits64: u16 = (copycode as (u32) & 0x7u32 | (inscode as (u32) & 0x7u32) << 3i32) as (u16);
   if use_last_distance != 0 && (inscode as (i32) < 8i32) && (copycode as (i32) < 16i32) {
     if copycode as (i32) < 8i32 {

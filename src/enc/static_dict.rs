@@ -318,7 +318,7 @@ fn brotli_max_size_t(a: usize, b: usize) -> usize {
 }
 
 #[allow(unused)]
-fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
+pub fn BrotliFindAllStaticDictionaryMatches(dictionary: &BrotliDictionary,
                                         data: &[u8],
                                         min_length: usize,
                                         max_length: usize,

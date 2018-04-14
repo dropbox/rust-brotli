@@ -11,7 +11,7 @@ static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
 
-static kInvalidMatch: u32 = 0xfffffffu32;
+pub static kInvalidMatch: u32 = 0xfffffffu32;
 
 static kCutoffTransformsCount: u32 = 10u32;
 
@@ -538,11 +538,11 @@ fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
         }
 }
 
-const kDistanceCacheIndex : [u8;16] = [
+pub const kDistanceCacheIndex : [u8;16] = [
     0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
 ];
 
-const kDistanceCacheOffset : [i8;16]= [
+pub const kDistanceCacheOffset : [i8;16]= [
     0i8,
     0i8,
     0i8,
