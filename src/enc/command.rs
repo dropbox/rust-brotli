@@ -1,6 +1,14 @@
 #![allow(dead_code)]
 use super::util::Log2FloorNonZero;
 
+#[derive(Copy,Clone)]
+pub struct BrotliDistanceParams {
+    pub distance_postfix_bits : u32,
+    pub num_direct_distance_codes : u32,
+    pub alphabet_size : u32,
+    pub max_distance : usize,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Command {
   pub insert_len_: u32,
@@ -185,7 +193,12 @@ mod test {
     #[test]
     fn test_command_return_distance_index_offset() {
         let mut cmd = super::Command::default();
-        super::InitCommand(&mut cmd, 4, 4, 4, 1);
+        super::InitCommand(&mut cmd, BrotliDistanceParams{
+            distance_postfix_bits:0,
+            num_direct_distance_codes:0,
+            alphabet_size:0,
+            max_distance:0,
+        }, 4, 4, 4, 1);
         cmd.dist_prefix_ = 25;
         cmd.dist_extra_ = 83886099;
         assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, 0, 0),
@@ -206,7 +219,12 @@ mod test {
     fn test_restore_distance_code() {
         for dist_code in 0..50000 {
             let mut cmd = super::Command::default();
-            super::InitCommand(&mut cmd, 4, 4, 4, dist_code);
+            super::InitCommand(&mut cmd, BrotliDistanceParams{
+                distance_postfix_bits:0,
+                num_direct_distance_codes:0,
+                alphabet_size:0,
+                max_distance:0,
+            }, 4, 4, 4, dist_code);
             let exp_dist_code = super::CommandRestoreDistanceCode(&cmd);
             assert_eq!(exp_dist_code as u32, dist_code as u32);
         }
@@ -238,6 +256,7 @@ pub fn RecomputeDistancePrefixes(cmds: &mut [Command],
 
 
 pub fn InitCommand(xself: &mut Command,
+                   dist: &BrotliDistanceParams,
                    insertlen: usize,
                    copylen: usize,
                    copylen_code: usize,
@@ -245,8 +264,8 @@ pub fn InitCommand(xself: &mut Command,
   xself.insert_len_ = insertlen as (u32);
   xself.copy_len_ = (copylen | (copylen_code ^ copylen) << 24i32) as (u32);
   PrefixEncodeCopyDistance(distance_code,
-                           0usize,
-                           0,
+                           dist.num_direct_distance_codes as usize,
+                           u64::from(dist.distance_postfix_bits),
                            &mut xself.dist_prefix_,
                            &mut xself.dist_extra_);
   GetLengthCode(insertlen,
@@ -258,7 +277,8 @@ pub fn InitCommand(xself: &mut Command,
                 },
                 &mut xself.cmd_prefix_);
 }
-pub fn NewCommand(insertlen: usize,
+pub fn NewCommand(dist: &BrotliDistanceParams,
+                  insertlen: usize,
                   copylen: usize,
                   copylen_code: usize,
                   distance_code: usize)
@@ -270,6 +290,6 @@ pub fn NewCommand(insertlen: usize,
     cmd_prefix_: 0,
     dist_prefix_: 0,
   };
-  InitCommand(&mut xself, insertlen, copylen, copylen_code, distance_code);
+  InitCommand(&mut xself, dist, insertlen, copylen, copylen_code, distance_code);
   xself
 }

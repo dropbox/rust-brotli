@@ -1,5 +1,6 @@
 #![allow(dead_code)]
-use super::command::{Command, ComputeDistanceCode, InitCommand};
+use super::command::{Command, ComputeDistanceCode, InitCommand, BrotliDistanceParams};
+use super::hash_to_binary_tree::{H10};
 use super::dictionary_hash::kStaticDictionaryHash;
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
 use super::static_dict::BrotliDictionary;
@@ -52,6 +53,7 @@ pub struct BrotliHasherParams {
 
 #[derive(Clone)]
 pub struct BrotliEncoderParams {
+  pub dist: BrotliDistanceParams,
   // if this brotli file is generic, font or specifically text
   pub mode: BrotliEncoderMode,
   // quality param between 0 and 11 (11 is smallest but takes longest to encode)
@@ -86,6 +88,21 @@ impl Default for BrotliEncoderParams {
    }
 }
 
+#[derive(Clone,Copy,Default)]
+pub struct H9Opts{
+   literal_byte_score: u32,
+}
+pub enum HowPrepared {
+  ALREADY_PREPARED,
+  NEWLY_PREPARED,
+}
+pub struct Struct1 {
+  pub params: BrotliHasherParams,
+  pub is_prepared_: i32,
+  pub dict_num_lookups: usize,
+  pub dict_num_matches: usize,
+}
+
 fn LiteralSpreeLengthForSparseSearch(params: &BrotliEncoderParams) -> usize {
   (if (*params).quality < 9 {
      64i32
@@ -98,23 +115,12 @@ fn brotli_min_size_t(a: usize, b: usize) -> usize {
   if a < b { a } else { b }
 }
 
-pub enum HowPrepared {
-  ALREADY_PREPARED,
-  NEWLY_PREPARED,
-}
 
 pub struct HasherSearchResult {
   pub len: usize,
   pub len_x_code: usize,
   pub distance: usize,
   pub score: usize,
-}
-
-pub struct Struct1 {
-  pub params: BrotliHasherParams,
-  pub is_prepared_: i32,
-  pub dict_num_lookups: usize,
-  pub dict_num_matches: usize,
 }
 
 pub trait AnyHasher {
@@ -144,6 +150,7 @@ pub trait AnyHasher {
                            ringbuffer: &[u8],
                            ringbuffer_mask: usize);
 }
+
 
 pub fn StitchToPreviousBlockInternal<T: AnyHasher>(handle: &mut T,
                                                    num_bytes: usize,
@@ -496,10 +503,6 @@ pub const H9_NUM_LAST_DISTANCES_TO_CHECK:usize = 16;
 pub const H9_BLOCK_SIZE :usize= 1 << H9_BLOCK_BITS;
 const H9_BLOCK_MASK :usize= (1 << H9_BLOCK_BITS) - 1;
 
-#[derive(Clone,Copy,Default)]
-pub struct H9Opts{
-   literal_byte_score: u32,
-}
 
 impl H9Opts {
    pub fn new(params:&BrotliHasherParams) -> H9Opts {
@@ -1296,7 +1299,10 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
   }
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
     return match_all_hashers_mut!(self, GetHasherCommon,);
-  }
+  }/*
+  fn GetH10Tree(&mut self) -> Option<&mut H10<AllocU32, H10Buckets, H10DefaultParams>> {
+    return match_all_hashers_mut!(self, GetH10Tree,);
+  }*/
   fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
     return match_all_hashers_mut!(self, Prepare, one_shot, input_size, data);
   }
@@ -1493,6 +1499,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                       commands = new_commands;
                       &mut _old[0]
                     },
+                    &params.dist,
                     insert_length,
                     sr.len,
                     sr.len ^ sr.len_x_code,

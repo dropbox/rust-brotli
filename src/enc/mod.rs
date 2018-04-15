@@ -16,6 +16,7 @@ pub mod bit_cost;
 pub mod cluster;
 pub mod literal_cost;
 pub mod histogram;
+pub mod hash_to_binary_tree;
 pub mod backward_references;
 pub mod backward_references_hq;
 pub mod block_splitter;
