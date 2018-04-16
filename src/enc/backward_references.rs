@@ -90,7 +90,7 @@ impl Default for BrotliEncoderParams {
 
 #[derive(Clone,Copy,Default)]
 pub struct H9Opts{
-   literal_byte_score: u32,
+   pub literal_byte_score: u32,
 }
 pub enum HowPrepared {
   ALREADY_PREPARED,

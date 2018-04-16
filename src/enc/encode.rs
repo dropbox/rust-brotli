@@ -17,7 +17,7 @@ use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHu
                                MetaBlockSplit, RecoderState};
                                
 use enc::input_pair::InputReference;
-use super::command::{Command, GetLengthCode, RecomputeDistancePrefixes};
+use super::command::{Command, GetLengthCode, RecomputeDistancePrefixes, BrotliDistanceParams};
 use super::compress_fragment::BrotliCompressFragmentFast;
 use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 #[allow(unused_imports)]
@@ -334,8 +334,24 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
   }
   0i32
 }
+
+const BROTLI_MAX_DISTANCE_BITS:u32 = 24;
+const BROTLI_MAX_DISTANCE:usize = 0x3FFFFFC;
+const BROTLI_NUM_DISTANCE_SHORT_CODES:u32 = 16;
+
+fn BROTLI_DISTANCE_ALPHABET_SIZE(NPOSTFIX: u32, NDIRECT:u32, MAXNBITS: u32) -> u32 {
+    BROTLI_NUM_DISTANCE_SHORT_CODES + (NDIRECT) +
+        ((MAXNBITS) << ((NPOSTFIX) + 1))
+}
+
 pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
-  return BrotliEncoderParams {
+    return BrotliEncoderParams {
+           dist: BrotliDistanceParams {
+               distance_postfix_bits:0,
+               num_direct_distance_codes:0,
+               alphabet_size: BROTLI_DISTANCE_ALPHABET_SIZE(0, 0, BROTLI_MAX_DISTANCE_BITS),
+               max_distance: BROTLI_MAX_DISTANCE,
+           },
            mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
            log_meta_block: false,
            quality: 9,

@@ -36,12 +36,12 @@ const BUCKET_BITS:usize = 17;
 pub struct H10Buckets([u32;1 << BUCKET_BITS]);
 
 pub struct H10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params> {
-    window_mask_: usize,
-    common: Struct1,
-    buckets_: Buckets,
-    invalid_pos_:u32,
-    forest: AllocU32::AllocatedMemory,
-    _params: core::marker::PhantomData<Params>,
+    pub window_mask_: usize,
+    pub common: Struct1,
+    pub buckets_: Buckets,
+    pub invalid_pos_:u32,
+    pub forest: AllocU32::AllocatedMemory,
+    pub _params: core::marker::PhantomData<Params>,
 }
 
 
@@ -151,34 +151,34 @@ impl<AllocU32: Allocator<u32>,
   }
 }
 
-pub struct BackwardMatch(u64);
+pub struct BackwardMatch(pub u64);
 
 //    pub distance : u32,
 //    pub length_and_code : u32,
 impl BackwardMatch {
-    fn distance(&self) -> u32 {
+    pub fn distance(&self) -> u32 {
         self.0 as u32
     }
-    fn length_and_code(&self) -> u32 {
+    pub fn length_and_code(&self) -> u32 {
         (self.0 >> 32) as u32
     }
 }
-pub struct BackwardMatchMut<'a>(&'a mut u64);
+pub struct BackwardMatchMut<'a>(pub &'a mut u64);
 
 //    pub distance : u32,
 //    pub length_and_code : u32,
 impl<'a> BackwardMatchMut<'a> {
-    fn distance(&self) -> u32 {
+    pub fn distance(&self) -> u32 {
         *self.0 as u32
     }
-    fn length_and_code(&self) -> u32 {
+    pub fn length_and_code(&self) -> u32 {
         (*self.0 >> 32) as u32
     }
-    fn set_distance(&self, data: u32) {
+    pub fn set_distance(&mut self, data: u32) {
         *self.0 &= 0xffffffff00000000;
         *self.0 |= u64::from(data)
     }
-    fn set_length_and_code(&self, data: u32) {
+    pub fn set_length_and_code(&mut self, data: u32) {
         *self.0 = u64::from((*self.0) as u32) | (u64::from(data) << 32);
     }
 }
@@ -190,6 +190,22 @@ pub fn InitBackwardMatch(
     (*xself).set_length_and_code((len << 5i32) as (u32));
 }
 
+
+macro_rules! LeftChildIndexH10 {
+    ($xself: expr, $pos: expr) => {
+        (2usize).wrapping_mul($pos & (*$xself).window_mask_)    
+    };
+}
+macro_rules! RightChildIndexH10 {
+    ($xself: expr, $pos: expr) => {
+        (2usize).wrapping_mul(
+            $pos & (*$xself).window_mask_
+        ).wrapping_add(
+            1usize
+        )
+    }
+}
+/*
 fn LeftChildIndexH10<AllocU32: Allocator<u32>,
      Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
      Params:H10Params>(
@@ -209,8 +225,9 @@ fn RightChildIndexH10<AllocU32: Allocator<u32>,
         1usize
     )
 }
+*/
 
-pub fn StoreAndFindMatchesH10<'a, AllocU32: Allocator<u32>,
+pub fn StoreAndFindMatchesH10<AllocU32: Allocator<u32>,
      Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
      Params:H10Params>(
     mut xself : &mut H10<AllocU32, Buckets, Params>,
@@ -220,8 +237,8 @@ pub fn StoreAndFindMatchesH10<'a, AllocU32: Allocator<u32>,
     max_length : usize,
     max_backward : usize,
     best_len : &mut usize,
-    mut matches : &'a mut [u64]) -> usize {
-    let matches_offset = 0usize;
+    mut matches : &mut [u64]) -> usize {
+    let mut matches_offset = 0usize;
     let cur_ix_masked : usize = cur_ix & ring_buffer_mask;
     let max_comp_len
         : usize
@@ -237,13 +254,13 @@ pub fn StoreAndFindMatchesH10<'a, AllocU32: Allocator<u32>,
     let mut prev_ix
         : usize
         = (*xself).buckets_.slice()[key] as (usize);
-    let mut node_left : usize = LeftChildIndexH10(xself,cur_ix);
-    let mut node_right : usize = RightChildIndexH10(xself,cur_ix);
+    let mut node_left : usize = LeftChildIndexH10!(xself,cur_ix);
+    let mut node_right : usize = RightChildIndexH10!(xself,cur_ix);
     let mut best_len_left : usize = 0usize;
     let mut best_len_right : usize = 0usize;
     let mut depth_remaining : usize;
     if should_reroot_tree != 0 {
-        (*xself).buckets_.slice()[(key as (usize))]= cur_ix as (u32);
+        (*xself).buckets_.slice_mut()[(key as (usize))]= cur_ix as (u32);
     }
     depth_remaining = 64usize;
     'break16: loop {
@@ -273,29 +290,25 @@ pub fn StoreAndFindMatchesH10<'a, AllocU32: Allocator<u32>,
                               max_length.wrapping_sub(cur_len)
                           )
                       );
-                if matches.len() != 0 && (len > *best_len) {
+                if matches_offset != matches.len() && (len > *best_len) {
                     *best_len = len;
                     InitBackwardMatch(
-                        {
-                            let _old = matches;
-                            matches = matches.split_at_mut(1).1;
-                            matches_offset += 1;
-                            _old
-                        },
+                        &mut BackwardMatchMut(&mut matches[matches_offset]),
                         backward,
                         len
                     );
+                    matches_offset += 1;
                 }
                 if len >= max_comp_len {
                     if should_reroot_tree != 0 {
                         forest[(node_left as (usize)) ]= forest[(
-                                                                    LeftChildIndexH10(
+                                                                    LeftChildIndexH10!(
                                                                         xself,
                                                                         prev_ix
                                                                     ) as (usize)
                                                                 )];
                         forest[(node_right as (usize)) ]= forest[(
-                                                                     RightChildIndexH10(
+                                                                     RightChildIndexH10!(
                                                                          xself,
                                                                          prev_ix
                                                                      ) as (usize)
@@ -312,14 +325,14 @@ pub fn StoreAndFindMatchesH10<'a, AllocU32: Allocator<u32>,
                     if should_reroot_tree != 0 {
                         forest[(node_left as (usize)) ]= prev_ix as (u32);
                     }
-                    node_left = RightChildIndexH10(xself,prev_ix);
+                    node_left = RightChildIndexH10!(xself,prev_ix);
                     prev_ix = forest[(node_left as (usize)) ]as (usize);
                 } else {
                     best_len_right = len;
                     if should_reroot_tree != 0 {
                         forest[(node_right as (usize)) ]= prev_ix as (u32);
                     }
-                    node_right = LeftChildIndexH10(xself,prev_ix);
+                    node_right = LeftChildIndexH10!(xself,prev_ix);
                     prev_ix = forest[(node_right as (usize)) ]as (usize);
                 }
             }
