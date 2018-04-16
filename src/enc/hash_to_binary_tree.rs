@@ -34,6 +34,24 @@ impl H10Params for H10DefaultParams {
 const BUCKET_BITS:usize = 17;
 
 pub struct H10Buckets([u32;1 << BUCKET_BITS]);
+impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets {
+  fn new(m:&mut AllocU32, initializer: u32) -> H10Buckets {
+    H10Buckets([initializer;1<<BUCKET_BITS])
+  }
+  fn free(m:&mut AllocU32, data: H10Buckets) {}
+}
+
+impl SliceWrapper<u32> for H10Buckets {
+  fn slice(&self) -> &[u32] {
+     &self.0[..]
+  }
+}
+impl SliceWrapperMut<u32> for H10Buckets {
+  fn slice_mut(&mut self) -> &mut [u32] {
+     &mut self.0[..]
+  }
+}
+
 
 pub struct H10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params> {
     pub window_mask_: usize,
@@ -44,6 +62,35 @@ pub struct H10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceW
     pub _params: core::marker::PhantomData<Params>,
 }
 
+pub fn InitializeH10<AllocU32:Allocator<u32>>(
+    m32: &mut AllocU32, one_shot: bool, params: &BrotliEncoderParams, input_size: usize
+    ) -> H10<AllocU32, H10Buckets, H10DefaultParams> {
+    initialize_h10::<AllocU32, H10Buckets>(m32, one_shot, params, input_size)
+}
+fn initialize_h10<AllocU32:Allocator<u32>, Buckets:SliceWrapperMut<u32>+SliceWrapper<u32>+Allocable<u32, AllocU32> >(
+    m32: &mut AllocU32, one_shot: bool, params: &BrotliEncoderParams, input_size: usize
+) -> H10<AllocU32, Buckets, H10DefaultParams> {
+    let mut num_nodes = 1 << params.lgwin;
+    if one_shot && input_size < num_nodes {
+        num_nodes = input_size;
+    }
+    let window_mask = (1<<params.lgwin) - 1;
+    let invalid_pos = 0u32.wrapping_sub(window_mask) as u32;
+    let buckets = <Buckets as Allocable<u32, AllocU32>>::new(m32, invalid_pos);
+    H10::<AllocU32, Buckets, H10DefaultParams> {
+        common:Struct1{
+            params:params.hasher,
+            is_prepared_:1,
+            dict_num_lookups:0,
+            dict_num_matches:0,
+        },
+        _params: core::marker::PhantomData::<H10DefaultParams>::default(),
+        window_mask_: window_mask as usize,
+        invalid_pos_: invalid_pos,
+        buckets_: buckets,
+        forest: m32.alloc_cell(num_nodes * 2),
+    }
+}
 
 
 impl<AllocU32: Allocator<u32>,

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use super::command::{Command, ComputeDistanceCode, InitCommand, BrotliDistanceParams};
-use super::hash_to_binary_tree::{H10};
+use super::hash_to_binary_tree::{H10, H10Buckets, H10DefaultParams};
 use super::dictionary_hash::kStaticDictionaryHash;
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
 use super::static_dict::BrotliDictionary;
@@ -1263,6 +1263,7 @@ pub enum UnionHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator
   H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
   H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
   H9(H9<AllocU16, AllocU32>),
+  H10(H10<AllocU32, H10Buckets, H10DefaultParams>),
 }
 macro_rules! match_all_hashers_mut {
     ($xself : expr, $func_call : ident, $( $args:expr),*) => {
@@ -1360,6 +1361,41 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
     return match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end);
   }
 }
+
+impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> UnionHasher<AllocU16, AllocU32> {
+  pub fn free (&mut self, m16: &mut AllocU16, m32: &mut AllocU32) {
+    match self {
+      &mut UnionHasher::H2(ref mut hasher) => {
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+      }
+      &mut UnionHasher::H3(ref mut hasher) => {
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+      }
+      &mut UnionHasher::H4(ref mut hasher) => {
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+      }
+      &mut UnionHasher::H54(ref mut hasher) => {
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+      }
+      &mut UnionHasher::H5(ref mut hasher) => {
+        m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+      }
+      &mut UnionHasher::H6(ref mut hasher) => {
+        m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+      }
+      &mut UnionHasher::H9(ref mut hasher) => {
+        m16.free_cell(core::mem::replace(&mut hasher.num_, AllocU16::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_, AllocU32::AllocatedMemory::default()));
+      }
+      _ => {}
+    }
+    *self = UnionHasher::<AllocU16, AllocU32>::default();
+  }
+}
+
+
 impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> Default
   for UnionHasher<AllocU16, AllocU32> {
   fn default() -> Self {

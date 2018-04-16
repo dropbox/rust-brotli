@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use super::hash_to_binary_tree::{InitializeH10};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
                                  H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher, H9,
@@ -455,7 +456,11 @@ fn RingBufferFree<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
                                                  rb: &mut RingBuffer<AllocU8>) {
   m.free_cell(core::mem::replace(&mut rb.data_mo, AllocU8::AllocatedMemory::default()));
 }
-
+fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>(
+m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU32>){
+  handle.free(m16, m32);
+}
+/*
 fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>(
 m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU32>){
   match handle {
@@ -487,7 +492,7 @@ m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU
   }
   *handle = UnionHasher::<AllocU16, AllocU32>::default();
 }
-
+*/
 
 fn BrotliEncoderCleanupState<AllocU8: alloc::Allocator<u8>,
                              AllocU16: alloc::Allocator<u16>,
@@ -1286,10 +1291,9 @@ fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<
   if hasher_type == 54i32 {
     return UnionHasher::H54(InitializeH54(m32, params));
   }
-  /*
     if hasher_type == 10i32 {
-      return InitializeH10(params);
-  }*/
+      return UnionHasher::H10(InitializeH10(m32, false, params, 0));
+  }
   // since we don't support all of these, fall back to something sane
   return UnionHasher::H6(InitializeH6(m16, m32, params));
       
