@@ -10,6 +10,7 @@ use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
 #[cfg(not(feature="no-stdlib"))]
 use super::brotli::{CompressorReader, CompressorWriter};
+use super::brotli::enc::reader::SimpleReader;
 #[cfg(not(feature="no-stdlib"))]
 use super::brotli_decompressor::{Decompressor, DecompressorWriter};
 use super::brotli_decompressor::HuffmanCode;
@@ -420,11 +421,16 @@ fn test_roundtrip_as_you_lik() {
 
 #[cfg(not(feature="no-stdlib"))]
 fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
+    let mut xinput = UnlimitedBuffer::new(&in_buf);
+    let xenc: CompressorReader<UnlimitedBuffer>;
+    xenc = CompressorReader::new(xinput, 255, 1, 16);
+    return;
+        
   let original_buf = in_buf;
   let mut cmp = [0u8; 259];
   let mut input = UnlimitedBuffer::new(&in_buf);
   {
-  let renc = CompressorReader::new(&mut input, 255, q, lgwin);
+      let renc = CompressorReader::new(&mut input, 255, q, lgwin);
   let mut rdec = Decompressor::new(renc, 257);
   loop {
     match rdec.read(&mut cmp[..]) {
@@ -457,6 +463,73 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
   let pct_ratio = 90usize;
   assert!(compressed_size < original_buf.len() * pct_ratio / 100);
 }
+
+
+
+
+
+
+
+
+
+#[cfg(not(feature="no-stdlib"))]
+fn bogus_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
+    let mut xinput = UnlimitedBuffer::new(&in_buf);
+    let xenc;
+        let mut buf = HeapAllocator::<u8> { default_value: 0 }.alloc_cell(1024);
+    xenc = SimpleReader::new(xinput, buf, 1, 16);
+    return;
+        
+  let original_buf = in_buf;
+    let mut cmp = [0u8; 259];
+    let mut buf = HeapAllocator::<u8> { default_value: 0 }.alloc_cell(1024);
+  let mut input = UnlimitedBuffer::new(&in_buf);
+  {
+      let renc = SimpleReader::new(&mut input, buf, q, lgwin).unwrap();
+  let mut rdec = Decompressor::new(renc, 257);
+  loop {
+    match rdec.read(&mut cmp[..]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        assert_eq!(cmp[..size], in_buf[..size]);
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  }
+  in_buf = original_buf;
+  input = UnlimitedBuffer::new(&in_buf);
+  let mut r2enc = CompressorReader::new(&mut input, 255, q, lgwin);
+  let mut compressed_size = 0usize;
+  loop {
+    match r2enc.read(&mut cmp[..]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        compressed_size += size;
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  let pct_ratio = 90usize;
+  assert!(compressed_size < original_buf.len() * pct_ratio / 100);
+}
+
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_reader_64x() {
+  reader_helper(include_bytes!("testdata/64x"), 9, 20);
+}
+#[cfg(not(feature="no-stdlib"))]
+#[test]
+fn test_bogus_64x() {
+    bogus_reader_helper(include_bytes!("testdata/64x"), 9, 20);
+}
+
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_as_you_lik() {
