@@ -39,7 +39,7 @@ impl Default for ZopfliNode {
 
 pub trait Allocable<T:Copy, AllocT: Allocator<T>> {
     fn new(m: &mut AllocT, init:T) -> Self;
-    fn free(m: &mut AllocT, data: Self);
+    fn free(&mut self, m: &mut AllocT);
 }
 pub trait H10Params {
     fn max_tree_search_depth() -> u32;
@@ -67,8 +67,8 @@ impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32> 
     }
     H10Buckets::<AllocU32>(ret)
   }
-  fn free(m:&mut AllocU32, data: H10Buckets<AllocU32>) {
-      m.free_cell(data.0);
+    fn free(&mut self, m:&mut AllocU32) {
+      m.free_cell(core::mem::replace(&mut self.0, AllocU32::AllocatedMemory::default()));
   }
 }
 
@@ -123,7 +123,14 @@ fn initialize_h10<AllocU32:Allocator<u32>, Buckets:SliceWrapperMut<u32>+SliceWra
     }
 }
 
-
+impl<AllocU32: Allocator<u32>,
+     Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
+     Params:H10Params> H10<AllocU32, Buckets, Params> {
+    pub fn free(&mut self, m32: &mut AllocU32) {
+        m32.free_cell(core::mem::replace(&mut self.forest, AllocU32::AllocatedMemory::default()));
+        self.buckets_.free(m32);
+    }
+}
 impl<AllocU32: Allocator<u32>,
      Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
      Params:H10Params> AnyHasher for H10<AllocU32, Buckets, Params> {

@@ -356,6 +356,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
            log_meta_block: false,
            quality: 9,
+           q9_5: false,
            lgwin: 22i32,
            lgblock: 0i32,
            size_hint: 0usize,

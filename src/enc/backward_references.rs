@@ -58,6 +58,7 @@ pub struct BrotliEncoderParams {
   pub mode: BrotliEncoderMode,
   // quality param between 0 and 11 (11 is smallest but takes longest to encode)
   pub quality: i32,
+  pub q9_5: bool,
   // log of how big the ring buffer should be for copying prior data
   pub lgwin: i32,
   // log of how often metablocks should be serialized
@@ -1390,6 +1391,9 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> UnionHash
       &mut UnionHasher::H9(ref mut hasher) => {
         m16.free_cell(core::mem::replace(&mut hasher.num_, AllocU16::AllocatedMemory::default()));
         m32.free_cell(core::mem::replace(&mut hasher.buckets_, AllocU32::AllocatedMemory::default()));
+      }
+      &mut UnionHasher::H10(ref mut hasher) => {
+        hasher.free(m32);
       }
       _ => {}
     }

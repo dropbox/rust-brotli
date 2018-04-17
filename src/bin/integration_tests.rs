@@ -300,9 +300,10 @@ fn test_roundtrip_64x() {
   assert_eq!(input.read_offset, in_buf.len());
 }
 
-fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
+fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32, q9_5: bool) -> usize {
   let mut params = super::brotli::enc::BrotliEncoderInitParams();
   params.quality = q;
+  params.q9_5 = q9_5;
   params.lgwin = lgwin;
   params.size_hint = if in_buf.len() > 100000 { 2048 * 1024} else {in_buf.len()};
   let mut input = UnlimitedBuffer::new(&in_buf);
@@ -327,59 +328,59 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32) -> usize {
 
 fn total_roundtrip_helper(data: &[u8]) {
     for q in 0..10 {
-        roundtrip_helper(data, q as i32, (q + 13) as i32);
+        roundtrip_helper(data, q as i32, (q + 13) as i32, false);
     }
-    roundtrip_helper(data, 10, 23);
+    roundtrip_helper(data, 10, 23, true);
 }
 static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("testdata/random_then_unicode");
 #[test]
 fn test_random_then_unicode_0() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13, false);
 }
 
 #[test]
 fn test_random_then_unicode_1() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 1, 14);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 1, 14, false);
 }
 
 #[test]
 fn test_random_then_unicode_2() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 2, 15);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 2, 15, false);
 }
 
 #[test]
 fn test_random_then_unicode_3() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 3, 16);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 3, 16, false);
 }
 
 #[test]
 fn test_random_then_unicode_4() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 4, 17);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 4, 17, false);
 }
 
 #[test]
 fn test_random_then_unicode_5() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 5, 18);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 5, 18, false);
 }
 
 #[test]
 fn test_random_then_unicode_6() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 6, 19);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 6, 19, false);
 }
 
 #[test]
 fn test_random_then_unicode_7() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 7, 20);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 7, 20, false);
 }
 
 #[test]
 fn test_random_then_unicode_8() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 8, 21);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 8, 21, false);
 }
 
 #[test]
 fn test_random_then_unicode_9() {
-    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22);
+    roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22, false);
 }
 #[cfg(not(feature="no-stdlib"))]
 const random_then_unicode_compressed_size_9_5 : usize = 136534;
@@ -393,13 +394,13 @@ const random_then_unicode_compressed_size_9_5x : usize = 136091;
 
 #[test]
 fn test_random_then_unicode_9_5() {
-    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28);
+    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 10, 28, true);
     assert_eq!(c_size, random_then_unicode_compressed_size_9_5);
 }
 
 #[test]
 fn test_random_then_unicode_9_5x() {
-    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22);
+    let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22, true);
     assert_eq!(c_size, random_then_unicode_compressed_size_9_5x);
 }
 
