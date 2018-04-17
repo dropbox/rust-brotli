@@ -1263,7 +1263,7 @@ pub enum UnionHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator
   H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
   H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
   H9(H9<AllocU16, AllocU32>),
-  H10(H10<AllocU32, H10Buckets, H10DefaultParams>),
+  H10(H10<AllocU32, H10Buckets<AllocU32>, H10DefaultParams>),
 }
 macro_rules! match_all_hashers_mut {
     ($xself : expr, $func_call : ident, $( $args:expr),*) => {

@@ -463,7 +463,7 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
 
 
 
-
+/*
 
 /////////////////BOGUS////////////////////////////////////
 pub struct SimpleReader<R: Read,
@@ -610,3 +610,4 @@ SimpleReader<R, BufferType> {
         Ok(output_offset)
       }
 }
+ */

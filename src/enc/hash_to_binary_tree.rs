@@ -58,22 +58,28 @@ impl H10Params for H10DefaultParams {
 
 const BUCKET_BITS:usize = 17;
 
-pub struct H10Buckets([u32;1 << BUCKET_BITS]);
-impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets {
-  fn new(_m:&mut AllocU32, initializer: u32) -> H10Buckets {
-    H10Buckets([initializer;1<<BUCKET_BITS])
+pub struct H10Buckets<AllocU32:Allocator<u32>>(AllocU32::AllocatedMemory);
+impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32> {
+  fn new(m:&mut AllocU32, initializer: u32) -> H10Buckets<AllocU32> {
+    let mut ret = m.alloc_cell(1 <<BUCKET_BITS);
+    for item in ret.slice_mut().iter_mut() {
+      *item = initializer;
+    }
+    H10Buckets::<AllocU32>(ret)
   }
-  fn free(_m:&mut AllocU32, _data: H10Buckets) {}
+  fn free(m:&mut AllocU32, data: H10Buckets<AllocU32>) {
+      m.free_cell(data.0);
+  }
 }
 
-impl SliceWrapper<u32> for H10Buckets {
+impl<AllocU32:Allocator<u32>> SliceWrapper<u32> for H10Buckets<AllocU32> {
   fn slice(&self) -> &[u32] {
-     &self.0[..]
+     self.0.slice()
   }
 }
-impl SliceWrapperMut<u32> for H10Buckets {
+impl<AllocU32:Allocator<u32>> SliceWrapperMut<u32> for H10Buckets<AllocU32> {
   fn slice_mut(&mut self) -> &mut [u32] {
-     &mut self.0[..]
+     self.0.slice_mut()
   }
 }
 
@@ -89,8 +95,8 @@ pub struct H10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceW
 
 pub fn InitializeH10<AllocU32:Allocator<u32>>(
     m32: &mut AllocU32, one_shot: bool, params: &BrotliEncoderParams, input_size: usize
-    ) -> H10<AllocU32, H10Buckets, H10DefaultParams> {
-    initialize_h10::<AllocU32, H10Buckets>(m32, one_shot, params, input_size)
+    ) -> H10<AllocU32, H10Buckets<AllocU32>, H10DefaultParams> {
+    initialize_h10::<AllocU32, H10Buckets<AllocU32>>(m32, one_shot, params, input_size)
 }
 fn initialize_h10<AllocU32:Allocator<u32>, Buckets:SliceWrapperMut<u32>+SliceWrapper<u32>+Allocable<u32, AllocU32> >(
     m32: &mut AllocU32, one_shot: bool, params: &BrotliEncoderParams, input_size: usize

@@ -10,7 +10,6 @@ use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
 #[cfg(not(feature="no-stdlib"))]
 use super::brotli::{CompressorReader, CompressorWriter};
-use super::brotli::enc::reader::SimpleReader;
 #[cfg(not(feature="no-stdlib"))]
 use super::brotli_decompressor::{Decompressor, DecompressorWriter};
 use super::brotli_decompressor::HuffmanCode;
@@ -421,11 +420,6 @@ fn test_roundtrip_as_you_lik() {
 
 #[cfg(not(feature="no-stdlib"))]
 fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
-    let mut xinput = UnlimitedBuffer::new(&in_buf);
-    let xenc: CompressorReader<UnlimitedBuffer>;
-    xenc = CompressorReader::new(xinput, 255, 1, 16);
-    return;
-        
   let original_buf = in_buf;
   let mut cmp = [0u8; 259];
   let mut input = UnlimitedBuffer::new(&in_buf);
@@ -470,10 +464,10 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
 
 
 
-
+/*
 
 #[cfg(not(feature="no-stdlib"))]
-fn bogus_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
+fn simple_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
     let mut xinput = UnlimitedBuffer::new(&in_buf);
     let xenc;
         let mut buf = HeapAllocator::<u8> { default_value: 0 }.alloc_cell(1024);
@@ -518,17 +512,18 @@ fn bogus_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
   let pct_ratio = 90usize;
   assert!(compressed_size < original_buf.len() * pct_ratio / 100);
 }
-
+*/
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_64x() {
   reader_helper(include_bytes!("testdata/64x"), 9, 20);
 }
+/*
 #[cfg(not(feature="no-stdlib"))]
 #[test]
-fn test_bogus_64x() {
+fn test_simple_64x() {
     bogus_reader_helper(include_bytes!("testdata/64x"), 9, 20);
-}
+}*/
 
 #[cfg(not(feature="no-stdlib"))]
 #[test]
