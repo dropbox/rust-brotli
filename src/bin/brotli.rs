@@ -14,6 +14,7 @@ extern crate alloc_no_stdlib;
 use brotli::CustomRead;
 use core::ops;
 use brotli::enc::cluster::HistogramPair;
+use brotli::enc::ZopfliNode;
 use brotli::enc::command::Command;
 use brotli::enc::entropy_encode::HuffmanTree;
 use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
@@ -274,6 +275,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<u16>{default_value:0},
                                    HeapAllocator::<i32>{default_value:0},
                                    HeapAllocator::<u32>{default_value:0},
+                                   HeapAllocator::<u64>{default_value:0},
                                    HeapAllocator::<Command>{default_value:Command::default()},
                                    HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
                                    HeapAllocator::<brotli::enc::Mem256f>{default_value:brotli::enc::Mem256f::default()},
@@ -294,6 +296,9 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    },
                                    HeapAllocator::<HuffmanTree>{
                                        default_value:HuffmanTree::default(),
+                                   },
+                                   HeapAllocator::<ZopfliNode>{
+                                       default_value:ZopfliNode::default(),
                                    },
                                    &mut log,
                                    Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))

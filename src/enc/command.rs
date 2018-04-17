@@ -193,7 +193,7 @@ mod test {
     #[test]
     fn test_command_return_distance_index_offset() {
         let mut cmd = super::Command::default();
-        super::InitCommand(&mut cmd, BrotliDistanceParams{
+        super::InitCommand(&mut cmd, &super::BrotliDistanceParams{
             distance_postfix_bits:0,
             num_direct_distance_codes:0,
             alphabet_size:0,
@@ -219,7 +219,7 @@ mod test {
     fn test_restore_distance_code() {
         for dist_code in 0..50000 {
             let mut cmd = super::Command::default();
-            super::InitCommand(&mut cmd, BrotliDistanceParams{
+            super::InitCommand(&mut cmd, &super::BrotliDistanceParams{
                 distance_postfix_bits:0,
                 num_direct_distance_codes:0,
                 alphabet_size:0,

@@ -4,6 +4,7 @@ extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
 use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
+use super::ZopfliNode;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderSetParameter,
                     BrotliEncoderDestroyInstance, BrotliEncoderIsFinished,
                     BrotliEncoderCompressStream, BrotliEncoderParameter, BrotliEncoderOperation};
@@ -28,6 +29,7 @@ use super::input_pair;
 declare_stack_allocator_struct!(MemPool, 128, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);
 declare_stack_allocator_struct!(CallocatedFreelist2048, 64, calloc);
+declare_stack_allocator_struct!(CallocatedFreelist1024, 32, calloc);
 
 fn oneshot_compress(input: &[u8],
                     output: &mut [u8],
@@ -44,6 +46,8 @@ fn oneshot_compress(input: &[u8],
     unsafe { define_allocator_memory_pool!(96, i32, [0; 128 * 1024], calloc) };
   let stack_u32_buffer =
     unsafe { define_allocator_memory_pool!(96, u32, [0; 32 * 1024 * 1024], calloc) };
+  let stack_u64_buffer =
+    unsafe { define_allocator_memory_pool!(96, u64, [0; 32 * 1024], calloc) };
   let stack_f64_buffer =
     unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
   let stack_fv_buffer =
@@ -60,14 +64,20 @@ fn oneshot_compress(input: &[u8],
     unsafe { define_allocator_memory_pool!(48, ContextType, [0; 128 * 1024], calloc) };
   let stack_ht_buffer =
     unsafe { define_allocator_memory_pool!(48, HuffmanTree, [0; 128 * 1024], calloc) };
+  let stack_zn_buffer =
+    unsafe { define_allocator_memory_pool!(48, ZopfliNode, [0; 1024], calloc) };
   let stack_mc_buffer =
     unsafe { define_allocator_memory_pool!(48, Command, [0; 128 * 1024], calloc) };
   let stack_u8_allocator = CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
   let stack_u16_allocator = CallocatedFreelist4096::<u16>::new_allocator(stack_u16_buffer.data,
                                                                          bzero);
-  let stack_i32_allocator = CallocatedFreelist4096::<i32>::new_allocator(stack_i32_buffer.data,
+  let stack_i32_allocator = CallocatedFreelist1024::<i32>::new_allocator(stack_i32_buffer.data,
                                                                          bzero);
   let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data,
+                                                                         bzero);
+  let mut stack_u64_allocator = CallocatedFreelist1024::<u64>::new_allocator(stack_u64_buffer.data,
+                                                                         bzero);
+  let mut stack_zn_allocator = CallocatedFreelist1024::<ZopfliNode>::new_allocator(stack_zn_buffer.data,
                                                                          bzero);
   let mut mf64 = CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
   let mut mfv = CallocatedFreelist2048::<Mem256f>::new_allocator(stack_fv_buffer.data, bzero);
@@ -118,6 +128,7 @@ fn oneshot_compress(input: &[u8],
       }
       let mut nop = |_data:&[interface::Command<input_pair::InputReference>]|();
       let result = BrotliEncoderCompressStream(s,
+                                               &mut stack_u64_allocator,
                                                &mut mf64,
                                                &mut mfv,
                                                &mut mhl,
@@ -126,6 +137,7 @@ fn oneshot_compress(input: &[u8],
                                                &mut mhp,
                                                &mut mct,
                                                &mut mht,
+                                               &mut stack_zn_allocator,
                                                op,
                                                &mut available_in,
                                                input,
