@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 use super::command::{Command, ComputeDistanceCode, InitCommand, BrotliDistanceParams};
-use super::hash_to_binary_tree::{H10, H10Buckets, H10DefaultParams};
+use super::hash_to_binary_tree::{H10, H10Buckets, H10DefaultParams, ZopfliNode};
 use super::dictionary_hash::kStaticDictionaryHash;
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
 use super::static_dict::BrotliDictionary;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-use super::util::{Log2FloorNonZero, brotli_max_size_t};
+use super::util::{Log2FloorNonZero, brotli_max_size_t, floatX};
 use core;
 static kBrotliMinWindowBits: i32 = 10i32;
 
@@ -1275,6 +1275,7 @@ macro_rules! match_all_hashers_mut {
      &mut UnionHasher::H6(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H54(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H9(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H10(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::Uninit => panic!("UNINTIALIZED"),
         }
     };
@@ -1289,6 +1290,7 @@ macro_rules! match_all_hashers {
      &UnionHasher::H6(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H54(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H9(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H10(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::Uninit => panic!("UNINTIALIZED"),
         }
     };
@@ -1587,8 +1589,15 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
   *num_commands = (*num_commands).wrapping_add(new_commands_count);
 }
 pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
-                                      AllocU32: alloc::Allocator<u32>>
-  (dictionary: &BrotliDictionary,
+                                      AllocU32: alloc::Allocator<u32>,
+                                      AllocU64: alloc::Allocator<u64>,
+                                      AllocF: alloc::Allocator<floatX>,
+                                      AllocZN:alloc::Allocator<ZopfliNode>>
+  (m32 : &mut AllocU32,
+   m64 : &mut AllocU64,
+   mf : &mut AllocF,
+   mz : &mut AllocZN,
+   dictionary: &BrotliDictionary,
    num_bytes: usize,
    position: usize,
    ringbuffer: &[u8],
@@ -1602,6 +1611,21 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
    num_literals: &mut usize) {
   match (hasher_union) {
     &mut UnionHasher::Uninit => panic!("working with uninitialized hash map"),
+    &mut UnionHasher::H10(ref mut hasher) => {
+      super::backward_references_hq::BrotliCreateHqZopfliBackwardReferences(
+          m32, m64, mf, mz, dictionary,
+          num_bytes,
+          position,
+          ringbuffer,
+          ringbuffer_mask,
+          params,
+          hasher,
+          dist_cache,
+          last_insert_len,
+          commands,
+          num_commands,
+          num_literals)
+    }
     &mut UnionHasher::H2(ref mut hasher) => {
       CreateBackwardReferences(dictionary,
                                &kStaticDictionaryHash[..],

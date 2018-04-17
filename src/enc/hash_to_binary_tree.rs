@@ -11,6 +11,31 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, floatX};
 use core;
 
+pub const kInfinity: f32 = 1.7e38f32;
+#[derive(Clone,Copy,Debug)]
+pub enum Union1 {
+    cost(f32),
+    next(u32),
+    shortcut(u32),
+}
+
+#[derive(Clone,Copy,Debug)]
+pub struct ZopfliNode {
+    pub length : u32,
+    pub distance : u32,
+    pub dcode_insert_length : u32,
+    pub u : Union1,
+}
+impl Default for ZopfliNode {
+    fn default() -> Self {
+        ZopfliNode{
+            length: 1,
+            distance: 0,
+            dcode_insert_length: 0,
+            u: Union1::cost(kInfinity),
+        }
+    }
+}
 
 pub trait Allocable<T:Copy, AllocT: Allocator<T>> {
     fn new(m: &mut AllocT, init:T) -> Self;
@@ -35,10 +60,10 @@ const BUCKET_BITS:usize = 17;
 
 pub struct H10Buckets([u32;1 << BUCKET_BITS]);
 impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets {
-  fn new(m:&mut AllocU32, initializer: u32) -> H10Buckets {
+  fn new(_m:&mut AllocU32, initializer: u32) -> H10Buckets {
     H10Buckets([initializer;1<<BUCKET_BITS])
   }
-  fn free(m:&mut AllocU32, data: H10Buckets) {}
+  fn free(_m:&mut AllocU32, _data: H10Buckets) {}
 }
 
 impl SliceWrapper<u32> for H10Buckets {
@@ -116,7 +141,7 @@ impl<AllocU32: Allocator<u32>,
                            position: usize,
                            ringbuffer: &[u8],
                            ringbuffer_mask: usize) {
-    unimplemented!();
+      super::backward_references_hq::StitchToPreviousBlockH10(self, num_bytes, position, ringbuffer, ringbuffer_mask)
   }
   #[inline(always)]
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
@@ -124,9 +149,7 @@ impl<AllocU32: Allocator<u32>,
   }
   #[inline(always)]
   fn HashBytes(&self, data: &[u8]) -> usize {
-    let mut h
-        : u32
-        = BROTLI_UNALIGNED_LOAD32(
+    let h = BROTLI_UNALIGNED_LOAD32(
               data
           ).wrapping_mul(
               kHashMul32
@@ -171,7 +194,7 @@ impl<AllocU32: Allocator<u32>,
         i = i.wrapping_add(1 as (usize));
     }
   }
-  fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
+  fn Prepare(&mut self, _one_shot: bool, _input_size: usize, _data: &[u8]) -> HowPrepared {
     if self.common.is_prepared_ != 0 {
       return HowPrepared::ALREADY_PREPARED;
     }
@@ -184,15 +207,15 @@ impl<AllocU32: Allocator<u32>,
   }
 
   fn FindLongestMatch(&mut self,
-                      dictionary: &BrotliDictionary,
-                      dictionary_hash: &[u16],
-                      data: &[u8],
-                      ring_buffer_mask: usize,
-                      distance_cache: &[i32],
-                      cur_ix: usize,
-                      max_length: usize,
-                      max_backward: usize,
-                      out: &mut HasherSearchResult)
+                      _dictionary: &BrotliDictionary,
+                      _dictionary_hash: &[u16],
+                      _data: &[u8],
+                      _ring_buffer_mask: usize,
+                      _distance_cache: &[i32],
+                      _cur_ix: usize,
+                      _max_length: usize,
+                      _max_backward: usize,
+                      _out: &mut HasherSearchResult)
                       -> bool {
       unimplemented!();
   }
@@ -231,7 +254,7 @@ impl<'a> BackwardMatchMut<'a> {
 }
 
 pub fn InitBackwardMatch(
-    mut xself : &mut BackwardMatchMut, mut dist : usize, mut len : usize
+    xself : &mut BackwardMatchMut, dist : usize, len : usize
 ) {
     (*xself).set_distance(dist as (u32));
     (*xself).set_length_and_code((len << 5i32) as (u32));
@@ -277,14 +300,14 @@ fn RightChildIndexH10<AllocU32: Allocator<u32>,
 pub fn StoreAndFindMatchesH10<AllocU32: Allocator<u32>,
      Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
      Params:H10Params>(
-    mut xself : &mut H10<AllocU32, Buckets, Params>,
+    xself : &mut H10<AllocU32, Buckets, Params>,
     data : & [u8],
     cur_ix : usize,
     ring_buffer_mask : usize,
     max_length : usize,
     max_backward : usize,
     best_len : &mut usize,
-    mut matches : &mut [u64]) -> usize {
+    matches : &mut [u64]) -> usize {
     let mut matches_offset = 0usize;
     let cur_ix_masked : usize = cur_ix & ring_buffer_mask;
     let max_comp_len
@@ -297,7 +320,7 @@ pub fn StoreAndFindMatchesH10<AllocU32: Allocator<u32>,
         = xself.HashBytes(
               &data[(cur_ix_masked as (usize)).. ]
           );
-    let mut forest : &mut [u32] = xself.forest.slice_mut();
+    let forest : &mut [u32] = xself.forest.slice_mut();
     let mut prev_ix
         : usize
         = (*xself).buckets_.slice()[key] as (usize);
@@ -325,7 +348,7 @@ pub fn StoreAndFindMatchesH10<AllocU32: Allocator<u32>,
                 let cur_len
                     : usize
                     = core::cmp::min(best_len_left,best_len_right);
-                let mut len : usize;
+                let len : usize;
                 len = cur_len.wrapping_add(
                           FindMatchLengthWithLimit(
                               &data[(

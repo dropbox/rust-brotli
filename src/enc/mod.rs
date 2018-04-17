@@ -35,6 +35,7 @@ pub mod context_map_entropy;
 mod test;
 mod weights;
 pub use self::util::floatX;
+pub use self::hash_to_binary_tree::ZopfliNode;
 pub use self::backward_references::BrotliEncoderParams;
 pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
@@ -78,6 +79,7 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             HeapAlloc::<u16> { default_value: 0 },
                             HeapAlloc::<i32> { default_value: 0 },
                             HeapAlloc::<u32> { default_value: 0 },
+                            HeapAlloc::<u64> { default_value: 0 },
                             HeapAlloc::<Command> {
                                 default_value: Command::default(),
                             },
@@ -100,6 +102,9 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             },
                             HeapAlloc::<HuffmanTree>{
                                 default_value: HuffmanTree::default(),
+                            },
+                            HeapAlloc::<ZopfliNode>{
+                                default_value: ZopfliNode::default(),
                             })
 }
 
@@ -110,6 +115,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                                  AllocU16: Allocator<u16>,
                                  AllocI32: Allocator<i32>,
                                  AllocU32: Allocator<u32>,
+                                 AllocU64: Allocator<u64>,
                                  AllocCommand: Allocator<Command>,
                                  AllocF64: Allocator<util::floatX>,
                                  AllocFV: Allocator<Mem256f>,
@@ -118,7 +124,8 @@ pub fn BrotliCompressCustomAlloc<InputType,
                                  AllocHD: Allocator<HistogramDistance>,
                                  AllocHP: Allocator<HistogramPair>,
                                  AllocCT: Allocator<ContextType>,
-                                 AllocHT: Allocator<HuffmanTree>>
+                                 AllocHT: Allocator<HuffmanTree>,
+                                 AllocZN: Allocator<ZopfliNode>>
   (r: &mut InputType,
    w: &mut OutputType,
    input_buffer: &mut [u8],
@@ -128,6 +135,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
    alloc_u16: AllocU16,
    alloc_i32: AllocI32,
    alloc_u32: AllocU32,
+   alloc_u64: AllocU64,
    alloc_mc: AllocCommand,
    alloc_f64: AllocF64,
    alloc_fv: AllocFV,
@@ -136,7 +144,8 @@ pub fn BrotliCompressCustomAlloc<InputType,
    alloc_hd: AllocHD,
    alloc_hp: AllocHP,
    alloc_ct: AllocCT,
-   alloc_ht: AllocHT)
+   alloc_ht: AllocHT,
+   alloc_zn: AllocZN)
    -> Result<usize, io::Error>
   where InputType: Read,
         OutputType: Write
@@ -151,6 +160,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                            alloc_u16,
                            alloc_i32,
                            alloc_u32,
+                           alloc_u64,
                            alloc_mc,
                            alloc_f64,
                            alloc_fv,
@@ -160,6 +170,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                            alloc_hp,
                            alloc_ct,
                            alloc_ht,
+                           alloc_zn,
                            &mut nop_callback,
                            Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
@@ -171,6 +182,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocU16: Allocator<u16>,
                               AllocI32: Allocator<i32>,
                               AllocU32: Allocator<u32>,
+                              AllocU64: Allocator<u64>,
                               AllocCommand: Allocator<Command>,
                               AllocF64: Allocator<util::floatX>,
                               AllocFV: Allocator<Mem256f>,
@@ -180,6 +192,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocHP: Allocator<HistogramPair>,
                               AllocCT: Allocator<ContextType>,
                               AllocHT: Allocator<HuffmanTree>,
+                              AllocZN: Allocator<ZopfliNode>,
                               MetablockCallback: FnMut(&[interface::Command<input_pair::InputReference>])>
   (r: &mut InputType,
    w: &mut OutputType,
@@ -190,6 +203,7 @@ pub fn BrotliCompressCustomIo<ErrType,
    mu16: AllocU16,
    mi32: AllocI32,
    mu32: AllocU32,
+   mut m64: AllocU64,
    mc: AllocCommand,
    mut mf64: AllocF64,
    mut mfv: AllocFV,
@@ -199,6 +213,7 @@ pub fn BrotliCompressCustomIo<ErrType,
    mut mhp: AllocHP,
    mut mct: AllocCT,
    mut mht: AllocHT,
+   mut mzn: AllocZN,
    metablock_callback: &mut MetablockCallback,
    unexpected_eof_error_constant: ErrType)
    -> Result<usize, ErrType>
@@ -245,7 +260,8 @@ pub fn BrotliCompressCustomIo<ErrType,
               op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
           }
           let result = BrotliEncoderCompressStream(s,
-                                                   &mut mf64, &mut mfv, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht,
+                                                   &mut m64,
+                                                   &mut mf64, &mut mfv, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht, &mut mzn,
                                                    op,
                                                    &mut available_in,
                                                    input_buffer,
