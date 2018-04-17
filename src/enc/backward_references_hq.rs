@@ -154,7 +154,7 @@ pub fn BrotliZopfliCreateCommands(
                     &(*params).dist ,
                     insert_length,
                     copy_length,
-                    (len_code as (i32) - copy_length as (i32)) as usize,
+                    len_code,
                     dist_code
                 );
                 if is_dictionary == 0 && (dist_code > 0usize) {
