@@ -110,8 +110,8 @@ pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -
       (bits64 as (i32) | s64 as (i32)) as (u16)
     }
   } else {
-    let mut offset: i32 = 2i32 * ((copycode as (i32) >> 3i32) + 3i32 * (inscode as (i32) >> 3i32));
-    offset = (offset << 5i32) + 0x40i32 + (0x520d40i32 >> offset & 0xc0i32);
+    let sub_offset: i32 = 2i32 * ((copycode as (i32) >> 3i32) + 3i32 * (inscode as (i32) >> 3i32));
+    let offset = (sub_offset << 5i32) + 0x40i32 + (0x520d40i32 >> sub_offset & 0xc0i32);
     (offset as (u16) as (i32) | bits64 as (i32)) as (u16)
   }
 }

@@ -420,24 +420,25 @@ fn main() {
       }
       if argument == "-9.5" || argument == "-q9.5" {
         params.quality = 10;
+        params.q9_5 = true;
         continue;
       }
       if argument == "-9.5x" || argument == "-q9.5x" {
         params.quality = 11;
+        params.q9_5 = true;
         continue;
       }
       if argument == "-10" || argument == "-q10" {
         params.quality = 10;
-        println_stderr!("Quality 10 unimplemented; using more efficient quality 9.5");
         continue;
       }
       if argument == "-11" || argument == "-q11" {
         params.quality = 11;
-        println_stderr!("Quality 11 unimplemented; using more efficient quality 9.5x with special hasher");
         continue;
       }
-      if argument == "-12" || argument == "-q12" {
-        params.quality = 12;
+      if argument == "-q9.5y" {
+          params.quality = 12;
+          params.q9_5 = true;
         continue;
       }
       if argument.starts_with("-l") {

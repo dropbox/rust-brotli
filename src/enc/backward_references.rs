@@ -1615,20 +1615,36 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
    num_literals: &mut usize) {
   match (hasher_union) {
     &mut UnionHasher::Uninit => panic!("working with uninitialized hash map"),
-    &mut UnionHasher::H10(ref mut hasher) => {
-      super::backward_references_hq::BrotliCreateHqZopfliBackwardReferences(
-          m32, m64, mf, mz, dictionary,
-          num_bytes,
-          position,
-          ringbuffer,
-          ringbuffer_mask,
-          params,
-          hasher,
-          dist_cache,
-          last_insert_len,
-          commands,
-          num_commands,
-          num_literals)
+      &mut UnionHasher::H10(ref mut hasher) => {
+          if params.quality >= 11 {
+              super::backward_references_hq::BrotliCreateHqZopfliBackwardReferences(
+                  m32, m64, mf, mz, dictionary,
+                  num_bytes,
+                  position,
+                  ringbuffer,
+                  ringbuffer_mask,
+                  params,
+                  hasher,
+                  dist_cache,
+                  last_insert_len,
+                  commands,
+                  num_commands,
+                  num_literals)
+          } else {
+              super::backward_references_hq::BrotliCreateZopfliBackwardReferences(
+                  mf, mz, dictionary,
+                  num_bytes,
+                  position,
+                  ringbuffer,
+                  ringbuffer_mask,
+                  params,
+                  hasher,
+                  dist_cache,
+                  last_insert_len,
+                  commands,
+                  num_commands,
+                  num_literals)
+          }
     }
     &mut UnionHasher::H2(ref mut hasher) => {
       CreateBackwardReferences(dictionary,

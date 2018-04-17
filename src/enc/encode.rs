@@ -84,6 +84,7 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_LGBLOCK = 3,
   BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING = 4,
   BROTLI_PARAM_SIZE_HINT = 5,
+  BROTLI_PARAM_Q9_5 = 150,
   BROTLI_METABLOCK_CALLBACK = 151,
   BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
   BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY = 153,
@@ -256,6 +257,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CDF_ADAPTATION_DETECTION as (i32) {
     (*state).params.cdf_adaptation_detection = value as (u8);
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_Q9_5 as (i32) {
+    (*state).params.q9_5 = (value != 0);
     return 1i32;
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_PRIOR_BITMASK_DETECTION as (i32) {
@@ -1085,7 +1090,9 @@ fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
 
 fn ChooseHasher(params: &mut BrotliEncoderParams) {
   let hparams = &mut params.hasher;
-  if (*params).quality == 10 { // we are using quality 10 as a proxy for "9.5"
+  if (*params).quality >= 10 && !params.q9_5{
+      (*hparams).type_ = 10;
+  } else if (*params).quality == 10 { // we are using quality 10 as a proxy for "9.5"
       (*hparams).type_ = 9;
       (*hparams).num_last_distances_to_check = H9_NUM_LAST_DISTANCES_TO_CHECK as i32;
       (*hparams).block_bits = H9_BLOCK_BITS as i32;
@@ -1516,6 +1523,21 @@ fn ShouldCompress(data: &[u8],
   }
   1i32
 }
+
+/* Chooses the literal context mode for a metablock */
+fn ChooseContextMode(params: &BrotliEncoderParams,
+    data: &[u8], pos: usize, mask: usize,
+    length: usize) -> ContextType{
+  /* We only do the computation for the option of something else than
+     CONTEXT_UTF8 for the highest qualities */
+  if (params.quality >= 9 &&
+      BrotliIsMostlyUTF8(data, pos, mask, length, kMinUTF8Ratio) == 0) {
+    return ContextType::CONTEXT_SIGNED;
+  }
+  return ContextType::CONTEXT_UTF8;
+}
+
+
 /*
 fn BrotliCompressBufferQuality10(mut lgwin: i32,
                                  mut input_size: usize,
@@ -2533,6 +2555,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              last_flush_pos: u64,
              bytes: usize,
              is_last: i32,
+             mut literal_context_mode: ContextType,
              params: &BrotliEncoderParams,
              lit_scratch_space: &mut <HistogramLiteral as CostAccessors>::i32vec,
              cmd_scratch_space: &mut <HistogramCommand as CostAccessors>::i32vec,
@@ -2551,6 +2574,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_byte: u8;
   let last_byte_bits: u8;
+  //literal_context_lut == BROTLI_CONTEXT_LUT(literal_context_mode);
   let mut num_direct_distance_codes: u32 = 0u32;
   let mut distance_postfix_bits: u32 = 0u32;
   if bytes == 0usize {
@@ -2634,7 +2658,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
       return;
     }
   } else {
-    let mut literal_context_mode: ContextType = ContextType::CONTEXT_UTF8;
+    //let mut literal_context_mode: ContextType = ContextType::CONTEXT_UTF8;
     
     let mut mb = MetaBlockSplit::<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>::new();
     if (*params).quality < 10i32 {
@@ -2664,13 +2688,14 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                  num_commands,
                                  &mut mb);
     } else {
+        /*
       if BrotliIsMostlyUTF8(data,
                             wrapped_last_flush_pos as (usize),
                             mask,
                             bytes,
                             kMinUTF8Ratio) == 0 {
         literal_context_mode = ContextType::CONTEXT_SIGNED;
-      }
+      }*/
       BrotliBuildMetaBlock(m8, m16, m32, mf64, mfv, mhl, mhc, mhd, mhp, mct,
                            data,
                            wrapped_last_flush_pos as (usize),
@@ -2866,6 +2891,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                               wrapped_last_processed_pos as (usize),
                               bytes as (usize),
                               is_last);
+  let literal_context_mode = ChooseContextMode(
+      &s.params, (*s).ringbuffer_.data_mo.slice(), WrapPosition(s.last_flush_pos_) as usize,
+      mask as usize, (s.input_pos_.wrapping_sub(s.last_flush_pos_)) as usize);
 
   if false { // we are remapping 10 as quality=9.5 since Zopfli doesn't seem to offer much benefits here
     panic!(r####"
@@ -2964,6 +2992,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                            (*s).last_flush_pos_,
                            metablock_size as (usize),
                            is_last,
+                           literal_context_mode,
                            &mut (*s).params,
                            &mut (*s).literal_scratch_space,
                            &mut (*s).command_scratch_space,

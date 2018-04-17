@@ -105,6 +105,11 @@ fn oneshot_compress(input: &[u8],
     BrotliEncoderSetParameter(s,
                               BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
                               quality as (u32));
+    if quality >= 10 {
+        BrotliEncoderSetParameter(s,
+                                  BrotliEncoderParameter::BROTLI_PARAM_Q9_5,
+                                  1);
+    }
     BrotliEncoderSetParameter(s,
                               BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
                               lgwin as (u32));
