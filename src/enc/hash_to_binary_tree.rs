@@ -21,9 +21,10 @@ pub enum Union1 {
 
 #[derive(Clone,Copy,Debug)]
 pub struct ZopfliNode {
+    //highest 8 bit is used to reconstruct the length code
     pub length : u32,
     pub distance : u32,
-    pub dcode_insert_length : u32,
+    pub insert_length : u32,
     pub u : Union1,
 }
 impl Default for ZopfliNode {
@@ -31,7 +32,7 @@ impl Default for ZopfliNode {
         ZopfliNode{
             length: 1,
             distance: 0,
-            dcode_insert_length: 0,
+            insert_length: 0,
             u: Union1::cost(kInfinity),
         }
     }

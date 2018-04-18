@@ -83,7 +83,7 @@ fn brotli_min_size_t(
 fn ZopfliNodeDistanceCode(
     xself : & ZopfliNode
 ) -> u32 {
-    let short_code : u32 = (*xself).dcode_insert_length >> 27i32;
+    let short_code : u32 = (*xself).distance >> 27i32;
     if short_code == 0u32 {
         ZopfliNodeCopyDistance(xself).wrapping_add(
             16u32
@@ -123,7 +123,7 @@ pub fn BrotliZopfliCreateCommands(
                 = ZopfliNodeCopyLength(next) as (usize);
             let mut insert_length
                 : usize
-                = ((*next).dcode_insert_length & 0x7ffffffu32) as (usize);
+                = ((*next).insert_length) as (usize);
             pos = pos.wrapping_add(insert_length);
             offset = match (*next).u { Union1::next(off) => off, _ => 0};
             if i == 0usize {
@@ -549,7 +549,7 @@ fn ComputeDistanceShortcut(
         : usize
         = ((nodes[(
                  pos as (usize)
-             )]).dcode_insert_length & 0x3ffffffu32) as (usize);
+             )]).insert_length) as (usize);
     let dist
         : usize
         = ZopfliNodeCopyDistance(
@@ -597,7 +597,7 @@ fn ComputeDistanceCache(
             : usize
             = ((nodes[(
                      p as (usize)
-                 )]).dcode_insert_length & 0x7ffffffu32) as (usize);
+                 )]).insert_length) as (usize);
         let clen
             : usize
             = ZopfliNodeCopyLength(
@@ -801,10 +801,10 @@ fn ZopfliCostModelGetCommandCost<AllocF:Allocator<floatX>>(
                             ).wrapping_sub(
                                 len_code
                             ) << 24i32) as (u32);
-    (*next).distance = dist as (u32);
-    (*next).dcode_insert_length = (short_code << 27i32 | pos.wrapping_sub(
+    (*next).distance = dist as (u32) | (short_code << 27i32) as u32;
+    (*next).insert_length = pos.wrapping_sub(
                                                              start_pos
-                                                         )) as (u32);
+                                                         ) as (u32);
     (*next).u = Union1::cost(cost);
 }
 
@@ -1026,10 +1026,10 @@ fn UpdateNodes<AllocF:Allocator<floatX>>(
                                 &mut dist_symbol ,
                                 &mut distextra 
                             );
-                            distnumextra = (dist_symbol as (i32) >> 10i32) as (u32);
+                            distnumextra = distextra >> 24;
                             dist_cost = base_cost + distnumextra as (f32) + ZopfliCostModelGetDistanceCost(
                                                                                 model,
-                                                                                (dist_symbol as (i32) & 0x3ffi32) as (usize)
+                                                                                (dist_symbol as (i32)) as (usize)
                                                                             );
                             max_match_len = BackwardMatchLength(
                                                 &mut match_  
@@ -1107,7 +1107,7 @@ fn ZopfliNodeCommandLength(
     xself : & ZopfliNode
 ) -> u32 {
     ZopfliNodeCopyLength(xself).wrapping_add(
-        (*xself).dcode_insert_length & 0x7ffffffu32
+        (*xself).insert_length
     )
 }
 
@@ -1117,9 +1117,9 @@ fn ComputeShortestPathFromNodes(
     let mut num_commands : usize = 0usize;
     while (nodes[(
                 index as (usize)
-            )]).dcode_insert_length & 0x7ffffffu32 == 0u32 && ((nodes[(
-                                                                                      index as (usize)
-                                                                                  )]).length == 1u32) {
+            )]).insert_length == 0 && ((nodes[(
+                index as (usize)
+            )]).length == 1u32) {
         index = index.wrapping_sub(1 as (usize));
     }
     nodes[(index as (usize))].u = Union1::next(!(0u32));
@@ -1398,7 +1398,7 @@ fn SetCost(
     let mut sum : u64 = 0;
     let mut missing_symbol_sum : u64;
     let log2sum : f32;
-    let missing_symbol_cost : f32;
+    let _missing_symbol_cost : f32;
     let mut i : usize;
     i = 0usize;
     while i < histogram_size {
@@ -1420,7 +1420,7 @@ fn SetCost(
             i = i.wrapping_add(1 as (usize));
         }
     }
-    missing_symbol_cost = FastLog2(
+    _missing_symbol_cost = FastLog2(
                               missing_symbol_sum
                           ) as (f32) + 2i32 as (f32);
     i = 0usize;
@@ -1428,7 +1428,7 @@ fn SetCost(
         'continue56: loop {
             {
                 if histogram[(i as (usize)) ]== 0u32 {
-                    cost[(i as (usize)) ]= missing_symbol_cost;
+                    cost[(i as (usize)) ]= log2sum + 2.0;//FIXME: missing_symbol_cost;
                     break 'continue56;
                 }
                 cost[(i as (usize)) ]= log2sum - FastLog2(
@@ -1484,7 +1484,7 @@ fn ZopfliCostModelSetFromCommands<AllocF:Allocator<floatX>>(
                 : usize
                 = ((commands[(
                          i as (usize)
-                     )]).dist_prefix_ as (i32) & 0x3ffi32) as (usize);
+                     )]).dist_prefix_ as (i32)) as (usize);
             let cmdcode
                 : usize
                 = (commands[(i as (usize))]).cmd_prefix_ as (usize);
@@ -1620,7 +1620,7 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
                         i, subi, num_matches[i as usize],
                         BackwardMatch(matches[cur_match_pos as (usize) + subi]).distance(),
                         BackwardMatch(matches[cur_match_pos as (usize) + subi]).length_and_code(),
-                        nodes[i].length, nodes[i].distance, nodes[i].dcode_insert_length, match nodes[i].u{Union1::shortcut(nxt) => nxt, _ => 666});
+                        nodes[i].length, nodes[i].distance, nodes[i].insert_length, match nodes[i].u{Union1::shortcut(nxt) => nxt, _ => 666});
             }
                     
             if skip < 16384usize {
@@ -1675,7 +1675,7 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
     }
     eprint!("num_bytes:{}\n", num_bytes);
     for (index,i) in nodes[..num_bytes].iter().enumerate() {
-        eprint!("{}) length:{}\nd:{}\ndcode:{}\nn:{}\n", index, i.length, i.distance, i.dcode_insert_length, match i.u {Union1::shortcut(nxt) => nxt, _=>666});
+        eprint!("{}) length:{}\nd:{}\ndcode:{}\nn:{}\n", index, i.length, i.distance, i.insert_length, match i.u {Union1::shortcut(nxt) => nxt, _=>666});
     }
     eprint!("DONE\n");
     ComputeShortestPathFromNodes(num_bytes,nodes)
