@@ -1216,6 +1216,9 @@ pub fn BrotliZopfliComputeShortestPath<AllocU32:Allocator<u32>,
                                 lz_matches_offset as (usize)
                             ).. ]
                   );
+            for item in matches[(lz_matches_offset as (usize))..].split_at(num_matches).0 {
+                eprint!("x:{} {}\n", BackwardMatch(*item).distance(), BackwardMatch(*item).length_and_code());
+            }
             if num_matches > 0usize && (BackwardMatchLength(
                                                      &BackwardMatch(matches[(
                                                                num_matches.wrapping_sub(
@@ -1788,6 +1791,12 @@ pub fn BrotliCreateHqZopfliBackwardReferences<AllocU32:Allocator<u32>,
                                               cur_match_pos.wrapping_add(shadow_matches) as (usize)
                                           )..]
                                 );
+            eprint!("{}: Found {} matches\n", pos, num_found_matches);
+            for item in matches.slice()[(
+                                              cur_match_pos.wrapping_add(shadow_matches) as (usize)
+            )..].split_at(num_found_matches).0 {
+                eprint!("y:{} {}\n", BackwardMatch(*item).distance(), BackwardMatch(*item).length_and_code());
+            }
             cur_match_end = cur_match_pos.wrapping_add(num_found_matches);
             j = cur_match_pos;
             while j.wrapping_add(1usize) < cur_match_end {
