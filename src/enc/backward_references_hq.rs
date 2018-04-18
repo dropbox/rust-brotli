@@ -56,7 +56,7 @@ pub fn BrotliInitZopfliNodes(
 fn ZopfliNodeCopyLength(
     xself : & ZopfliNode
 ) -> u32 {
-    (*xself).length & 0x1ffffffu32
+    (*xself).length & 0xffffffu32
 }
 
 fn ZopfliNodeCopyDistance(
@@ -68,7 +68,7 @@ fn ZopfliNodeCopyDistance(
 fn ZopfliNodeLengthCode(
     xself : & ZopfliNode
 ) -> u32 {
-    let modifier : u32 = (*xself).length >> 25i32;
+    let modifier : u32 = (*xself).length >> 24i32;
     ZopfliNodeCopyLength(xself).wrapping_add(9u32).wrapping_sub(
         modifier
     )
@@ -549,7 +549,7 @@ fn ComputeDistanceShortcut(
         : usize
         = ((nodes[(
                  pos as (usize)
-             )]).dcode_insert_length & 0x7ffffffu32) as (usize);
+             )]).dcode_insert_length & 0x3ffffffu32) as (usize);
     let dist
         : usize
         = ZopfliNodeCopyDistance(
@@ -800,7 +800,7 @@ fn ZopfliCostModelGetCommandCost<AllocF:Allocator<floatX>>(
                                 9u32 as (usize)
                             ).wrapping_sub(
                                 len_code
-                            ) << 25i32) as (u32);
+                            ) << 24i32) as (u32);
     (*next).distance = dist as (u32);
     (*next).dcode_insert_length = (short_code << 27i32 | pos.wrapping_sub(
                                                              start_pos
@@ -1296,7 +1296,22 @@ pub fn BrotliZopfliComputeShortestPath<AllocU32:Allocator<u32>,
         }
         i = i.wrapping_add(1 as (usize));
     }
+    for i in model.cost_cmd_.iter() {
+        eprint!("cc:{:.6} ", *i);
+    }
+    eprint!("\nmin_cost_cmd: {:.6}\n", model.min_cost_cmd_);
+    for i in &model.cost_dist_.slice()[..model.distance_histogram_size as usize] {
+        eprint!("cd:{:.6} ", *i);
+    }
+    eprint!("\ndistance_histogram_size: {}\n", model.distance_histogram_size);
+    for i in &model.literal_costs_.slice()[..model.num_bytes_ as usize + 2] {
+        eprint!("lc:{:.6} ", *i);
+    }
+    eprint!("\nnum_bytes {}\n", model.num_bytes_);
+    
+    
     CleanupZopfliCostModel(m,&mut model );
+    
     ComputeShortestPathFromNodes(num_bytes,nodes)
 }
 
@@ -1599,7 +1614,15 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
                       model,
                       &mut queue ,
                       nodes
-                  );
+                );
+            for subi in 0..num_matches[(i as (usize)) ]as usize {
+                eprint!("{}]x{} num_matches:{} match:{}/{} nodelen {} noded {} nodedcode {} noden {}\n",
+                        i, subi, num_matches[i as usize],
+                        BackwardMatch(matches[cur_match_pos as (usize) + subi]).distance(),
+                        BackwardMatch(matches[cur_match_pos as (usize) + subi]).length_and_code(),
+                        nodes[i].length, nodes[i].distance, nodes[i].dcode_insert_length, match nodes[i].u{Union1::shortcut(nxt) => nxt, _ => 666});
+            }
+                    
             if skip < 16384usize {
                 skip = 0usize;
             }
@@ -1650,6 +1673,11 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
         }
         i = i.wrapping_add(1 as (usize));
     }
+    eprint!("num_bytes:{}\n", num_bytes);
+    for (index,i) in nodes[..num_bytes].iter().enumerate() {
+        eprint!("{}) length:{}\nd:{}\ndcode:{}\nn:{}\n", index, i.length, i.distance, i.dcode_insert_length, match i.u {Union1::shortcut(nxt) => nxt, _=>666});
+    }
+    eprint!("DONE\n");
     ComputeShortestPathFromNodes(num_bytes,nodes)
 }
 
@@ -1927,6 +1955,18 @@ pub fn BrotliCreateHqZopfliBackwardReferences<AllocU32:Allocator<u32>,
         }
         i = i.wrapping_add(1 as (usize));
     }
+    for i in model.cost_cmd_.iter() {
+        eprint!("cc:{:.6} ", *i);
+    }
+    eprint!("\nmin_cost_cmd: {:.6}\n", model.min_cost_cmd_);
+    for i in &model.cost_dist_.slice()[..model.distance_histogram_size as usize] {
+        eprint!("cd:{:.6} ", *i);
+    }
+    eprint!("\ndistance_histogram_size: {}\n", model.distance_histogram_size);
+    for i in &model.literal_costs_.slice()[..model.num_bytes_ as usize + 2] {
+        eprint!("lc:{:.6} ", *i);
+    }
+    eprint!("\nnum_bytes {}\n", model.num_bytes_);
     CleanupZopfliCostModel(mf,&mut model );
     {
         mz.free_cell(nodes);
