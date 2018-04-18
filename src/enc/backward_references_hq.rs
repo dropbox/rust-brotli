@@ -62,7 +62,7 @@ fn ZopfliNodeCopyLength(
 fn ZopfliNodeCopyDistance(
     xself : & ZopfliNode
 ) -> u32 {
-    (*xself).distance
+    (*xself).distance & 0x7ffffff
 }
 
 fn ZopfliNodeLengthCode(
