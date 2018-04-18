@@ -2016,7 +2016,9 @@ fn StoreSymbol<AllocU8: alloc::Allocator<u8>,
 }
 
 fn CommandCopyLenCode(xself: &Command) -> u32 {
-  (*xself).copy_len_ & 0xffffffu32 ^ (*xself).copy_len_ >> 24i32
+    let modifier = xself.copy_len_ >> 25;
+    let delta = ((modifier | ((modifier & 0x40) << 1)) as  u8) as i8;
+    (((*xself).copy_len_ as i32 & 0x1ffffff)  + i32::from(delta)) as u32
 }
 fn GetInsertExtra(inscode: u16) -> u32 {
   kInsExtra[inscode as (usize)]
@@ -2323,9 +2325,9 @@ pub fn BrotliStoreMetaBlock<'a,
         prev_byte2 = input[((pos.wrapping_sub(2usize) & mask) as (usize))];
         prev_byte = input[((pos.wrapping_sub(1usize) & mask) as (usize))];
         if cmd.cmd_prefix_ as (i32) >= 128i32 {
-          let dist_code: usize = cmd.dist_prefix_ as (usize);
-          let distnumextra: u32 = cmd.dist_extra_ >> 24i32;
-          let distextra: u64 = (cmd.dist_extra_ & 0xffffffu32) as (u64);
+          let dist_code: usize = cmd.dist_prefix_ as (usize) & 0x3ff;
+          let distnumextra: u32 = u32::from(cmd.dist_prefix_ >> 10i32);
+          let distextra: u64 = cmd.dist_extra_ as (u64);
           if (*mb).distance_context_map_size == 0usize {
             StoreSymbol(&mut distance_enc, dist_code, storage_ix, storage);
           } else {

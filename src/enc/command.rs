@@ -29,7 +29,7 @@ impl Default for Command {
   }
 }
 pub fn CommandCopyLen(xself: &Command) -> u32 {
-  (*xself).copy_len_ & 0xffffffi32 as (u32)
+  (*xself).copy_len_ & 0x1ffffffi32 as (u32)
 }
 
 pub fn CommandDistanceContext(xself: &Command) -> u32 {
@@ -147,16 +147,16 @@ pub fn PrefixEncodeCopyDistance(distance_code: usize,
       .wrapping_add((2u64).wrapping_mul(nbits.wrapping_sub(1)).wrapping_add(prefix) <<
                     postfix_bits)
       .wrapping_add(postfix) as (u16);
-    *extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
+    *extra_bits = (nbits << 25i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
   }
 }
 pub fn CommandRestoreDistanceCode(xself: &Command) -> u32 {
-  if (*xself).dist_prefix_ as (i32) < 16i32 { //25
-    (*xself).dist_prefix_ as (u32)
+  if (*xself).dist_prefix_ as (i32) & 0x3ff < 16i32 { //25
+    (*xself).dist_prefix_ as (u32) & 0x3ff
   } else {
-    let nbits: u32 = (*xself).dist_extra_ >> 24i32; //5
-    let extra: u32 = (*xself).dist_extra_ & 0xffffffu32; //19
-    let prefix: u32 = ((*xself).dist_prefix_ as (u32))
+    let nbits: u32 = u32::from((*xself).dist_prefix_ >> 10i32); //5
+    let extra: u32 = (*xself).dist_extra_; //19
+    let prefix: u32 = (u32::from((*xself).dist_prefix_) & 0x3ff)
       .wrapping_add(4u32)
       .wrapping_sub(16u32)
       .wrapping_sub(2u32.wrapping_mul(nbits));
@@ -262,7 +262,7 @@ pub fn InitCommand(xself: &mut Command,
                    copylen_code: usize,
                    distance_code: usize) {
   xself.insert_len_ = insertlen as (u32);
-  xself.copy_len_ = (copylen | (copylen_code ^ copylen) << 24i32) as (u32);
+  xself.copy_len_ = (copylen | (copylen_code ^ copylen) << 25i32) as (u32);
   PrefixEncodeCopyDistance(distance_code,
                            dist.num_direct_distance_codes as usize,
                            u64::from(dist.distance_postfix_bits),
@@ -285,7 +285,7 @@ pub fn NewCommand(dist: &BrotliDistanceParams,
                   -> Command {
   let mut xself: Command = Command {
     insert_len_: insertlen as (u32),
-    copy_len_: (copylen | (copylen_code ^ copylen) << 24i32) as (u32),
+    copy_len_: (copylen | (copylen_code ^ copylen) << 25i32) as (u32),
     dist_extra_: 0,
     cmd_prefix_: 0,
     dist_prefix_: 0,

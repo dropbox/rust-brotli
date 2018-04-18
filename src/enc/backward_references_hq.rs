@@ -56,7 +56,7 @@ pub fn BrotliInitZopfliNodes(
 fn ZopfliNodeCopyLength(
     xself : & ZopfliNode
 ) -> u32 {
-    (*xself).length & 0xffffffu32
+    (*xself).length & 0x1ffffffu32
 }
 
 fn ZopfliNodeCopyDistance(
@@ -68,7 +68,7 @@ fn ZopfliNodeCopyDistance(
 fn ZopfliNodeLengthCode(
     xself : & ZopfliNode
 ) -> u32 {
-    let modifier : u32 = (*xself).length >> 24i32;
+    let modifier : u32 = (*xself).length >> 25i32;
     ZopfliNodeCopyLength(xself).wrapping_add(9u32).wrapping_sub(
         modifier
     )
@@ -800,7 +800,7 @@ fn ZopfliCostModelGetCommandCost<AllocF:Allocator<floatX>>(
                                 9u32 as (usize)
                             ).wrapping_sub(
                                 len_code
-                            ) << 24i32) as (u32);
+                            ) << 25i32) as (u32);
     (*next).distance = dist as (u32);
     (*next).dcode_insert_length = (short_code << 27i32 | pos.wrapping_sub(
                                                              start_pos

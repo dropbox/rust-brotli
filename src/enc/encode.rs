@@ -2830,7 +2830,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
       return 1i32;
     }
     GetBrotliStorage(s,
-                     (2u32).wrapping_mul(bytes).wrapping_add(502u32) as (usize));
+                     (2u32).wrapping_mul(bytes).wrapping_add(503u32) as (usize));
     let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
       
     (*s).storage_.slice_mut()[(0usize)] = (*s).last_byte_;
