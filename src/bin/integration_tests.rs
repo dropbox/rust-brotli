@@ -394,9 +394,18 @@ const alice_compressed_size_10 : usize = 47547;
 const alice_compressed_size_11 : usize = 46507;
 
 #[cfg(not(feature="no-stdlib"))]
+#[cfg(not(feature="float64"))]
 const alice_compressed_size_10 : usize = 47486;
 #[cfg(not(feature="no-stdlib"))]
+#[cfg(not(feature="float64"))]
 const alice_compressed_size_11 : usize = 46498;
+
+#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="float64")]
+const alice_compressed_size_10 : usize = 47515;
+#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="float64")]
+const alice_compressed_size_11 : usize = 46510;
 
 
 
