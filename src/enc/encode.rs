@@ -239,6 +239,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
       0 => BrotliEncoderMode::BROTLI_MODE_GENERIC,
       1 => BrotliEncoderMode::BROTLI_MODE_TEXT,
       2 => BrotliEncoderMode::BROTLI_MODE_FONT,
+      3 => BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR,
+      4 => BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR,
+      5 => BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR,
+      6 => BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR,
       _ => BrotliEncoderMode::BROTLI_MODE_GENERIC,
     };
     return 1i32;
@@ -1529,7 +1533,14 @@ fn ChooseContextMode(params: &BrotliEncoderParams,
     data: &[u8], pos: usize, mask: usize,
     length: usize) -> ContextType{
   /* We only do the computation for the option of something else than
-     CONTEXT_UTF8 for the highest qualities */
+    CONTEXT_UTF8 for the highest qualities */
+  match params.mode {
+      BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR => return ContextType::CONTEXT_LSB6,
+      BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR => return ContextType::CONTEXT_MSB6,
+      BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR => return ContextType::CONTEXT_UTF8,
+      BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR => return ContextType::CONTEXT_SIGNED,
+      _ => {},
+  }
   if (params.quality >= 9 &&
       BrotliIsMostlyUTF8(data, pos, mask, length, kMinUTF8Ratio) == 0) {
     return ContextType::CONTEXT_SIGNED;
@@ -2486,9 +2497,11 @@ fn DecideOverLiteralContextModeling(input: &[u8],
                                     mask: usize,
                                     quality: i32,
                                     size_hint: usize,
+                                    mode: &BrotliEncoderMode,
                                     literal_context_mode: &mut ContextType,
                                     num_literal_contexts: &mut usize,
                                     literal_context_map: &mut &[u32]) {
+    
   if quality < 5i32 || length < 64usize {
   } else if ShouldUseComplexStaticContextMap(input, start_pos, length, mask, quality, size_hint, literal_context_mode,
      num_literal_contexts, literal_context_map) {
@@ -2520,7 +2533,13 @@ fn DecideOverLiteralContextModeling(input: &[u8],
       }
       start_pos = start_pos.wrapping_add(4096usize);
     }
-    *literal_context_mode = ContextType::CONTEXT_UTF8;
+    *literal_context_mode = match *mode {
+      BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR => ContextType::CONTEXT_SIGNED,
+      BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR => ContextType::CONTEXT_UTF8,
+      BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR => ContextType::CONTEXT_MSB6,
+      BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR => ContextType::CONTEXT_LSB6,
+      _ => ContextType::CONTEXT_UTF8,
+    };
     ChooseContextMap(quality,
                      &mut bigram_prefix_histo[..],
                      num_literal_contexts,
@@ -2671,6 +2690,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                          mask,
                                          (*params).quality,
                                          (*params).size_hint,
+                                         &(*params).mode,
                                          &mut literal_context_mode,
                                          &mut num_literal_contexts,
                                          &mut literal_context_map);

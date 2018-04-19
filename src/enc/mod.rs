@@ -39,7 +39,6 @@ pub use self::hash_to_binary_tree::ZopfliNode;
 pub use self::backward_references::BrotliEncoderParams;
 pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-                   BrotliEncoderParameter,
                    BrotliEncoderOperation,
                    BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use self::cluster::{HistogramPair};
@@ -230,7 +229,7 @@ pub fn BrotliCompressCustomIo<ErrType,
   {
       let s = &mut s_orig;
       
-      BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0 as (u32)); // gen, text, font
+      //BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0 as (u32)); // gen, text, font
       //BrotliEncoderSetParameter(s,
       //                          BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
       //                          input.len() as (u32));

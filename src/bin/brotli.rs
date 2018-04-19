@@ -15,6 +15,7 @@ use brotli::CustomRead;
 use core::ops;
 use brotli::enc::cluster::HistogramPair;
 use brotli::enc::ZopfliNode;
+use brotli::enc::backward_references::BrotliEncoderMode;
 use brotli::enc::command::Command;
 use brotli::enc::entropy_encode::HuffmanTree;
 use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
@@ -372,6 +373,22 @@ fn main() {
       if argument == "--dump-dictionary" {
         util::print_dictionary(util::permute_dictionary());
         return
+      }
+      if argument == "-utf8" {
+          params.mode = BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR;
+          continue;
+      }
+      if argument == "-msb" {
+          params.mode = BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR;
+          continue;
+      }
+      if argument == "-lsb" {
+          params.mode = BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR;
+          continue;
+      }
+      if argument == "-signed" {
+          params.mode = BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR;
+          continue;
       }
       if argument == "-i" {
         // display the intermediate representation of metablocks
