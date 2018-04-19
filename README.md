@@ -15,8 +15,8 @@ optimizations are employed.
 
 ## Compression Usage
 
-Rust brotli currently supports compression levels 0 - 9 (an approximation similar to 10 is coming soon)
-They should be bitwise identical to the brotli C compression engine at those levels
+Rust brotli currently supports compression levels 0 - 11
+They should be bitwise identical to the brotli C compression engine at compression levels 0-9
 Recommended lg_window_size is between 20 and 22
 
 ### With the io::Read abstraction
