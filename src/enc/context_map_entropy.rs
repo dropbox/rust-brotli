@@ -74,7 +74,7 @@ fn init_cdfs(cdfs: &mut [u16]) {
     let len = cdfs.len();
     loop {
         for cdf_index in 0..16 {
-            let mut vec = cdfs.split_at_mut(total_index).1.split_at_mut(NUM_SPEEDS_TO_TRY).0;
+            let vec = cdfs.split_at_mut(total_index).1.split_at_mut(NUM_SPEEDS_TO_TRY).0;
             for item in vec {
                 *item = 4 + 4 * cdf_index as u16;
             }

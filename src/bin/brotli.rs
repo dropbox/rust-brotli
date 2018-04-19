@@ -359,7 +359,7 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 fn main() {
   let mut do_compress = false;
   let mut params = brotli::enc::BrotliEncoderInitParams();
-  params.quality = 10; // default
+  params.quality = 11; // default
   let mut filenames = [std::string::String::new(), std::string::String::new()];
   let mut num_benchmarks = 1;
   if env::args_os().len() > 1 {
@@ -487,7 +487,7 @@ fn main() {
       }
       if argument.starts_with("-speed=") {
           let comma_string = argument.trim_matches('-').trim_matches('s').trim_matches('p').trim_matches('e').trim_matches('e').trim_matches('d').trim_matches('=');
-          let mut split = comma_string.split(",");
+          let split = comma_string.split(",");
           for (index, s) in split.enumerate() {
               let data = s.parse::<u16>().unwrap();
               if data > 16384 {

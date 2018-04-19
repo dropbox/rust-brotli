@@ -1,7 +1,8 @@
 use core;
-type Prob = u16;
+pub type Prob = u16;
 
 pub const BLEND_FIXED_POINT_PRECISION : i8 = 15;
+#[allow(dead_code)]
 pub const LOG2_SCALE : i32 = 15;
 #[derive(Debug,Copy, Clone)]
 pub struct Weights {
@@ -47,6 +48,7 @@ impl Weights {
     }
 }
 
+#[allow(dead_code)]
 #[inline(always)]
 fn compute_normalized_weight(model_weights: [i32;2]) -> Prob {
     let total = i64::from(model_weights[0]) + i64::from(model_weights[1]);
@@ -60,6 +62,7 @@ fn compute_normalized_weight(model_weights: [i32;2]) -> Prob {
     ((((model_weights[0] >> shift) as u16)<< 8) / total_8bit as u16/*fixme??*/) << (BLEND_FIXED_POINT_PRECISION - 8)
 }
 
+#[allow(dead_code)]
 #[cold]
 fn fix_weights(weights: &mut [i32;2]) {
     let ilog = 32  - core::cmp::min(weights[0].leading_zeros(),
@@ -71,12 +74,15 @@ fn fix_weights(weights: &mut [i32;2]) {
     }
 }
 
+#[allow(dead_code)]
 #[inline(always)]
 fn normalize_weights(weights: &mut [i32;2]) {
     if ((weights[0]|weights[1])&0x7f000000) != 0 {
         fix_weights(weights);
     }
 }
+
+#[allow(dead_code)]
 #[cfg(features="floating_point_context_mixing")]
 fn compute_new_weight(probs: [Prob; 2],
                       weighted_prob: Prob,
@@ -101,6 +107,7 @@ fn compute_new_weight(probs: [Prob; 2],
     (wi_new * ((1i64 << LOG2_SCALE) as f64)) as i32
 }
 
+#[allow(dead_code)]
 #[cfg(not(features="floating_point_context_mixing"))]
 #[inline(always)]
 fn compute_new_weight(probs: [Prob; 2],
