@@ -11,10 +11,10 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, floatX};
 use core;
 
-pub const kInfinity: f32 = 1.7e38f32;
+pub const kInfinity: floatX = 1.7e38 as floatX;
 #[derive(Clone,Copy,Debug)]
 pub enum Union1 {
-    cost(f32),
+    cost(floatX),
     next(u32),
     shortcut(u32),
 }

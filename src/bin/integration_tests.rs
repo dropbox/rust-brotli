@@ -387,6 +387,19 @@ const random_then_unicode_compressed_size_9_5 : usize = 136534;
 #[cfg(not(feature="no-stdlib"))]
 const random_then_unicode_compressed_size_9_5x : usize = 136041;
 
+
+#[cfg(feature="no-stdlib")]
+const alice_compressed_size_10 : usize = 47547;
+#[cfg(feature="no-stdlib")]
+const alice_compressed_size_11 : usize = 46507;
+
+#[cfg(not(feature="no-stdlib"))]
+const alice_compressed_size_10 : usize = 47486;
+#[cfg(not(feature="no-stdlib"))]
+const alice_compressed_size_11 : usize = 46498;
+
+
+
 #[cfg(feature="no-stdlib")] // approx log
 const random_then_unicode_compressed_size_9_5 : usize = 136698;
 #[cfg(feature="no-stdlib")] // approx log
@@ -402,6 +415,18 @@ fn test_random_then_unicode_9_5() {
 fn test_random_then_unicode_9_5x() {
     let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22, true);
     assert_eq!(c_size, random_then_unicode_compressed_size_9_5x);
+}
+
+#[test]
+fn test_alice29_11() {
+    let c_size = roundtrip_helper(include_bytes!("testdata/alice29.txt"), 11, 22, false);
+    assert_eq!(c_size, alice_compressed_size_11);
+}
+
+#[test]
+fn test_alice29_10() {
+    let c_size = roundtrip_helper(include_bytes!("testdata/alice29.txt"), 10, 22, false);
+    assert_eq!(c_size, alice_compressed_size_10);
 }
 
 #[test]
