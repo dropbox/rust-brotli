@@ -8,7 +8,7 @@ use super::literal_cost::BrotliEstimateBitCostsForLiterals;
 use super::constants::{kInsExtra, kCopyExtra};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
-use super::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, floatX};
+use super::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, FastLog2f64, floatX};
 use super::hash_to_binary_tree::{InitBackwardMatch, BackwardMatch, BackwardMatchMut, StoreAndFindMatchesH10, Allocable, H10Params, H10, ZopfliNode, Union1, kInfinity};
 use core;
 
@@ -1382,7 +1382,7 @@ fn SetCost(
     let mut sum : u64 = 0;
     let mut missing_symbol_sum : u64;
     let log2sum : floatX;
-    let _missing_symbol_cost : floatX;
+    let missing_symbol_cost : floatX;
     let mut i : usize;
     i = 0usize;
     while i < histogram_size {
@@ -1404,7 +1404,7 @@ fn SetCost(
             i = i.wrapping_add(1 as (usize));
         }
     }
-    _missing_symbol_cost = FastLog2(
+    missing_symbol_cost = FastLog2f64(
                               missing_symbol_sum
                           ) as (floatX) + 2i32 as (floatX);
     i = 0usize;
@@ -1412,7 +1412,7 @@ fn SetCost(
         'continue56: loop {
             {
                 if histogram[(i as (usize)) ]== 0u32 {
-                    cost[(i as (usize)) ]= log2sum + 2.0;//FIXME: missing_symbol_cost;
+                    cost[(i as (usize)) ]= missing_symbol_cost;
                     break 'continue56;
                 }
                 cost[(i as (usize)) ]= log2sum - FastLog2(
