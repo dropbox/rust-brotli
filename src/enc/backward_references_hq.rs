@@ -250,11 +250,11 @@ fn InitZopfliCostModel<AllocF:alloc::Allocator<floatX>> (
                                  AllocF::AllocatedMemory::default()  
         },
         cost_dist_: if (*dist).alphabet_size > 0u32 {
-                             m.alloc_cell(num_bytes.wrapping_add(dist.alphabet_size as usize))
+                             m.alloc_cell(num_bytes.wrapping_add(core::cmp::max(544,dist.alphabet_size as usize)))
                          } else {
                                  AllocF::AllocatedMemory::default()
         },
-        distance_histogram_size: core::cmp::min((*dist).alphabet_size, 544),
+        distance_histogram_size: 544,//core::cmp::min((*dist).alphabet_size, 544),
     }
 }
 fn ZopfliCostModelSetFromLiteralCosts<AllocF:Allocator<floatX>>(
@@ -1215,7 +1215,12 @@ pub fn BrotliZopfliComputeShortestPath<AllocU32:Allocator<u32>,
                       &mut matches[(
                                 lz_matches_offset as (usize)
                             ).. ]
-                  );
+                );
+            for item in matches[(lz_matches_offset as (usize))..].split_at(num_matches).0 {
+                eprint!("x:{} {}\n",
+                        BackwardMatch(*item).distance(),
+                        BackwardMatch(*item).length_and_code());
+            }
             if num_matches > 0usize && (BackwardMatchLength(
                                                      &BackwardMatch(matches[(
                                                                num_matches.wrapping_sub(
@@ -1294,6 +1299,19 @@ pub fn BrotliZopfliComputeShortestPath<AllocU32:Allocator<u32>,
         i = i.wrapping_add(1 as (usize));
     }
     
+  for i in 0..BROTLI_NUM_COMMAND_SYMBOLS as usize {
+      eprint!("cc:{} ", model.cost_cmd_[i]);
+  }
+  eprint!("\nmin_cost_cmd: {}\n", model.min_cost_cmd_);
+  for i in 0..model.distance_histogram_size as usize {
+     eprint!("cd:{} ", model.cost_dist_.slice()[i]);
+  }
+  eprint!("\ndistance_histogram_size: {}\n", model.distance_histogram_size);
+  for i in 0..(model.num_bytes_ as usize + 2) {
+      eprint!("lc:{} ", model.literal_costs_.slice()[i]);
+  }
+  eprint!("\nnum_bytes {}\n", model.num_bytes_);
+
     
     CleanupZopfliCostModel(m,&mut model );
     
@@ -1599,7 +1617,17 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
                       &mut queue ,
                       nodes
                 );
-                    
+            for subi in 0..num_matches[i as usize]as usize {
+                eprint!("{}]x{} num_matches:{} match:{}/{} nodelen {} noded {} insert_length {} noden {}\n",
+                        i, subi, num_matches[i], BackwardMatch(matches[cur_match_pos+subi]).distance(),
+                        BackwardMatch(matches[cur_match_pos +subi]).length_and_code(),
+                        nodes[i].length, nodes[i].distance, nodes[i].insert_length,
+                        match nodes[i].u {
+                            Union1::shortcut(srt) => srt,
+                            Union1::next(n) => n,
+                            Union1::cost(c) => c as u32,
+                        });
+            }
             if skip < 16384usize {
                 skip = 0usize;
             }
@@ -1650,6 +1678,17 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
         }
         i = i.wrapping_add(1 as (usize));
     }
+    
+  eprint!("num_bytes:{}\n", num_bytes);
+  
+  for index in 0..num_bytes as usize {
+          eprint!("{}) length:{}\nd:{}\ninsert_length:{}\nn:{}\n", index, nodes[index].length, nodes[index].distance, nodes[index].insert_length, match nodes[index].u {
+                            Union1::shortcut(srt) => srt,
+                            Union1::next(n) => n,
+                            Union1::cost(c) => c as u32,
+                        });
+    }
+    eprint!("DONE\n");
     ComputeShortestPathFromNodes(num_bytes,nodes)
 }
 
@@ -1791,6 +1830,12 @@ pub fn BrotliCreateHqZopfliBackwardReferences<AllocU32:Allocator<u32>,
                                               cur_match_pos.wrapping_add(shadow_matches) as (usize)
                                           )..]
                                 );
+            eprint!("{}: Found {} matches\n", pos, num_found_matches);
+            for item in matches.slice()[(
+                cur_match_pos.wrapping_add(shadow_matches) as (usize)
+            )..].split_at(num_found_matches).0 {
+                eprint!("y:{} {}\n", BackwardMatch(*item).distance(), BackwardMatch(*item).length_and_code());
+            }
             cur_match_end = cur_match_pos.wrapping_add(num_found_matches);
             j = cur_match_pos;
             while j.wrapping_add(1usize) < cur_match_end {
@@ -1921,6 +1966,20 @@ pub fn BrotliCreateHqZopfliBackwardReferences<AllocU32:Allocator<u32>,
         }
         i = i.wrapping_add(1 as (usize));
     }
+    
+  for i in 0..BROTLI_NUM_COMMAND_SYMBOLS as usize {
+      eprint!("cc:{} ", model.cost_cmd_[i]);
+  }
+  eprint!( "\nmin_cost_cmd: {}\n", model.min_cost_cmd_);
+  for i in 0..model.distance_histogram_size as usize {
+     eprint!("cd:{} ", model.cost_dist_.slice()[i]);
+  }
+  eprint!("\ndistance_histogram_size: {}\n", model.distance_histogram_size);
+  for i in 0.. (model.num_bytes_ as usize + 2) {
+      eprint!("lc:{} ", model.literal_costs_.slice()[i]);
+  }
+  eprint!("\nnum_bytes {}\n", model.num_bytes_);
+
     CleanupZopfliCostModel(mf,&mut model );
     {
         mz.free_cell(nodes);
