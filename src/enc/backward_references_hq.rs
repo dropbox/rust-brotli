@@ -264,7 +264,7 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF:Allocator<floatX>>(
     ringbuffer_mask : usize
 ) {
     let literal_costs = (*xself).literal_costs_.slice_mut();
-    let mut literal_carry : floatX = 0.0 as (floatX);
+    let mut literal_carry : f64 = 0.0;
     let cost_dist = (*xself).cost_dist_.slice_mut();
     let cost_cmd = &mut (*xself).cost_cmd_[..];
     let num_bytes : usize = (*xself).num_bytes_;
@@ -280,15 +280,15 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF:Allocator<floatX>>(
     i = 0usize;
     while i < num_bytes {
         {
-            literal_carry = literal_carry + literal_costs[(
+            literal_carry = literal_carry as f64 + literal_costs[(
                                                  i.wrapping_add(1usize) as (usize)
-                                             )];
+                                             )] as f64;
             literal_costs[(
                  i.wrapping_add(1usize) as (usize)
-             ) ]= literal_costs[(i as (usize)) ]+ literal_carry;
+             ) ]= (literal_costs[(i as (usize)) ] as f64 + literal_carry) as floatX;
             literal_carry = literal_carry - (literal_costs[(
                                                   i.wrapping_add(1usize) as (usize)
-                                              ) ]- literal_costs[(i as (usize))]);
+                                              ) ]- literal_costs[(i as (usize))]) as f64;
         }
         i = i.wrapping_add(1 as (usize));
     }
@@ -1531,7 +1531,7 @@ fn ZopfliCostModelSetFromCommands<AllocF:Allocator<floatX>>(
     (*xself).min_cost_cmd_ = min_cost_cmd;
     {
         let literal_costs : &mut [floatX] = (*xself).literal_costs_.slice_mut();
-        let mut literal_carry : floatX = 0.0 as (floatX);
+        let mut literal_carry : f64 = 0.0;
         let num_bytes : usize = (*xself).num_bytes_;
         literal_costs[(0usize) ]= 0.0 as (floatX);
         i = 0usize;
@@ -1543,13 +1543,13 @@ fn ZopfliCostModelSetFromCommands<AllocF:Allocator<floatX>>(
                                                                i
                                                            ) & ringbuffer_mask) as (usize)
                                                       ) ]as (usize)
-                                                 )];
+                                                 )] as f64;
                 literal_costs[(
                      i.wrapping_add(1usize) as (usize)
-                 ) ]= literal_costs[(i as (usize)) ]+ literal_carry;
+                 ) ]= (literal_costs[(i as (usize)) ] as f64 + literal_carry) as f32;
                 literal_carry = literal_carry - (literal_costs[(
                                                       i.wrapping_add(1usize) as (usize)
-                                                  ) ]- literal_costs[(i as (usize))]);
+                                                  ) ]- literal_costs[(i as (usize))]) as f64;
             }
             i = i.wrapping_add(1 as (usize));
         }
