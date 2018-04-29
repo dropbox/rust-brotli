@@ -285,9 +285,7 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF:Allocator<floatX>>(
                                              )];
             literal_costs[(
                  i.wrapping_add(1usize) as (usize)
-             ) ]= literal_costs[(i as (usize)) ] + literal_costs[(
-                                                 i.wrapping_add(1usize) as (usize)
-                                             )];//+ literal_carry;
+             ) ]= literal_costs[(i as (usize)) ]+ literal_carry;
             literal_carry = literal_carry - (literal_costs[(
                                                   i.wrapping_add(1usize) as (usize)
                                               ) ]- literal_costs[(i as (usize))]);
@@ -1571,13 +1569,7 @@ fn ZopfliCostModelSetFromCommands<AllocF:Allocator<floatX>>(
                                                  )];
                 literal_costs[(
                      i.wrapping_add(1usize) as (usize)
-                 ) ]= literal_costs[(i as (usize)) ]+ cost_literal[(
-                                                     ringbuffer[(
-                                                          (position.wrapping_add(
-                                                               i
-                                                           ) & ringbuffer_mask) as (usize)
-                                                      ) ]as (usize)
-                                                 )];//literal_carry;
+                 ) ]= literal_costs[(i as (usize)) ]+ literal_carry;
                 literal_carry = literal_carry - (literal_costs[(
                                                       i.wrapping_add(1usize) as (usize)
                                                   ) ]- literal_costs[(i as (usize))]);
