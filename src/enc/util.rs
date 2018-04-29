@@ -309,6 +309,21 @@ pub fn FastLog2(v: u64) -> floatX {
   FastLog2u64(v)
 }
 
+#[cfg(not(feature="no-stdlib"))]
+#[inline(always)]
+pub fn FastLog2f64(v: u64) -> f64 {
+    if v < 256 {
+        return kLog2Table[v as usize] as f64;
+    }
+    (v as f64).log2()
+}
+
+#[cfg(feature="no-stdlib")]
+#[inline(always)]
+pub fn FastLog2f64(v: u64) -> f64 {
+    FastLog2(v) as f64
+}
+
 #[inline]
 pub fn FastLog2u64(v: u64) -> floatX {
   let bsr_8 = 56i8 - v.leading_zeros() as i8;
