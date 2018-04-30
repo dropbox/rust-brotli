@@ -2430,7 +2430,7 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
       }
       pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
       if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
-        let dist_code: usize = cmd.dist_prefix_ as (usize);
+        let dist_code: usize = cmd.dist_prefix_ as (usize) & 0x3ff;
         let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10i32;
         let distextra: u32 = cmd.dist_extra_;
         BrotliWriteBits(dist_depth[(dist_code as (usize))] as (u8),

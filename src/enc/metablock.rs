@@ -861,7 +861,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<AllocU8: alloc::Allocator<u8>,
                                  &mut (*mb).distance_split,
                                  &mut (*mb).distance_histograms.slice_mut(),
                                  &mut (*mb).distance_histograms_size,
-                                 cmd.dist_prefix_ as (usize));
+                                 cmd.dist_prefix_ as (usize) & 0x3ff);
         }
       }
     }
