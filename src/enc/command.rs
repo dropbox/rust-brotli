@@ -293,8 +293,10 @@ pub fn InitCommand(xself: &mut Command,
                    copylen: usize,
                    copylen_code: usize,
                    distance_code: usize) {
+  
   xself.insert_len_ = insertlen as (u32);
-  xself.copy_len_ = (copylen | ((copylen_code ^ copylen) << 25)) as (u32);
+  let copylen_code_delta = (copylen_code as i32 - copylen as i32) as i8;
+  xself.copy_len_ = (copylen as u32 | (u32::from(copylen_code_delta as u8) << 25));
   PrefixEncodeCopyDistance(distance_code,
                            dist.num_direct_distance_codes as usize,
                            u64::from(dist.distance_postfix_bits),
