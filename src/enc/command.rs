@@ -132,25 +132,28 @@ pub fn PrefixEncodeCopyDistance(distance_code: usize,
                                 postfix_bits: u64,
                                 code: &mut u16,
                                 extra_bits: &mut u32) {
-  if distance_code < (16usize).wrapping_add(num_direct_codes) {
+  if distance_code < (BROTLI_NUM_DISTANCE_SHORT_CODES as usize).wrapping_add(num_direct_codes) {
     *code = distance_code as (u16);
     *extra_bits = 0u32;
   } else {
     let dist: u64 = (1u64 << (postfix_bits as u64).wrapping_add(2u32 as (u64)))
-      .wrapping_add((distance_code as u64).wrapping_sub(16).wrapping_sub(num_direct_codes as u64) as
-                    u64);
+      .wrapping_add((distance_code as u64).wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES as u64).wrapping_sub(num_direct_codes as u64) as u64);
     let bucket: u64 = Log2FloorNonZero(dist).wrapping_sub(1u32) as (u64);
     let postfix_mask: u64 = (1u32 << postfix_bits).wrapping_sub(1u32) as (u64);
     let postfix: u64 = dist & postfix_mask;
-    let prefix: u64 = dist >> bucket & 1;
+    let prefix: u64 = (dist >> bucket) & 1;
     let offset: u64 = (2u64).wrapping_add(prefix) << bucket;
     let nbits: u64 = bucket.wrapping_sub(postfix_bits);
-    *code = (16u64)
+    *code = ((nbits << 10) |
+             ((BROTLI_NUM_DISTANCE_SHORT_CODES as u64).wrapping_add(num_direct_codes as u64).wrapping_add(
+                 2u64.wrapping_mul(nbits.wrapping_sub(1)).wrapping_add(prefix) << postfix_bits).wrapping_add(postfix))) as u16;
+      *extra_bits = (dist.wrapping_sub(offset) >> postfix_bits) as u32;
+               /*(16u64)
       .wrapping_add(num_direct_codes as u64)
       .wrapping_add((2u64).wrapping_mul(nbits.wrapping_sub(1)).wrapping_add(prefix) <<
                     postfix_bits)
-      .wrapping_add(postfix) as (u16);
-    *extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
+      .wrapping_add(postfix) as (u16);*/
+      //*extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as (u32);
   }
 }
 pub fn CommandRestoreDistanceCode(xself: &Command, dist:&BrotliDistanceParams) -> u32 {
