@@ -1,21 +1,125 @@
 #![allow(dead_code)]
+
 use super::vectorization::Mem256f;
-use super::backward_references::BrotliEncoderParams;
-use super::bit_cost::BitsEntropy;
+use super::backward_references::{BrotliEncoderParams};
+use super::encode::{BROTLI_DISTANCE_ALPHABET_SIZE, BROTLI_MAX_DISTANCE_BITS, BROTLI_LARGE_MAX_DISTANCE_BITS, BROTLI_MAX_ALLOWED_DISTANCE};
+use super::constants::BROTLI_MAX_NPOSTFIX;
+use super::bit_cost::{BitsEntropy, BrotliPopulationCost};
 use super::block_split::BlockSplit;
 use super::block_splitter::BrotliSplitBlock;
 use super::brotli_bit_stream::MetaBlockSplit;
 use super::cluster::BrotliClusterHistograms;
 use super::cluster::HistogramPair;
-use super::command::{Command, CommandCopyLen};
+use super::command::{Command, CommandCopyLen, CommandRestoreDistanceCode, PrefixEncodeCopyDistance, BrotliDistanceParams};
 use super::entropy_encode::BrotliOptimizeHuffmanCountsForRle;
 use super::histogram::{BrotliBuildHistogramsWithContext, CostAccessors, HistogramLiteral,
                        HistogramCommand, HistogramDistance, HistogramClear, ClearHistograms,
-                       ContextType, HistogramAddHistogram, HistogramAddItem, Context};
+                       ContextType, HistogramAddHistogram, HistogramAddItem, Context,
+                       };
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{brotli_min_size_t, brotli_max_size_t};
 use core;
+
+pub fn BrotliInitDistanceParams(params: &mut BrotliEncoderParams,
+    npostfix: u32, ndirect: u32) {
+    let dist_params = &mut params.dist;
+    let mut alphabet_size;
+    let mut max_distance;
+
+    dist_params.distance_postfix_bits = npostfix;
+    dist_params.num_direct_distance_codes = ndirect;
+
+    alphabet_size = BROTLI_DISTANCE_ALPHABET_SIZE(
+        npostfix, ndirect, BROTLI_MAX_DISTANCE_BITS);
+    max_distance = ndirect + (1u32 << (BROTLI_MAX_DISTANCE_BITS + npostfix + 2)) -
+        (1u32 << (npostfix + 2));
+
+    if (params.large_window) {
+        let bound:[u32;BROTLI_MAX_NPOSTFIX + 1] = [0, 4, 12, 28];
+        let postfix = 1u32 << npostfix;
+        alphabet_size = BROTLI_DISTANCE_ALPHABET_SIZE(
+            npostfix, ndirect, BROTLI_LARGE_MAX_DISTANCE_BITS);
+        /* The maximum distance is set so that no distance symbol used can encode
+        a distance larger than BROTLI_MAX_ALLOWED_DISTANCE with all
+        its extra bits set. */
+        if (ndirect < bound[npostfix as usize]) {
+            max_distance = BROTLI_MAX_ALLOWED_DISTANCE as u32 - (bound[npostfix as usize] - ndirect);
+        } else if (ndirect >= bound[npostfix as usize ] + postfix) {
+            max_distance = (3u32 << 29) - 4 + (ndirect - bound[npostfix as usize]);
+        } else {
+            max_distance = BROTLI_MAX_ALLOWED_DISTANCE as u32;
+        }
+    }
+    
+    dist_params.alphabet_size = alphabet_size;
+    dist_params.max_distance = max_distance as usize;
+}
+
+fn RecomputeDistancePrefixes(cmds: &mut [Command],
+                             num_commands: usize,
+                             orig_params:&BrotliDistanceParams,
+                             new_params: &BrotliDistanceParams) {
+
+
+    if orig_params.distance_postfix_bits == new_params.distance_postfix_bits && orig_params.num_direct_distance_codes == new_params.num_direct_distance_codes {
+        return;
+    }
+
+    for cmd in cmds.split_at_mut(num_commands).0.iter_mut() {
+        if (CommandCopyLen(cmd) != 0 && cmd.cmd_prefix_ >= 128) {
+            let ret = CommandRestoreDistanceCode(cmd, orig_params);
+            PrefixEncodeCopyDistance(ret as usize,
+                                     new_params.num_direct_distance_codes as usize,
+                                     new_params.distance_postfix_bits as u64,
+                                     &mut cmd.dist_prefix_,
+                                     &mut cmd.dist_extra_);
+    }
+  }
+}
+
+fn ComputeDistanceCost(cmds: &[Command],
+                       num_commands: usize,
+                       orig_params: &BrotliDistanceParams,
+                       new_params: &BrotliDistanceParams,
+                       scratch: &mut <HistogramDistance as CostAccessors>::i32vec,
+                       cost: &mut f64) -> bool {
+
+    let mut equal_params = false;
+    let mut dist_prefix: u16 = 0;
+    let mut dist_extra: u32 = 0;
+    let mut extra_bits: f64 = 0.0;
+    let mut histo = HistogramDistance::default();
+
+
+    if (orig_params.distance_postfix_bits == new_params.distance_postfix_bits &&
+        orig_params.num_direct_distance_codes ==
+        new_params.num_direct_distance_codes) {
+        equal_params = true;
+    }
+    for cmd in cmds.split_at(num_commands).0 {
+        if CommandCopyLen(cmd) != 0 && cmd.cmd_prefix_ >= 128 {
+            if (equal_params) {
+                dist_prefix = cmd.dist_prefix_;
+            } else {
+                let distance = CommandRestoreDistanceCode(cmd, orig_params);
+                if distance > new_params.max_distance as u32 {
+                    return false;
+                }
+                PrefixEncodeCopyDistance(distance as usize,
+                                         new_params.num_direct_distance_codes as usize,
+                                         new_params.distance_postfix_bits as u64,
+                                         &mut dist_prefix,
+                                         &mut dist_extra);
+            }
+            HistogramAddItem(&mut histo, (dist_prefix & 0x3FF) as usize);
+            extra_bits += (dist_prefix >> 10) as f64;
+        }
+    }
+    
+    *cost = BrotliPopulationCost(&histo, scratch) as f64 + extra_bits;
+    return true;
+}
 
 
 pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
@@ -41,10 +145,10 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
    ringbuffer: &[u8],
    pos: usize,
    mask: usize,
-   params: &BrotliEncoderParams,
+   params: &mut BrotliEncoderParams,
    prev_byte: u8,
    prev_byte2: u8,
-   cmds: &[Command],
+   cmds: &mut [Command],
    num_commands: usize,
    literal_context_mode: ContextType,
    lit_scratch_space: &mut <HistogramLiteral as CostAccessors>::i32vec,
@@ -60,6 +164,50 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
   let distance_histograms_size: usize;
   let mut i: usize;
   let mut literal_context_multiplier: usize = 1usize;
+  let mut ndirect_msb:u32 = 0;
+  let mut check_orig = true;
+  let mut best_dist_cost: f64 = 1e99;
+  let orig_params = params.clone();
+  let mut new_params = params.clone();
+
+  for npostfix in 0..(BROTLI_MAX_NPOSTFIX + 1) {
+    while ndirect_msb < 16 {
+      let ndirect = ndirect_msb << npostfix;
+      let skip: bool;
+      let mut dist_cost: f64 = 0.0;
+      BrotliInitDistanceParams(&mut new_params, npostfix as u32, ndirect as u32);
+      if npostfix as u32 == orig_params.dist.distance_postfix_bits &&
+          ndirect == orig_params.dist.num_direct_distance_codes {
+        check_orig = false;
+      }
+      skip = !ComputeDistanceCost(
+          cmds, num_commands,
+          &orig_params.dist, &new_params.dist, dst_scratch_space, &mut dist_cost);
+      if skip || (dist_cost > best_dist_cost) {
+        break;
+      }
+      best_dist_cost = dist_cost;
+      params.dist = new_params.dist;
+      ndirect_msb += 1;
+    }
+    if ndirect_msb > 0 {
+      ndirect_msb -= 1;
+    }
+    ndirect_msb /= 2;
+  }
+  if check_orig {
+    let mut dist_cost: f64 = 0.0;
+    ComputeDistanceCost(cmds, num_commands,
+                        &orig_params.dist, &orig_params.dist, dst_scratch_space, &mut dist_cost);
+    if dist_cost < best_dist_cost {
+      // best_dist_cost = dist_cost; unused
+      params.dist = orig_params.dist;
+    }
+  }
+  RecomputeDistancePrefixes(cmds, num_commands,
+                            &orig_params.dist, &params.dist);
+
+
   BrotliSplitBlock(m8,
                    m16,
                    m32,

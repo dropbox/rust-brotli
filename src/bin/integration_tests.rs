@@ -383,9 +383,9 @@ fn test_random_then_unicode_9() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22, false);
 }
 #[cfg(not(feature="no-stdlib"))]
-const random_then_unicode_compressed_size_9_5 : usize = 136534;
+const random_then_unicode_compressed_size_9_5 : usize = 136542;
 #[cfg(not(feature="no-stdlib"))]
-const random_then_unicode_compressed_size_9_5x : usize = 136041;
+const random_then_unicode_compressed_size_9_5x : usize = 136045;
 
 
 #[cfg(feature="no-stdlib")]

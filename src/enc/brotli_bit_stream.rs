@@ -2280,9 +2280,6 @@ pub fn BrotliStoreMetaBlock<'a,
   {
     mht.free_cell(core::mem::replace(&mut tree, AllocHT::AllocatedMemory::default()));
   }
-  for (index, cmd) in commands[..n_commands as usize].iter().enumerate() {
-      eprint!("{}) c: 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}\n", index, cmd.insert_len_, cmd.copy_len_, cmd.dist_extra_, cmd.cmd_prefix_, cmd.dist_prefix_);
-  }
   i = 0usize;
   while i < n_commands {
     {
