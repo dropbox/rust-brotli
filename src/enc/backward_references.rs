@@ -85,6 +85,7 @@ pub struct BrotliEncoderParams {
   pub prior_bitmask_detection: u8,
   // for prior bitmask detection: stride_low, stride_speed, cm_low, cm_speed
   pub literal_adaptation:[(u16, u16); 4],
+  pub large_window: bool,
 }
 
 impl Default for BrotliEncoderParams {
@@ -144,6 +145,8 @@ pub trait AnyHasher {
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
+                      gap: usize,
+                      max_distance: usize,
                       out: &mut HasherSearchResult)
                       -> bool;
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
@@ -269,6 +272,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
+                      gap: usize,
+                      max_distance: usize,
                       out: &mut HasherSearchResult)
                       -> bool {
     let opts = self.Opts();
@@ -381,7 +386,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                                                 self,
                                                 &data[(cur_ix_masked as (usize))..],
                                                 max_length,
-                                                max_backward,
+                                                max_backward.wrapping_add(gap),
+                                                max_distance,
                                                 out,
                                                 1i32);
     }
@@ -648,6 +654,8 @@ impl<AllocU16: alloc::Allocator<u16>,
                         cur_ix: usize,
                         max_length: usize,
                         max_backward: usize,
+                        gap: usize,
+                        max_distance: usize,
                         out: &mut HasherSearchResult)
                         -> bool {
         let best_len_in: usize = (*out).len;
@@ -746,7 +754,8 @@ impl<AllocU16: alloc::Allocator<u16>,
                                                       self,
                                                       cur_data,
                                                       max_length,
-                                                      max_backward,
+                                                      max_backward.wrapping_add(gap),
+                                                      max_distance,
                                                       out,
                                                       0i32);
         }
@@ -945,6 +954,8 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
+                      gap: usize,
+                      max_distance: usize,
                       out: &mut HasherSearchResult)
                       -> bool {
     let opts = self.Opts();
@@ -1075,7 +1086,8 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
                                                 self,
                                                 cur_data,
                                                 max_length,
-                                                max_backward,
+                                                max_backward.wrapping_add(gap),
+                                                max_distance,
                                                 out,
                                                 0i32);
     }
@@ -1183,6 +1195,7 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
                             data: &[u8],
                             max_length: usize,
                             max_backward: usize,
+                            max_distance: usize,
                             h9_opts: H9Opts,
                             out: &mut HasherSearchResult)
                             -> i32 {
@@ -1210,6 +1223,9 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
       .wrapping_add(1usize)
       .wrapping_add(transform_id << (*dictionary).size_bits_by_length[len] as (i32));
   }
+  if backward > max_distance {
+      return 0i32;
+  }
   score = BackwardReferenceScore(matchlen, backward, h9_opts);
   if score < (*out).score {
     return 0i32;
@@ -1227,6 +1243,7 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
                                                    data: &[u8],
                                                    max_length: usize,
                                                    max_backward: usize,
+                                                   max_distance: usize,
                                                    out: &mut HasherSearchResult,
                                                    shallow: i32)
                                                    -> i32 {
@@ -1246,7 +1263,7 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
       (*xself).dict_num_lookups = (*xself).dict_num_lookups.wrapping_add(1 as (usize));
       if item != 0usize {
         let item_matches: i32 =
-          TestStaticDictionaryItem(dictionary, item, data, max_length, max_backward, opts, out);
+          TestStaticDictionaryItem(dictionary, item, data, max_length, max_backward, max_distance, opts, out);
         if item_matches != 0 {
           (*xself).dict_num_matches = (*xself).dict_num_matches.wrapping_add(1 as (usize));
           is_match_found = 1i32;
@@ -1347,6 +1364,8 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
                       cur_ix: usize,
                       max_length: usize,
                       max_backward: usize,
+                      gap: usize,
+                      max_distance: usize,
                       out: &mut HasherSearchResult)
                       -> bool {
     return match_all_hashers_mut!(self,
@@ -1359,6 +1378,8 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
                                   cur_ix,
                                   max_length,
                                   max_backward,
+                                  gap,
+                                  max_distance,
                                   out);
   }
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
@@ -1442,6 +1463,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                            mut commands: &mut [Command],
                                            num_commands: &mut usize,
                                            num_literals: &mut usize) {
+  let gap = 0usize;
   let max_backward_limit: usize = (1usize << (*params).lgwin).wrapping_sub(16usize);
   let mut new_commands_count: usize = 0;
   let mut insert_length: usize = *last_insert_len;
@@ -1478,6 +1500,8 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                position,
                                max_length,
                                max_distance,
+                               gap,
+                               params.dist.max_distance,
                                &mut sr) {
       let mut delayed_backward_references_in_row: i32 = 0i32;
       max_length = max_length.wrapping_sub(1 as (usize));
@@ -1508,6 +1532,8 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
                                                    position.wrapping_add(1usize),
                                                    max_length,
                                                    max_distance,
+                                                   gap,
+                                                   params.dist.max_distance,
                                                    &mut sr2);
           if is_match_found && (sr2.score >= sr.score.wrapping_add(cost_diff_lazy)) {
             position = position.wrapping_add(1 as (usize));

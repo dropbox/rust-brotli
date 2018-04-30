@@ -914,6 +914,7 @@ pub fn BrotliBuildMetaBlockGreedy<AllocU8: alloc::Allocator<u8>,
    prev_byte: u8,
    prev_byte2: u8,
    literal_context_mode: ContextType,
+   _literal_context_lut: &[u8],
    num_contexts: usize,
    static_context_map: &[u32],
    commands: &[Command],
@@ -962,11 +963,9 @@ pub fn BrotliOptimizeHistograms<AllocU8: alloc::Allocator<u8>,
                                 AllocHL: alloc::Allocator<HistogramLiteral>,
                                 AllocHC: alloc::Allocator<HistogramCommand>,
                                 AllocHD: alloc::Allocator<HistogramDistance>>
-  (num_direct_distance_codes: usize,
-   distance_postfix_bits: usize,
+  (num_distance_codes: usize,
    mb: &mut MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>) {
   let mut good_for_rle: [u8; 704] = [0; 704];
-  let num_distance_codes: usize;
   let mut i: usize;
   i = 0usize;
   while i < (*mb).literal_histograms_size {
@@ -988,10 +987,6 @@ pub fn BrotliOptimizeHistograms<AllocU8: alloc::Allocator<u8>,
     }
     i = i.wrapping_add(1 as (usize));
   }
-  num_distance_codes =
-    (16usize).wrapping_add(num_direct_distance_codes).wrapping_add(((2u32).wrapping_mul(24u32) <<
-                                                                    distance_postfix_bits) as
-                                                                   (usize));
   i = 0usize;
   while i < (*mb).distance_histograms_size {
     {

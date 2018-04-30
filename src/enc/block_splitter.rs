@@ -1012,7 +1012,7 @@ pub fn BrotliSplitBlock<AllocU8: alloc::Allocator<u8>,
              let _old = j;
              j = j.wrapping_add(1 as (usize));
              _old
-           } as (usize))] = (*cmd).dist_prefix_;
+           } as (usize))] = (*cmd).dist_prefix_ & 0x3ff;
         }
       }
       i = i.wrapping_add(1 as (usize));

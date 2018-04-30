@@ -21,10 +21,12 @@ pub enum Union1 {
 
 #[derive(Clone,Copy,Debug)]
 pub struct ZopfliNode {
-    //highest 8 bit is used to reconstruct the length code
+    //highest 7 bit is used to reconstruct the length code
     pub length : u32,
+    // distance associated with the length
     pub distance : u32,
-    pub insert_length : u32,
+    // number of literal inserts before the copy; highest 5 bits contain distance short code + 1 (or zero if no short code)
+    pub dcode_insert_length : u32,
     pub u : Union1,
 }
 impl Default for ZopfliNode {
@@ -32,7 +34,7 @@ impl Default for ZopfliNode {
         ZopfliNode{
             length: 1,
             distance: 0,
-            insert_length: 0,
+            dcode_insert_length: 0,
             u: Union1::cost(kInfinity),
         }
     }
@@ -229,6 +231,8 @@ impl<AllocU32: Allocator<u32>,
                       _cur_ix: usize,
                       _max_length: usize,
                       _max_backward: usize,
+                      _gap: usize,
+                      _max_distance: usize,
                       _out: &mut HasherSearchResult)
                       -> bool {
       unimplemented!();

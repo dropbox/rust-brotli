@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 use super::hash_to_binary_tree::{InitializeH10, ZopfliNode};
+use super::constants::{BROTLI_WINDOW_GAP, BROTLI_CONTEXT_LUT, BROTLI_CONTEXT,
+                       BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
                                  H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher, H9,
@@ -18,7 +20,7 @@ use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHu
                                MetaBlockSplit, RecoderState};
                                
 use enc::input_pair::InputReference;
-use super::command::{Command, GetLengthCode, RecomputeDistancePrefixes, BrotliDistanceParams};
+use super::command::{Command, GetLengthCode, BrotliDistanceParams};
 use super::compress_fragment::BrotliCompressFragmentFast;
 use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 #[allow(unused_imports)]
@@ -26,7 +28,7 @@ use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffman
 use super::cluster::{HistogramPair};
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
 use super::static_dict::{BrotliGetDictionary, kNumDistanceCacheEntries};
-use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, Context, CostAccessors};
+use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, CostAccessors};
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::utf8_util::BrotliIsMostlyUTF8;
@@ -83,7 +85,8 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_LGWIN = 2,
   BROTLI_PARAM_LGBLOCK = 3,
   BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING = 4,
-  BROTLI_PARAM_SIZE_HINT = 5,
+    BROTLI_PARAM_SIZE_HINT = 5,
+    BROTLI_PARAM_LARGE_WINDOW = 6,
   BROTLI_PARAM_Q9_5 = 150,
   BROTLI_METABLOCK_CALLBACK = 151,
   BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
@@ -191,8 +194,8 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub last_processed_pos_: u64,
   pub dist_cache_: [i32; 16],
   pub saved_dist_cache_: [i32; kNumDistanceCacheEntries],
-  pub last_byte_: u8,
-  pub last_byte_bits_: u8,
+  pub last_bytes_: u16,
+  pub last_bytes_bits_: u8,
   pub prev_byte_: u8,
   pub prev_byte2_: u8,
   pub storage_size_: usize,
@@ -342,17 +345,32 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.size_hint = value as (usize);
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_LARGE_WINDOW as (i32) {
+    (*state).params.large_window = value != 0;
+    return 1i32;
+  }
   0i32
 }
+/* "Large Window Brotli" */
+pub const BROTLI_LARGE_MAX_DISTANCE_BITS: u32 = 62;
+pub const BROTLI_LARGE_MIN_WBITS: u32 = 10;
+pub const BROTLI_LARGE_MAX_WBITS: u32 = 30;
 
-const BROTLI_MAX_DISTANCE_BITS:u32 = 24;
-const BROTLI_MAX_DISTANCE:usize = 0x3FFFFFC;
-const BROTLI_NUM_DISTANCE_SHORT_CODES:u32 = 16;
+pub const BROTLI_MAX_DISTANCE_BITS:u32 = 24;
+pub const BROTLI_MAX_WINDOW_BITS:usize = BROTLI_MAX_DISTANCE_BITS as usize;
+pub const BROTLI_MAX_DISTANCE:usize = 0x3FFFFFC;
+pub const BROTLI_MAX_ALLOWED_DISTANCE:usize = 0x7FFFFFC;
+pub const BROTLI_NUM_DISTANCE_SHORT_CODES:u32 = 16;
 
 fn BROTLI_DISTANCE_ALPHABET_SIZE(NPOSTFIX: u32, NDIRECT:u32, MAXNBITS: u32) -> u32 {
     BROTLI_NUM_DISTANCE_SHORT_CODES + (NDIRECT) +
         ((MAXNBITS) << ((NPOSTFIX) + 1))
 }
+//#define BROTLI_NUM_DISTANCE_SYMBOLS \
+//    BROTLI_DISTANCE_ALPHABET_SIZE(  \
+//        BROTLI_MAX_NDIRECT, BROTLI_MAX_NPOSTFIX, BROTLI_LARGE_MAX_DISTANCE_BITS)
+
+pub const BROTLI_NUM_DISTANCE_SYMBOLS:usize = 1128;
 
 pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
     return BrotliEncoderParams {
@@ -364,6 +382,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            },
            mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
            log_meta_block: false,
+           large_window:false,
            quality: 9,
            q9_5: false,
            lgwin: 22i32,
@@ -384,6 +403,48 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
              literal_byte_score: 0,
            },
          };
+}
+
+fn ExtendLastCommand<AllocU8:alloc::Allocator<u8>,
+                     AllocU16:alloc::Allocator<u16>,
+                     AllocU32:alloc::Allocator<u32>,
+                     AllocI32:alloc::Allocator<i32>,
+                     AllocCommand:alloc::Allocator<Command>>(
+    s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+    bytes: &mut u32,
+    wrapped_last_processed_pos: &mut u32
+) {
+    let last_command = &mut s.commands_.slice_mut()[s.num_commands_ - 1];
+   
+    let mask = s.ringbuffer_.mask_;
+    let max_backward_distance:u64 = (1u64 << s.params.lgwin) - BROTLI_WINDOW_GAP as u64;
+    let last_copy_len = u64::from(last_command.copy_len_) & 0x1ffffff;
+    let last_processed_pos:u64 = s.last_processed_pos_ - last_copy_len;
+    let max_distance:u64 = if last_processed_pos < max_backward_distance {
+        last_processed_pos
+    } else {
+        max_backward_distance
+    };
+    let cmd_dist:u64 = s.dist_cache_[0] as u64;
+    let distance_code:u32 = super::command::CommandRestoreDistanceCode(last_command, &s.params.dist);
+    if (distance_code < BROTLI_NUM_DISTANCE_SHORT_CODES ||
+        distance_code as u64 - (BROTLI_NUM_DISTANCE_SHORT_CODES - 1) as u64 == cmd_dist) {
+        if (cmd_dist <= max_distance) {
+            while (*bytes != 0 &&
+                   s.ringbuffer_.data_mo.slice()[s.ringbuffer_.buffer_index + (*wrapped_last_processed_pos as usize & mask as usize)] ==
+                   s.ringbuffer_.data_mo.slice()[s.ringbuffer_.buffer_index + (((*wrapped_last_processed_pos as usize).wrapping_sub(cmd_dist as usize)) & mask as usize)]) {
+                last_command.copy_len_+=1;
+                (*bytes)-=1;
+                (*wrapped_last_processed_pos)+=1;
+            }
+        }
+        /* The copy length is at most the metablock size, and thus expressible. */
+        GetLengthCode(last_command.insert_len_ as usize,
+                      ((last_command.copy_len_ & 0x1FFFFFF) as i32 +
+                       (last_command.copy_len_ >> 25) as i32) as usize,
+                      ((last_command.dist_prefix_ & 0x3FF) == 0) as i32,
+                      &mut last_command.cmd_prefix_);
+    }
 }
 
 
@@ -444,8 +505,8 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     saved_dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
     cmd_bits_: [0; 128],
     cmd_depths_: [0; 128],
-    last_byte_: 0,
-    last_byte_bits_: 0,
+    last_bytes_: 0,
+    last_bytes_bits_: 0,
     cmd_code_: [0; 512],
     m8: m8,
     m16: m16,
@@ -589,20 +650,25 @@ fn RingBufferSetup<AllocU8: alloc::Allocator<u8>>(params: &BrotliEncoderParams,
   *(&mut (*rb).total_size_) = (*rb).size_.wrapping_add((*rb).tail_size_);
 }
 
-fn EncodeWindowBits(lgwin: i32, last_byte: &mut u8, last_byte_bits: &mut u8) {
-  if lgwin == 16i32 {
-    *last_byte = 0i32 as (u8);
-    *last_byte_bits = 1i32 as (u8);
-  } else if lgwin == 17i32 {
-    *last_byte = 1i32 as (u8);
-    *last_byte_bits = 7i32 as (u8);
-  } else if lgwin > 17i32 {
-    *last_byte = (lgwin - 17i32 << 1i32 | 1i32) as (u8);
-    *last_byte_bits = 4i32 as (u8);
-  } else {
-    *last_byte = (lgwin - 8i32 << 4i32 | 1i32) as (u8);
-    *last_byte_bits = 7i32 as (u8);
-  }
+fn EncodeWindowBits(lgwin: i32, large_window: bool, last_bytes: &mut u16, last_bytes_bits: &mut u8) {
+    if large_window {
+        *last_bytes = (((lgwin & 0x3F) << 8) | 0x11) as u16;
+        *last_bytes_bits = 14;
+    } else {
+        if lgwin == 16i32 {
+            *last_bytes = 0i32 as (u16);
+            *last_bytes_bits = 1i32 as (u8);
+        } else if lgwin == 17i32 {
+            *last_bytes = 1i32 as (u16);
+            *last_bytes_bits = 7i32 as (u8);
+        } else if lgwin > 17i32 {
+            *last_bytes = (lgwin - 17i32 << 1i32 | 1i32) as (u16);
+            *last_bytes_bits = 4i32 as (u8);
+        } else {
+            *last_bytes = (lgwin - 8i32 << 4i32 | 1i32) as (u16);
+            *last_bytes_bits = 7i32 as (u8);
+        }
+    }
 }
 
 fn InitCommandPrefixCodes(cmd_depths: &mut [u8],
@@ -941,6 +1007,7 @@ fn EnsureInitialized<AllocU8: alloc::Allocator<u8>,
   }
   SanitizeParams(&mut (*s).params);
   (*s).params.lgblock = ComputeLgBlock(&mut (*s).params);
+  ChooseDistanceParams(&mut s.params);
   (*s).remaining_metadata_bytes_ = !(0u32);
   RingBufferSetup(&mut (*s).params, &mut (*s).ringbuffer_);
   {
@@ -948,7 +1015,7 @@ fn EnsureInitialized<AllocU8: alloc::Allocator<u8>,
     if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
       lgwin = brotli_max_int(lgwin, 18i32);
     }
-    EncodeWindowBits(lgwin, &mut (*s).last_byte_, &mut (*s).last_byte_bits_);
+    EncodeWindowBits(lgwin, s.params.large_window, &mut (*s).last_bytes_, &mut (*s).last_bytes_bits_);
   }
   if (*s).params.quality == 0i32 {
     InitCommandPrefixCodes(&mut (*s).cmd_depths_[..],
@@ -1423,7 +1490,7 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
 
 
 pub fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
-  let num_large_blocks: usize = input_size >> 24i32;
+  let num_large_blocks: usize = input_size >> 14i32;
   let tail: usize = input_size.wrapping_sub(num_large_blocks << 24i32);
   let tail_overhead: usize = (if tail > (1i32 << 20i32) as (usize) {
                                     4i32
@@ -1464,7 +1531,7 @@ fn InitOrStitchToPreviousBlock<AllocU16: alloc::Allocator<u16>, AllocU32: alloc:
 
 fn InitInsertCommand(xself: &mut Command, insertlen: usize) {
   (*xself).insert_len_ = insertlen as (u32);
-  (*xself).copy_len_ = (4i32 << 24i32) as (u32);
+  (*xself).copy_len_ = (4i32 << 25i32) as (u32);
   (*xself).dist_extra_ = 0u32;
   (*xself).dist_prefix_ = 16i32 as (u16);
   GetLengthCode(insertlen, 4usize, 0i32, &mut (*xself).cmd_prefix_);
@@ -2018,7 +2085,7 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
   }
   let mut is_fallback: i32 = 0i32;
     if quality == 10i32 {
-    //let lg_win: i32 = brotli_min_int(24i32, brotli_max_int(16i32, lgwin));
+    //let lg_win: i32 = brotli_min_int(BROTLI_LARGE_MAX_WINDOW_BITS, brotli_max_int(16i32, lgwin));
       panic!("Unimplemented: need to set 9.5 here");
     //let mut ok: i32 = BrotliCompressBufferQuality10(lg_win,
     //                                                input_size,
@@ -2058,7 +2125,10 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
       BrotliEncoderSetParameter(s,
                                 BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
                                 input_size as (u32));
-        result = BrotliEncoderCompressStream(s,
+      if lgwin > BROTLI_MAX_WINDOW_BITS as i32 {
+          BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_LARGE_WINDOW, 1);
+      }
+      result = BrotliEncoderCompressStream(s,
                                              m64,
                                              mf64, mfv, mhl, mhc, mhd, mhp, mct, mht, mzn,
                                              BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
@@ -2109,11 +2179,11 @@ fn InjectBytePaddingBlock<AllocU8: alloc::Allocator<u8>,
                                                                                                   AllocU32,
                                                                                                   AllocI32, 
                                                                                                   AllocCommand>) {
-  let mut seal: u32 = (*s).last_byte_ as (u32);
-  let mut seal_bits: usize = (*s).last_byte_bits_ as (usize);
+  let mut seal: u32 = (*s).last_bytes_ as (u32);
+  let mut seal_bits: usize = (*s).last_bytes_bits_ as (usize);
   let destination: &mut [u8];
-  (*s).last_byte_ = 0i32 as (u8);
-  (*s).last_byte_bits_ = 0i32 as (u8);
+  (*s).last_bytes_ = 0;
+  (*s).last_bytes_bits_ = 0;
   seal = seal | 0x6u32 << seal_bits;
   seal_bits = seal_bits.wrapping_add(6usize);
   if !IsNextOutNull(&(*s).next_out_) {
@@ -2125,6 +2195,9 @@ fn InjectBytePaddingBlock<AllocU8: alloc::Allocator<u8>,
   destination[(0usize)] = seal as (u8);
   if seal_bits > 8usize {
     destination[(1usize)] = (seal >> 8i32) as (u8);
+  }
+  if seal_bits > 16usize {
+    destination[(2usize)] = (seal >> 16i32) as (u8);
   }
   (*s).available_out_ = (*s).available_out_.wrapping_add(seal_bits.wrapping_add(7usize) >> 3i32);
 }
@@ -2145,7 +2218,7 @@ fn InjectFlushOrPushOutput<AllocU8: alloc::Allocator<u8>,
             -> i32 {
   if (*s).stream_state_ as (i32) ==
      BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED as (i32) &&
-     ((*s).last_byte_bits_ as (i32) != 0i32) {
+     ((*s).last_bytes_bits_ as (i32) != 0i32) {
     InjectBytePaddingBlock(s);
     return 1i32;
   }
@@ -2446,6 +2519,7 @@ fn ShouldUseComplexStaticContextMap(input: &[u8],
     let mut total = 0u32;
     let mut entropy = [0.0 as super::util::floatX;3];
     let mut dummy = 0usize;
+    let utf8_lut = BROTLI_CONTEXT_LUT(ContextType::CONTEXT_UTF8);
     while start_pos + 64 <= end_pos {
       let stride_end_pos = start_pos + 64;
       let mut prev2 = input[start_pos & mask];
@@ -2456,7 +2530,7 @@ fn ShouldUseComplexStaticContextMap(input: &[u8],
       for pos in start_pos + 2..stride_end_pos {
         let literal = input[pos & mask];
         let context = kStaticContextMapComplexUTF8[
-            Context(prev1, prev2, ContextType::CONTEXT_UTF8) as usize] as u8;
+            BROTLI_CONTEXT(prev1, prev2, utf8_lut) as usize] as u8;
         total += 1;
         combined_histo[(literal >> 3) as usize] += 1;
         context_histo[context as usize][(literal >> 3) as usize] += 1;
@@ -2491,6 +2565,7 @@ fn ShouldUseComplexStaticContextMap(input: &[u8],
     }
   }
 }
+
 fn DecideOverLiteralContextModeling(input: &[u8],
                                     mut start_pos: usize,
                                     length: usize,
@@ -2591,11 +2666,9 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              storage: &mut [u8],
             cb: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
-  let last_byte: u8;
-  let last_byte_bits: u8;
-  //literal_context_lut == BROTLI_CONTEXT_LUT(literal_context_mode);
-  let mut num_direct_distance_codes: u32 = 0u32;
-  let mut distance_postfix_bits: u32 = 0u32;
+  let last_bytes: u16;
+  let last_bytes_bits: u8;
+  let literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
   if bytes == 0usize {
     BrotliWriteBits(2usize, 3, storage_ix, storage);
     *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
@@ -2625,17 +2698,15 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                      cb);
     return;
   }
-  last_byte = storage[(0usize)];
-  last_byte_bits = (*storage_ix & 0xffusize) as (u8);
-  if (*params).quality >= 10i32 &&
-     ((*params).mode as (i32) == BrotliEncoderMode::BROTLI_MODE_FONT as (i32)) {
-    num_direct_distance_codes = 12u32;
-    distance_postfix_bits = 1u32;
+  last_bytes = ((storage[1] as u16) << 8) | storage[0] as u16;
+  last_bytes_bits = *storage_ix as u8;
+  /*if params.dist.num_direct_distance_codes != 0 ||
+                    params.dist.distance_postfix_bits != 0 {
     RecomputeDistancePrefixes(commands,
                               num_commands,
-                              num_direct_distance_codes,
-                              distance_postfix_bits);
-  }
+                              params.dist.num_direct_distance_codes,
+                              params.dist.distance_postfix_bits);
+  }*/ // why was this removed??
   if (*params).quality <= 2i32 {
     BrotliStoreMetaBlockFast(mht,
                              m8,
@@ -2646,8 +2717,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                              wrapped_last_flush_pos as (usize),
                              bytes,
                              mask,
-                             params,
                              is_last,
+                             params,
                              saved_dist_cache,
                              commands,
                              num_commands,
@@ -2664,8 +2735,8 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                 wrapped_last_flush_pos as (usize),
                                 bytes,
                                 mask,
-                                params,
                                 is_last,
+                                params,
                                 saved_dist_cache,
                                 commands,
                                 num_commands,
@@ -2702,20 +2773,13 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                  prev_byte,
                                  prev_byte2,
                                  literal_context_mode,
+                                 literal_context_lut,
                                  num_literal_contexts,
                                  literal_context_map,
                                  commands,
                                  num_commands,
                                  &mut mb);
     } else {
-        /*
-      if BrotliIsMostlyUTF8(data,
-                            wrapped_last_flush_pos as (usize),
-                            mask,
-                            bytes,
-                            kMinUTF8Ratio) == 0 {
-        literal_context_mode = ContextType::CONTEXT_SIGNED;
-      }*/
       BrotliBuildMetaBlock(m8, m16, m32, mf64, mfv, mhl, mhc, mhd, mhp, mct,
                            data,
                            wrapped_last_flush_pos as (usize),
@@ -2732,8 +2796,11 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                            &mut mb);
     }
     if (*params).quality >= 4i32 {
-      BrotliOptimizeHistograms(num_direct_distance_codes as (usize),
-                               distance_postfix_bits as (usize),
+        let mut num_effective_dist_codes = params.dist.alphabet_size;
+        if num_effective_dist_codes > BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS as u32 {
+            num_effective_dist_codes = BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS as u32;
+        }
+        BrotliOptimizeHistograms(num_effective_dist_codes as usize,
                                &mut mb);
     }
     BrotliStoreMetaBlock(m8, m16, m32, mf64, mht,
@@ -2741,12 +2808,10 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                          wrapped_last_flush_pos as (usize),
                          bytes,
                          mask,
-                         params,
                          prev_byte,
                          prev_byte2,
                          is_last,
-                         num_direct_distance_codes,
-                         distance_postfix_bits,
+                         params,
                          literal_context_mode,
                          saved_dist_cache,
                          commands,
@@ -2763,8 +2828,9 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
       //memcpy(dist_cache,
       //     saved_dist_cache,
       //     (4usize).wrapping_mul(::std::mem::size_of::<i32>()));
-      storage[(0usize)] = last_byte;
-      *storage_ix = last_byte_bits as (usize);
+      storage[0] = last_bytes as u8;
+      storage[1] = (last_bytes >> 8) as u8;
+      *storage_ix = last_bytes_bits as (usize);
       BrotliStoreUncompressedMetaBlock(m8,
                                        m16,
                                        m32,
@@ -2782,6 +2848,41 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                        cb);
   }
 }
+
+fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
+    let mut num_direct_distance_codes = 0u32;
+    let mut distance_postfix_bits = 0u32;
+    let alphabet_size: u32;
+    let mut max_distance:usize = BROTLI_MAX_DISTANCE;
+
+    if (params.quality >= 4 &&
+        params.mode == BrotliEncoderMode::BROTLI_MODE_FONT) {
+        num_direct_distance_codes = 12;
+        distance_postfix_bits = 1;
+        max_distance = (1 << 27) + 4;
+    }
+    
+    if (params.large_window) {
+        max_distance = BROTLI_MAX_ALLOWED_DISTANCE;
+        if (num_direct_distance_codes != 0 || distance_postfix_bits != 0) {
+            max_distance = (3 << 29) - 4;
+        }
+        alphabet_size = BROTLI_DISTANCE_ALPHABET_SIZE(
+            num_direct_distance_codes, distance_postfix_bits,
+            BROTLI_LARGE_MAX_DISTANCE_BITS);
+    } else {
+        alphabet_size = BROTLI_DISTANCE_ALPHABET_SIZE(
+            num_direct_distance_codes, distance_postfix_bits,
+            BROTLI_MAX_DISTANCE_BITS);
+
+    }
+
+    params.dist.num_direct_distance_codes = num_direct_distance_codes;
+    params.dist.distance_postfix_bits = distance_postfix_bits;
+    params.dist.alphabet_size = alphabet_size;
+    params.dist.max_distance = max_distance;
+}
+        
 
 fn EncodeData<AllocU8: alloc::Allocator<u8>,
               AllocU16: alloc::Allocator<u16>,
@@ -2817,8 +2918,8 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
 //              mut output: &'a mut &'a mut [u8]
 ) -> i32 where MetablockCallback: FnMut(&[interface::Command<InputReference>]){
   let delta: u64 = UnprocessedInputSize(s);
-  let bytes: u32 = delta as (u32);
-  let wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
+  let mut bytes: u32 = delta as (u32);
+  let mut wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
   let mask: u32;
   let dictionary = BrotliGetDictionary();
   if EnsureInitialized(s) == 0 {
@@ -2841,7 +2942,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     (*s).literal_buf_ = new_buf8;
   }
   if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
-    let mut storage_ix: usize = (*s).last_byte_bits_ as (usize);
+    let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
     let mut table_size: usize = 0;
     {
     let table: &mut [i32];
@@ -2853,7 +2954,8 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                      (2u32).wrapping_mul(bytes).wrapping_add(502u32) as (usize));
     let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
       
-    (*s).storage_.slice_mut()[(0usize)] = (*s).last_byte_;
+    (*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
+    (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
     table = GetHashTable!(s, (*s).params.quality, bytes as (usize), &mut table_size);
     if (*s).params.quality == 0i32 {
       BrotliCompressFragmentFast(mht,
@@ -2880,8 +2982,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                     &mut storage_ix,
                                     (*s).storage_.slice_mut());
     }
-    (*s).last_byte_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))];
-    (*s).last_byte_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
+    (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | ((
+        (*s).storage_.slice()[((storage_ix >> 3i32) as (usize)) + 1] as u16) << 8);
+    (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
     }
     UpdateLastProcessedPos(s);
     // *output = &mut (*s).storage_.slice_mut();
@@ -2914,7 +3017,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
   let literal_context_mode = ChooseContextMode(
       &s.params, (*s).ringbuffer_.data_mo.slice(), WrapPosition(s.last_flush_pos_) as usize,
       mask as usize, (s.input_pos_.wrapping_sub(s.last_flush_pos_)) as usize);
-
+  if s.num_commands_ != 0 && s.last_insert_len_ == 0 {
+      ExtendLastCommand(s, &mut bytes, &mut wrapped_last_processed_pos);
+  }
   if false { // we are remapping 10 as quality=9.5 since Zopfli doesn't seem to offer much benefits here
     panic!(r####"
     BrotliCreateZopfliBackwardReferences(m,
@@ -3003,9 +3108,10 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
   {
     let metablock_size: u32 = (*s).input_pos_.wrapping_sub((*s).last_flush_pos_) as (u32);
     GetBrotliStorage(s,
-                     (2u32).wrapping_mul(metablock_size).wrapping_add(502u32) as (usize));
-    let mut storage_ix: usize = (*s).last_byte_bits_ as (usize);
-    (*s).storage_.slice_mut()[(0usize)] = (*s).last_byte_;
+                     (2u32).wrapping_mul(metablock_size).wrapping_add(503) as (usize));
+    let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
+    (*s).storage_.slice_mut()[(0usize)] = (*s).last_bytes_ as u8;
+    (*s).storage_.slice_mut()[(1usize)] = ((*s).last_bytes_ >> 8) as u8;
     WriteMetaBlockInternal(&mut (*s).m8, &mut (*s).m16, &mut (*s).m32, mf64, mfv, mhl, mhc, mhd, mhp, mct, mht,
                            &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                            mask as (usize),
@@ -3029,8 +3135,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                            (*s).storage_.slice_mut(),
                            callback);
 
-    (*s).last_byte_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))];
-    (*s).last_byte_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
+    (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
+          ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
+    (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
     (*s).last_flush_pos_ = (*s).input_pos_;
     if UpdateLastProcessedPos(s) != 0 {
       HasherReset(&mut (*s).hasher_);
@@ -3063,10 +3170,11 @@ fn WriteMetadataHeader<AllocU8: alloc::Allocator<u8>,
   let block_size = (*s).remaining_metadata_bytes_ as (usize);
   let header = GetNextOut!(*s);
   let mut storage_ix: usize;
-  storage_ix = (*s).last_byte_bits_ as (usize);
-  header[(0usize)] = (*s).last_byte_;
-  (*s).last_byte_ = 0i32 as (u8);
-  (*s).last_byte_bits_ = 0i32 as (u8);
+  storage_ix = (*s).last_bytes_bits_ as (usize);
+  header[(0usize)] = (*s).last_bytes_ as u8;
+  header[(1usize)] = ((*s).last_bytes_ >> 8) as u8;
+  (*s).last_bytes_ = 0;
+  (*s).last_bytes_bits_ = 0;
   BrotliWriteBits(1usize, 0, &mut storage_ix, header);
   BrotliWriteBits(2usize, 3, &mut storage_ix, header);
   BrotliWriteBits(1usize, 0, &mut storage_ix, header);
@@ -3299,10 +3407,10 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
       let force_flush: i32 =
         (*available_in == block_size &&
          (op as (i32) == BrotliEncoderOperation::BROTLI_OPERATION_FLUSH as (i32))) as (i32);
-      let max_out_size: usize = (2usize).wrapping_mul(block_size).wrapping_add(502usize);
+      let max_out_size: usize = (2usize).wrapping_mul(block_size).wrapping_add(503usize);
       let mut inplace: i32 = 1i32;
       let storage: &mut [u8];
-      let mut storage_ix: usize = (*s).last_byte_bits_ as (usize);
+      let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
       let mut table_size: usize = 0;
       let table: &mut [i32];
       if force_flush != 0 && (block_size == 0usize) {
@@ -3320,7 +3428,8 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
         GetBrotliStorage(s, max_out_size);
         storage = (*s).storage_.slice_mut();
       }
-      storage[(0usize)] = (*s).last_byte_;
+      storage[(0usize)] = (*s).last_bytes_ as u8;
+      storage[(1usize)] = ((*s).last_bytes_  >> 8) as u8;
       table = GetHashTable!(s, (*s).params.quality, block_size, &mut table_size);
       if (*s).params.quality == 0i32 {
         BrotliCompressFragmentFast(mht,
@@ -3364,8 +3473,9 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
         (*s).next_out_ = NextOut::DynamicStorage(0);
         (*s).available_out_ = out_bytes;
       }
-      (*s).last_byte_ = storage[((storage_ix >> 3i32) as (usize))];
-      (*s).last_byte_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
+      (*s).last_bytes_ = storage[((storage_ix >> 3i32) as (usize))] as u16 | (
+          ((storage[1 + ((storage_ix >> 3i32) as (usize))] as u16)<< 8));
+      (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
       if force_flush != 0 {
         (*s).stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
       }
