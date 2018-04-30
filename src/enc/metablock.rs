@@ -170,7 +170,7 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
   let orig_params = params.clone();
   let mut new_params = params.clone();
 
-  for npostfix in 0..BROTLI_MAX_NPOSTFIX {
+  for npostfix in 0..(BROTLI_MAX_NPOSTFIX + 1) {
     while ndirect_msb < 16 {
       let ndirect = ndirect_msb << npostfix;
       let skip: bool;
