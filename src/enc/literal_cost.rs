@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 use super::utf8_util::BrotliIsMostlyUTF8;
-#[allow(unused)]
-use super::util::FastLog2;
 use super::util::FastLog2f64;
 
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
@@ -149,11 +147,12 @@ fn EstimateBitCostsForLiteralsUTF8(pos: usize,
         let utf8_pos: usize = UTF8Position(last_c, c, max_utf8);
         let masked_pos: usize = pos.wrapping_add(i) & mask;
         let mut histo: usize = histogram[utf8_pos][data[(masked_pos as (usize))] as (usize)];
+          //precision is vital here: lets keep double precision
         let mut lit_cost: f64;
         if histo == 0usize {
           histo = 1usize;
         }
-        lit_cost = FastLog2f64(in_window_utf8[utf8_pos] as u64) - FastLog2f64(histo as u64);
+        lit_cost = FastLog2f64(in_window_utf8[utf8_pos] as u64) as f64 - FastLog2f64(histo as u64) as f64;
         lit_cost = lit_cost + 0.02905;
         if lit_cost < 1.0 {
           lit_cost = lit_cost * 0.5;
@@ -161,7 +160,7 @@ fn EstimateBitCostsForLiteralsUTF8(pos: usize,
         }
         if i < 2000usize {
           lit_cost = lit_cost +
-                     0.7 - ((2000usize.wrapping_sub(i) as f64) / 2000.0 * 0.35);
+                     (0.7 - (2000usize).wrapping_sub(i) as (f64) / 2000.0 * 0.35 );
         }
         cost[(i as (usize))] = lit_cost as (super::util::floatX);
       }
@@ -219,7 +218,8 @@ pub fn BrotliEstimateBitCostsForLiterals(pos: usize,
           histo = 1usize;
         }
         {
-          let mut lit_cost: f64 = FastLog2f64(in_window as u64) - FastLog2f64(histo as u64);
+          //precision is vital here: lets keep double precision
+          let mut lit_cost: f64 = FastLog2f64(in_window as u64) as f64 - FastLog2f64(histo as u64) as f64;
           lit_cost = lit_cost + 0.029;
           if lit_cost < 1.0 {
             lit_cost = lit_cost * 0.5;

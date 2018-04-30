@@ -108,11 +108,11 @@ fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
     2
   }
 }
-fn HashBytesAtOffset(v: u64, offset: i32, shift: usize) -> u32 {
+fn HashBytesAtOffset(v: u64, offset: i32, shift: usize, length: usize) -> u32 {
   0i32;
   0i32;
   {
-    let h: u64 = (v >> 8i32 * offset << 16i32).wrapping_mul(kHashMul32 as (u64));
+    let h: u64 = (v >> 8i32 * offset << ((8 - length) * 8)).wrapping_mul(kHashMul32 as (u64));
     (h >> shift) as (u32)
   }
 }
@@ -141,19 +141,21 @@ fn EmitCopyLen(copylen: usize, commands: &mut &mut [u32]) -> usize {
   core::mem::replace(commands, &mut remainder[1..]);
   1
 }
-fn Hash(p: &[u8], shift: usize) -> u32 {
-  let h: u64 = (BROTLI_UNALIGNED_LOAD64(p) << 16i32).wrapping_mul(kHashMul32 as (u64));
+fn Hash(p: &[u8], shift: usize, length:usize) -> u32 {
+  let h: u64 = (BROTLI_UNALIGNED_LOAD64(p) << ((8 - length) * 8)).wrapping_mul(kHashMul32 as (u64));
   (h >> shift) as (u32)
 }
 
-fn IsMatch(p1: &[u8], p2: &[u8]) -> i32 {
-  if !!(BROTLI_UNALIGNED_LOAD32(p1) == BROTLI_UNALIGNED_LOAD32(p2) &&
-        (p1[(4usize)] as (i32) == p2[(4usize)] as (i32)) &&
-        (p1[(5usize)] as (i32) == p2[(5usize)] as (i32))) {
-    1i32
-  } else {
-    0i32
-  }
+fn IsMatch(p1: &[u8], p2: &[u8], length: usize) -> i32 {
+    if BROTLI_UNALIGNED_LOAD32(p1) == BROTLI_UNALIGNED_LOAD32(p2) {
+        if length == 4 {
+            return 1;
+        }
+        return 
+            ((p1[(4usize)] as (i32) == p2[(4usize)] as (i32)) &&
+             (p1[(5usize)] as (i32) == p2[(5usize)] as (i32))) as i32
+    }
+    0
 }
 
 #[allow(unused_assignments)]
@@ -163,6 +165,7 @@ fn CreateCommands(input_index: usize,
                   base_ip: &[u8],
                   table: &mut [i32],
                   table_bits: usize,
+                  min_match: usize,
                   literals: &mut &mut [u8],
                   num_literals: &mut usize,
                   commands: &mut &mut [u32],
@@ -173,9 +176,9 @@ fn CreateCommands(input_index: usize,
   let mut next_emit: usize = input_index;
   let mut last_distance: i32 = -1i32;
   let kInputMarginBytes: usize = 16usize;
-  let kMinMatchLen: usize = 6usize;
+
   if block_size >= kInputMarginBytes {
-    let len_limit: usize = brotli_min_size_t(block_size.wrapping_sub(kMinMatchLen),
+    let len_limit: usize = brotli_min_size_t(block_size.wrapping_sub(min_match),
                                              input_size.wrapping_sub(kInputMarginBytes));
     let ip_limit: usize = input_index.wrapping_add(len_limit);
     let mut next_hash: u32;
@@ -184,7 +187,7 @@ fn CreateCommands(input_index: usize,
                          ip_index = ip_index.wrapping_add(1 as (usize));
                          ip_index
                        } as (usize))..],
-                     shift);
+                     shift, min_match);
     while goto_emit_remainder == 0 {
       let mut skip: u32 = 32u32;
       let mut next_ip: usize = ip_index;
@@ -212,11 +215,11 @@ fn CreateCommands(input_index: usize,
                   }
                 }
               }
-              next_hash = Hash(&base_ip[(next_ip as (usize))..], shift);
+              next_hash = Hash(&base_ip[(next_ip as (usize))..], shift, min_match);
               0i32;
               candidate = ip_index.wrapping_sub(last_distance as (usize));
               if IsMatch(&base_ip[(ip_index as (usize))..],
-                         &base_ip[(candidate as (usize))..]) != 0 {
+                         &base_ip[(candidate as (usize))..], min_match) != 0 {
                 if candidate < ip_index {
                   table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
                   {
@@ -232,7 +235,7 @@ fn CreateCommands(input_index: usize,
               table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
             }
             if !(IsMatch(&base_ip[(ip_index as (usize))..],
-                         &base_ip[(candidate as (usize))..]) == 0) {
+                         &base_ip[(candidate as (usize))..], min_match) == 0) {
               break;
             }
           }
@@ -250,11 +253,11 @@ fn CreateCommands(input_index: usize,
       }
       {
         let base: usize = ip_index;
-        let matched: usize = (6usize)
-          .wrapping_add(FindMatchLengthWithLimit(&base_ip[(candidate as (usize) + 6)..],
-                                                 &base_ip[(ip_index as (usize) + 6)..],
+        let matched: usize = min_match
+          .wrapping_add(FindMatchLengthWithLimit(&base_ip[(candidate as (usize) + min_match)..],
+                                                 &base_ip[(ip_index as (usize) + min_match)..],
                                                  ip_end.wrapping_sub(ip_index)
-                                                   .wrapping_sub(6usize)));
+                                                   .wrapping_sub(min_match)));
         let distance: i32 = base.wrapping_sub(candidate) as (i32);
         let insert: i32 = base.wrapping_sub(next_emit) as (i32);
         ip_index = ip_index.wrapping_add(matched);
@@ -286,23 +289,36 @@ fn CreateCommands(input_index: usize,
           }
         }
         {
-          assert!(ip_index >= 5);
-          // could this be off the end FIXME
-          let mut input_bytes: u64 = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 5)..]);
-          let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0i32, shift);
+          let mut input_bytes: u64;
+          let mut prev_hash: u32;
           let cur_hash: u32;
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(5usize) as (i32);
-          prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(4usize) as (i32);
-          prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
-          assert!(ip_index >= 2);
-          input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 2)..]);
-          cur_hash = HashBytesAtOffset(input_bytes, 2i32, shift);
-          prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
-          prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(1usize) as (i32);
+          if min_match == 4 {
+              input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 3)..]);
+              cur_hash = HashBytesAtOffset(input_bytes, 3i32, shift, min_match);
+              prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(1usize) as (i32);
+          }else {
+              assert!(ip_index >= 5);
+              // could this be off the end FIXME
+              input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 5)..]);
+              prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(5usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(4usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
+              assert!(ip_index >= 2);
+              input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 2)..]);
+              cur_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
+              prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(1usize) as (i32);
+          }
           candidate = table[(cur_hash as (usize))] as (usize);
           table[(cur_hash as (usize))] = ip_index as (i32);
         }
@@ -310,13 +326,13 @@ fn CreateCommands(input_index: usize,
       while ip_index.wrapping_sub(candidate) <=
             (1usize << 18i32).wrapping_sub(16usize) as (isize) as (usize) &&
             (IsMatch(&base_ip[(ip_index as (usize))..],
-                     &base_ip[(candidate as (usize))..]) != 0) {
+                     &base_ip[(candidate as (usize))..], min_match) != 0) {
         let base_index: usize = ip_index;
-        let matched: usize = (6usize)
-          .wrapping_add(FindMatchLengthWithLimit(&base_ip[(candidate as (usize) + 6)..],
-                                                 &base_ip[(ip_index as (usize) + 6)..],
+        let matched: usize = min_match
+          .wrapping_add(FindMatchLengthWithLimit(&base_ip[(candidate as (usize) + min_match)..],
+                                                 &base_ip[(ip_index as (usize) + min_match)..],
                                                  ip_end.wrapping_sub(ip_index)
-                                                   .wrapping_sub(6usize)));
+                                                   .wrapping_sub(min_match)));
         ip_index = ip_index.wrapping_add(matched);
         last_distance = base_index.wrapping_sub(candidate) as (i32);
         0i32;
@@ -333,21 +349,35 @@ fn CreateCommands(input_index: usize,
         }
         {
           assert!(ip_index >= 5);
-          let mut input_bytes: u64 = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 5)..]);
-          let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0i32, shift);
+          let mut input_bytes: u64;
+          
           let cur_hash: u32;
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(5usize) as (i32);
-          prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(4usize) as (i32);
-          prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
-          assert!(ip_index >= 2);
-          input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 2)..]);
-          cur_hash = HashBytesAtOffset(input_bytes, 2i32, shift);
-          prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
-          prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift);
-          table[(prev_hash as (usize))] = ip_index.wrapping_sub(1usize) as (i32);
+          let mut prev_hash: u32;
+          if min_match == 4 {
+              input_bytes  = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 3)..]);
+              cur_hash = HashBytesAtOffset(input_bytes, 3i32, shift, min_match);
+              prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(1usize) as (i32);
+          } else {
+              input_bytes  = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 5)..]);
+              prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(5usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(4usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
+              assert!(ip_index >= 2);
+              input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 2)..]);
+              cur_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
+              prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
+              prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
+              table[(prev_hash as (usize))] = ip_index.wrapping_sub(1usize) as (i32);
+          }
           candidate = table[(cur_hash as (usize))] as (usize);
           table[(cur_hash as (usize))] = ip_index as (i32);
         }
@@ -357,7 +387,7 @@ fn CreateCommands(input_index: usize,
                              ip_index = ip_index.wrapping_add(1 as (usize));
                              ip_index
                            } as (usize))..],
-                         shift);
+                         shift, min_match);
       }
     }
   }
@@ -682,6 +712,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
                                      literal_buf: &mut [u8],
                                      table: &mut [i32],
                                      table_bits: usize,
+                                     min_match: usize,
                                      storage_ix: &mut usize,
                                      storage: &mut [u8]){
   let mut input_index: usize = 0usize;
@@ -698,6 +729,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &
                      base_ip,
                      table,
                      table_bits,
+                     min_match,
                      &mut literals,
                      &mut num_literals,
                      &mut commands,
@@ -735,7 +767,8 @@ macro_rules! compress_specialization {
                                       literal_buf: &mut [u8],
                                       table: &mut [i32],
                                       storage_ix: &mut usize,
-                                      storage: &mut [u8]) {
+                                                         storage: &mut [u8]) {
+            let min_match = if $table_bits < 15 {4} else {6};
             BrotliCompressFragmentTwoPassImpl(mht,
                                               input,
                                               input_size,
@@ -744,6 +777,7 @@ macro_rules! compress_specialization {
                                               literal_buf,
                                               table,
                                               $table_bits,
+                                              min_match,
                                               storage_ix,
                                               storage);
         }

@@ -496,7 +496,7 @@ pub fn BrotliBuildHistogramsWithContext<'a,
           BlockSplitIteratorNext(&mut dist_it);
           context = (dist_it.type_ << 2i32).wrapping_add(CommandDistanceContext(cmd) as (usize));
           HistogramAddItem(&mut copy_dist_histograms[(context as (usize))],
-                           (*cmd).dist_prefix_ as (usize));
+                           (*cmd).dist_prefix_ as (usize) & 0x3ff);
         }
       }
     }

@@ -17,7 +17,8 @@ use super::super::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLen
 use super::super::transform::{TransformDictionaryWord};
 use super::static_dict::kNumDistanceCacheEntries;
 use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode, CommandDistanceIndexAndOffset};
-use super::constants::{BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDepth,
+use super::constants::{BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_NUM_LITERAL_SYMBOLS, BROTLI_NUM_COMMAND_SYMBOLS,
+                       BROTLI_CONTEXT_LUT, BROTLI_NUM_BLOCK_LEN_SYMBOLS, kZeroRepsBits, kZeroRepsDepth,
                        kNonZeroRepsBits, kNonZeroRepsDepth, kCodeLengthBits, kCodeLengthDepth,
                        kStaticCommandCodeDepth, kStaticCommandCodeBits, kStaticDistanceCodeDepth,
                        kStaticDistanceCodeBits, kSigned3BitContextLookup, kUTF8ContextLookup,
@@ -39,6 +40,7 @@ pub struct PrefixCodeRange {
   pub offset: u32,
   pub nbits: u32,
 }
+pub const MAX_SIMPLE_DISTANCE_ALPHABET_SIZE: usize = 140;
 
 fn window_size_from_lgwin(lgwin: i32) -> usize{
     (1usize << lgwin) - 16usize
@@ -287,8 +289,6 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
     command_queue: &mut CmdProcessor,
     input: InputPair<'a>,
     commands: &[Command],
-    n_postfix: u32,
-    n_direct: u32,
     dist_cache: &[i32;kNumDistanceCacheEntries],
     mut recoder_state :RecoderState,
     block_type: &MetaBlockSplitRefs,
@@ -317,7 +317,7 @@ fn process_command_queue<'a, Cb:FnMut(&[interface::Command<InputReference>]), Cm
         // let distance_context = CommandDistanceContext(cmd);
         let copylen_code: u32 = CommandCopyLenCode(cmd);
 
-        let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, n_postfix, n_direct);
+        let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, &params.dist);
         let final_distance: usize;
         if prev_dist_index == 0 {
             final_distance = dist_offset as usize;
@@ -461,8 +461,6 @@ fn LogMetaBlock<'a,
                     m32: &mut AllocU32,
                     mf: &mut AllocF,
                     commands: &[Command], input0: &'a[u8],input1: &'a[u8],
-                    n_postfix: u32,
-                    n_direct: u32,
                     dist_cache: &[i32;kNumDistanceCacheEntries],
                     recoder_state :&mut RecoderState,
                     block_type: MetaBlockSplitRefs,
@@ -518,8 +516,6 @@ fn LogMetaBlock<'a,
         process_command_queue(&mut stride_selector,
                               input,
                               commands,
-                              n_postfix,
-                              n_direct,
                               dist_cache,
                               *recoder_state,
                               &block_type,
@@ -537,8 +533,6 @@ fn LogMetaBlock<'a,
         process_command_queue(&mut context_map_entropy,
                          input,
                          commands,
-                         n_postfix,
-                         n_direct,
                          dist_cache,
                          *recoder_state,
                          &block_type,
@@ -578,8 +572,6 @@ fn LogMetaBlock<'a,
         process_command_queue(&mut prior_selector,
                          input,
                          commands,
-                         n_postfix,
-                         n_direct,
                          dist_cache,
                          *recoder_state,
                          &block_type,
@@ -605,8 +597,6 @@ fn LogMetaBlock<'a,
     *recoder_state = process_command_queue(&mut command_queue,
                                            input,
                                            commands,
-                                           n_postfix,
-                                           n_direct,
                                            dist_cache,
                                            *recoder_state,
                                            &block_type,
@@ -1260,7 +1250,7 @@ pub struct BlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allo
     pub alloc_u16 : AllocU16,
     pub alloc_u32 : AllocU32,
     pub alloc_ht : AllocHT,*/
-  pub alphabet_size_: usize,
+  pub histogram_length_: usize,
   pub num_block_types_: usize,
   pub block_types_: &'a [u8],
   pub block_lengths_: &'a [u32],
@@ -1340,7 +1330,7 @@ fn NewBlockTypeCodeCalculator() -> BlockTypeCodeCalculator {
 }
 
 fn NewBlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allocator<u16>>
-  (alphabet_size: usize,
+  (histogram_length: usize,
    num_block_types: usize,
    block_types: &'a [u8],
    block_lengths: &'a [u32],
@@ -1353,7 +1343,7 @@ fn NewBlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allocator
     block_len = 0;
   }
   return BlockEncoder::<AllocU8, AllocU16> {
-           alphabet_size_: alphabet_size,
+           histogram_length_: histogram_length,
            num_block_types_: num_block_types,
            block_types_: block_types,
            block_lengths_: block_lengths,
@@ -1499,7 +1489,8 @@ fn StoreSimpleHuffmanTree(depths: &[u8],
 }
 
 fn BuildAndStoreHuffmanTree(histogram: &[u32],
-                            length: usize,
+                            histogram_length: usize,
+                            alphabet_size: usize,
                             tree: &mut [HuffmanTree],
                             depth: &mut [u8],
                             bits: &mut [u16],
@@ -1510,7 +1501,7 @@ fn BuildAndStoreHuffmanTree(histogram: &[u32],
   let mut i: usize;
   let mut max_bits: usize = 0usize;
   i = 0usize;
-  'break31: while i < length {
+  'break31: while i < histogram_length {
     {
       if histogram[(i as (usize))] != 0 {
         if count < 4usize {
@@ -1526,7 +1517,7 @@ fn BuildAndStoreHuffmanTree(histogram: &[u32],
     i = i.wrapping_add(1 as (usize));
   }
   {
-    let mut max_bits_counter: usize = length.wrapping_sub(1usize);
+    let mut max_bits_counter: usize = alphabet_size.wrapping_sub(1usize);
     while max_bits_counter != 0 {
       max_bits_counter = max_bits_counter >> 1i32;
       max_bits = max_bits.wrapping_add(1 as (usize));
@@ -1540,15 +1531,15 @@ fn BuildAndStoreHuffmanTree(histogram: &[u32],
     return;
   }
 
-  for depth_elem in depth[..length].iter_mut() {
+  for depth_elem in depth[..histogram_length].iter_mut() {
     *depth_elem = 0; // memset
   }
-  BrotliCreateHuffmanTree(histogram, length, 15i32, tree, depth);
-  BrotliConvertBitDepthsToSymbols(depth, length, bits);
+  BrotliCreateHuffmanTree(histogram, histogram_length, 15i32, tree, depth);
+  BrotliConvertBitDepthsToSymbols(depth, histogram_length, bits);
   if count <= 4usize {
     StoreSimpleHuffmanTree(depth, &mut s4[..], count, max_bits, storage_ix, storage);
   } else {
-    BrotliStoreHuffmanTree(depth, length, tree, storage_ix, storage);
+    BrotliStoreHuffmanTree(depth, histogram_length, tree, storage_ix, storage);
   }
 }
 
@@ -1618,13 +1609,15 @@ fn BuildAndStoreBlockSplitCode(types: &[u8],
   if num_types > 1usize {
     BuildAndStoreHuffmanTree(&mut type_histo[0usize..],
                              num_types.wrapping_add(2usize),
+                             num_types.wrapping_add(2usize),
                              tree,
                              &mut (*code).type_depths[0usize..],
                              &mut (*code).type_bits[0usize..],
                              storage_ix,
                              storage);
     BuildAndStoreHuffmanTree(&mut length_histo[0usize..],
-                             26usize,
+                             super::constants::BROTLI_NUM_BLOCK_LEN_SYMBOLS, // 26
+                             super::constants::BROTLI_NUM_BLOCK_LEN_SYMBOLS,
                              tree,
                              &mut (*code).length_depths[0usize..],
                              &mut (*code).length_bits[0usize..],
@@ -1685,6 +1678,7 @@ fn StoreTrivialContextMap(num_types: usize,
       i = i.wrapping_add(1 as (usize));
     }
     BuildAndStoreHuffmanTree(&mut histogram[..],
+                             alphabet_size,
                              alphabet_size,
                              tree,
                              &mut depths[..],
@@ -1914,6 +1908,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(m: &mut AllocU32,
   }
   BuildAndStoreHuffmanTree(&mut histogram[..],
                            num_clusters.wrapping_add(max_run_length_prefix as (usize)),
+                           num_clusters.wrapping_add(max_run_length_prefix as (usize)),
                            tree,
                            &mut depths[..],
                            &mut bits[..],
@@ -1949,11 +1944,11 @@ fn BuildAndStoreEntropyCodes<AllocU8: alloc::Allocator<u8>,
    xself: &mut BlockEncoder<AllocU8, AllocU16>,
    histograms: &[HistogramType],
    histograms_size: usize,
+   alphabet_size: usize,
    tree: &mut [HuffmanTree],
    storage_ix: &mut usize,
    storage: &mut [u8]) {
-  let alphabet_size: usize = (*xself).alphabet_size_;
-  let table_size: usize = histograms_size.wrapping_mul(alphabet_size);
+  let table_size: usize = histograms_size.wrapping_mul(xself.histogram_length_);
   (*xself).depths_ = if table_size != 0 {
     m8.alloc_cell(table_size)
   } else {
@@ -1969,14 +1964,15 @@ fn BuildAndStoreEntropyCodes<AllocU8: alloc::Allocator<u8>,
     i = 0usize;
     while i < histograms_size {
       {
-        let ix: usize = i.wrapping_mul(alphabet_size);
-        BuildAndStoreHuffmanTree(&(histograms[(i as (usize))]).slice()[0..],
-                                 alphabet_size,
-                                 tree,
-                                 &mut (*xself).depths_.slice_mut()[(ix as (usize))..],
-                                 &mut (*xself).bits_.slice_mut()[(ix as (usize))..],
-                                 storage_ix,
-                                 storage);
+        let ix: usize = i.wrapping_mul(xself.histogram_length_);
+          BuildAndStoreHuffmanTree(&(histograms[(i as (usize))]).slice()[0..],
+                                   xself.histogram_length_,
+                                   alphabet_size,
+                                   tree,
+                                   &mut (*xself).depths_.slice_mut()[(ix as (usize))..],
+                                   &mut (*xself).bits_.slice_mut()[(ix as (usize))..],
+                                   storage_ix,
+                                   storage);
       }
       i = i.wrapping_add(1 as (usize));
     }
@@ -1997,7 +1993,7 @@ fn StoreSymbol<AllocU8: alloc::Allocator<u8>,
     let block_len: u32 = (*xself).block_lengths_[(block_ix as (usize))];
     let block_type: u8 = (*xself).block_types_[(block_ix as (usize))];
     (*xself).block_len_ = block_len as (usize);
-    (*xself).entropy_ix_ = (block_type as (usize)).wrapping_mul((*xself).alphabet_size_);
+    (*xself).entropy_ix_ = (block_type as (usize)).wrapping_mul((*xself).histogram_length_);
     StoreBlockSwitch(&mut (*xself).block_split_code_,
                      block_len,
                      block_type,
@@ -2016,7 +2012,9 @@ fn StoreSymbol<AllocU8: alloc::Allocator<u8>,
 }
 
 fn CommandCopyLenCode(xself: &Command) -> u32 {
-  (*xself).copy_len_ & 0xffffffu32 ^ (*xself).copy_len_ >> 24i32
+    let modifier = xself.copy_len_ >> 25;
+    let delta: i32 = ((modifier | ((modifier & 0x40) << 1)) as u8) as i8 as i32;
+    ((xself.copy_len_ & 0x1ffffff) as i32 + delta) as u32
 }
 fn GetInsertExtra(inscode: u16) -> u32 {
   kInsExtra[inscode as (usize)]
@@ -2097,7 +2095,7 @@ context_bits: usize){
   {
     let histo_ix: usize = context_map[((*xself).entropy_ix_.wrapping_add(context) as (usize))] as
                           (usize);
-    let ix: usize = histo_ix.wrapping_mul((*xself).alphabet_size_).wrapping_add(symbol);
+    let ix: usize = histo_ix.wrapping_mul((*xself).histogram_length_).wrapping_add(symbol);
     BrotliWriteBits((*xself).depths_.slice()[(ix as (usize))] as (u8),
                     (*xself).bits_.slice()[(ix as (usize))] as (u64),
                     storage_ix,
@@ -2150,12 +2148,10 @@ pub fn BrotliStoreMetaBlock<'a,
    start_pos: usize,
    length: usize,
    mask: usize,
-   params: &BrotliEncoderParams,
    mut prev_byte: u8,
    mut prev_byte2: u8,
    is_last: i32,
-   num_direct_distance_codes: u32,
-   distance_postfix_bits: u32,
+   params: &BrotliEncoderParams,
    literal_context_mode: ContextType,
    distance_cache: &[i32; kNumDistanceCacheEntries],
    commands: &[Command],
@@ -2168,7 +2164,7 @@ pub fn BrotliStoreMetaBlock<'a,
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
       LogMetaBlock(m8, m16, m32, mf, commands.split_at(n_commands).0, input0, input1,
-                   distance_postfix_bits, num_direct_distance_codes, distance_cache,
+                   distance_cache,
                    recoder_state,
                    block_split_reference(mb),
                    params,
@@ -2177,30 +2173,34 @@ pub fn BrotliStoreMetaBlock<'a,
   }
   let mut pos: usize = start_pos;
   let mut i: usize;
-  let num_distance_codes: usize = (16u32)
-    .wrapping_add(num_direct_distance_codes)
-    .wrapping_add(48u32 << distance_postfix_bits) as (usize);
+  let num_distance_symbols = params.dist.alphabet_size;
+  let mut num_effective_distance_symbols = num_distance_symbols as usize;
   let mut tree: AllocHT::AllocatedMemory;
+  let _literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
   let mut literal_enc: BlockEncoder<AllocU8, AllocU16>;
   let mut command_enc: BlockEncoder<AllocU8, AllocU16>;
   let mut distance_enc: BlockEncoder<AllocU8, AllocU16>;
+  let dist = &params.dist;
+  if params.large_window && num_effective_distance_symbols > BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS {
+      num_effective_distance_symbols = BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS;
+  }
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   tree = if 2i32 * 704i32 + 1i32 != 0 {
     mht.alloc_cell((2i32 * 704i32 + 1i32) as (usize))
   } else {
     AllocHT::AllocatedMemory::default()
   };
-  literal_enc = NewBlockEncoder::<AllocU8, AllocU16>(256usize,
+  literal_enc = NewBlockEncoder::<AllocU8, AllocU16>(BROTLI_NUM_LITERAL_SYMBOLS,
                                                      (*mb).literal_split.num_types,
                                                      (*mb).literal_split.types.slice(),
                                                      (*mb).literal_split.lengths.slice(),
                                                      (*mb).literal_split.num_blocks);
-  command_enc = NewBlockEncoder::<AllocU8, AllocU16>(704usize,
+  command_enc = NewBlockEncoder::<AllocU8, AllocU16>(BROTLI_NUM_COMMAND_SYMBOLS,
                                                      (*mb).command_split.num_types,
                                                      (*mb).command_split.types.slice(),
                                                      (*mb).command_split.lengths.slice(),
                                                      (*mb).command_split.num_blocks);
-  distance_enc = NewBlockEncoder::<AllocU8, AllocU16>(num_distance_codes,
+  distance_enc = NewBlockEncoder::<AllocU8, AllocU16>(num_effective_distance_symbols,
                                                       (*mb).distance_split.num_types,
                                                       (*mb).distance_split.types.slice(),
                                                       (*mb).distance_split.lengths.slice(),
@@ -2208,9 +2208,9 @@ pub fn BrotliStoreMetaBlock<'a,
   BuildAndStoreBlockSwitchEntropyCodes(&mut literal_enc, tree.slice_mut(), storage_ix, storage);
   BuildAndStoreBlockSwitchEntropyCodes(&mut command_enc, tree.slice_mut(), storage_ix, storage);
   BuildAndStoreBlockSwitchEntropyCodes(&mut distance_enc, tree.slice_mut(), storage_ix, storage);
-  BrotliWriteBits(2, distance_postfix_bits as (u64), storage_ix, storage);
+  BrotliWriteBits(2, dist.distance_postfix_bits as (u64), storage_ix, storage);
   BrotliWriteBits(4,
-                  (num_direct_distance_codes >> distance_postfix_bits) as (u64),
+                  (dist.num_direct_distance_codes >> dist.distance_postfix_bits) as (u64),
                   storage_ix,
                   storage);
   i = 0usize;
@@ -2255,6 +2255,7 @@ pub fn BrotliStoreMetaBlock<'a,
                             &mut literal_enc,
                             (*mb).literal_histograms.slice(),
                             (*mb).literal_histograms_size,
+                            BROTLI_NUM_LITERAL_SYMBOLS,
                             tree.slice_mut(),
                             storage_ix,
                             storage);
@@ -2263,6 +2264,7 @@ pub fn BrotliStoreMetaBlock<'a,
                             &mut command_enc,
                             (*mb).command_histograms.slice(),
                             (*mb).command_histograms_size,
+                            BROTLI_NUM_COMMAND_SYMBOLS,
                             tree.slice_mut(),
                             storage_ix,
                             storage);
@@ -2271,11 +2273,15 @@ pub fn BrotliStoreMetaBlock<'a,
                             &mut distance_enc,
                             (*mb).distance_histograms.slice(),
                             (*mb).distance_histograms_size,
+                            num_distance_symbols as usize,
                             tree.slice_mut(),
                             storage_ix,
                             storage);
   {
     mht.free_cell(core::mem::replace(&mut tree, AllocHT::AllocatedMemory::default()));
+  }
+  for (index, cmd) in commands[..n_commands as usize].iter().enumerate() {
+      eprint!("{}) c: 0x{:x} 0x{:x} 0x{:x} 0x{:x} 0x{:x}\n", index, cmd.insert_len_, cmd.copy_len_, cmd.dist_extra_, cmd.cmd_prefix_, cmd.dist_prefix_);
   }
   i = 0usize;
   while i < n_commands {
@@ -2323,9 +2329,9 @@ pub fn BrotliStoreMetaBlock<'a,
         prev_byte2 = input[((pos.wrapping_sub(2usize) & mask) as (usize))];
         prev_byte = input[((pos.wrapping_sub(1usize) & mask) as (usize))];
         if cmd.cmd_prefix_ as (i32) >= 128i32 {
-          let dist_code: usize = cmd.dist_prefix_ as (usize);
-          let distnumextra: u32 = cmd.dist_extra_ >> 24i32;
-          let distextra: u64 = (cmd.dist_extra_ & 0xffffffu32) as (u64);
+          let dist_code: usize = cmd.dist_prefix_ as (usize) & 0x3ff;
+          let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10i32; //FIXME: from command
+          let distextra: u64 = cmd.dist_extra_ as (u64);
           if (*mb).distance_context_map_size == 0usize {
             StoreSymbol(&mut distance_enc, dist_code, storage_ix, storage);
           } else {
@@ -2378,7 +2384,7 @@ fn BuildHistograms(input: &[u8],
       }
       pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
       if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
-        HistogramAddItem(dist_histo, cmd.dist_prefix_ as (usize));
+        HistogramAddItem(dist_histo, cmd.dist_prefix_ as (usize) & 0x3ff);
       }
     }
     i = i.wrapping_add(1 as (usize));
@@ -2424,9 +2430,9 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
       }
       pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
       if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
-        let dist_code: usize = cmd.dist_prefix_ as (usize);
-        let distnumextra: u32 = cmd.dist_extra_ >> 24i32;
-        let distextra: u32 = cmd.dist_extra_ & 0xffffff;
+        let dist_code: usize = cmd.dist_prefix_ as (usize) & 0x3ff;
+        let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10i32;
+        let distextra: u32 = cmd.dist_extra_;
         BrotliWriteBits(dist_depth[(dist_code as (usize))] as (u8),
                         dist_bits[(dist_code as (usize))] as (u64),
                         storage_ix,
@@ -2457,8 +2463,8 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
      start_pos: usize,
      length: usize,
      mask: usize,
-     params: &BrotliEncoderParams,
      is_last: i32,
+     params: &BrotliEncoderParams,
      distance_cache: &[i32; kNumDistanceCacheEntries],
      commands: &[Command],
      n_commands: usize,
@@ -2475,8 +2481,6 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
                    commands.split_at(n_commands).0,
                    input0,
                    input1,
-                   0,
-                   0,
                    distance_cache,
                    recoder_state,
                    block_split_nop(),
@@ -2491,14 +2495,15 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
   let mut lit_bits: [u16; 256] = [0; 256];
   let mut cmd_depth: [u8; 704] = [0; 704];
   let mut cmd_bits: [u16; 704] = [0; 704];
-  let mut dist_depth: [u8; 64] = [0; 64];
-  let mut dist_bits: [u16; 64] = [0; 64];
+  let mut dist_depth: [u8; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE] = [0; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE];
+  let mut dist_bits: [u16; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE] = [0; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE];
   const MAX_HUFFMAN_TREE_SIZE: usize = (2i32 * 704i32 + 1i32) as usize;
   let mut tree: [HuffmanTree; MAX_HUFFMAN_TREE_SIZE] = [HuffmanTree {
     total_count_: 0,
     index_left_: 0,
     index_right_or_value_: 0,
   }; MAX_HUFFMAN_TREE_SIZE];
+  let num_distance_symbols = params.dist.alphabet_size;
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BuildHistograms(input,
                   start_pos,
@@ -2510,21 +2515,24 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
                   &mut dist_histo);
   BrotliWriteBits(13, 0, storage_ix, storage);
   BuildAndStoreHuffmanTree(lit_histo.slice_mut(),
-                           256,
+                           BROTLI_NUM_LITERAL_SYMBOLS,
+                           BROTLI_NUM_LITERAL_SYMBOLS,
                            &mut tree[..],
                            &mut lit_depth[..],
                            &mut lit_bits[..],
                            storage_ix,
                            storage);
   BuildAndStoreHuffmanTree(cmd_histo.slice_mut(),
-                           704usize,
+                           BROTLI_NUM_COMMAND_SYMBOLS,
+                           BROTLI_NUM_COMMAND_SYMBOLS,
                            &mut tree[..],
                            &mut cmd_depth[..],
                            &mut cmd_bits[..],
                            storage_ix,
                            storage);
   BuildAndStoreHuffmanTree(dist_histo.slice_mut(),
-                           64usize,
+                           MAX_SIMPLE_DISTANCE_ALPHABET_SIZE,
+                           num_distance_symbols as usize,
                            &mut tree[..],
                            &mut dist_depth[..],
                            &mut dist_bits[..],
@@ -2647,8 +2655,8 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                 start_pos: usize,
                                 length: usize,
                                 mask: usize,
-                                params: &BrotliEncoderParams,
                                 is_last: i32,
+                                params: &BrotliEncoderParams,
                                 dist_cache: &[i32; kNumDistanceCacheEntries],
                                 commands: &[Command],
                                 n_commands: usize,
@@ -2662,12 +2670,14 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                    m16,
                    m32,
                    mf,
-                   commands.split_at(n_commands).0, input0, input1, 0, 0, dist_cache, recoder_state,
+                   commands.split_at(n_commands).0, input0, input1, dist_cache, recoder_state,
                    block_split_nop(),
                    params,
                    Some(ContextType::CONTEXT_LSB6),
                    cb);
   }
+  let num_distance_symbols = params.dist.alphabet_size;
+  let distance_alphabet_bits = Log2FloorNonZero(u64::from(num_distance_symbols) - 1) + 1;
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   BrotliWriteBits(13, 0, storage_ix, storage);
   if n_commands <= 128usize {
@@ -2730,8 +2740,8 @@ pub fn BrotliStoreMetaBlockFast<Cb,
     let mut lit_bits: [u16; 256] = [0; 256];
     let mut cmd_depth: [u8; 704] = [0; 704];
     let mut cmd_bits: [u16; 704] = [0; 704];
-    let mut dist_depth: [u8; 64] = [0; 64];
-    let mut dist_bits: [u16; 64] = [0; 64];
+    let mut dist_depth: [u8; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE] = [0; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE];
+    let mut dist_bits: [u16; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE] = [0; MAX_SIMPLE_DISTANCE_ALPHABET_SIZE];
     BuildHistograms(input,
                     start_pos,
                     mask,
@@ -2759,7 +2769,7 @@ pub fn BrotliStoreMetaBlockFast<Cb,
     BrotliBuildAndStoreHuffmanTreeFast(m,
                                        dist_histo.slice(),
                                        dist_histo.total_count_,
-                                       6usize,
+                                       distance_alphabet_bits as usize,
                                        &mut dist_depth[..],
                                        &mut dist_bits[..],
                                        storage_ix,
@@ -2843,7 +2853,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
                         dist_prefix_:0
     }];
 
-    LogMetaBlock(m8, m16, m32, mf, &cmds, input0, input1, 0, 0, &[0i32, 0i32, 0i32, 0i32], recoder_state,
+    LogMetaBlock(m8, m16, m32, mf, &cmds, input0, input1, &[0i32, 0i32, 0i32, 0i32], recoder_state,
                  block_split_nop(),
                  params,
                  None,
