@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use super::hash_to_binary_tree::{InitializeH10, ZopfliNode};
 use super::constants::{BROTLI_WINDOW_GAP, BROTLI_CONTEXT_LUT, BROTLI_CONTEXT,
-                       BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS};
+                       BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_MAX_NPOSTFIX, BROTLI_MAX_NDIRECT};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
                                  H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher, H9,
@@ -26,7 +26,7 @@ use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWri
 #[allow(unused_imports)]
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree};
 use super::cluster::{HistogramPair};
-use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms};
+use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms, BrotliInitDistanceParams};
 use super::static_dict::{BrotliGetDictionary, kNumDistanceCacheEntries};
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, CostAccessors};
 use super::super::alloc;
@@ -361,11 +361,11 @@ pub const BROTLI_MAX_WINDOW_BITS:usize = BROTLI_MAX_DISTANCE_BITS as usize;
 pub const BROTLI_MAX_DISTANCE:usize = 0x3FFFFFC;
 pub const BROTLI_MAX_ALLOWED_DISTANCE:usize = 0x7FFFFFC;
 pub const BROTLI_NUM_DISTANCE_SHORT_CODES:u32 = 16;
-
-fn BROTLI_DISTANCE_ALPHABET_SIZE(NPOSTFIX: u32, NDIRECT:u32, MAXNBITS: u32) -> u32 {
+pub fn BROTLI_DISTANCE_ALPHABET_SIZE(NPOSTFIX: u32, NDIRECT:u32, MAXNBITS: u32) -> u32 {
     BROTLI_NUM_DISTANCE_SHORT_CODES + (NDIRECT) +
         ((MAXNBITS) << ((NPOSTFIX) + 1))
 }
+
 //#define BROTLI_NUM_DISTANCE_SYMBOLS \
 //    BROTLI_DISTANCE_ALPHABET_SIZE(  \
 //        BROTLI_MAX_NDIRECT, BROTLI_MAX_NPOSTFIX, BROTLI_LARGE_MAX_DISTANCE_BITS)
@@ -2665,10 +2665,12 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              storage_ix: &mut usize,
              storage: &mut [u8],
             cb: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
+
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_bytes: u16;
   let last_bytes_bits: u8;
   let literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
+  let mut block_params = params.clone();
   if bytes == 0usize {
     BrotliWriteBits(2usize, 3, storage_ix, storage);
     *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
@@ -2784,7 +2786,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                            data,
                            wrapped_last_flush_pos as (usize),
                            mask,
-                           params,
+                           &mut block_params,
                            prev_byte,
                            prev_byte2,
                            commands,
@@ -2796,7 +2798,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                            &mut mb);
     }
     if (*params).quality >= 4i32 {
-        let mut num_effective_dist_codes = params.dist.alphabet_size;
+        let mut num_effective_dist_codes = block_params.dist.alphabet_size;
         if num_effective_dist_codes > BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS as u32 {
             num_effective_dist_codes = BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS as u32;
         }
@@ -2811,7 +2813,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                          prev_byte,
                          prev_byte2,
                          is_last,
-                         params,
+                         &block_params,
                          literal_context_mode,
                          saved_dist_cache,
                          commands,
@@ -2852,16 +2854,24 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
 fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
     let mut num_direct_distance_codes = 0u32;
     let mut distance_postfix_bits = 0u32;
-    let alphabet_size: u32;
-    let mut max_distance:usize = BROTLI_MAX_DISTANCE;
 
-    if (params.quality >= 4 &&
-        params.mode == BrotliEncoderMode::BROTLI_MODE_FONT) {
-        num_direct_distance_codes = 12;
-        distance_postfix_bits = 1;
-        max_distance = (1 << 27) + 4;
+    if params.quality >= 4 {
+        let ndirect_msb;
+        if params.mode == BrotliEncoderMode::BROTLI_MODE_FONT {
+            distance_postfix_bits = 1;
+            num_direct_distance_codes = 12;
+        } else {
+            distance_postfix_bits = params.dist.distance_postfix_bits;
+            num_direct_distance_codes = params.dist.num_direct_distance_codes;
+        }
+        ndirect_msb = (num_direct_distance_codes >> distance_postfix_bits) & 0x0f;
+        if distance_postfix_bits > BROTLI_MAX_NPOSTFIX as u32 || num_direct_distance_codes > BROTLI_MAX_NDIRECT as u32 || (ndirect_msb << distance_postfix_bits) != num_direct_distance_codes {
+            distance_postfix_bits = 0;
+            num_direct_distance_codes = 0;
+        }
     }
-    
+    BrotliInitDistanceParams(params, distance_postfix_bits, num_direct_distance_codes);
+    /*(
     if (params.large_window) {
         max_distance = BROTLI_MAX_ALLOWED_DISTANCE;
         if (num_direct_distance_codes != 0 || distance_postfix_bits != 0) {
@@ -2880,7 +2890,7 @@ fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
     params.dist.num_direct_distance_codes = num_direct_distance_codes;
     params.dist.distance_postfix_bits = distance_postfix_bits;
     params.dist.alphabet_size = alphabet_size;
-    params.dist.max_distance = max_distance;
+    params.dist.max_distance = max_distance;*/
 }
         
 

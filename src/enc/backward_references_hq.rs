@@ -266,7 +266,7 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF:Allocator<floatX>>(
     ringbuffer_mask : usize
 ) {
     let literal_costs = (*xself).literal_costs_.slice_mut();
-    let mut literal_carry : f64 = 0.0;
+    let mut literal_carry : f32 = 0.0;
     let cost_dist = (*xself).cost_dist_.slice_mut();
     let cost_cmd = &mut (*xself).cost_cmd_[..];
     let num_bytes : usize = (*xself).num_bytes_;
@@ -282,15 +282,15 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF:Allocator<floatX>>(
     i = 0usize;
     while i < num_bytes {
         {
-            literal_carry = literal_carry as f64 + literal_costs[(
+            literal_carry = literal_carry as f32 + literal_costs[(
                                                  i.wrapping_add(1usize) as (usize)
-                                             )] as f64;
+                                             )] as f32;
             literal_costs[(
                  i.wrapping_add(1usize) as (usize)
-             ) ]= (literal_costs[(i as (usize)) ] as f64 + literal_carry) as floatX;
+             ) ]= (literal_costs[(i as (usize)) ] as f32 + literal_carry) as floatX;
             literal_carry = literal_carry - (literal_costs[(
                                                   i.wrapping_add(1usize) as (usize)
-                                              ) ]- literal_costs[(i as (usize))]) as f64;
+                                              ) ]- literal_costs[(i as (usize))]) as f32;
         }
         i = i.wrapping_add(1 as (usize));
     }
@@ -1547,7 +1547,7 @@ fn ZopfliCostModelSetFromCommands<AllocF:Allocator<floatX>>(
     (*xself).min_cost_cmd_ = min_cost_cmd;
     {
         let literal_costs : &mut [floatX] = (*xself).literal_costs_.slice_mut();
-        let mut literal_carry : f64 = 0.0;
+        let mut literal_carry : f32 = 0.0;
         let num_bytes : usize = (*xself).num_bytes_;
         literal_costs[(0usize) ]= 0.0 as (floatX);
         i = 0usize;
@@ -1559,13 +1559,13 @@ fn ZopfliCostModelSetFromCommands<AllocF:Allocator<floatX>>(
                                                                i
                                                            ) & ringbuffer_mask) as (usize)
                                                       ) ]as (usize)
-                                                 )] as f64;
+                                                 )] as f32;
                 literal_costs[(
                      i.wrapping_add(1usize) as (usize)
-                 ) ]= (literal_costs[(i as (usize)) ] as f64 + literal_carry) as f32;
+                 ) ]= (literal_costs[(i as (usize)) ] as f32 + literal_carry) as f32;
                 literal_carry = literal_carry - (literal_costs[(
                                                       i.wrapping_add(1usize) as (usize)
-                                                  ) ]- literal_costs[(i as (usize))]) as f64;
+                                                  ) ]- literal_costs[(i as (usize))]) as f32;
             }
             i = i.wrapping_add(1 as (usize));
         }
@@ -1619,7 +1619,7 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
                 eprint!("{}]x{} num_matches:{} match:{}/{} nodelen {} noded {} insert_length {} noden {}\n",
                         i, subi, num_matches[i], BackwardMatch(matches[cur_match_pos+subi]).distance(),
                         BackwardMatch(matches[cur_match_pos +subi]).length_and_code(),
-                        nodes[i].length, nodes[i].distance, nodes[i].dcode_insert_length,
+                        nodes[i].length, nodes[i].distance, nodes[i].dcode_insert_length as i32,
                         match nodes[i].u {
                             Union1::shortcut(srt) => srt,
                             Union1::next(n) => n,
@@ -1680,7 +1680,7 @@ fn ZopfliIterate<AllocF:Allocator<floatX>>(
   eprint!("num_bytes:{}\n", num_bytes);
   
   for index in 0..num_bytes as usize {
-          eprint!("{}) length:{}\nd:{}\ninsert_length:{}\nn:{}\n", index, nodes[index].length, nodes[index].distance, nodes[index].dcode_insert_length, match nodes[index].u {
+          eprint!("{}) length:{}\nd:{}\ninsert_length:{}\nn:{}\n", index, nodes[index].length, nodes[index].distance, nodes[index].dcode_insert_length as i32, match nodes[index].u {
                             Union1::shortcut(srt) => srt,
                             Union1::next(n) => n,
                             Union1::cost(c) => c as u32,

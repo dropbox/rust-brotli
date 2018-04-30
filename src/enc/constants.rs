@@ -172,6 +172,8 @@ pub const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS:usize = 544;
 pub const BROTLI_NUM_LITERAL_SYMBOLS:usize = 256;
 pub const BROTLI_NUM_COMMAND_SYMBOLS:usize = 704;
 pub const BROTLI_WINDOW_GAP: usize = 16;
+pub const BROTLI_MAX_NPOSTFIX:usize = 3;
+pub const BROTLI_MAX_NDIRECT:usize = 120;
 #[inline(always)]
 pub fn BROTLI_CONTEXT_LUT(mode: super::histogram::ContextType)->&'static[u8] {
     &kContextLookup[((mode as usize) << 9)..]
