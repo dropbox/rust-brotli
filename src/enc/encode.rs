@@ -1535,11 +1535,11 @@ fn InitOrStitchToPreviousBlock<AllocU16: alloc::Allocator<u16>, AllocU32: alloc:
   handle.StitchToPreviousBlock(input_size, position, data, mask);
 }
 
-fn InitInsertCommand(xself: &mut Command, insertlen: usize) {
+pub fn InitInsertCommand(xself: &mut Command, insertlen: usize) {
   (*xself).insert_len_ = insertlen as (u32);
   (*xself).copy_len_ = (4i32 << 25i32) as (u32);
   (*xself).dist_extra_ = 0u32;
-  (*xself).dist_prefix_ = 16i32 as (u16);
+  (*xself).dist_prefix_ = (1u16 << 10) | BROTLI_NUM_DISTANCE_SHORT_CODES as (u16);
   GetLengthCode(insertlen, 4usize, 0i32, &mut (*xself).cmd_prefix_);
 }
 

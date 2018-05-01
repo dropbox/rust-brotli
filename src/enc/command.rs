@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+
 use super::util::Log2FloorNonZero;
 use super::encode::BROTLI_NUM_DISTANCE_SHORT_CODES;
 #[derive(Copy,Clone, Debug)]
@@ -157,7 +157,7 @@ pub fn PrefixEncodeCopyDistance(distance_code: usize,
   }
 }
 pub fn CommandRestoreDistanceCode(xself: &Command, dist:&BrotliDistanceParams) -> u32 {
-  if ((*xself).dist_prefix_ as (i32) & 0x3ff) < BROTLI_NUM_DISTANCE_SHORT_CODES as i32 {
+  if ((*xself).dist_prefix_ as (i32) & 0x3ff) < BROTLI_NUM_DISTANCE_SHORT_CODES as i32 + dist.num_direct_distance_codes as i32 {
     (*xself).dist_prefix_ as (u32) & 0x3ff
   } else {
       let dcode = xself.dist_prefix_ as u32 & 0x3ff;
@@ -207,6 +207,7 @@ pub fn CommandDistanceIndexAndOffset(cmd: &Command,
 
 mod test {
     // returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate
+    #[cfg(test)]
     pub fn helperCommandDistanceIndexAndOffset(cmd: &super::Command,
                                                dist: &super::BrotliDistanceParams) -> (usize, isize) {
         
@@ -266,6 +267,9 @@ mod test {
                    (0,17574));
         assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
                    helperCommandDistanceIndexAndOffset(&cmd, &param));
+        super::super::encode::InitInsertCommand(&mut cmd, 24);
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   (0,1));
         
     }
     /*
