@@ -102,6 +102,7 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_SPEED_LOW_MAX = 162,
   BROTLI_PARAM_CM_SPEED_LOW = 164,
   BROTLI_PARAM_CM_SPEED_LOW_MAX = 165,
+  BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH = 166,
 }
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
@@ -349,6 +350,10 @@ pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
     (*state).params.large_window = value != 0;
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH as (i32) {
+    (*state).params.avoid_distance_prefix_search = value != 0;
+    return 1i32;
+  }
   0i32
 }
 /* "Large Window Brotli" */
@@ -383,6 +388,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            mode: BrotliEncoderMode::BROTLI_MODE_GENERIC,
            log_meta_block: false,
            large_window:false,
+           avoid_distance_prefix_search:false,
            quality: 9,
            q9_5: false,
            lgwin: 22i32,

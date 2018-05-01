@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use super::util::Log2FloorNonZero;
 use super::encode::BROTLI_NUM_DISTANCE_SHORT_CODES;
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone, Debug)]
 pub struct BrotliDistanceParams {
     pub distance_postfix_bits : u32,
     pub num_direct_distance_codes : u32,
@@ -172,7 +172,9 @@ pub fn CommandRestoreDistanceCode(xself: &Command, dist:&BrotliDistanceParams) -
   }
 }
 
-// returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate and 45 
+
+
+// returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate
 pub fn CommandDistanceIndexAndOffset(cmd: &Command,
                                      dist: &BrotliDistanceParams) -> (usize, isize) {
     let n_postfix = dist.distance_postfix_bits;
@@ -180,83 +182,105 @@ pub fn CommandDistanceIndexAndOffset(cmd: &Command,
     let dextra = cmd.dist_extra_;
     let dprefix = cmd.dist_prefix_ & 0x3ff;
     let n_dist_bits = cmd.dist_prefix_ >> 10;
-    if dprefix < 16 {
+    if u32::from(dprefix) < BROTLI_NUM_DISTANCE_SHORT_CODES {
         let table: [(usize, isize);16]= [(1,0), (2,0),(3,0),(4,0),
                                         (1,-1), (1, 1), (1,-2), (1,2),(1,-3),(1,3),
-                                        (2,-1),(2,1),(2,-2),(2,2),(2,-3),(2,3)];
+                                         (2,-1),(2,1),(2,-2),(2,2),(2,-3),(2,3)];
+        //eprint!("AA {:?} {:?} -> {:?}\n",*cmd, *dist, table[dprefix as usize]);
         return table[dprefix as usize];
     }
-    if (dprefix as usize) < 16 + n_direct as usize {
-        return (0, dprefix as isize - 16);
+    if (dprefix as usize) < BROTLI_NUM_DISTANCE_SHORT_CODES as usize + n_direct as usize {
+        let ret = dprefix as isize + 1 - BROTLI_NUM_DISTANCE_SHORT_CODES as isize;
+        //eprint!("BB {:?} {:?} -> {:?}\n",*cmd, *dist, ret);
+        return (0, ret);
     }
     let postfix_mask = (1 << n_postfix) - 1;
-    let dcode = dprefix as u32 - 16 - n_direct;
-    //FIXME
+    let dcode = dprefix as u32 - BROTLI_NUM_DISTANCE_SHORT_CODES as u32 - n_direct;
     let hcode = dcode >> n_postfix;
     let lcode = dcode & postfix_mask;
     let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;
-    (0, (((offset + dextra) << n_postfix) + lcode + n_direct + 1) as isize)
-    
-    /*
-    if cmd.dist_prefix_ < 16 {
-        let table: [(usize, isize);16]= [(1,0), (2,0),(3,0),(4,0),
-                                        (1,-1), (1, 1), (1,-2), (1,2),(1,-3),(1,3),
-                                        (2,-1),(2,1),(2,-2),(2,2),(2,-3),(2,3)];
-        return table[cmd.dist_prefix_ as usize];
-    }
-    if (cmd.dist_prefix_ as usize) < 16 + n_direct as usize {
-        return (0, cmd.dist_prefix_ as isize - 16);
-    }
-    let postfix_mask = (1 << n_postfix) - 1;
-    let dcode = cmd.dist_prefix_ as u32 - 16 - n_direct;
-    let n_dist_bits = 1 + (dcode >> (n_postfix + 1));
 
-    let hcode = dcode >> n_postfix;
-    let lcode = dcode & postfix_mask;
-    let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;
-    (0, (((offset + dextra) << n_postfix) + lcode + n_direct + 1) as isize)
-     */
-    //FIXME
+    let ret = (((offset + dextra) << n_postfix) + lcode + n_direct + 1) as isize;
+    //assert!(ret != 0);
+    (0, ret)
 }
 
 mod test {
-    /*FIXME: revisit these tests
+    // returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate
+    pub fn helperCommandDistanceIndexAndOffset(cmd: &super::Command,
+                                               dist: &super::BrotliDistanceParams) -> (usize, isize) {
+        
+        let n_postfix = dist.distance_postfix_bits;
+        let n_direct = dist.num_direct_distance_codes;
+        let dextra = cmd.dist_extra_;
+        let dist_prefix = cmd.dist_prefix_ & 0x3ff;
+        if dist_prefix < 16 {
+            let table: [(usize, isize);16]= [(1,0), (2,0),(3,0),(4,0),
+                                             (1,-1), (1, 1), (1,-2), (1,2),(1,-3),(1,3),
+                                             (2,-1),(2,1),(2,-2),(2,2),(2,-3),(2,3)];
+            return table[cmd.dist_prefix_ as usize];
+    }
+        if (dist_prefix as usize) < 16 + n_direct as usize {
+            return (0, dist_prefix as isize + 1 - 16);
+        }
+        let postfix_mask = (1 << n_postfix) - 1;
+        let dcode = dist_prefix as u32 - 16 - n_direct;
+        let n_dist_bits = 1 + (dcode >> (n_postfix + 1));
+        
+        let hcode = dcode >> n_postfix;
+    let lcode = dcode & postfix_mask;
+        let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;
+        (0, (((offset + dextra) << n_postfix) + lcode + n_direct + 1) as isize)
+    }
     #[test]
     fn test_command_return_distance_index_offset() {
+        let param = super::BrotliDistanceParams {
+            distance_postfix_bits: 2,
+            num_direct_distance_codes: 16,
+            alphabet_size: 224,
+            max_distance: 268435456,
+        };
         let mut cmd = super::Command::default();
-        super::InitCommand(&mut cmd, &super::BrotliDistanceParams{
-            distance_postfix_bits:0,
-            num_direct_distance_codes:0,
-            alphabet_size:0,
-            max_distance:0,
-        }, 4, 4, 4, 1);
-        cmd.dist_prefix_ = 25;
-        cmd.dist_extra_ = 83886099;
-        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, 0, 0),
-                   (0, 112));
+        cmd.insert_len_ = 63;
+        cmd.copy_len_ = 3;
+        cmd.dist_extra_ = 3;
+        cmd.cmd_prefix_ = 297;
+        cmd.dist_prefix_= 2089;
         
-        cmd.dist_prefix_ = 43;
-        cmd.dist_extra_ = 234889987;
-        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, 0, 0),
-                   (0, 58112));
-        
-        cmd.dist_prefix_ = 22;
-        cmd.dist_extra_ = 67108878;
-        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, 0, 0),
-                   (0, 43));
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   (0,46));
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   helperCommandDistanceIndexAndOffset(&cmd, &param));
+        cmd = super::Command { insert_len_: 27, copy_len_: 3, dist_extra_: 0, cmd_prefix_: 281, dist_prefix_: 6 };
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   (1,-2));
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   helperCommandDistanceIndexAndOffset(&cmd, &param));
+        cmd = super::Command { insert_len_: 1, copy_len_: 3, dist_extra_: 0, cmd_prefix_: 137, dist_prefix_: 27 };
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   (0,12));
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   helperCommandDistanceIndexAndOffset(&cmd, &param));
+        cmd = super::Command { insert_len_: 5, copy_len_: 4, dist_extra_: 297, cmd_prefix_: 170, dist_prefix_: 11377 };
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   (0,17574));
+        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param),
+                   helperCommandDistanceIndexAndOffset(&cmd, &param));
         
     }
+    /*
     #[test]
     fn test_restore_distance_code() {
         for dist_code in 0..50000 {
             let mut cmd = super::Command::default();
-            super::InitCommand(&mut cmd, &super::BrotliDistanceParams{
-                distance_postfix_bits:0,
-                num_direct_distance_codes:0,
-                alphabet_size:0,
-                max_distance:0,
-            }, 4, 4, 4, dist_code);
-            let exp_dist_code = super::CommandRestoreDistanceCode(&cmd);
+            let param =super::BrotliDistanceParams{
+                distance_postfix_bits:2,
+                num_direct_distance_codes:16,
+                alphabet_size:224,
+                max_distance:268435456,
+            };
+            super::InitCommand(&mut cmd, &param, 4, 4, 4, dist_code);
+            let exp_dist_code = super::CommandRestoreDistanceCode(&cmd, &param);
             assert_eq!(exp_dist_code as u32, dist_code as u32);
         }
     }*/

@@ -86,6 +86,8 @@ pub struct BrotliEncoderParams {
   // for prior bitmask detection: stride_low, stride_speed, cm_low, cm_speed
   pub literal_adaptation:[(u16, u16); 4],
   pub large_window: bool,
+  // avoid search for the best ndirect vs npostfix parameters for distance
+  pub avoid_distance_prefix_search: bool,
 }
 
 impl Default for BrotliEncoderParams {

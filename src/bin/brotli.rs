@@ -528,6 +528,9 @@ fn main() {
           }
           continue;
       }
+      if argument == "-avoiddistanceprefixsearch" {
+          params.avoid_distance_prefix_search = true;
+      }
       if argument.starts_with("-b") {
           num_benchmarks = argument.trim_matches('-').trim_matches('b').parse::<usize>().unwrap();
           continue;

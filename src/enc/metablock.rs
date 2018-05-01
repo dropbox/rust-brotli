@@ -166,48 +166,49 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
   let mut literal_context_multiplier: usize = 1usize;
   let mut ndirect_msb:u32 = 0;
   let mut check_orig = true;
-  let mut best_dist_cost: f64 = 1e99;
-  let orig_params = params.clone();
-  let mut new_params = params.clone();
+  if !params.avoid_distance_prefix_search {
+    let mut best_dist_cost: f64 = 1e99;
+    let orig_params = params.clone();
+    let mut new_params = params.clone();
 
-  for npostfix in 0..(BROTLI_MAX_NPOSTFIX + 1) {
-    while ndirect_msb < 16 {
-      let ndirect = ndirect_msb << npostfix;
-      let skip: bool;
+    for npostfix in 0..(BROTLI_MAX_NPOSTFIX + 1) {
+      while ndirect_msb < 16 {
+        let ndirect = ndirect_msb << npostfix;
+        let skip: bool;
+        let mut dist_cost: f64 = 0.0;
+        BrotliInitDistanceParams(&mut new_params, npostfix as u32, ndirect as u32);
+        if npostfix as u32 == orig_params.dist.distance_postfix_bits &&
+            ndirect == orig_params.dist.num_direct_distance_codes {
+          check_orig = false;
+        }
+        skip = !ComputeDistanceCost(
+            cmds, num_commands,
+            &orig_params.dist, &new_params.dist, dst_scratch_space, &mut dist_cost);
+        if skip || (dist_cost > best_dist_cost) {
+          break;
+        }
+        best_dist_cost = dist_cost;
+        params.dist = new_params.dist;
+        ndirect_msb += 1;
+      }
+      if ndirect_msb > 0 {
+        ndirect_msb -= 1;
+      }
+      ndirect_msb /= 2;
+    }
+    if check_orig {
       let mut dist_cost: f64 = 0.0;
-      BrotliInitDistanceParams(&mut new_params, npostfix as u32, ndirect as u32);
-      if npostfix as u32 == orig_params.dist.distance_postfix_bits &&
-          ndirect == orig_params.dist.num_direct_distance_codes {
-        check_orig = false;
+      ComputeDistanceCost(cmds, num_commands,
+                          &orig_params.dist, &orig_params.dist, dst_scratch_space, &mut dist_cost);
+      if dist_cost < best_dist_cost {
+        // best_dist_cost = dist_cost; unused
+        params.dist = orig_params.dist;
       }
-      skip = !ComputeDistanceCost(
-          cmds, num_commands,
-          &orig_params.dist, &new_params.dist, dst_scratch_space, &mut dist_cost);
-      if skip || (dist_cost > best_dist_cost) {
-        break;
-      }
-      best_dist_cost = dist_cost;
-      params.dist = new_params.dist;
-      ndirect_msb += 1;
     }
-    if ndirect_msb > 0 {
-      ndirect_msb -= 1;
-    }
-    ndirect_msb /= 2;
-  }
-  if check_orig {
-    let mut dist_cost: f64 = 0.0;
-    ComputeDistanceCost(cmds, num_commands,
-                        &orig_params.dist, &orig_params.dist, dst_scratch_space, &mut dist_cost);
-    if dist_cost < best_dist_cost {
-      // best_dist_cost = dist_cost; unused
-      params.dist = orig_params.dist;
-    }
-  }
-  RecomputeDistancePrefixes(cmds, num_commands,
-                            &orig_params.dist, &params.dist);
+    RecomputeDistancePrefixes(cmds, num_commands,
+                              &orig_params.dist, &params.dist);
 
-
+  }
   BrotliSplitBlock(m8,
                    m16,
                    m32,

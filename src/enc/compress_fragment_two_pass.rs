@@ -704,6 +704,7 @@ fn EmitUncompressedMetaBlock(input: &[u8],
   storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
 }
 #[allow(unused_variables)]
+#[inline(always)]
 fn BrotliCompressFragmentTwoPassImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut AllocHT,
                                      base_ip: &[u8],
                                      mut input_size: usize,
