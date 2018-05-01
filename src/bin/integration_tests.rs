@@ -389,9 +389,9 @@ const random_then_unicode_compressed_size_9_5x : usize = 136045;
 
 
 #[cfg(feature="no-stdlib")]
-const alice_compressed_size_10 : usize = 47547;
+const alice_compressed_size_10 : usize = 47490;
 #[cfg(feature="no-stdlib")]
-const alice_compressed_size_11 : usize = 46507;
+const alice_compressed_size_11 : usize = 46496;
 
 #[cfg(not(feature="no-stdlib"))]
 #[cfg(not(feature="float64"))]
@@ -410,9 +410,9 @@ const alice_compressed_size_11 : usize = 46510;
 
 
 #[cfg(feature="no-stdlib")] // approx log
-const random_then_unicode_compressed_size_9_5 : usize = 136698;
+const random_then_unicode_compressed_size_9_5 : usize = 136699;
 #[cfg(feature="no-stdlib")] // approx log
-const random_then_unicode_compressed_size_9_5x : usize = 136091;
+const random_then_unicode_compressed_size_9_5x : usize = 136095;
 
 #[test]
 fn test_random_then_unicode_9_5() {
