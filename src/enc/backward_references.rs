@@ -25,7 +25,7 @@ pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32i32 | 0x1e35a7bdu64;
 pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32 as (u64);
 
 
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[repr(C)]
 pub enum BrotliEncoderMode {
   BROTLI_MODE_GENERIC = 0,
@@ -38,7 +38,7 @@ pub enum BrotliEncoderMode {
 }
 
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy, Debug)]
 pub struct BrotliHasherParams {
   // type of hasher to use (default: type 6, but others have tradeoffs of speed/memory)
   pub type_: i32,
@@ -55,7 +55,7 @@ pub struct BrotliHasherParams {
 }
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BrotliEncoderParams {
   pub dist: BrotliDistanceParams,
   // if this brotli file is generic, font or specifically text
