@@ -827,10 +827,11 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
                                  bench_decompress: bool,
                                  bench: &mut Run,
                                  quality: i32,
+                                 q9_5: bool,
 ) {
     let mut params = super::brotli::enc::BrotliEncoderInitParams();
     params.quality = quality;
-
+    params.q9_5 = q9_5;
     let mut input = UnlimitedBuffer::new(&input_slice[..]);
     let mut compressed_array = vec![0;input_slice.len() * 100/99];
     let mut rt_array = vec![0;input_slice.len() + 1];
@@ -899,7 +900,8 @@ fn test_1024k() {
                      true,
                      true,
                      &mut Passthrough{},
-                     2);
+                     2,
+                     false);
 }
 
 #[cfg(feature="benchmark")]
@@ -912,7 +914,22 @@ fn bench_e2e_decode_q9_5_1024k(bench: &mut Bencher) {
                      false,
                      true,
                      &mut BenchmarkPassthrough(bench),
-                     11);
+                     11,
+                     true);
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn bench_e2e_decode_q11_1024k(bench: &mut Bencher) {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     false,
+                     true,
+                     &mut BenchmarkPassthrough(bench),
+                     11,
+                     false);
 }
 
 #[cfg(feature="benchmark")]
@@ -925,7 +942,8 @@ fn bench_e2e_decode_q5_1024k(bench: &mut Bencher) {
                      false,
                      true,
                      &mut BenchmarkPassthrough(bench),
-                     5);
+                     5,
+                     false);
 }
 
 #[cfg(feature="benchmark")]
@@ -938,7 +956,22 @@ fn bench_e2e_rt_q9_5_1024k(bench: &mut Bencher) {
                      true,
                      true,
                      &mut BenchmarkPassthrough(bench),
-                     11);
+                     11,
+                     true);
+}
+
+#[cfg(feature="benchmark")]
+#[bench]
+fn bench_e2e_rt_q11_1024k(bench: &mut Bencher) {
+    let td = expand_test_data(1024 * 1024);
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     true,
+                     true,
+                     &mut BenchmarkPassthrough(bench),
+                     11,
+                     false);
 }
 
 #[cfg(feature="benchmark")]
@@ -951,7 +984,8 @@ fn bench_e2e_rt_q9_1024k(bench: &mut Bencher) {
                      true,
                      true,
                      &mut BenchmarkPassthrough(bench),
-                     9);
+                     9,
+                     false);
 }
 
 #[cfg(feature="benchmark")]
@@ -964,7 +998,8 @@ fn bench_e2e_rt_q5_1024k(bench: &mut Bencher) {
                      true,
                      true,
                      &mut BenchmarkPassthrough(bench),
-                     5);
+                     5,
+                     false);
 }
 
 

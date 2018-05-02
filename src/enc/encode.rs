@@ -1614,7 +1614,7 @@ fn ChooseContextMode(params: &BrotliEncoderParams,
       BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR => return ContextType::CONTEXT_SIGNED,
       _ => {},
   }
-  if (params.quality >= 9 &&
+  if (params.quality >= 10 &&
       BrotliIsMostlyUTF8(data, pos, mask, length, kMinUTF8Ratio) == 0) {
     return ContextType::CONTEXT_SIGNED;
   }
@@ -2508,7 +2508,7 @@ static kStaticContextMapComplexUTF8: [u32; 64] = [
    first 5 bits of literals. */
 fn ShouldUseComplexStaticContextMap(input: &[u8],
     mut start_pos: usize, length : usize, mask : usize, quality: i32,
-    size_hint: usize, literal_context_mode: &mut ContextType,
+    size_hint: usize,
     num_literal_contexts: &mut usize, literal_context_map: &mut &[u32]) -> bool {
   let _ = quality;
   //BROTLI_UNUSED(quality);
@@ -2564,7 +2564,6 @@ fn ShouldUseComplexStaticContextMap(input: &[u8],
     if (entropy[2] > 3.0 || entropy[1] - entropy[2] < 0.2) {
       return false;
     } else {
-      *literal_context_mode = ContextType::CONTEXT_UTF8;
       *num_literal_contexts = 13;
       *literal_context_map = &kStaticContextMapComplexUTF8;
       return true;
@@ -2578,13 +2577,11 @@ fn DecideOverLiteralContextModeling(input: &[u8],
                                     mask: usize,
                                     quality: i32,
                                     size_hint: usize,
-                                    mode: &BrotliEncoderMode,
-                                    literal_context_mode: &mut ContextType,
                                     num_literal_contexts: &mut usize,
                                     literal_context_map: &mut &[u32]) {
     
   if quality < 5i32 || length < 64usize {
-  } else if ShouldUseComplexStaticContextMap(input, start_pos, length, mask, quality, size_hint, literal_context_mode,
+  } else if ShouldUseComplexStaticContextMap(input, start_pos, length, mask, quality, size_hint,
      num_literal_contexts, literal_context_map) {
   } else {
     let end_pos: usize = start_pos.wrapping_add(length);
@@ -2614,13 +2611,6 @@ fn DecideOverLiteralContextModeling(input: &[u8],
       }
       start_pos = start_pos.wrapping_add(4096usize);
     }
-    *literal_context_mode = match *mode {
-      BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR => ContextType::CONTEXT_SIGNED,
-      BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR => ContextType::CONTEXT_UTF8,
-      BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR => ContextType::CONTEXT_MSB6,
-      BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR => ContextType::CONTEXT_LSB6,
-      _ => ContextType::CONTEXT_UTF8,
-    };
     ChooseContextMap(quality,
                      &mut bigram_prefix_histo[..],
                      num_literal_contexts,
@@ -2655,7 +2645,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              last_flush_pos: u64,
              bytes: usize,
              is_last: i32,
-             mut literal_context_mode: ContextType,
+             literal_context_mode: ContextType,
              params: &BrotliEncoderParams,
              lit_scratch_space: &mut <HistogramLiteral as CostAccessors>::i32vec,
              cmd_scratch_space: &mut <HistogramCommand as CostAccessors>::i32vec,
@@ -2769,8 +2759,6 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                          mask,
                                          (*params).quality,
                                          (*params).size_hint,
-                                         &(*params).mode,
-                                         &mut literal_context_mode,
                                          &mut num_literal_contexts,
                                          &mut literal_context_map);
       }
