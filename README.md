@@ -5,7 +5,7 @@
 
 ## Project Requirements
 
-Direct no-stdlib port of the C brotli decompressor to Rust
+Direct no-stdlib port of the C brotli compressor to Rust
 
 no dependency on the Rust stdlib: this library would be ideal for decompressing within a rust kernel among other things.
 
