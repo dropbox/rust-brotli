@@ -496,7 +496,7 @@ fn main() {
               params.stride_detection_quality = 2;
               continue;
           } else {
-              if argument.starts_with("-s") {
+              if argument.starts_with("-s") && !argument.starts_with("-speed=") {
                   params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<usize>().unwrap();
                   continue;
               }
@@ -540,7 +540,7 @@ fn main() {
         continue;
       }
       if argument == "-h" || argument == "-help" || argument == "--help" {
-        println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q12 or q[0-9] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n");
+        println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q9.5y or -q[0-11] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n\nThe -i parameter produces a cross human readdable IR representation of the file.\nThis can be ingested by other compressors.\nIR-specific options include:\n-findprior\n-speed=<inc,max,inc,max,inc,max,inc,max>");
         return;
       }
       if filenames[0] == "" {

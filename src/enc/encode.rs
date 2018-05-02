@@ -389,7 +389,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            log_meta_block: false,
            large_window:false,
            avoid_distance_prefix_search:false,
-           quality: 9,
+           quality: 11,
            q9_5: false,
            lgwin: 22i32,
            lgblock: 0i32,

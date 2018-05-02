@@ -485,6 +485,7 @@ fn LogMetaBlock<'a,
             local_distance_context_map[interface::DISTANCE_CONTEXT_MAP_OFFSET + index] = *item as u8;
         }
     }
+    
     let mut prediction_mode = interface::PredictionModeContextMap::<InputReferenceMut>{
         literal_context_map:InputReferenceMut(local_literal_context_map.split_at_mut(block_type.literal_context_map.len()).0),
         predmode_speed_and_distance_context_map:InputReferenceMut(local_distance_context_map.split_at_mut(interface::PredictionModeContextMap::<InputReference>::size_of_combined_array(block_type.distance_context_map.len())).0),
@@ -492,6 +493,9 @@ fn LogMetaBlock<'a,
     for item in prediction_mode.get_mixing_values_mut().iter_mut() {
         *item = prior_eval::WhichPrior::STRIDE1 as u8;
     }
+    prediction_mode.set_stride_context_speed([params.literal_adaptation[2], params.literal_adaptation[3]]);
+    prediction_mode.set_context_map_speed([params.literal_adaptation[0], params.literal_adaptation[1]]);
+    prediction_mode.set_combined_stride_context_speed([params.literal_adaptation[0], params.literal_adaptation[1]]);
 
     prediction_mode.set_literal_prediction_mode(interface::LiteralPredictionModeNibble(context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8));
     let mut entropy_tally_scratch;
