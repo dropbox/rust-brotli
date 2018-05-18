@@ -314,7 +314,7 @@ impl Nop<DictCommand> for DictCommand {
 
 #[derive(Debug)]
 #[cfg(not(feature="external-literal-probability"))]
-pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(core::marker::PhantomData<*const SliceType>);
+pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(core::marker::PhantomData<SliceType>);
 
 #[cfg(not(feature="external-literal-probability"))]
 impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
@@ -326,7 +326,7 @@ impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<Slice
 #[cfg(not(feature="external-literal-probability"))]
 impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceType> {
     fn default() -> Self {
-        FeatureFlagSliceType::<SliceType>(core::marker::PhantomData::<*const SliceType>::default())
+        FeatureFlagSliceType::<SliceType>(core::marker::PhantomData::<SliceType>::default())
     }
 }
 
