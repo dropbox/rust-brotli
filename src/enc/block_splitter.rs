@@ -268,7 +268,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   if num_histograms == 0 {
     return 0;
   }
-  let data_size: usize = histograms[0].slice().len();
+  let data_size: usize = histograms[0usize].slice().len();
   let bitmaplen: usize = num_histograms.wrapping_add(7usize) >> 3i32;
   let mut num_blocks: usize = 1usize;
   let mut i: usize;
@@ -337,7 +337,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
           let base_index = v_index << 3;
           let mut local_insert_cost = [0.0 as super::util::floatX; 8];
           local_insert_cost.clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
-          for sub_index in 0..8 {
+          for sub_index in 0usize .. 8usize {
             (*cost_iter).0[sub_index] += local_insert_cost[sub_index];
             let final_cost = (*cost_iter).0[sub_index];
             if final_cost < min_cost {
