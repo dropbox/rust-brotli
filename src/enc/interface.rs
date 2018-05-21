@@ -466,8 +466,10 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for Command<SliceType> {
 impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for Command<SliceType> {
 }
 
+
+
 #[inline(always)]
-pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
+pub fn free_cmd_inline<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
        match *xself {
           Command::Literal(ref mut lit) => {
              m8.free_cell(core::mem::replace(&mut lit.data, SliceTypeAllocator::AllocatedMemory::default()))
@@ -482,6 +484,11 @@ pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceType
           Command::BlockSwitchLiteral(_) |
           Command::BlockSwitchDistance(_) => {},
     }
+}
+
+#[inline(never)]
+pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
+    free_cmd_inline(xself, m8)
 }
 
 
