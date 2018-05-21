@@ -16,6 +16,7 @@ pub struct HistogramPair {
 }
 
 impl Default for HistogramPair {
+  #[inline(always)]
   fn default() -> HistogramPair {
     HistogramPair {
       idx1: 0,
@@ -26,17 +27,19 @@ impl Default for HistogramPair {
   }
 }
 /* Returns entropy reduction of the context map when we combine two clusters. */
+#[inline(always)]
 fn ClusterCostDiff(size_a: usize, size_b: usize) -> super::util::floatX {
   let size_c: usize = size_a.wrapping_add(size_b);
   size_a as (super::util::floatX) * FastLog2(size_a as u64) + size_b as (super::util::floatX) * FastLog2(size_b as u64) -
   size_c as (super::util::floatX) * FastLog2(size_c as u64)
 }
 
+#[inline(always)]
 fn brotli_max_double(a: super::util::floatX, b: super::util::floatX) -> super::util::floatX {
-  if a > b { a } else { b }
+    if a > b {a} else {b}
 }
 
-
+#[inline(always)]
 fn HistogramPairIsLess(p1: &HistogramPair, p2: &HistogramPair) -> bool {
   if (*p1).cost_diff != (*p2).cost_diff {
     if !!((*p1).cost_diff > (*p2).cost_diff) {
@@ -259,6 +262,7 @@ pub fn BrotliHistogramCombine<HistogramType:SliceWrapperMut<u32> + SliceWrapper<
 }
 
 /* What is the bit cost of moving histogram from cur_symbol to candidate. */
+#[inline(always)]
 pub fn BrotliHistogramBitCostDistance<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors + Clone>
                                              (histogram: &HistogramType,
                                              candidate: &HistogramType,

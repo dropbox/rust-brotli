@@ -41,6 +41,7 @@ pub fn ShannonEntropy(mut population: &[u32], size: usize, total: &mut usize) ->
   retval
 }
 
+#[inline(always)]
 pub fn BitsEntropy(population: &[u32], size: usize) -> super::util::floatX {
   let mut sum: usize = 0;
   let mut retval: super::util::floatX = ShannonEntropy(population, size, &mut sum);

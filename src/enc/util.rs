@@ -1,30 +1,30 @@
 #![allow(dead_code)]
-
+use core;
 #[cfg(feature="float64")]
 pub type floatX = f64;
 
 #[cfg(not(feature="float64"))]
 pub type floatX = f32;
 
+#[inline(always)]
 pub fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
-  if a > b { a } else { b }
+    core::cmp::max(a, b)
 }
+#[inline(always)]
 pub fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
-  if a > b { b } else { a }
+    core::cmp::min(a, b)
 }
-
+#[inline(always)]
 pub fn brotli_min_size_t(a: usize, b: usize) -> usize {
-  if a > b { b } else { a }
+  core::cmp::min(a,b)
 }
+#[inline(always)]
 pub fn brotli_max_size_t(a: usize, b: usize) -> usize {
-  if a > b { a } else { b }
+  core::cmp::max(a,b)
 }
+#[inline(always)]
 pub fn brotli_max_uint8_t(a: u8, b: u8) -> u8 {
-  (if a as (i32) > b as (i32) {
-     a as (i32)
-   } else {
-     b as (i32)
-   }) as (u8)
+    core::cmp::max(a,b)
 }
 
 
@@ -346,12 +346,14 @@ pub fn xFastLog2u16(v: u16) -> floatX {
 }
 
 #[cfg(not(feature="no-stdlib"))]
+#[inline(always)]
 pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
   return (2 as super::util::floatX).powf(v);
 }
 
 
 #[cfg(feature="no-stdlib")]
+#[inline(always)]
 pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
    assert!(v >= 0 as super::util::floatX);
    let round_down = v as i32;
@@ -371,9 +373,11 @@ pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
    return (1 << round_down) as super::util::floatX * x;
 }
 
+#[inline(always)]
 pub fn Log2FloorNonZero(v: u64) -> u32 {
   (63u32 ^ v.leading_zeros()) as u32
 }
+
 mod test {
   fn baseline_log2_floor_non_zero(mut n:u64) -> u32 {
     let mut result: u32 = 0u32;

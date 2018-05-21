@@ -41,6 +41,7 @@ pub const BROTLI_NUM_COMMAND_SYMBOLS:usize = 704;
 pub const BROTLI_SIMPLE_DISTANCE_ALPHABET_SIZE: usize = super::encode::BROTLI_NUM_DISTANCE_SHORT_CODES as usize +
     (2 * super::encode::BROTLI_LARGE_MAX_DISTANCE_BITS as usize);
 
+#[inline(always)]
 pub fn BrotliInitZopfliNodes(
     array : &mut [ZopfliNode], length : usize
 ) {
@@ -54,19 +55,21 @@ pub fn BrotliInitZopfliNodes(
 }
 
 
-
+#[inline(always)]
 fn ZopfliNodeCopyLength(
     xself : & ZopfliNode
 ) -> u32 {
     (*xself).length & 0x1ffffffu32
 }
 
+#[inline(always)]
 fn ZopfliNodeCopyDistance(
     xself : & ZopfliNode
 ) -> u32 {
     (*xself).distance
 }
 
+#[inline(always)]
 fn ZopfliNodeLengthCode(
     xself : & ZopfliNode
 ) -> u32 {
@@ -76,12 +79,14 @@ fn ZopfliNodeLengthCode(
     )
 }
 
+#[inline(always)]
 fn brotli_min_size_t(
     a : usize, b : usize
 ) -> usize {
-    if a < b { a } else { b }
+    core::cmp::min(a, b)
 }
 
+#[inline(always)]
 fn ZopfliNodeDistanceCode(
     xself : & ZopfliNode
 ) -> u32 {
@@ -183,7 +188,7 @@ pub fn BrotliZopfliCreateCommands(
 }
 
 
-
+#[inline(always)]
 fn MaxZopfliLen(
     params : &BrotliEncoderParams,
 ) -> usize {
@@ -222,6 +227,7 @@ pub struct StartPosQueue {
     pub idx_ : usize,
 }
 impl Default for StartPosQueue {
+    #[inline(always)]
     fn default() -> Self {
         StartPosQueue {
             q_: [PosData{pos:0,distance_cache:[0;4],costdiff:0.0, cost:0.0};8],
@@ -232,7 +238,7 @@ impl Default for StartPosQueue {
 
 
 
-
+#[inline(always)]
 fn StoreLookaheadH10() -> usize { 128usize }
 
 fn InitZopfliCostModel<AllocF:alloc::Allocator<floatX>> (
@@ -317,6 +323,7 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF:Allocator<floatX>>(
     (*xself).min_cost_cmd_ = FastLog2(11) as (floatX);
 }
 
+#[inline(always)]
 fn InitStartPosQueue() -> StartPosQueue {
     StartPosQueue::default()
 }
@@ -324,7 +331,7 @@ fn InitStartPosQueue() -> StartPosQueue {
 
 
 
-
+#[inline(always)]
 fn HashBytesH10(data : & [u8]) -> u32 {
     let h
         : u32
@@ -336,7 +343,7 @@ fn HashBytesH10(data : & [u8]) -> u32 {
     h >> 32i32 - 17i32
 }
 
-
+#[inline(always)]
 fn InitDictionaryBackwardMatch(
     xself : &mut BackwardMatchMut,
     dist : usize,
@@ -524,17 +531,20 @@ fn FindAllMatchesH10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+
     matches_offset
 }
 
+#[inline(always)]
 fn BackwardMatchLength(
     xself : & BackwardMatch
 ) -> usize {
     ((*xself).length_and_code() >> 5i32) as (usize)
 }
 
+#[inline(always)]
 fn MaxZopfliCandidates(
     params : & BrotliEncoderParams) -> usize {
     (if (*params).quality <= 10i32 { 1i32 } else { 5i32 }) as (usize)
 }
 
+#[inline(always)]
 fn ComputeDistanceShortcut(
     block_start : usize,
     pos : usize,
@@ -578,6 +588,7 @@ fn ComputeDistanceShortcut(
     }
 }
 
+#[inline(always)]
 fn ZopfliCostModelGetLiteralCosts<AllocF:Allocator<floatX>>(
     xself : & ZopfliCostModel<AllocF>, from : usize, to : usize
 ) -> floatX {
@@ -633,11 +644,13 @@ fn ComputeDistanceCache(
     }
 }
 
+#[inline(always)]
 fn StartPosQueueSize(
     xself : & StartPosQueue
 ) -> usize {
     brotli_min_size_t((*xself).idx_,8usize)
 }
+
 
 fn StartPosQueuePush(
     xself : &mut StartPosQueue, posdata : &PosData) {
@@ -729,6 +742,7 @@ fn EvaluateNode<AllocF:Allocator<floatX>>(
     }
 }
 
+#[inline(always)]
 fn StartPosQueueAt(
     xself : & StartPosQueue, k : usize
 ) -> &PosData {
@@ -737,12 +751,14 @@ fn StartPosQueueAt(
           )]
 }
 
+#[inline(always)]
 fn ZopfliCostModelGetMinCostCmd<AllocF:Allocator<floatX>>(
     xself : & ZopfliCostModel<AllocF>
 ) -> floatX {
     (*xself).min_cost_cmd_
 }
 
+#[inline(always)]
 fn ComputeMinimumCopyLength(
     start_cost : floatX,
     nodes : & [ZopfliNode],
@@ -765,26 +781,32 @@ fn ComputeMinimumCopyLength(
     }
     len
 }
-
+#[inline(always)]
 fn GetInsertExtra(inscode : u16) -> u32 {
-    kInsExtra[(inscode as (usize))
+    kInsExtra[(inscode as (usize))]
+}
 
-]}fn ZopfliCostModelGetDistanceCost<AllocF:Allocator<floatX>>(
+#[inline(always)]
+fn ZopfliCostModelGetDistanceCost<AllocF:Allocator<floatX>>(
     xself : & ZopfliCostModel<AllocF>, distcode : usize
 ) -> floatX {
     (*xself).cost_dist_.slice()[(distcode as (usize))]
 }
 
+#[inline(always)]
 fn GetCopyExtra(copycode : u16) -> u32 {
     kCopyExtra[(copycode as (usize))]
 }
 
+#[inline(always)]
 fn ZopfliCostModelGetCommandCost<AllocF:Allocator<floatX>>(
     xself : & ZopfliCostModel<AllocF>, cmdcode : u16
 ) -> floatX {
-    (*xself).cost_cmd_[(cmdcode as (usize))
+    (*xself).cost_cmd_[(cmdcode as (usize))]
+}
 
-]}fn UpdateZopfliNode(
+#[inline(always)]
+fn UpdateZopfliNode(
     nodes : &mut [ZopfliNode],
     pos : usize,
     start_pos : usize,
@@ -808,6 +830,7 @@ fn ZopfliCostModelGetCommandCost<AllocF:Allocator<floatX>>(
     (*next).u = Union1::cost(cost);
 }
 
+#[inline(always)]
 fn BackwardMatchLengthCode(
     xself : & BackwardMatch
 ) -> usize {
@@ -897,10 +920,12 @@ fn UpdateNodes<AllocF:Allocator<floatX>>(
                             let idx
                                 : usize
                                 = kDistanceCacheIndex[(j as (usize)) ]as (usize);
+                            let distance_cache_len_minus_1 = 3;
+                            debug_assert_eq!(distance_cache_len_minus_1 + 1, posdata.distance_cache.len());
                             let backward
                                 : usize
                                 = ((*posdata).distance_cache[(
-                                        idx as (usize)
+                                        idx as (usize) & distance_cache_len_minus_1
                                     )]+ i32::from(kDistanceCacheOffset[(j as (usize)) ]))as (usize);
                             let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
                             let len : usize;
@@ -1089,7 +1114,7 @@ fn UpdateNodes<AllocF:Allocator<floatX>>(
     result
 }
 
-
+#[inline(always)]
 fn CleanupZopfliCostModel<AllocF: Allocator<floatX>> (
     m : &mut AllocF, xself : &mut ZopfliCostModel<AllocF>
 ) {
@@ -1103,6 +1128,7 @@ fn CleanupZopfliCostModel<AllocF: Allocator<floatX>> (
     }
 }
 
+#[inline(always)]
 fn ZopfliNodeCommandLength(
     xself : & ZopfliNode
 ) -> u32 {
@@ -1111,6 +1137,7 @@ fn ZopfliNodeCommandLength(
     )
 }
 
+#[inline(always)]
 fn ComputeShortestPathFromNodes(
     num_bytes : usize, nodes : &mut [ZopfliNode]) -> usize {
     let mut index : usize = num_bytes;
@@ -1430,6 +1457,7 @@ fn SetCost(
     }
 }
 
+#[inline(always)]
 fn brotli_min_float(
     a : floatX, b : floatX
 ) -> floatX {

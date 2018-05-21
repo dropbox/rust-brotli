@@ -51,9 +51,11 @@ pub trait H10Params {
 
 pub struct H10DefaultParams{}
 impl H10Params for H10DefaultParams {
+    #[inline(always)]
     fn max_tree_search_depth() -> u32 {
         64
     }
+    #[inline(always)]
     fn max_tree_comp_length() -> u32 {
         128
     }
@@ -76,11 +78,13 @@ impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32> 
 }
 
 impl<AllocU32:Allocator<u32>> SliceWrapper<u32> for H10Buckets<AllocU32> {
+  #[inline(always)]
   fn slice(&self) -> &[u32] {
      self.0.slice()
   }
 }
 impl<AllocU32:Allocator<u32>> SliceWrapperMut<u32> for H10Buckets<AllocU32> {
+  #[inline(always)]
   fn slice_mut(&mut self) -> &mut [u32] {
      self.0.slice_mut()
   }
@@ -144,7 +148,9 @@ impl<AllocU32: Allocator<u32>,
   fn Opts(&self) -> H9Opts {
       H9Opts{literal_byte_score:340}
   }
+  #[inline(always)]
   fn PrepareDistanceCache(&self, _distance_cache: &mut [i32]) {}
+  #[inline(always)]   
   fn HashTypeLength(&self) -> usize {
     4
   }
@@ -172,6 +178,7 @@ impl<AllocU32: Allocator<u32>,
           );
     (h >> 32i32 - BUCKET_BITS as i32) as usize
   }
+  #[inline(always)]
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
     let max_backward
         : usize
@@ -244,9 +251,11 @@ pub struct BackwardMatch(pub u64);
 //    pub distance : u32,
 //    pub length_and_code : u32,
 impl BackwardMatch {
+    #[inline(always)]
     pub fn distance(&self) -> u32 {
         self.0 as u32
     }
+    #[inline(always)]
     pub fn length_and_code(&self) -> u32 {
         (self.0 >> 32) as u32
     }
@@ -256,21 +265,26 @@ pub struct BackwardMatchMut<'a>(pub &'a mut u64);
 //    pub distance : u32,
 //    pub length_and_code : u32,
 impl<'a> BackwardMatchMut<'a> {
+    #[inline(always)]
     pub fn distance(&self) -> u32 {
         *self.0 as u32
     }
+    #[inline(always)]
     pub fn length_and_code(&self) -> u32 {
         (*self.0 >> 32) as u32
     }
+    #[inline(always)]
     pub fn set_distance(&mut self, data: u32) {
         *self.0 &= 0xffffffff00000000;
         *self.0 |= u64::from(data)
     }
+    #[inline(always)]
     pub fn set_length_and_code(&mut self, data: u32) {
         *self.0 = u64::from((*self.0) as u32) | (u64::from(data) << 32);
     }
 }
 
+#[inline(always)]
 pub fn InitBackwardMatch(
     xself : &mut BackwardMatchMut, dist : usize, len : usize
 ) {

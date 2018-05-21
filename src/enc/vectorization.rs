@@ -6,12 +6,14 @@ use core;
 pub struct Mem256f(pub [super::util::floatX;8]);
 
 impl Default for Mem256f {
+    #[inline(always)]
     fn default() -> Mem256f {
         Mem256f([0.0 as super::util::floatX; 8])
     }
 }
 
 impl Mem256f {
+    #[inline(always)]
     pub fn new(data: v256) -> Mem256f {
         Mem256f([data.lo.x0,
                  data.lo.x1,
@@ -36,6 +38,7 @@ impl Mem256f {
 pub struct Mem256i(pub [i32;8]);
 
 impl Default for Mem256i {
+    #[inline(always)]
     fn default() -> Mem256i {
         Mem256i([0; 8])
     }
@@ -67,6 +70,7 @@ pub struct v256i {
     pub lo: v128i,    
 }
 impl v256i {
+    #[inline(always)]
     pub fn setr(f0 : i32,
     f1 : i32,
     f2 : i32,
@@ -84,6 +88,7 @@ impl v256i {
                             x1:f1,
                             x0:f0}}
     }
+    #[inline(always)]
     pub fn set(f7 : i32,
     f6 : i32,
     f5 : i32,
@@ -101,7 +106,7 @@ impl v256i {
                             x1:f1,
                             x0:f0}}
     }
-
+    #[inline(always)]
     pub fn set1(f : i32) -> v256i{
         v256i{hi:v128i{x3:f,
                             x2:f,
@@ -112,6 +117,7 @@ impl v256i {
                             x1:f,
                             x0:f}}      
     }
+    #[inline(always)]
     pub fn new(data: &Mem256i) -> v256i {
         v256i{lo:v128i{x0:data.0[0],
                             x1:data.0[1],
@@ -131,6 +137,7 @@ pub struct v128 {
     pub x0: super::util::floatX,
 }
 impl core::convert::From<v128> for v128i {
+  #[inline(always)]
   fn from(a : v128) -> Self {
      v128i{
         x3:a.x3 as i32,
@@ -141,6 +148,7 @@ impl core::convert::From<v128> for v128i {
   }
 }
 impl core::convert::From<v128i> for v128 {
+  #[inline(always)]
   fn from(a : v128i) -> Self {
      v128{
         x3:a.x3 as super::util::floatX,
@@ -155,6 +163,7 @@ pub struct v256 {
     pub lo: v128,    
 }
 impl v256 {
+    #[inline(always)]
     pub fn set1(f : super::util::floatX) -> v256{
         v256{hi:v128{x3:f,
                             x2:f,
@@ -165,6 +174,7 @@ impl v256 {
                             x1:f,
                             x0:f}}      
     }
+    #[inline(always)]
     pub fn setr(f0 : super::util::floatX,
     f1 : super::util::floatX,
     f2 : super::util::floatX,
@@ -182,6 +192,7 @@ impl v256 {
                             x1:f1,
                             x0:f0}}
     }
+    #[inline(always)]
     pub fn set(f7 : super::util::floatX,
     f6 : super::util::floatX,
     f5 : super::util::floatX,
@@ -199,6 +210,7 @@ impl v256 {
                             x1:f1,
                             x0:f0}}
     }
+    #[inline(always)]
     pub fn new(data: &Mem256f) -> v256 {
         v256{lo:v128{x0:data.0[0],
                             x1:data.0[1],
@@ -211,6 +223,7 @@ impl v256 {
     }
 }
 impl core::convert::From<v256> for v256i {
+  #[inline(always)]
   fn from(a : v256) -> Self {
      v256i{ lo:v128i::from(a.lo),
             hi:v128i::from(a.hi)}
@@ -218,6 +231,7 @@ impl core::convert::From<v256> for v256i {
 }
 
 impl core::convert::From<v256i> for v256 {
+  #[inline(always)]
   fn from(a : v256i) -> Self {
      v256{ lo:v128::from(a.lo),
            hi:v128::from(a.hi)}
@@ -636,11 +650,12 @@ macro_rules! shuf128 {
         }
     }
 }
-
+#[inline(always)]
 pub fn sum8(x : v256) -> super::util::floatX {
     return x.hi.x3 + x.hi.x2 + x.hi.x1 + x.hi.x0 +
         x.lo.x3 + x.lo.x2 + x.lo.x1 + x.lo.x0;
 }
+#[inline(always)]
 pub fn sum8i(x : v256i) -> i32 {
     return x.hi.x3 + x.hi.x2 + x.hi.x1 + x.hi.x0 +
         x.lo.x3 + x.lo.x2 + x.lo.x1 + x.lo.x0;

@@ -19,6 +19,7 @@ pub struct HistogramLiteral {
   pub bit_cost_: super::util::floatX,
 }
 impl Clone for HistogramLiteral {
+  #[inline(always)]
   fn clone(&self) -> HistogramLiteral {
     return HistogramLiteral {
              data_: self.data_,
@@ -28,6 +29,7 @@ impl Clone for HistogramLiteral {
   }
 }
 impl Default for HistogramLiteral {
+  #[inline(always)]
   fn default() -> HistogramLiteral {
     return HistogramLiteral {
              data_: [0; 256],
@@ -43,6 +45,7 @@ pub struct HistogramCommand {
   pub bit_cost_: super::util::floatX,
 }
 impl Clone for HistogramCommand {
+  #[inline(always)]
   fn clone(&self) -> HistogramCommand {
     return HistogramCommand {
              data_: self.data_,
@@ -52,6 +55,7 @@ impl Clone for HistogramCommand {
   }
 }
 impl Default for HistogramCommand {
+  #[inline(always)]
   fn default() -> HistogramCommand {
     return HistogramCommand {
              data_: [0; 704],
@@ -88,50 +92,62 @@ impl Default for HistogramDistance {
 pub trait CostAccessors {
   type i32vec : Sized + SliceWrapper<Mem256i>+SliceWrapperMut<Mem256i>;
   fn make_nnz_storage() -> Self::i32vec;
+  #[inline(always)]
   fn total_count(&self) -> usize;
+  #[inline(always)]
   fn bit_cost(&self) -> super::util::floatX;
+  #[inline(always)]
   fn set_bit_cost(&mut self, cost: super::util::floatX);
+  #[inline(always)]
   fn set_total_count(&mut self, count: usize);
 }
 impl SliceWrapper<u32> for HistogramLiteral {
+  #[inline(always)]
   fn slice(&self) -> &[u32] {
     return &self.data_[..];
   }
 }
 impl SliceWrapperMut<u32> for HistogramLiteral {
+  #[inline(always)]
   fn slice_mut(&mut self) -> &mut [u32] {
     return &mut self.data_[..];
   }
 }
 pub struct Array264i([Mem256i;33]);
 impl SliceWrapperMut<Mem256i> for Array264i {
+  #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
         return &mut self.0[..]
     }
 }
 
 impl SliceWrapper<Mem256i> for Array264i {
+  #[inline(always)]
     fn slice(&self) -> & [Mem256i] {
         return &self.0[..]
     }
 }
 impl Default for Array264i {
+  #[inline(always)]
     fn default() -> Array264i {
         return Array264i([Mem256i::default().clone();33]);
     }
 }
 pub struct Array528i([Mem256i;66]);
 impl SliceWrapperMut<Mem256i> for Array528i {
+  #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
         return &mut self.0[..]
     }
 }
 impl SliceWrapper<Mem256i> for Array528i {
+  #[inline(always)]
     fn slice(&self) -> & [Mem256i] {
         return &self.0[..]
     }
 }
 impl Default for Array528i {
+  #[inline(always)]
     fn default() -> Array528i {
         return Array528i([Mem256i::default();66]);
     }
@@ -139,16 +155,19 @@ impl Default for Array528i {
 
 pub struct Array712i([Mem256i;89]);
 impl SliceWrapperMut<Mem256i> for Array712i {
+  #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
         return &mut self.0[..]
     }
 }
 impl SliceWrapper<Mem256i> for Array712i {
+  #[inline(always)]
     fn slice(&self) -> & [Mem256i] {
         return &self.0[..]
     }
 }
 impl Default for Array712i {
+  #[inline(always)]
     fn default() -> Array712i {
         return Array712i([Mem256i::default();89]);
     }
@@ -158,17 +177,20 @@ impl Default for Array712i {
 pub struct EmptyIVec{}
 
 impl SliceWrapperMut<Mem256i> for EmptyIVec {
+  #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
         return &mut []
     }
 }
 impl SliceWrapper<Mem256i> for EmptyIVec {
+  #[inline(always)]
     fn slice(&self) -> & [Mem256i] {
         return & []
     }
 }
 
 impl Default for EmptyIVec {
+  #[inline(always)]
     fn default() -> EmptyIVec {
         return EmptyIVec{};
     }
@@ -185,26 +207,32 @@ impl CostAccessors for HistogramLiteral {
   fn make_nnz_storage() -> Self::i32vec {
       return HistogramLiteralScratch::default();
   }
+  #[inline(always)]
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
+  #[inline(always)]
   fn bit_cost(&self) -> super::util::floatX {
     return self.bit_cost_;
   }
+  #[inline(always)]
   fn set_bit_cost(&mut self, data: super::util::floatX) {
     self.bit_cost_ = data;
   }
+  #[inline(always)]
   fn set_total_count(&mut self, data: usize) {
     self.total_count_ = data;
   }
 }
 
 impl SliceWrapper<u32> for HistogramCommand {
+  #[inline(always)]
   fn slice(&self) -> &[u32] {
     return &self.data_[..];
   }
 }
 impl SliceWrapperMut<u32> for HistogramCommand {
+  #[inline(always)]
   fn slice_mut(&mut self) -> &mut [u32] {
     return &mut self.data_[..];
   }
@@ -222,26 +250,32 @@ impl CostAccessors for HistogramCommand {
   fn make_nnz_storage() -> Self::i32vec {
       return HistogramCommandScratch::default();
   }
+  #[inline(always)]
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
+  #[inline(always)]
   fn bit_cost(&self) -> super::util::floatX {
     return self.bit_cost_;
   }
+  #[inline(always)]
   fn set_bit_cost(&mut self, data: super::util::floatX) {
     self.bit_cost_ = data;
   }
+  #[inline(always)]
   fn set_total_count(&mut self, data: usize) {
     self.total_count_ = data;
   }
 }
 
 impl SliceWrapper<u32> for HistogramDistance {
+  #[inline(always)]
   fn slice(&self) -> &[u32] {
     return &self.data_[..];
   }
 }
 impl SliceWrapperMut<u32> for HistogramDistance {
+  #[inline(always)]
   fn slice_mut(&mut self) -> &mut [u32] {
     return &mut self.data_[..];
   }
@@ -260,15 +294,19 @@ impl CostAccessors for HistogramDistance {
       return HistogramDistanceScratch::default();
   }
 
+  #[inline(always)]
   fn total_count(&self) -> usize {
     return self.total_count_;
   }
+  #[inline(always)]
   fn bit_cost(&self) -> super::util::floatX {
     return self.bit_cost_;
   }
+  #[inline(always)]
   fn set_bit_cost(&mut self, data: super::util::floatX) {
     self.bit_cost_ = data;
   }
+  #[inline(always)]
   fn set_total_count(&mut self, data: usize) {
     self.total_count_ = data;
   }
@@ -285,6 +323,7 @@ pub enum ContextType {
 }
 
 impl Default for ContextType {
+  #[inline(always)]
   fn default() -> ContextType {
     ContextType::CONTEXT_LSB6
   }
@@ -372,6 +411,7 @@ pub fn HistogramAddVector<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32
   }
 }
 
+#[inline(always)]
 pub fn HistogramClear<HistogramType:SliceWrapperMut<u32>+CostAccessors>(xself: &mut HistogramType){
   for data_elem in xself.slice_mut().iter_mut() {
     *data_elem = 0;
@@ -385,6 +425,7 @@ pub fn ClearHistograms<HistogramType:SliceWrapperMut<u32>+CostAccessors>(array: 
   }
 }
 
+#[inline(always)]
 pub fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors>(
     xself : &mut HistogramType, v : &HistogramType
 ){
@@ -415,6 +456,7 @@ pub fn HistogramSelfAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapp
   }
 }
 
+#[inline(always)]
 pub fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
   match mode {
     ContextType::CONTEXT_SIGNED => {

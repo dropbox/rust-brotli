@@ -127,7 +127,7 @@ pub fn SlowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize
   }
   return limit;
 }
-
+#[inline] 
 pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
   let mut s1_as_64 : u64;
@@ -158,6 +158,8 @@ pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) 
           sub_match8!(s1, s2, limit, matched, s1_as_64, s2_as_64);
       }
   }
+  assert!(s1.len() >= (limit & 7usize));
+  assert!(s2.len() >= (limit & 7usize));
   for index in 0..(limit & 7usize) {
     if s1[index] != s2[index] {
       return matched + index;

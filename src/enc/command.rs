@@ -46,6 +46,7 @@ pub fn CommandDistanceContext(xself: &Command) -> u32 {
   }
 }
 
+#[inline(always)]
 pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i32]) -> usize {
   if distance <= max_distance {
     let distance_plus_3: usize = distance.wrapping_add(3usize);
@@ -68,7 +69,7 @@ pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i
   distance.wrapping_add(16usize).wrapping_sub(1usize)
 }
 
-
+#[inline(always)]
 pub fn GetInsertLengthCode(insertlen: usize) -> u16 {
   if insertlen < 6usize {
     insertlen as (u16)
@@ -88,6 +89,7 @@ pub fn GetInsertLengthCode(insertlen: usize) -> u16 {
   }
 }
 
+#[inline(always)]
 pub fn GetCopyLengthCode(copylen: usize) -> u16 {
   if copylen < 10usize {
     copylen.wrapping_sub(2usize) as (u16)
@@ -103,6 +105,7 @@ pub fn GetCopyLengthCode(copylen: usize) -> u16 {
   }
 }
 
+#[inline(always)]
 pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u16 {
   let bits64: u16 = (copycode as (u32) & 0x7u32 | (inscode as (u32) & 0x7u32) << 3i32) as (u16);
   if use_last_distance != 0 && (inscode as (i32) < 8i32) && (copycode as (i32) < 16i32) {
@@ -119,6 +122,7 @@ pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -
   }
 }
 
+#[inline(always)]
 pub fn GetLengthCode(insertlen: usize,
                      copylen: usize,
                      use_last_distance: i32,

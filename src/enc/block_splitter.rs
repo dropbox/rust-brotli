@@ -39,6 +39,7 @@ static kIterMulForRefining: usize = 2usize;
 
 static kMinItersForRefining: usize = 100usize;
 
+#[inline(always)]
 fn update_cost_and_signal(num_histograms32: u32,
                           ix: usize,
                           min_cost: super::util::floatX,

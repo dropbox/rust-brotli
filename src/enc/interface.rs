@@ -148,6 +148,7 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
     }
 }
 impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
+    #[inline]
     pub fn from_mut<Other:SliceWrapper<u8>>(other: PredictionModeContextMap<Other>) -> PredictionModeContextMap<SliceType> where SliceType: From<Other>{
         PredictionModeContextMap::<SliceType>{
             literal_context_map:SliceType::from(other.literal_context_map),
@@ -159,6 +160,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         &cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
     }
+    #[inline]
     pub fn has_context_speeds(&self) -> bool {
         self.predmode_speed_and_distance_context_map.slice().len() >= DISTANCE_CONTEXT_MAP_OFFSET
     }
@@ -210,6 +212,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     pub fn combined_stride_context_speed_max_offset() -> usize {
         SPEED_OFFSET + 10
     }
+    #[inline]
     pub fn literal_prediction_mode(&self) -> LiteralPredictionModeNibble {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         if PREDMODE_OFFSET < cm_slice.len() {
@@ -263,6 +266,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
 }
 
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceType> {
+   #[inline(always)]
    fn clone(&self) -> Self {
       PredictionModeContextMap::<SliceType> {
          literal_context_map:self.literal_context_map.clone(),
@@ -414,6 +418,7 @@ pub enum Command<SliceType:SliceWrapper<u8> > {
     PredictionMode(PredictionModeContextMap<SliceType>),
 }
 impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
+    #[inline]
     pub fn free_array<F>(&mut self, apply_func: &mut F) where F: FnMut(SliceType) {
        match self {
           &mut Command::Literal(ref mut lit) => {
@@ -444,6 +449,7 @@ impl<SliceType:SliceWrapper<u8>> Nop<Command<SliceType>> for Command<SliceType> 
 }
 
 impl<SliceType:SliceWrapper<u8>+Clone> Clone for Command<SliceType> {
+    #[inline]
     fn clone(&self) -> Command<SliceType>{
         match self {
             &Command::Copy(ref copy) => Command::Copy(copy.clone()),
@@ -460,6 +466,7 @@ impl<SliceType:SliceWrapper<u8>+Clone> Clone for Command<SliceType> {
 impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for Command<SliceType> {
 }
 
+#[inline(always)]
 pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
        match *xself {
           Command::Literal(ref mut lit) => {
@@ -519,6 +526,7 @@ pub trait CommandProcessor<'a> {
    }
 }
 
+#[inline(always)]
 pub fn speed_to_u8(data: u16) -> u8 {
     let length = 16 - data.leading_zeros() as u8;
     let mantissa = if data != 0 {
@@ -530,6 +538,7 @@ pub fn speed_to_u8(data: u16) -> u8 {
     (length << 3) | mantissa as u8
 }
 
+#[inline(always)]
 pub fn u8_to_speed(data: u8) -> u16 {
     if data < 8 {
         0

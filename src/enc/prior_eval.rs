@@ -29,17 +29,20 @@ pub enum WhichPrior {
 
 pub trait Prior {
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize;
+    #[inline]
     fn lookup_mut(data:&mut [u16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> CDF {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble) * NIBBLE_PRIOR_SIZE;
         CDF::from(data.split_at_mut(index).1.split_at_mut(16).0)
     }
+    #[inline]
     fn lookup(data:&[u16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> &[u16] {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble) * NIBBLE_PRIOR_SIZE;
         data.split_at(index).1.split_at(16).0
     }
     #[allow(unused_variables)]
+    #[inline]
     fn score_index(stride_byte: u8, selected_context: u8, actual_context: usize, high_nibble: Option<u8>) -> usize {
         let which: WhichPrior = Self::which();
         if let Some(nibble) = high_nibble {
@@ -52,6 +55,7 @@ pub trait Prior {
 }
 
 #[allow(unused_variables)]
+#[inline]
 fn stride_lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
     if let Some(nibble) = high_nibble {
         1 + 2 * (actual_context as usize
@@ -70,9 +74,11 @@ impl Stride1Prior {
 }
 
 impl Prior for Stride1Prior {
+    #[inline]
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
+    #[inline]
     fn which() -> WhichPrior {
         WhichPrior::STRIDE1
     }
@@ -83,15 +89,18 @@ impl Prior for Stride1Prior {
 pub struct Stride2Prior{
 }
 impl Stride2Prior {
+    #[inline(always)]
     pub fn offset() -> usize{
         1
     }
 }
 
 impl Prior for Stride2Prior {
+    #[inline(always)]
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
+    #[inline]
     fn which() -> WhichPrior {
         WhichPrior::STRIDE2
     }
@@ -102,15 +111,18 @@ impl Prior for Stride2Prior {
 pub struct Stride3Prior{
 }
 impl Stride3Prior {
+    #[inline(always)]
     pub fn offset() -> usize{
         2
     }
 }
 
 impl Prior for Stride3Prior {
+    #[inline(always)]
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
+    #[inline]
     fn which() -> WhichPrior {
         WhichPrior::STRIDE3
     }
@@ -122,14 +134,17 @@ impl Prior for Stride3Prior {
 pub struct Stride4Prior{
 }
 impl Stride4Prior {
+    #[inline(always)]
     pub fn offset() -> usize{
         3
     }
 }
 impl Prior for Stride4Prior {
+    #[inline(always)]
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
+    #[inline]
     fn which() -> WhichPrior {
         WhichPrior::STRIDE4
     }
@@ -144,6 +159,7 @@ impl StridePrior for Stride8Prior {
     const STRIDE_OFFSET:usize = 7;
 }*/
 impl Stride8Prior {
+    #[inline(always)]
     pub fn offset() -> usize{
         7
     }
@@ -152,6 +168,7 @@ impl Prior for Stride8Prior {
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
+    #[inline]
     fn which() -> WhichPrior {
         WhichPrior::STRIDE8
     }
@@ -168,6 +185,7 @@ impl Prior for CMPrior {
             17 * actual_context as usize
         }
     }
+    #[inline]
     fn which() -> WhichPrior {
         WhichPrior::CM
     }
@@ -183,6 +201,7 @@ impl Prior for SlowCMPrior {
             17 * actual_context as usize
         }
     }
+    #[inline]
     fn which() -> WhichPrior {
         WhichPrior::SLOW_CM
     }
@@ -212,6 +231,7 @@ pub struct CDF<'a> {
 }
 
 impl<'a> CDF<'a> {
+    #[inline(always)]
     pub fn cost(&self, nibble_u8:u8) -> floatX {
         assert_eq!(self.cdf.len(), 16);
         let nibble = nibble_u8 as usize & 0xf;
@@ -221,6 +241,7 @@ impl<'a> CDF<'a> {
         }
         FastLog2u16(self.cdf[15]) - FastLog2u16(pdf)
     }
+    #[inline(always)]
     pub fn update(&mut self, nibble_u8:u8, speed: (u16, u16)) {
         assert_eq!(self.cdf.len(), 16);
         for nib_range in (nibble_u8 as usize & 0xf) .. 16 {
@@ -238,6 +259,7 @@ impl<'a> CDF<'a> {
 }
 
 impl<'a> From<&'a mut[u16]> for CDF<'a> {
+    #[inline]
     fn from(cdf: &'a mut[u16]) -> CDF<'a> {
         assert_eq!(cdf.len(), 16);
         CDF {
@@ -245,6 +267,7 @@ impl<'a> From<&'a mut[u16]> for CDF<'a> {
         }
     }
 }
+
 
 pub fn init_cdfs(cdfs: &mut [u16]) {
     for (index, item) in cdfs.iter_mut().enumerate() {
@@ -580,28 +603,36 @@ impl<'a,
 impl<'a, AllocU16: alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
      AllocF: alloc::Allocator<floatX>> IRInterpreter for PriorEval<'a, AllocU16, AllocU32, AllocF> {
+    #[inline]
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
     }
+    #[inline]
     fn local_byte_offset(&self) -> usize {
         self.local_byte_offset
     }
+    #[inline]
     fn update_block_type(&mut self, new_type: u8, stride: u8) {
         self.block_type = new_type;
         self.cur_stride = stride;
     }
+    #[inline]
     fn block_type(&self) -> u8 {
         self.block_type
     }
+    #[inline]
     fn literal_data_at_offset(&self, index:usize) -> u8 {
         self.input[index]
     }
+    #[inline]
     fn literal_context_map(&self) -> &[u8] {
         self.context_map.literal_context_map.slice()
     }
+    #[inline]
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
+    #[inline]
     fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, literal: u8) {
         //let stride = self.cur_stride as usize;
         self.update_cost_base(stride_prior, stride_prior_offset, selected_bits, cm_prior, literal)
@@ -612,6 +643,7 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
 impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
      AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'b> for PriorEval<'a, AllocU16, AllocU32, AllocF> {
+    #[inline]
     fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
                                                               val: interface::Command<InputReference<'b>>,
                                                               callback: &mut Cb) {
