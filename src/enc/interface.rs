@@ -91,13 +91,17 @@ impl LiteralPredictionModeNibble {
 }
 pub const NUM_SPEED_VALUES: usize = 12;
 pub const NUM_MIXING_VALUES: usize = 16 * 256 + 16 * 256;
-pub const NUM_PREDMODE_VALUES: usize = 1;
+pub const NUM_PREDMODE_SETUP_VALUES: usize = 4;
+pub const RESERVED_OFFSET: usize = 3;
+pub const ADV_CONTEXT_MAP_OFFSET: usize = 2;
+pub const MIXING_MATH_OFFSET: usize = 1;
 pub const PREDMODE_OFFSET: usize = 0;
-pub const MIXING_OFFSET:usize = NUM_PREDMODE_VALUES + PREDMODE_OFFSET;
+pub const MIXING_OFFSET:usize = NUM_PREDMODE_SETUP_VALUES + PREDMODE_OFFSET;
 pub const SPEED_OFFSET: usize = MIXING_OFFSET + NUM_MIXING_VALUES;
 pub const DISTANCE_CONTEXT_MAP_OFFSET: usize = SPEED_OFFSET + NUM_SPEED_VALUES;
 pub const MAX_PREDMODE_SPEED_AND_DISTANCE_CONTEXT_MAP_SIZE: usize = DISTANCE_CONTEXT_MAP_OFFSET + 256 * 4;
 pub const MAX_LITERAL_CONTEXT_MAP_SIZE: usize = 256 * 64;
+pub const MAX_ADV_LITERAL_CONTEXT_MAP_SIZE: usize = 256 * 64 * 2;
 #[derive(Debug)]
 pub struct PredictionModeContextMap<SliceType:SliceWrapper<u8>> {
     pub literal_context_map: SliceType,
@@ -123,6 +127,14 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
           cm_slice[Self::context_map_speed_offset()+high] = Self::u16_to_f8(speed_max[high].0);
           cm_slice[Self::context_map_speed_max_offset()+high] = Self::u16_to_f8(speed_max[high].1);
         }
+    }
+    pub fn set_mixing_math(&mut self, math_enum: u8) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        cm_slice[MIXING_MATH_OFFSET] = math_enum;
+    }
+    pub fn set_adv_context_map(&mut self, is_adv: u8) {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
+        cm_slice[ADV_CONTEXT_MAP_OFFSET] = is_adv;
     }
     #[inline]
     pub fn set_mixing_values(&mut self, mixing_mask: &[u8; NUM_MIXING_VALUES]) {
@@ -159,6 +171,16 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     pub fn get_mixing_values(&self) -> &[u8] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         &cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
+    }
+    #[inline]
+    pub fn get_mixing_math(&self) ->u8 {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        cm_slice[MIXING_MATH_OFFSET]
+    }
+    #[inline]
+    pub fn get_is_adv_context_map(&self) -> u8 {
+        let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        cm_slice[ADV_CONTEXT_MAP_OFFSET]
     }
     #[inline]
     pub fn has_context_speeds(&self) -> bool {
