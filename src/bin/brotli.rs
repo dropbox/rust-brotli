@@ -280,6 +280,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<Command>{default_value:Command::default()},
                                    HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
                                    HeapAllocator::<brotli::enc::Mem256f>{default_value:brotli::enc::Mem256f::default()},
+                                   HeapAllocator::<brotli::enc::PDF>{default_value:brotli::enc::PDF::default()},
                                    HeapAllocator::<HistogramLiteral>{
                                        default_value:HistogramLiteral::default(),
                                    },

@@ -18,6 +18,7 @@ use super::histogram::{BrotliBuildHistogramsWithContext, CostAccessors, Histogra
                        };
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::pdf::PDF;
 use super::util::{brotli_min_size_t, brotli_max_size_t};
 use core;
 
@@ -127,6 +128,7 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
                             AllocU32: alloc::Allocator<u32>,
                             AllocF64: alloc::Allocator<super::util::floatX>,
                             AllocFV:alloc::Allocator<Mem256f>,
+                            AllocPDF:alloc::Allocator<PDF>,
                             AllocHL: alloc::Allocator<HistogramLiteral>,
                             AllocHC: alloc::Allocator<HistogramCommand>,
                             AllocHD: alloc::Allocator<HistogramDistance>,
@@ -137,6 +139,7 @@ pub fn BrotliBuildMetaBlock<AllocU8: alloc::Allocator<u8>,
    m32: &mut AllocU32,
    mf64: &mut AllocF64,
    mfv: &mut AllocFV,
+   _mpdf: &mut AllocPDF,
    mhl: &mut AllocHL,
    mhc: &mut AllocHC,
    mhd: &mut AllocHD,

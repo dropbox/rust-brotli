@@ -32,9 +32,12 @@ pub mod ir_interpret;
 pub mod prior_eval;
 pub mod stride_eval;
 pub mod context_map_entropy;
+pub mod pdf;
+
 mod test;
 mod weights;
 pub use self::util::floatX;
+pub use self::pdf::PDF;
 pub use self::hash_to_binary_tree::ZopfliNode;
 pub use self::backward_references::BrotliEncoderParams;
 pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};
@@ -84,6 +87,7 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             },
                             HeapAlloc::<floatX> { default_value: 0.0 as floatX },
                             HeapAlloc::<Mem256f> { default_value: Mem256f::default() },
+                            HeapAlloc::<PDF> { default_value: PDF::default() },
                             HeapAlloc::<HistogramLiteral>{
                                 default_value: HistogramLiteral::default(),
                             },
@@ -118,6 +122,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                                  AllocCommand: Allocator<Command>,
                                  AllocF64: Allocator<util::floatX>,
                                  AllocFV: Allocator<Mem256f>,
+                                 AllocPDF: Allocator<PDF>,
                                  AllocHL: Allocator<HistogramLiteral>,
                                  AllocHC: Allocator<HistogramCommand>,
                                  AllocHD: Allocator<HistogramDistance>,
@@ -138,6 +143,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
    alloc_mc: AllocCommand,
    alloc_f64: AllocF64,
    alloc_fv: AllocFV,
+   alloc_pdf: AllocPDF,
    alloc_hl: AllocHL,
    alloc_hc: AllocHC,
    alloc_hd: AllocHD,
@@ -163,6 +169,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
                            alloc_mc,
                            alloc_f64,
                            alloc_fv,
+                           alloc_pdf,
                            alloc_hl,
                            alloc_hc,
                            alloc_hd,
@@ -185,6 +192,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocCommand: Allocator<Command>,
                               AllocF64: Allocator<util::floatX>,
                               AllocFV: Allocator<Mem256f>,
+                              AllocPDF: Allocator<PDF>,
                               AllocHL: Allocator<HistogramLiteral>,
                               AllocHC: Allocator<HistogramCommand>,
                               AllocHD: Allocator<HistogramDistance>,
@@ -206,6 +214,7 @@ pub fn BrotliCompressCustomIo<ErrType,
    mc: AllocCommand,
    mut mf64: AllocF64,
    mut mfv: AllocFV,
+   mut mpdf: AllocPDF,
    mut mhl: AllocHL,
    mut mhc: AllocHC,
    mut mhd: AllocHD,
@@ -260,7 +269,7 @@ pub fn BrotliCompressCustomIo<ErrType,
           }
           let result = BrotliEncoderCompressStream(s,
                                                    &mut m64,
-                                                   &mut mf64, &mut mfv, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht, &mut mzn,
+                                                   &mut mf64, &mut mfv, &mut mpdf, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht, &mut mzn,
                                                    op,
                                                    &mut available_in,
                                                    input_buffer,
