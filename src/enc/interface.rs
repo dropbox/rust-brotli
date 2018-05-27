@@ -175,11 +175,17 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     #[inline]
     pub fn get_mixing_math(&self) ->u8 {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        if cm_slice.len() == 0 {
+            return 1;
+        }
         cm_slice[MIXING_MATH_OFFSET]
     }
     #[inline]
     pub fn get_is_adv_context_map(&self) -> u8 {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
+        if cm_slice.len() == 0 {
+            return 0;
+        }
         cm_slice[ADV_CONTEXT_MAP_OFFSET]
     }
     #[inline]

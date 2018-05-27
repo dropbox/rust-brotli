@@ -3,6 +3,8 @@
 #![allow(unused_imports)]
 #![allow(unused_macros)]
 #[cfg(not(feature="no-stdlib"))]
+use super::interface::MAX_ADV_LITERAL_CONTEXT_MAP_SIZE;
+use super::interface::MAX_LITERAL_CONTEXT_MAP_SIZE;
 use std::io::Write;
 use super::util::floatX;
 use super::prior_eval;
@@ -472,8 +474,8 @@ fn LogMetaBlock<'a,
                     params: &BrotliEncoderParams,
                     context_type:Option<ContextType>,
                     callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
-    let mut local_literal_context_map = [0u8; 256 * 64];
-    let mut local_distance_context_map = [0u8; 256 * 64 + interface::DISTANCE_CONTEXT_MAP_OFFSET];
+    let mut local_literal_context_map = [0u8; 256 * 64 * 2];
+    let mut local_distance_context_map = [0u8; 256 * 4 + interface::DISTANCE_CONTEXT_MAP_OFFSET];
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btypel.num_types);
     assert_eq!(*block_type.btypec.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -482,9 +484,19 @@ fn LogMetaBlock<'a,
                block_type.btyped.num_types);
     if block_type.literal_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.literal_context_map.iter().enumerate() {
+            local_literal_context_map[index + MAX_LITERAL_CONTEXT_MAP_SIZE] = *item as u8;
             local_literal_context_map[index] = *item as u8;
         }
     }
+    /*
+    let low_nibble_to_copy = core::cmp::min(local_literal_context_map.len(), block_type.literal_context_map.len());
+    for (dst, src) in local_literal_context_map.split_at_mut(low_nibble_to_copy).1.iter_mut().zip(block_type.literal_context_map.split_at(low_nibble_to_copy).0.iter()) {
+       * dst = *src as u8;
+    }
+    let high_nibble_to_copy = core::cmp::min(local_literal_context_map.len() - MAX_ADV_LITERAL_CONTEXT_MAP_SIZE, block_type.literal_context_map.len());
+    for (dst, src) in local_literal_context_map.split_at_mut(MAX_ADV_LITERAL_CONTEXT_MAP_SIZE).1.split_at_mut(high_nibble_to_copy).1.iter_mut().zip(block_type.literal_context_map.split_at(high_nibble_to_copy).0.iter()) {
+       * dst = *src as u8;
+    }*/
     if block_type.distance_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.distance_context_map.iter().enumerate() {
             local_distance_context_map[interface::DISTANCE_CONTEXT_MAP_OFFSET + index] = *item as u8;
@@ -495,6 +507,7 @@ fn LogMetaBlock<'a,
         literal_context_map:InputReferenceMut(local_literal_context_map.split_at_mut(block_type.literal_context_map.len()).0),
         predmode_speed_and_distance_context_map:InputReferenceMut(local_distance_context_map.split_at_mut(interface::PredictionModeContextMap::<InputReference>::size_of_combined_array(block_type.distance_context_map.len())).0),
     };
+    //prediction_mode.set_adv_context_map(1);
     for item in prediction_mode.get_mixing_values_mut().iter_mut() {
         *item = prior_eval::WhichPrior::STRIDE1 as u8;
     }
