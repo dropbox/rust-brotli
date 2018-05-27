@@ -32,6 +32,7 @@ pub mod ir_interpret;
 pub mod prior_eval;
 pub mod stride_eval;
 pub mod context_map_entropy;
+pub mod adv_context_map;
 pub mod pdf;
 
 mod test;

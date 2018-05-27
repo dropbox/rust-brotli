@@ -9,7 +9,7 @@ use super::interface::MAX_LITERAL_CONTEXT_MAP_SIZE;
 use super::util::floatX;
 use super::prior_eval;
 use super::stride_eval;
-
+use super::adv_context_map;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::block_split::BlockSplit;
 use enc::backward_references::BrotliEncoderParams;
@@ -547,9 +547,19 @@ fn LogMetaBlock<'a,
         best_strides = m8.alloc_cell(stride_selector.num_types());
         stride_selector.choose_stride(best_strides.slice_mut());
     }
+    let mut context_map_processor = adv_context_map::Processor::<AllocU16,
+                                                               AllocU32,
+                                                               AllocF,
+                                                               AllocFV,
+                                                               AllocPDF>::new(m16, m32, mf, mfv, mpdf,
+                                                                              InputPair(input0, input1),
+                                                                              prediction_mode,
+                                                                              &params);
+    
     let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1),
                                                                                        entropy_pyramid.stride_last_level_range(),
-                                                                                       prediction_mode,
+                                                                                       core::mem::replace(&mut context_map_processor.context_map,
+                                                                                                          interface::PredictionModeContextMap::nop()),
                                                                                        params.cdf_adaptation_detection);
     if params.cdf_adaptation_detection != 0 {
         process_command_queue(&mut context_map_entropy,
@@ -583,7 +593,7 @@ fn LogMetaBlock<'a,
         best_speed_log("CM", &cm_speed, &acost);
         best_speed_log("Stride", &stride_speed, &bcost);
         best_speed_log("StrideCombined", &combined_speed, &ccost);
-     }
+    }
      let mut prior_selector = prior_eval::PriorEval::<AllocU16,
                                                       AllocU32,
                                                       AllocF>::new(m16, m32, mf, InputPair(input0, input1),

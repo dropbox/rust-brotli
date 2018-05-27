@@ -10,6 +10,7 @@ impl<'a> SliceWrapper<u8> for InputReference<'a> {
     }
 }
 
+
 pub struct InputReferenceMut<'a>(pub &'a mut [u8]);
 impl<'a> SliceWrapper<u8> for InputReferenceMut<'a> {
     fn slice(&self) -> & [u8] {
@@ -26,6 +27,11 @@ impl <'a> From<InputReferenceMut<'a>> for InputReference<'a> {
    fn from(val: InputReferenceMut<'a>) -> InputReference<'a> {
        InputReference(val.0)
    }
+}
+impl <'a> Default for InputReferenceMut<'a> {
+    fn default() -> Self {
+        InputReferenceMut::<'a>(&mut[])   
+    }
 }
 
 #[derive(Clone, Debug,Copy)]

@@ -159,6 +159,14 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
         cm_slice[PREDMODE_OFFSET] = val.0;
     }
 }
+impl<SliceType:SliceWrapper<u8>+Default> PredictionModeContextMap<SliceType> {
+    pub fn nop() -> Self{
+        PredictionModeContextMap::<SliceType>{
+            literal_context_map:SliceType::default(),
+            predmode_speed_and_distance_context_map: SliceType::default(),
+        }
+    }
+}
 impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     #[inline]
     pub fn from_mut<Other:SliceWrapper<u8>>(other: PredictionModeContextMap<Other>) -> PredictionModeContextMap<SliceType> where SliceType: From<Other>{
