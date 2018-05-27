@@ -3,9 +3,9 @@
 #![allow(unused_imports)]
 #![allow(unused_macros)]
 #[cfg(not(feature="no-stdlib"))]
+use std::io::Write;
 use super::interface::MAX_ADV_LITERAL_CONTEXT_MAP_SIZE;
 use super::interface::MAX_LITERAL_CONTEXT_MAP_SIZE;
-use std::io::Write;
 use super::util::floatX;
 use super::prior_eval;
 use super::stride_eval;
@@ -504,10 +504,10 @@ fn LogMetaBlock<'a,
     }
     
     let mut prediction_mode = interface::PredictionModeContextMap::<InputReferenceMut>{
-        literal_context_map:InputReferenceMut(local_literal_context_map.split_at_mut(block_type.literal_context_map.len()).0),
+        literal_context_map:InputReferenceMut(local_literal_context_map.split_at_mut(MAX_LITERAL_CONTEXT_MAP_SIZE + block_type.literal_context_map.len()).0),
         predmode_speed_and_distance_context_map:InputReferenceMut(local_distance_context_map.split_at_mut(interface::PredictionModeContextMap::<InputReference>::size_of_combined_array(block_type.distance_context_map.len())).0),
     };
-    //prediction_mode.set_adv_context_map(1);
+    prediction_mode.set_adv_context_map(1);
     for item in prediction_mode.get_mixing_values_mut().iter_mut() {
         *item = prior_eval::WhichPrior::STRIDE1 as u8;
     }
