@@ -555,7 +555,18 @@ fn LogMetaBlock<'a,
                                                                               InputPair(input0, input1),
                                                                               prediction_mode,
                                                                               &params);
-    
+    {
+        process_command_queue(&mut context_map_processor,
+                         input,
+                         commands,
+                         dist_cache,
+                         *recoder_state,
+                         &block_type,
+                         params,
+                         context_type,
+                          &mut |_x|());
+    }
+    context_map_processor.merge();
     let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1),
                                                                                        entropy_pyramid.stride_last_level_range(),
                                                                                        core::mem::replace(&mut context_map_processor.context_map,

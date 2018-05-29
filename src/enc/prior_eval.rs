@@ -180,7 +180,7 @@ impl Prior for CMPrior {
     #[allow(unused_variables)]
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         if let Some(nibble) = high_nibble {
-            (nibble as usize + 1) + 17 * actual_context
+            (nibble as usize *0 + 1) + 17 * actual_context //cmap 8192 experiment
         } else {
             17 * actual_context as usize
         }
