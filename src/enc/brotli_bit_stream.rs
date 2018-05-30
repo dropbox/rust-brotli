@@ -474,7 +474,7 @@ fn LogMetaBlock<'a,
                     params: &BrotliEncoderParams,
                     context_type:Option<ContextType>,
                     callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]){
-    let mut local_literal_context_map = [0u8; 256 * 64 * 2];
+    let mut local_literal_context_map = [0u8; interface::MAX_ADV_LITERAL_CONTEXT_MAP_SIZE];
     let mut local_distance_context_map = [0u8; 256 * 4 + interface::DISTANCE_CONTEXT_MAP_OFFSET];
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
                block_type.btypel.num_types);
@@ -484,7 +484,9 @@ fn LogMetaBlock<'a,
                block_type.btyped.num_types);
     if block_type.literal_context_map.len() <= 256 * 64 {
         for (index, item) in block_type.literal_context_map.iter().enumerate() {
-            local_literal_context_map[index + MAX_LITERAL_CONTEXT_MAP_SIZE] = *item as u8;
+            for i in 0..16 {
+                local_literal_context_map[index + i* MAX_LITERAL_CONTEXT_MAP_SIZE] = *item as u8;
+            }
             local_literal_context_map[index] = *item as u8;
         }
     }
@@ -504,7 +506,7 @@ fn LogMetaBlock<'a,
     }
     
     let mut prediction_mode = interface::PredictionModeContextMap::<InputReferenceMut>{
-        literal_context_map:InputReferenceMut(local_literal_context_map.split_at_mut(MAX_LITERAL_CONTEXT_MAP_SIZE + block_type.literal_context_map.len()).0),
+        literal_context_map:InputReferenceMut(local_literal_context_map.split_at_mut(MAX_LITERAL_CONTEXT_MAP_SIZE * 16 + block_type.literal_context_map.len()).0),
         predmode_speed_and_distance_context_map:InputReferenceMut(local_distance_context_map.split_at_mut(interface::PredictionModeContextMap::<InputReference>::size_of_combined_array(block_type.distance_context_map.len())).0),
     };
     prediction_mode.set_adv_context_map(1);

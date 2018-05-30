@@ -101,7 +101,7 @@ pub const SPEED_OFFSET: usize = MIXING_OFFSET + NUM_MIXING_VALUES;
 pub const DISTANCE_CONTEXT_MAP_OFFSET: usize = SPEED_OFFSET + NUM_SPEED_VALUES;
 pub const MAX_PREDMODE_SPEED_AND_DISTANCE_CONTEXT_MAP_SIZE: usize = DISTANCE_CONTEXT_MAP_OFFSET + 256 * 4;
 pub const MAX_LITERAL_CONTEXT_MAP_SIZE: usize = 256 * 64;
-pub const MAX_ADV_LITERAL_CONTEXT_MAP_SIZE: usize = 256 * 64 * 2;
+pub const MAX_ADV_LITERAL_CONTEXT_MAP_SIZE: usize = 256 * 64 * 17;
 #[derive(Debug)]
 pub struct PredictionModeContextMap<SliceType:SliceWrapper<u8>> {
     pub literal_context_map: SliceType,
