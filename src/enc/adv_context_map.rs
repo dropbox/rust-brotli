@@ -133,14 +133,14 @@ impl<'a,
         let high_bit = literal >> 4;
         let low_bit = literal & 0xf;
         let context_map_low_index = usize::from(selected_bits) + 64 * usize::from(self.block_type);
-        let context_map_high_index = usize::from(selected_bits) + 64 * usize::from(self.block_type);
+        let context_map_high_index = (usize::from(selected_bits) + 64 * usize::from(self.block_type)) + (64 * 256 * (high_bit as usize + 1));
         self.context_histograms.slice_mut()[context_map_low_index].add_sample(low_bit);
         self.context_histograms.slice_mut()[context_map_high_index].add_sample(high_bit);
-        let low_indirect_index = usize::from(self.context_map.literal_context_map.slice()[context_map_low_index]);
-        let high_indirect_index = usize::from(self.context_map.literal_context_map.slice()[context_map_high_index]) + 256;
-        assert_eq!(low_indirect_index + 256, high_indirect_index);
+        let high_indirect_index = usize::from(self.context_map.literal_context_map.slice()[context_map_high_index]);
+        let low_indirect_index = usize::from(self.context_map.literal_context_map.slice()[context_map_low_index]) + 256;
+        assert_eq!(low_indirect_index, high_indirect_index + 256);
         self.htable_histograms.slice_mut()[low_indirect_index].add_sample(low_bit);
-        self.htable_histograms.slice_mut()[high_indirect_index].add_sample(low_bit);
+        self.htable_histograms.slice_mut()[high_indirect_index].add_sample(high_bit);
     }
 
     
