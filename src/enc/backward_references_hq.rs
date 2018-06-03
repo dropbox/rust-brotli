@@ -240,12 +240,12 @@ impl DistanceCache {
     }
     #[inline(always)]
     fn assign(&mut self, idx:usize, val: i32) {
-        self.0[idx] |= val;
+        self.0[idx] = val;
     }
 }
 #[derive(Copy,Clone,Debug)]
 pub struct PosData {
-    pub pos : usize,
+    pub pos : u32,
     pub distance_cache : DistanceCache,
     pub costdiff : floatX,
     pub cost : floatX,
@@ -744,7 +744,7 @@ fn EvaluateNode<AllocF:Allocator<floatX>>(
                         pos
                     ) {
         let mut posdata = PosData {
-            pos:pos,
+            pos:pos as u32,
             cost:node_cost,
             costdiff:node_cost - ZopfliCostModelGetLiteralCosts(
                 model,
@@ -908,7 +908,7 @@ fn UpdateNodes<AllocF:Allocator<floatX>>(
             : floatX
             = (*posdata).cost + ZopfliCostModelGetMinCostCmd(
                                     model
-                                ) + ZopfliCostModelGetLiteralCosts(model,(*posdata).pos,pos);
+                                ) + ZopfliCostModelGetLiteralCosts(model,(*posdata).pos as usize,pos);
         min_len = ComputeMinimumCopyLength(
                       min_cost,
                       nodes ,
@@ -924,7 +924,7 @@ fn UpdateNodes<AllocF:Allocator<floatX>>(
             {
                 let posdata
                     = StartPosQueueAt(queue ,k);
-                let start : usize = (*posdata).pos;
+                let start : usize = (*posdata).pos as usize;
                 let inscode : u16 = GetInsertLengthCode(pos.wrapping_sub(start));
                 let start_costdiff : floatX = (*posdata).costdiff;
                 let base_cost
