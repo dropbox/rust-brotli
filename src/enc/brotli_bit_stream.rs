@@ -568,7 +568,7 @@ fn LogMetaBlock<'a,
                          context_type,
                           &mut |_x|());
     }
-    //FIXME: reactivate context_map_processor.merge();
+    context_map_processor.merge();
     let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, InputPair(input0, input1),
                                                                                        entropy_pyramid.stride_last_level_range(),
                                                                                        core::mem::replace(&mut context_map_processor.context_map,

@@ -7,6 +7,25 @@ impl PDF {
     pub fn add_sample(&mut self, nibble: u8) {
         self.0[nibble as usize] += 1;
     }
+    pub fn add_samples(&mut self, pdf: &PDF) {
+        for (dst, src) in self.0.iter_mut().zip(pdf.0.iter()) {
+            *dst += *src;
+        }
+    }
+    pub fn has_samples(&self) -> bool {
+        for item in self.0.iter() {
+            if *item != 0 {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+pub fn merged_pdf_cost(pdfA:&PDF, pdfB:&PDF) -> floatX {
+    let mut pdf = pdfA.clone();
+    pdf.add_samples(&pdfB);
+    pdf_eval(&pdf, &pdf)
 }
 
 pub fn pdf_eval(nibble_string: &PDF, pdf: &PDF) -> floatX{

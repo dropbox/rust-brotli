@@ -372,7 +372,7 @@ impl<'a,
         m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
         m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
    }
-   fn update_cost_base(&mut self, stride_prior: u8, _selected_bits:u8, cm_prior: usize, literal: u8) {
+   fn update_cost_base(&mut self, stride_prior: u8, _selected_bits:u8, cm_prior: usize, cm_prior_lower: usize, literal: u8) {
        let upper_nibble = (literal >> 4);
        let lower_nibble = literal & 0xf;
        let provisional_cm_high_cdf: [u16; 16];
@@ -386,7 +386,7 @@ impl<'a,
            provisional_cm_high_cdf = extract_single_cdf(cm_cdf_high, best_cm_index);
        }
        {
-           let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
+           let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior_lower, upper_nibble);
            compute_cost(&mut self.singleton_costs[SINGLETON_CM_STRATEGY][0],
                         cm_cdf_low, lower_nibble);
            // choose a fairly reasonable cm speed rather than a selected one
@@ -402,7 +402,7 @@ impl<'a,
            update_cdf(stride_cdf_high, upper_nibble);
        }
        {
-           let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior, upper_nibble);
+           let stride_cdf_low = get_stride_cdf_low(self.stride_priors.slice_mut(), stride_prior, cm_prior_lower, upper_nibble);
            compute_combined_cost(&mut self.singleton_costs[SINGLETON_COMBINED_STRATEGY][0],
                                  stride_cdf_low, provisional_cm_low_cdf, lower_nibble, &mut self.weight[0]);
            compute_cost(&mut self.singleton_costs[SINGLETON_STRIDE_STRATEGY][0],
@@ -415,7 +415,7 @@ impl<'a,
            update_cdf(cm_cdf_high, upper_nibble);
        }
        {
-           let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior, upper_nibble);
+           let cm_cdf_low = get_cm_cdf_low(self.cm_priors.slice_mut(), cm_prior_lower, upper_nibble);
            update_cdf(cm_cdf_low, lower_nibble);
        }
    }
@@ -456,9 +456,9 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
-    fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, literal: u8) {
+    fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize, selected_bits: u8, cm_prior: usize, cm_prior_lower: usize, literal: u8) {
         let stride = self.cur_stride as usize;
-        self.update_cost_base(stride_prior[stride_prior_offset.wrapping_sub(stride) & 7], selected_bits, cm_prior, literal)
+        self.update_cost_base(stride_prior[stride_prior_offset.wrapping_sub(stride) & 7], selected_bits, cm_prior, cm_prior_lower, literal)
     }
 }
 

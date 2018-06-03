@@ -121,7 +121,7 @@ impl<'a,
    pub fn num_types(&self) -> usize {
        self.cur_score_epoch
    }
-   fn update_cost_base(&mut self, stride_prior: [u8;8], selected_bits: u8, cm_prior: usize, literal: u8) {
+   fn update_cost_base(&mut self, stride_prior: [u8;8], selected_bits: u8, cm_prior: usize, cm_prior_lower: usize, literal: u8) {
        type CurPrior = Stride1Prior;
        {
            for i in 0..8 {
@@ -134,7 +134,7 @@ impl<'a,
        {
            for i in 0..8 {
                let mut cdf = CurPrior::lookup_mut(self.stride_priors[i].slice_mut(),
-                                                  stride_prior[i], selected_bits, cm_prior, Some(literal >> 4));
+                                                  stride_prior[i], selected_bits, cm_prior_lower, Some(literal >> 4));
                self.score.slice_mut()[self.cur_score_epoch * 8 + i] += cdf.cost(literal&0xf);
                cdf.update(literal&0xf, self.stride_speed[0]);
            }
@@ -186,7 +186,7 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
     fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
-    fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize , selected_bits: u8, cm_prior: usize, literal: u8) {
+    fn update_cost(&mut self, stride_prior: [u8;8], stride_prior_offset: usize , selected_bits: u8, cm_prior: usize, cm_prior_lower: usize, literal: u8) {
         let reversed_stride_priors = [stride_prior[stride_prior_offset&7],
                                       stride_prior[stride_prior_offset.wrapping_sub(1)&7],
                                       stride_prior[stride_prior_offset.wrapping_sub(2)&7],
@@ -195,7 +195,7 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
                                       stride_prior[stride_prior_offset.wrapping_sub(5)&7],
                                       stride_prior[stride_prior_offset.wrapping_sub(6)&7],
                                       stride_prior[stride_prior_offset.wrapping_sub(7)&7]];
-        self.update_cost_base(reversed_stride_priors, selected_bits, cm_prior, literal)
+        self.update_cost_base(reversed_stride_priors, selected_bits, cm_prior, cm_prior_lower, literal)
     }
 }
 
