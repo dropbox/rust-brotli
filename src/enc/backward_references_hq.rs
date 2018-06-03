@@ -192,11 +192,12 @@ pub fn BrotliZopfliCreateCommands(
 fn MaxZopfliLen(
     params : &BrotliEncoderParams,
 ) -> usize {
-    (if (*params).quality <= 10i32 {
-         150i32
-     } else {
-         325i32
-     }) as (usize)
+    /*
+    if (*params).quality < 10i32 {
+        return 150;
+    }*/
+    // 150 or 325 for hq
+    ((*params).hasher.literal_byte_score as usize) >> 16
 }
 
 
@@ -209,13 +210,43 @@ pub struct ZopfliCostModel<AllocF:Allocator<floatX>> {
     pub min_cost_cmd_ : floatX,
     pub num_bytes_ : usize,
 }
+/*
+#[derive(Copy,Clone,Debug,Default)]
+pub struct DistanceCache(u128);
 
+impl DistanceCache {
+    #[inline(always)]
+    fn index(&self, idx:usize) -> i32 {
+        (self.0 >> (idx << 5)) as i32
+    }
+    #[inline(always)]
+    fn orgets(&mut self, idx:usize, val: i32) {
+        self.0 |= (val as u128) << (idx << 5);
+    }
+}
+*/
 
+#[derive(Copy,Clone,Debug,Default)]
+pub struct DistanceCache([i32;4]);
 
+impl DistanceCache {
+    #[inline(always)]
+    fn index(&self, idx:usize) -> i32 {
+        self.0[idx]
+    }
+    #[inline(always)]
+    fn orgets(&mut self, idx:usize, val: i32) {
+        self.0[idx] |= val;
+    }
+    #[inline(always)]
+    fn assign(&mut self, idx:usize, val: i32) {
+        self.0[idx] |= val;
+    }
+}
 #[derive(Copy,Clone,Debug)]
 pub struct PosData {
     pub pos : usize,
-    pub distance_cache : [i32;4],
+    pub distance_cache : DistanceCache,
     pub costdiff : floatX,
     pub cost : floatX,
 }
@@ -230,7 +261,7 @@ impl Default for StartPosQueue {
     #[inline(always)]
     fn default() -> Self {
         StartPosQueue {
-            q_: [PosData{pos:0,distance_cache:[0;4],costdiff:0.0, cost:0.0};8],
+            q_: [PosData{pos:0,distance_cache:DistanceCache::default(),costdiff:0.0, cost:0.0};8],
             idx_: 0,
         }
     }
@@ -402,13 +433,7 @@ fn FindAllMatchesH10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+
     let mut matches_offset = 0usize;
     let cur_ix_masked : usize = cur_ix & ring_buffer_mask;
     let mut best_len : usize = 1usize;
-    let short_match_max_backward
-        : usize
-        = (if (*params).quality != 11i32 {
-               16i32
-           } else {
-               64i32
-           }) as (usize);
+    let short_match_max_backward = ((params.hasher.literal_byte_score as usize) >> 8) & 0xff; // 16 or 16 for hq
     let mut stop
         : usize
         = cur_ix.wrapping_sub(short_match_max_backward);
@@ -541,7 +566,12 @@ fn BackwardMatchLength(
 #[inline(always)]
 fn MaxZopfliCandidates(
     params : & BrotliEncoderParams) -> usize {
-    (if (*params).quality <= 10i32 { 1i32 } else { 5i32 }) as (usize)
+    /*
+    if (*params).quality < 10i32 {
+        return 1
+    }*/
+    // 1 or 5 for hq
+    return (params.hasher.literal_byte_score  as usize & 0xff)
 }
 
 #[inline(always)]
@@ -599,8 +629,7 @@ fn ComputeDistanceCache(
     pos : usize,
     mut starting_dist_cache : & [i32],
     nodes : & [ZopfliNode],
-    dist_cache : &mut [i32
-]) {
+    dist_cache : &mut DistanceCache) {
     let mut idx : i32 = 0i32;
     let mut p
         : usize
@@ -621,24 +650,19 @@ fn ComputeDistanceCache(
             = ZopfliNodeCopyDistance(
                   &nodes[(p as (usize)) ]
               ) as (usize);
-        dist_cache[(
-             {
-                 let _old = idx;
-                 idx = idx + 1;
-                 _old
-             } as (usize)
-         ) ]= dist as (i32);
+        dist_cache.assign(idx as usize, dist as i32);
+        idx += 1;
         p = match (nodes[(
                   p.wrapping_sub(clen).wrapping_sub(ilen) as (usize)
         )]).u { Union1::shortcut(shrt) => shrt, _ => 0} as (usize);
     }
     while idx < 4i32 {
         {
-            dist_cache[(idx as (usize)) ]= {
+            dist_cache.assign(idx as usize, {
                 let (_old, _upper) = starting_dist_cache.split_at(1);
                 starting_dist_cache = _upper;
                 _old[0]
-            };
+            });
         }
         idx = idx + 1;
     }
@@ -727,13 +751,13 @@ fn EvaluateNode<AllocF:Allocator<floatX>>(
                 0usize,
                 pos
             ),
-            distance_cache:[0;4],
+            distance_cache:DistanceCache::default(),
         };
         ComputeDistanceCache(
             pos,
             starting_dist_cache,
             nodes ,
-            &mut posdata.distance_cache[..]
+            &mut posdata.distance_cache
         );
         StartPosQueuePush(
             queue,
@@ -921,12 +945,11 @@ fn UpdateNodes<AllocF:Allocator<floatX>>(
                                 : usize
                                 = kDistanceCacheIndex[(j as (usize)) ]as (usize);
                             let distance_cache_len_minus_1 = 3;
-                            debug_assert_eq!(distance_cache_len_minus_1 + 1, posdata.distance_cache.len());
                             let backward
                                 : usize
-                                = ((*posdata).distance_cache[(
+                                = ((*posdata).distance_cache.index(
                                         idx as (usize) & distance_cache_len_minus_1
-                                    )]+ i32::from(kDistanceCacheOffset[(j as (usize)) ]))as (usize);
+                                    ) + i32::from(kDistanceCacheOffset[(j as (usize)) ]))as (usize);
                             let mut prev_ix : usize = cur_ix.wrapping_sub(backward);
                             let len : usize;
                             let continuation
