@@ -27,7 +27,7 @@ pub struct Processor<'a,
     block_type: u8,
     cur_stride: u8,
     context_histograms: AllocPDF::AllocatedMemory,
-    htable_histograms: AllocPDF::AllocatedMemory,
+    htable_histograms: [AllocPDF::AllocatedMemory;2],
 }
 
 impl<'a,
@@ -61,7 +61,7 @@ impl<'a,
             block_type:0,
             cur_stride:0,
             context_histograms: mpdf.alloc_cell(MAX_ADV_LITERAL_CONTEXT_MAP_SIZE),
-            htable_histograms: mpdf.alloc_cell(256 * 2),
+            htable_histograms: [mpdf.alloc_cell(256 * 16), mpdf.alloc_cell(256)],
         }
     }
     pub fn merge(&mut self) {
@@ -72,15 +72,17 @@ impl<'a,
         }
         for i in 0..256 {
             for j in (i + 1)..256 {
-                if similar(&self.htable_histograms.slice()[i],&self.htable_histograms.slice()[j]) {
+                if similar(&self.htable_histograms[1].slice()[i],&self.htable_histograms[1].slice()[j]) {
                     merge_map[0][j] = merge_map[0][i];
                 }
-                if similar(&self.htable_histograms.slice()[i + 256],&self.htable_histograms.slice()[j + 256]) {
-                    merge_map[1][j] = merge_map[1][i];
+                for k in 0..16 {
+                    if similar(&self.htable_histograms[0].slice()[i],&self.htable_histograms[0].slice()[j]) {
+                        merge_map[1][j + k * 256] = merge_map[1][i]; //FIXME we probably want to merge different things here
+                    }
                 }
             }
         }
-        eprintln!("Merging map {:?} and {:?}\n", &merge_map[0][..],&merge_map[1][..]);
+        //eprintln!("Merging map {:?} and {:?}\n", &merge_map[0][..],&merge_map[1][..]);
         for (index, item) in self.context_map.literal_context_map.slice_mut().iter_mut().enumerate() {
             if index < MAX_LITERAL_CONTEXT_MAP_SIZE {
                 *item = merge_map[0][usize::from(*item)];
@@ -137,10 +139,10 @@ impl<'a,
         self.context_histograms.slice_mut()[context_map_low_index].add_sample(low_bit);
         self.context_histograms.slice_mut()[context_map_high_index].add_sample(high_bit);
         let high_indirect_index = usize::from(self.context_map.literal_context_map.slice()[context_map_high_index]);
-        let low_indirect_index = usize::from(self.context_map.literal_context_map.slice()[context_map_low_index]) + 256;
+        let low_indirect_index = usize::from(self.context_map.literal_context_map.slice()[context_map_low_index]);
         assert_eq!(low_indirect_index, high_indirect_index + 256);
-        self.htable_histograms.slice_mut()[low_indirect_index].add_sample(low_bit);
-        self.htable_histograms.slice_mut()[high_indirect_index].add_sample(high_bit);
+        self.htable_histograms[0].slice_mut()[low_indirect_index + 256 * high_bit as usize].add_sample(low_bit);
+        self.htable_histograms[1].slice_mut()[high_indirect_index].add_sample(high_bit);
     }
 
     
