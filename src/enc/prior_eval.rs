@@ -18,6 +18,7 @@ pub enum WhichPrior {
     CM = 0,
     ADV = 1,
     SLOW_CM = 2,
+    FAST_CM = 3,
     STRIDE1 = 4,
     STRIDE2 = 5,
     STRIDE3 = 6,
@@ -190,6 +191,23 @@ impl Prior for CMPrior {
         WhichPrior::CM
     }
 }
+pub struct FastCMPrior {
+}
+impl Prior for FastCMPrior {
+    #[allow(unused_variables)]
+    fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        if let Some(nibble) = high_nibble {
+            2 * actual_context
+        } else {
+            2 * actual_context + 1
+        }
+    }
+    #[inline]
+    fn which() -> WhichPrior {
+        WhichPrior::FAST_CM
+    }
+}
+
 pub struct SlowCMPrior {
 }
 impl Prior for SlowCMPrior {
@@ -288,6 +306,7 @@ pub struct PriorEval<'a,
     _nop: AllocU32::AllocatedMemory,    
     cm_priors: AllocU16::AllocatedMemory,
     slow_cm_priors: AllocU16::AllocatedMemory,
+    fast_cm_priors: AllocU16::AllocatedMemory,
     stride_priors: [AllocU16::AllocatedMemory; 5],
     adv_priors: AllocU16::AllocatedMemory,
     _stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
@@ -348,6 +367,8 @@ impl<'a,
              AllocU16::AllocatedMemory::default()},
          slow_cm_priors: if do_alloc {m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {
              AllocU16::AllocatedMemory::default()},
+         fast_cm_priors: if do_alloc {m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {
+             AllocU16::AllocatedMemory::default()},
          stride_priors: [
              if do_alloc {m16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
                  AllocU16::AllocatedMemory::default()},
@@ -369,6 +390,7 @@ impl<'a,
       };
       init_cdfs(ret.cm_priors.slice_mut());
       init_cdfs(ret.slow_cm_priors.slice_mut());
+      init_cdfs(ret.fast_cm_priors.slice_mut());
       init_cdfs(ret.stride_priors[0].slice_mut());
       init_cdfs(ret.stride_priors[1].slice_mut());
       init_cdfs(ret.stride_priors[2].slice_mut());
@@ -384,6 +406,7 @@ impl<'a,
        for i in 0..max {
            let cm_index = i + max * WhichPrior::CM as usize;
            let slow_cm_index = i + max * WhichPrior::SLOW_CM as usize;
+           let fast_cm_index = i + max * WhichPrior::FAST_CM as usize;
            let stride_index1 = i + max * WhichPrior::STRIDE1 as usize;
            let stride_index2 = i + max * WhichPrior::STRIDE2 as usize;
            let stride_index3 = i + max * WhichPrior::STRIDE3 as usize;
@@ -392,6 +415,7 @@ impl<'a,
            let adv_index = i + max * WhichPrior::ADV as usize;
            let cm_score = self.score.slice()[cm_index];
            let slow_cm_score = self.score.slice()[slow_cm_index];
+           let fast_cm_score = self.score.slice()[fast_cm_index];
            let stride1_score = self.score.slice()[stride_index1];
            let stride2_score = self.score.slice()[stride_index2];
            let stride3_score = self.score.slice()[stride_index3];
@@ -404,10 +428,12 @@ impl<'a,
                                                                                           stride8_score as u64))));
                                   
            let adv_score = self.score.slice()[adv_index];
-           if adv_score + epsilon < stride_score as floatX && adv_score + epsilon < cm_score {
+           if adv_score + epsilon < stride_score as floatX && adv_score + epsilon < cm_score && adv_score + epsilon < slow_cm_score && adv_score + epsilon < fast_cm_score {
                bitmask[i] = 1;
-           } else if slow_cm_score + epsilon < stride_score as floatX && slow_cm_score + epsilon < cm_score {
+           } else if slow_cm_score + epsilon < stride_score as floatX && slow_cm_score + epsilon < cm_score && slow_cm_score + epsilon < fast_cm_score {
                bitmask[i] = 2;
+           } else if fast_cm_score + epsilon < stride_score as floatX && fast_cm_score + epsilon < cm_score {
+               bitmask[i] = 3;
            } else if epsilon + (stride_score as floatX) < cm_score {
                bitmask[i] = WhichPrior::STRIDE1 as u8;
                if stride_score == stride8_score as u64 {
@@ -439,6 +465,7 @@ impl<'a,
        mf.free_cell(core::mem::replace(&mut self.score, AllocF::AllocatedMemory::default()));
        m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
        m16.free_cell(core::mem::replace(&mut self.slow_cm_priors, AllocU16::AllocatedMemory::default()));
+       m16.free_cell(core::mem::replace(&mut self.fast_cm_priors, AllocU16::AllocatedMemory::default()));
        m16.free_cell(core::mem::replace(&mut self.stride_priors[0], AllocU16::AllocatedMemory::default()));
        m16.free_cell(core::mem::replace(&mut self.stride_priors[1], AllocU16::AllocatedMemory::default()));
        m16.free_cell(core::mem::replace(&mut self.stride_priors[2], AllocU16::AllocatedMemory::default()));
@@ -477,7 +504,7 @@ impl<'a,
            let mut cdf = CurPrior::lookup_mut(self.slow_cm_priors.slice_mut(),
                                               base_stride_prior, selected_bits, cm_prior, None);
            self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
-           cdf.update(literal >> 4, (0,128));
+           cdf.update(literal >> 4, (0,1024));
        }
        {
            type CurPrior = SlowCMPrior;
@@ -485,7 +512,23 @@ impl<'a,
            let mut cdf = CurPrior::lookup_mut(self.slow_cm_priors.slice_mut(),
                                               base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
-           cdf.update(literal&0xf, (0,128));
+           cdf.update(literal&0xf, (0,1024));
+       }
+       {
+           type CurPrior = FastCMPrior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
+           let mut cdf = CurPrior::lookup_mut(self.fast_cm_priors.slice_mut(),
+                                              base_stride_prior, selected_bits, cm_prior, None);
+           self.score.slice_mut()[score_index] += cdf.cost(literal>>4);
+           cdf.update(literal >> 4, self.cm_speed[0]);
+       }
+       {
+           type CurPrior = FastCMPrior;
+           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           let mut cdf = CurPrior::lookup_mut(self.fast_cm_priors.slice_mut(),
+                                              base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
+           self.score.slice_mut()[score_index] += cdf.cost(literal&0xf);
+           cdf.update(literal&0xf, self.cm_speed[0]);
        }
        {
            type CurPrior = Stride1Prior;
