@@ -1,7 +1,7 @@
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
 use alloc::{SliceWrapper, Allocator, SliceWrapperMut};
-use super::input_pair::{InputPair,InputReference};
+use super::input_pair::{InputPair,InputReference, InputReferenceMut};
 use super::histogram;
 #[derive(Debug,Copy,Clone,Default)]
 pub struct BlockSwitch(pub u8);
@@ -518,6 +518,33 @@ pub fn free_cmd_inline<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<Sl
 pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
     free_cmd_inline(xself, m8)
 }
+#[derive(Clone, Copy, Default, Debug)]
+pub struct SliceOffset(pub usize, pub u32);
+impl SliceWrapper<u8> for SliceOffset {
+    fn slice(&self) -> &[u8] {
+        // not perfect--shouldn't be calling this without thawing the wrapper
+        &[]
+    }
+}
+impl SliceOffset {
+    pub fn thaw<'a>(&self, data: &'a [u8]) -> InputReference<'a> {
+        InputReference(data.split_at(self.0).1.split_at(self.1 as usize).0)
+    }
+    pub fn thaw_mut<'a>(&self, data: &'a mut [u8]) -> InputReferenceMut<'a> {
+        InputReferenceMut(data.split_at_mut(self.0).1.split_at_mut(self.1 as usize).0)
+    }
+    pub fn offset(&self) -> usize {
+        self.0
+    }
+    pub fn len(&self) -> usize {
+        self.1 as usize
+    }
+    pub fn len32(&self) -> u32 {
+        self.1
+    }
+}
+
+pub type StaticCommand = Command<SliceOffset>;
 
 
 pub trait CommandProcessor<'a> {

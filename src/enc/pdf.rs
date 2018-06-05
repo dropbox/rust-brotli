@@ -1,3 +1,7 @@
+
+//TODO: replace with builtin SIMD type
+
 #[derive(Copy, Clone, Default, Debug)]
-pub struct PDF([i32;16]);
+pub struct PDF([i16;16]);
+
 

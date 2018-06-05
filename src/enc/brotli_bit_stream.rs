@@ -35,7 +35,7 @@ use super::find_stride;
 use super::vectorization::Mem256f;
 use super::interface;
 use super::pdf::PDF;
-use super::interface::CommandProcessor;
+use super::interface::{CommandProcessor, StaticCommand};
 use super::context_map_entropy::{ContextMapEntropy, SpeedAndMax, speed_to_tuple};
 pub struct PrefixCodeRange {
   pub offset: u32,
@@ -89,9 +89,11 @@ struct CommandQueue<'a,
                     AllocU8:alloc::Allocator<u8>,
                     AllocU16:alloc::Allocator<u16>,
                     AllocU32:alloc::Allocator<u32>,
-                    AllocF:alloc::Allocator<floatX>> {
+                    AllocF:alloc::Allocator<floatX>,
+                    AllocStaticCommand:alloc::Allocator<StaticCommand>> {
     mb: InputPair<'a>,
     mb_byte_offset: usize,
+    mb_commands: AllocStaticCommand::AllocatedMemory,
     queue: [interface::Command<InputReference<'a> >;COMMAND_BUFFER_SIZE],
     loc: usize,
     last_btypel_index: Option<usize>,
@@ -109,8 +111,11 @@ impl<'a,
      AllocU8:alloc::Allocator<u8>,
      AllocU16:alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
-     AllocF:alloc::Allocator<floatX> > CommandQueue<'a, AllocU8, AllocU16, AllocU32, AllocF> {
+     AllocF:alloc::Allocator<floatX>,
+     AllocStaticCommand:alloc::Allocator<StaticCommand>> CommandQueue<'a, AllocU8, AllocU16, AllocU32, AllocF, AllocStaticCommand> {
     fn new(_m32: &mut AllocU32,
+           mc: &mut AllocStaticCommand,
+           num_commands: usize,
            mb: InputPair<'a>,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
@@ -118,9 +123,10 @@ impl<'a,
            best_strides: AllocU8::AllocatedMemory,
            entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
            entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
-           ) -> CommandQueue <'a, AllocU8, AllocU16, AllocU32, AllocF> {
+           ) -> CommandQueue <'a, AllocU8, AllocU16, AllocU32, AllocF, AllocStaticCommand> {
         CommandQueue {
             mb:mb,
+            mb_commands: mc.alloc_cell(num_commands),
             mb_byte_offset:0,
             queue:[interface::Command::<InputReference<'a>>::default();COMMAND_BUFFER_SIZE],
             loc:0,
@@ -201,11 +207,13 @@ impl<'a,
        self.clear();
     }
     fn free<Cb>(&mut self, m8: &mut AllocU8, m16: &mut AllocU16, m32: &mut AllocU32, mf64: &mut AllocF,
+                mc: &mut AllocStaticCommand,
                 callback: &mut Cb) where Cb:FnMut(&[interface::Command<InputReference>]) {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
        self.context_map_entropy.free(m16, m32, mf64);
+       mc.free_cell(core::mem::replace(&mut self.mb_commands, AllocStaticCommand::AllocatedMemory::default()));
        m8.free_cell(core::mem::replace(&mut self.best_strides_per_block_type, AllocU8::AllocatedMemory::default()))
     }
 }
@@ -213,11 +221,13 @@ impl<'a,
      AllocU8: alloc::Allocator<u8>,
      AllocU16: alloc::Allocator<u16>,
      AllocU32: alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'a> for CommandQueue<'a,
+     AllocF: alloc::Allocator<floatX>,
+     AllocStaticCommand: alloc::Allocator<StaticCommand>> interface::CommandProcessor<'a> for CommandQueue<'a,
                                                                                         AllocU8,
                                                                                         AllocU16,
                                                                                         AllocU32,
-                                                                                        AllocF> {
+                                                                                        AllocF,
+                                                                                        AllocStaticCommand> {
     fn push<Cb> (&mut self, val: interface::Command<InputReference<'a> >, callback :&mut Cb)
      where Cb: FnMut(&[interface::Command<InputReference>]) {
         self.queue[self.loc] = val;
@@ -247,7 +257,8 @@ impl<'a,
      AllocU8: alloc::Allocator<u8>,
      AllocU16: alloc::Allocator<u16>,
      AllocU32: alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>> Drop for CommandQueue<'a, AllocU8, AllocU16, AllocU32, AllocF> {
+     AllocF: alloc::Allocator<floatX>,
+     AllocStaticCommand: alloc::Allocator<StaticCommand>> Drop for CommandQueue<'a, AllocU8, AllocU16, AllocU32, AllocF, AllocStaticCommand> {
   fn drop(&mut self) {
       if !self.entropy_tally_scratch.is_free() {
           warn_on_missing_free();
@@ -459,12 +470,14 @@ fn LogMetaBlock<'a,
                 AllocF:alloc::Allocator<floatX>,
                 AllocFV:alloc::Allocator<Mem256f>,
                 AllocPDF: alloc::Allocator<PDF>,
+                AllocStaticCommand: alloc::Allocator<StaticCommand>,
                 Cb>(m8: &mut AllocU8,
                     m16: &mut AllocU16,
                     m32: &mut AllocU32,
                     mf: &mut AllocF,
                     _mfv: &mut AllocFV,
                     _mpdf: &mut AllocPDF,
+                    mc: &mut AllocStaticCommand,
                     commands: &[Command], input0: &'a[u8],input1: &'a[u8],
                     dist_cache: &[i32;kNumDistanceCacheEntries],
                     recoder_state :&mut RecoderState,
@@ -591,7 +604,8 @@ fn LogMetaBlock<'a,
      }     
      let prediction_mode = prior_selector.take_prediction_mode();
      prior_selector.free(m16, m32, mf);
-     let mut command_queue = CommandQueue::new(m32, InputPair(input0, input1),
+     let mut command_queue = CommandQueue::new(m32, mc, commands.len(),
+                                               InputPair(input0, input1),
                                                params.stride_detection_quality,
                                                params.high_entropy_detection_quality,
                                                context_map_entropy,
@@ -612,7 +626,7 @@ fn LogMetaBlock<'a,
                                            params,
                                            context_type,
                                            callback);
-    command_queue.free(m8, m16, m32, mf, callback);
+    command_queue.free(m8, m16, m32, mf, mc, callback);
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
 }
@@ -2145,6 +2159,7 @@ pub fn BrotliStoreMetaBlock<'a,
                             AllocF: alloc::Allocator<floatX>,
                             AllocFV:alloc::Allocator<Mem256f>,
                             AllocPDF: alloc::Allocator<PDF>,
+                            AllocStaticCommand: alloc::Allocator<StaticCommand>,
                             AllocHT: alloc::Allocator<HuffmanTree>,
                             AllocHL: alloc::Allocator<HistogramLiteral>,
                             AllocHC: alloc::Allocator<HistogramCommand>,
@@ -2156,6 +2171,7 @@ pub fn BrotliStoreMetaBlock<'a,
    mf: &mut AllocF,
    mfv: &mut AllocFV,
    mpdf: &mut AllocPDF,
+   mc: &mut AllocStaticCommand,
    mht: &mut AllocHT,
    input: &'a[u8],
    start_pos: usize,
@@ -2176,7 +2192,7 @@ pub fn BrotliStoreMetaBlock<'a,
   callback: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m8, m16, m32, mf, mfv, mpdf, commands.split_at(n_commands).0, input0, input1,
+      LogMetaBlock(m8, m16, m32, mf, mfv, mpdf, mc, commands.split_at(n_commands).0, input0, input1,
                    distance_cache,
                    recoder_state,
                    block_split_reference(mb),
@@ -2466,6 +2482,7 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
                                    AllocF:alloc::Allocator<floatX>,
                                    AllocFV:alloc::Allocator<Mem256f>,
                                    AllocPDF:alloc::Allocator<PDF>,
+                                   AllocStaticCommand: alloc::Allocator<StaticCommand>,
                                    Cb>
     (m8: &mut AllocU8,
      m16:&mut AllocU16,
@@ -2473,6 +2490,7 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
      mf:&mut AllocF,
      mfv:&mut AllocFV,
      mpdf:&mut AllocPDF,
+     mc:&mut AllocStaticCommand,
      input: &'a [u8],
      start_pos: usize,
      length: usize,
@@ -2494,6 +2512,7 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
                    mf,
                    mfv,
                    mpdf,
+                   mc,
                    commands.split_at(n_commands).0,
                    input0,
                    input1,
@@ -2664,6 +2683,7 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                 AllocF:alloc::Allocator<floatX>,
                                 AllocFV:alloc::Allocator<Mem256f>,
                                 AllocPDF:alloc::Allocator<PDF>,
+                                AllocStaticCommand: alloc::Allocator<StaticCommand>,
                                 AllocHT: alloc::Allocator<HuffmanTree>>(m : &mut AllocHT,
                                                                         m8:  &mut AllocU8,
                                                                         m16: &mut AllocU16,
@@ -2671,6 +2691,7 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                                                         mf: &mut AllocF,
                                                                         mfv: &mut AllocFV,
                                                                         mpdf: &mut AllocPDF,
+                                                                        mc: &mut AllocStaticCommand,
                                 input: &[u8],
                                 start_pos: usize,
                                 length: usize,
@@ -2692,6 +2713,7 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                    mf,
                    mfv,
                    mpdf,
+                   mc,
                    commands.split_at(n_commands).0, input0, input1, dist_cache, recoder_state,
                    block_split_nop(),
                    params,
@@ -2843,13 +2865,15 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
                                         AllocU32:alloc::Allocator<u32>,
                                         AllocF:alloc::Allocator<floatX>,
                                         AllocFV:alloc::Allocator<Mem256f>,
-                                        AllocPDF:alloc::Allocator<PDF>>
+                                        AllocPDF:alloc::Allocator<PDF>,
+                                        AllocStaticCommand: alloc::Allocator<StaticCommand>>
     (m8: &mut AllocU8,
      m16:&mut AllocU16,
      m32:&mut AllocU32,
      mf:&mut AllocF,
      mfv: &mut AllocFV,
      mpdf: &mut AllocPDF,
+     mc: &mut AllocStaticCommand,
      is_final_block: i32,
      input: &[u8],
      position: usize,
@@ -2879,7 +2903,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
                         dist_prefix_:0
     }];
 
-    LogMetaBlock(m8, m16, m32, mf, mfv, mpdf, &cmds, input0, input1, &[0i32, 0i32, 0i32, 0i32], recoder_state,
+    LogMetaBlock(m8, m16, m32, mf, mfv, mpdf, mc, &cmds, input0, input1, &[0i32, 0i32, 0i32, 0i32], recoder_state,
                  block_split_nop(),
                  params,
                  None,

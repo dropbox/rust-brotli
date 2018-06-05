@@ -15,6 +15,7 @@ use brotli::CustomRead;
 use core::ops;
 use brotli::enc::cluster::HistogramPair;
 use brotli::enc::ZopfliNode;
+use brotli::enc::StaticCommand;
 use brotli::enc::backward_references::BrotliEncoderMode;
 use brotli::enc::command::Command;
 use brotli::enc::entropy_encode::HuffmanTree;
@@ -281,6 +282,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
                                    HeapAllocator::<brotli::enc::Mem256f>{default_value:brotli::enc::Mem256f::default()},
                                    HeapAllocator::<brotli::enc::PDF>{default_value:brotli::enc::PDF::default()},
+                                   HeapAllocator::<StaticCommand>{default_value:StaticCommand::default()},
                                    HeapAllocator::<HistogramLiteral>{
                                        default_value:HistogramLiteral::default(),
                                    },
