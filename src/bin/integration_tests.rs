@@ -583,7 +583,7 @@ fn test_reader_alice() {
 }
 
 #[cfg(not(feature="no-stdlib"))]
-fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32) {
+fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32, do_flush: bool) {
   let original_buf = in_buf;
   let mut output = UnlimitedBuffer::new(&[]);
   {
@@ -598,6 +598,11 @@ fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32) {
         in_buf = &in_buf[size..];
       }
       Err(e) => panic!("Error {:?}", e),
+    }
+    if do_flush {
+      if let Err(e) = wenc.flush() {
+          panic!("Error {:?}", e);
+      }
     }
   }
   }
@@ -629,28 +634,28 @@ fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32) {
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_as_you_lik() {
-  writer_helper(include_bytes!("testdata/asyoulik.txt"), 17, 9, 20);
+  writer_helper(include_bytes!("testdata/asyoulik.txt"), 17, 9, 20, false);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_64x() {
-  writer_helper(include_bytes!("testdata/64x"), 17, 9, 20);
+  writer_helper(include_bytes!("testdata/64x"), 17, 9, 20, false);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_quickfox_repeated() {
-  writer_helper(include_bytes!("testdata/quickfox_repeated"), 251, 9, 20);
+  writer_helper(include_bytes!("testdata/quickfox_repeated"), 251, 9, 20, false);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_random_then_unicode() {
-  writer_helper(include_bytes!("testdata/random_then_unicode"), 277, 9, 20);
+  writer_helper(include_bytes!("testdata/random_then_unicode"), 277, 9, 20, false);
 }
 
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_alice() {
-  writer_helper(include_bytes!("testdata/alice29.txt"), 299, 9, 22);
+  writer_helper(include_bytes!("testdata/alice29.txt"), 299, 9, 22, true);
 }
 
 
