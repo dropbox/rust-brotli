@@ -385,7 +385,9 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
            if ret <= 0 {
               return Err(self.error_if_invalid_data.take().unwrap());
            }
-
+           if let BrotliEncoderOperation::BROTLI_OPERATION_FLUSH = op {
+              return Ok(());
+           }
            if BrotliEncoderIsFinished(&mut self.state) != 0 {
               return Ok(());
            }
@@ -489,7 +491,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
         Ok(buf.len())
       }
       fn flush(&mut self) -> Result<(), ErrType > {
-        match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
+        match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FLUSH) {
               Ok(_) => {},
               Err(e) => return Err(e),
         }
