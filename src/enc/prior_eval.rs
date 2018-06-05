@@ -400,7 +400,7 @@ impl<'a,
       ret
    }
    pub fn choose_bitmask(&mut self) {
-       let epsilon = 4.0;
+       let epsilon = 6.0;
        let max = 8192;
        let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
        for i in 0..max {
@@ -420,7 +420,7 @@ impl<'a,
            let stride2_score = self.score.slice()[stride_index2];
            let stride3_score = self.score.slice()[stride_index3] + 16.0;
            let stride4_score = self.score.slice()[stride_index4] + 16.0;
-           let stride8_score = self.score.slice()[stride_index8] * 10.0;
+           let stride8_score = self.score.slice()[stride_index8] * 1.125 + 16.0;
            let stride_score = core::cmp::min(stride1_score as u64,
                                              core::cmp::min(stride2_score as u64,
                                                             core::cmp::min(stride3_score as u64,
