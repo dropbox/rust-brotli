@@ -9,7 +9,6 @@ homepage = "https://github.com/dropbox/rust-brotli"
 repository = "https://github.com/dropbox/rust-brotli"
 keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
 readme = "README.md"
-exclude = ["src/bin/testdata/*"]
 autobins = false
 
 [[bin]]
