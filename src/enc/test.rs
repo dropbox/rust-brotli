@@ -138,8 +138,8 @@ fn oneshot_compress(input: &[u8],
       } else {
         op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
       }
-      let mut nop_callback = |_pm:&interface::PredictionModeContextMap<input_pair::InputReference>,
-                              _queue:&[interface::Command<interface::SliceOffset>],
+      let mut nop_callback = |_pm:&mut interface::PredictionModeContextMap<input_pair::InputReferenceMut>,
+                              _queue:&mut [interface::Command<interface::SliceOffset>],
                               _mb:interface::InputPair|();
 
       let result = BrotliEncoderCompressStream(s,

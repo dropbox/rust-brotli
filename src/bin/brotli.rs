@@ -264,12 +264,19 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
     let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
     let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
-    let mut log = |pm:&brotli::interface::PredictionModeContextMap<brotli::InputReference>,
-                   data:&[brotli::interface::Command<brotli::SliceOffset>],
+    let mut log = |pm:&mut brotli::interface::PredictionModeContextMap<brotli::InputReferenceMut>,
+                   data:&mut [brotli::interface::Command<brotli::SliceOffset>],
                    mb:brotli::InputPair| {
-        util::write_one(&brotli::interface::Command::PredictionMode(*pm));
+        let tmp = brotli::interface::Command::PredictionMode(
+            brotli::interface::PredictionModeContextMap::<brotli::InputReference>{
+                literal_context_map:brotli::InputReference::from(&pm.literal_context_map),
+                predmode_speed_and_distance_context_map:brotli::InputReference::from(&pm.predmode_speed_and_distance_context_map),
+            });
+        util::write_one(&tmp);
         for cmd in data.iter() {
-            util::write_one(&brotli::thaw_pair(cmd, &mb));} };
+            util::write_one(&brotli::thaw_pair(cmd, &mb));
+        }
+    };
     if params.log_meta_block {
         println_stderr!("window {} 0 0 0", params.lgwin);
     }

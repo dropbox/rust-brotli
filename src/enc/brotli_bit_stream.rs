@@ -95,7 +95,7 @@ struct CommandQueue<'a,
     mb_byte_offset: usize,
     mc: &'a mut AllocStaticCommand,
     queue: AllocStaticCommand::AllocatedMemory,
-    pred_mode: interface::PredictionModeContextMap<InputReference<'a>>,
+    pred_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
     loc: usize,
     entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
     best_strides_per_block_type: AllocU8::AllocatedMemory,
@@ -117,7 +117,7 @@ impl<'a,
     fn new(_m32: &mut AllocU32,
            mc: &'a mut AllocStaticCommand,
            num_commands: usize,
-           pred_mode: interface::PredictionModeContextMap<InputReference<'a>>,
+           pred_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
            mb: InputPair<'a>,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
@@ -163,15 +163,15 @@ impl<'a,
         self.loc = 0;
         self.block_type_literal = 0;
     }
-    fn flush<Cb>(&mut self, callback: &mut Cb) where Cb:FnMut(&interface::PredictionModeContextMap<InputReference>,
-                                                              &[interface::StaticCommand],
+    fn flush<Cb>(&mut self, callback: &mut Cb) where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                                              &mut[interface::StaticCommand],
                                                               InputPair) {
-        callback(&self.pred_mode, self.queue.slice().split_at(self.loc).0, self.mb);
+        callback(&mut self.pred_mode, self.queue.slice_mut().split_at_mut(self.loc).0, self.mb);
         self.clear();
     }
     fn free<Cb>(&mut self, m8: &mut AllocU8, m16: &mut AllocU16, m32: &mut AllocU32, mf64: &mut AllocF,
-                callback: &mut Cb) -> Result<(), ()> where Cb:FnMut(&interface::PredictionModeContextMap<InputReference>,
-                                                  &[interface::StaticCommand],
+                callback: &mut Cb) -> Result<(), ()> where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                                  &mut [interface::StaticCommand],
                                                   InputPair) {
        self.flush(callback);
        self.entropy_tally_scratch.free(m32);
@@ -456,8 +456,8 @@ fn LogMetaBlock<'a,
                     block_type: MetaBlockSplitRefs,
                     params: &BrotliEncoderParams,
                     context_type:Option<ContextType>,
-                    callback: &mut Cb) where Cb:FnMut(&interface::PredictionModeContextMap<InputReference>,
-                                                      &[interface::StaticCommand],
+                    callback: &mut Cb) where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                                      &mut [interface::StaticCommand],
                                                       InputPair){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64 + interface::DISTANCE_CONTEXT_MAP_OFFSET];
@@ -581,7 +581,7 @@ fn LogMetaBlock<'a,
      let prediction_mode = prior_selector.take_prediction_mode();
      prior_selector.free(m16, m32, mf);
      let mut command_queue = CommandQueue::new(m32, mc, commands.len(),
-                                               interface::PredictionModeContextMap::<InputReference>::from_mut(prediction_mode),
+                                               prediction_mode,
                                                input,
                                                params.stride_detection_quality,
                                                params.high_entropy_detection_quality,
@@ -2162,8 +2162,8 @@ pub fn BrotliStoreMetaBlock<'a,
    recoder_state: &mut RecoderState,
    storage_ix: &mut usize,
    storage: &mut [u8],
-  callback: &mut Cb) where Cb: FnMut(&interface::PredictionModeContextMap<InputReference>,
-                                                  &[interface::StaticCommand],
+  callback: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                                  &mut[interface::StaticCommand],
                                                   InputPair) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
@@ -2478,8 +2478,8 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
      recoder_state: &mut RecoderState,
      storage_ix: &mut usize,
      storage: &mut [u8],
-    f:&mut Cb) where Cb: FnMut(&interface::PredictionModeContextMap<InputReference>,
-                               &[interface::StaticCommand],
+    f:&mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                               &mut [interface::StaticCommand],
                                InputPair) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
@@ -2681,8 +2681,8 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                 recoder_state: &mut RecoderState,
                                 storage_ix: &mut usize,
                                 storage: &mut [u8],
-                                cb: &mut Cb) where Cb: FnMut(&interface::PredictionModeContextMap<InputReference>,
-                                                  &[interface::StaticCommand],
+                                cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                                  &mut [interface::StaticCommand],
                                                   InputPair) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
@@ -2863,8 +2863,8 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
      storage_ix: &mut usize,
      storage: &mut [u8],
      suppress_meta_block_logging: bool,
-     cb: &mut Cb) where Cb: FnMut(&interface::PredictionModeContextMap<InputReference>,
-                                  &[interface::StaticCommand],
+     cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                  &mut [interface::StaticCommand],
                                   InputPair){
   let (input0,input1) = InputPairFromMaskedInput(input, position, len, mask);
   BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);

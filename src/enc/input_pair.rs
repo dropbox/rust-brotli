@@ -52,6 +52,15 @@ impl <'a> From<InputReferenceMut<'a>> for InputReference<'a> {
    }
 }
 
+impl <'a> From<&'a InputReferenceMut<'a>> for InputReference<'a> {
+   fn from(val: &'a InputReferenceMut<'a>) -> InputReference<'a> {
+       InputReference{
+           data: val.data,
+           orig_offset: val.orig_offset,
+       }
+   }
+}
+
 #[derive(Clone, Debug,Copy)]
 pub struct InputPair<'a>(pub InputReference<'a>, pub InputReference<'a>);
 

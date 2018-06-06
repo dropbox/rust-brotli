@@ -361,8 +361,8 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
         ret
     }
     fn flush_or_close(&mut self, op:BrotliEncoderOperation) -> Result<(), ErrType>{
-       let mut nop_callback = |_pm:&interface::PredictionModeContextMap<input_pair::InputReference>,
-                               _queue:&[interface::Command<interface::SliceOffset>],
+       let mut nop_callback = |_pm:&mut interface::PredictionModeContextMap<input_pair::InputReferenceMut>,
+                               _queue:&mut [interface::Command<interface::SliceOffset>],
                                _mb:interface::InputPair|();
 
         loop {
@@ -469,8 +469,8 @@ impl<ErrType,
 CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
                          AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
 	fn write(&mut self, buf: & [u8]) -> Result<usize, ErrType > {
-        let mut nop_callback = |_pm:&interface::PredictionModeContextMap<input_pair::InputReference>,
-                                _queue:&[interface::Command<interface::SliceOffset>],
+        let mut nop_callback = |_pm:&mut interface::PredictionModeContextMap<input_pair::InputReferenceMut>,
+                                _queue:&mut [interface::Command<interface::SliceOffset>],
                                 _mb:interface::InputPair|();
         let mut avail_in = buf.len();
         let mut input_offset : usize = 0;

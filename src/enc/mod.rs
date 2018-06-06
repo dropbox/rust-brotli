@@ -51,7 +51,7 @@ use self::command::{Command};
 use self::entropy_encode::{HuffmanTree};
 use brotli_decompressor::{CustomRead, CustomWrite};
 pub use self::vectorization::{v128,v128i,v256,v256i, Mem256f};
-pub use interface::{InputReference,InputPair};
+pub use interface::{InputReference,InputPair, InputReferenceMut};
 
 
 #[cfg(not(feature="no-stdlib"))]
@@ -161,8 +161,8 @@ pub fn BrotliCompressCustomAlloc<InputType,
   where InputType: Read,
         OutputType: Write
 {
-  let mut nop_callback = |_data:&interface::PredictionModeContextMap<InputReference>,
-                          _cmds: &[interface::StaticCommand],
+  let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                          _cmds: &mut [interface::StaticCommand],
                           _mb: interface::InputPair|();
   BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
                            &mut IoWriterWrapper::<OutputType>(w),
@@ -210,8 +210,8 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocCT: Allocator<ContextType>,
                               AllocHT: Allocator<HuffmanTree>,
                               AllocZN: Allocator<ZopfliNode>,
-                              MetablockCallback: FnMut(&interface::PredictionModeContextMap<InputReference>,
-                                                       &[interface::StaticCommand],
+                              MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                                       &mut [interface::StaticCommand],
                                                        interface::InputPair)>
   (r: &mut InputType,
    w: &mut OutputType,
