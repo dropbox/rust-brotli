@@ -4,7 +4,7 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use core::mem;
 use core::cmp;
 use core::ops::{Index, IndexMut, Range};
-use super::input_pair::InputPair;
+use super::input_pair::{InputReference, InputPair};
 use super::util::FastLog2;
 // float32 doesn't have enough resolution for blocks of data more than 3.5 megs
 pub type floatY = f64;
@@ -350,7 +350,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         let pyr_item = &mut self.pop[index as usize];
         pyr_item.bzero();
         assert_eq!(pyr_item.bucket_populations.slice()[65535], 0);
-        for val in input.0.iter().chain(input.1.iter()) {
+        for val in input.0.slice().iter().chain(input.1.slice().iter()) {
             pyr_item.bucket_populations.slice_mut()[prev_val as usize * 256 + *val as usize] += 1;
             prev_val = *val;
         }
@@ -384,7 +384,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
                      initial_entropies[stride] = scratch.pop[stride].cached_bit_entropy;
             }
         }
-        scratch.observe_input_stream(input.0, input.1);
+        scratch.observe_input_stream(input.0.slice(), input.1.slice());
         let mut best_entropy_index = 0;
         let mut min_entropy_value = (scratch.pop[0].cached_bit_entropy - initial_entropies[0]);
         //println!("{} OLD ENTROPY {:} NEW_ENTROPY {:}", best_entropy_index, scratch.pop[0].cached_bit_entropy, initial_entropies[0]);
@@ -400,7 +400,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         self.stride[index as usize] = best_entropy_index as u8;
     }
     pub fn populate_stride1(&mut self, input0:&[u8], input1:&[u8]) {
-        let input = InputPair(input0, input1);
+        let input = InputPair(InputReference{data:input0,orig_offset:0}, InputReference{data:input1,orig_offset:input0.len()});
         for i in 0..2 {
             let first_range = if i == 0 {
                 input.split_at(input.len() >> 1).0
@@ -430,7 +430,7 @@ impl<AllocU32:alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         }
     }
     pub fn populate(&mut self, input0:&[u8], input1:&[u8], scratch: &mut EntropyTally<AllocU32>) {
-        let input = InputPair(input0, input1);
+        let input = InputPair(InputReference{data:input0,orig_offset:0}, InputReference{data:input1,orig_offset:input0.len()});
         self.populate_entry(input, scratch, 0, None, None); // BASE
 
         // LEVEL 1

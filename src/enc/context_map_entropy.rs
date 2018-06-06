@@ -297,8 +297,8 @@ impl<'a,
    }
    pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
        core::mem::replace(&mut self.context_map, interface::PredictionModeContextMap::<InputReferenceMut<'a>>{
-          literal_context_map:InputReferenceMut(&mut[]),
-          predmode_speed_and_distance_context_map:InputReferenceMut(&mut[]),
+          literal_context_map:InputReferenceMut::default(),
+          predmode_speed_and_distance_context_map:InputReferenceMut::default(),
        })
    }
    pub fn prediction_mode_mut(&mut self) -> &mut interface::PredictionModeContextMap<InputReferenceMut<'a>> {
@@ -424,10 +424,9 @@ impl<'a,
 impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
      AllocU32:alloc::Allocator<u32>,
      AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'b> for ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
-    fn push<Cb: FnMut(&[interface::Command<InputReference>])>(&mut self,
-                                                              val: interface::Command<InputReference<'b>>,
-                                                              callback: &mut Cb) {
-        push_base(self, val, callback)
+    fn push(&mut self,
+            val: interface::Command<InputReference<'b>>) {
+        push_base(self, val)
     }
 }
 

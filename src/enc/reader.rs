@@ -422,7 +422,9 @@ impl<ErrType,
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
                          AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, ErrType > {
-        let mut nop_callback = |_data:&[interface::Command<input_pair::InputReference>]|();
+        let mut nop_callback = |_pm:&interface::PredictionModeContextMap<input_pair::InputReference>,
+                                _queue:&[interface::Command<interface::SliceOffset>],
+                                _mb:interface::InputPair|();
         let mut output_offset : usize = 0;
         let mut avail_out = buf.len() - output_offset;
         let mut avail_in = self.input_len - self.input_offset;

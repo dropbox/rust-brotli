@@ -2050,7 +2050,9 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
                              AllocCommand: alloc::Allocator<Command>,
                              AllocHT:alloc::Allocator<HuffmanTree>,
                              AllocZN:alloc::Allocator<ZopfliNode>,
-                             MetablockCallback: FnMut(&[interface::Command<InputReference>])>(
+                             MetablockCallback: FnMut(&interface::PredictionModeContextMap<InputReference>,
+                                                      &[interface::StaticCommand],
+                                                      interface::InputPair)>(
     empty_m8: AllocU8,
     empty_m16: AllocU16,
     empty_m32: AllocU32,
@@ -2670,7 +2672,9 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              recoder_state: &mut RecoderState,
              storage_ix: &mut usize,
              storage: &mut [u8],
-            cb: &mut Cb) where Cb: FnMut(&[interface::Command<InputReference>]) {
+            cb: &mut Cb) where Cb: FnMut(&interface::PredictionModeContextMap<InputReference>,
+                                         &[interface::StaticCommand],
+                                         interface::InputPair) {
 
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_bytes: u16;
@@ -2943,7 +2947,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     out_size: &mut usize,
     callback: &mut MetablockCallback
 //              mut output: &'a mut &'a mut [u8]
-) -> i32 where MetablockCallback: FnMut(&[interface::Command<InputReference>]){
+) -> i32 where MetablockCallback: FnMut(&interface::PredictionModeContextMap<InputReference>,
+                                        &[interface::StaticCommand],
+                                        interface::InputPair){
   let delta: u64 = UnprocessedInputSize(s);
   let mut bytes: u32 = delta as (u32);
   let mut wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
@@ -3243,7 +3249,9 @@ fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
               AllocCommand: alloc::Allocator<Command>,
                    AllocHT:alloc::Allocator<HuffmanTree>,
                    AllocZN:alloc::Allocator<ZopfliNode>,
-                   MetaBlockCallback:FnMut(&[interface::Command<InputReference>])>(
+                   MetaBlockCallback:FnMut(&interface::PredictionModeContextMap<InputReference>,
+                                           &[interface::StaticCommand],
+                                           interface::InputPair)>(
     s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     m64: &mut AllocU64,
     mf64: &mut AllocF64,
@@ -3566,7 +3574,9 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
                                    AllocCommand: alloc::Allocator<Command>,
                                    AllocHT:alloc::Allocator<HuffmanTree>,
                                    AllocZN: alloc::Allocator<ZopfliNode>,
-                                   MetablockCallback:FnMut(&[interface::Command<InputReference>])>(
+                                   MetablockCallback:FnMut(&interface::PredictionModeContextMap<InputReference>,
+                                                           &[interface::StaticCommand],
+                                                           interface::InputPair)>(
     s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     m64: &mut AllocU64,
     mf64: &mut AllocF64,
@@ -3799,7 +3809,9 @@ pub fn BrotliEncoderWriteData<'a, AllocU8: alloc::Allocator<u8>,
                               AllocCommand: alloc::Allocator<Command>,
                               AllocHT:alloc::Allocator<HuffmanTree>,
                               AllocZN:alloc::Allocator<ZopfliNode>,
-                              MetablockCallback:FnMut(&[interface::Command<InputReference>])>(
+                              MetablockCallback:FnMut(&interface::PredictionModeContextMap<InputReference>,
+                                                       &[interface::StaticCommand],
+                                                       interface::InputPair)>(
     s: &'a mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     m64: &mut AllocU64,
     mf64: &mut AllocF64,

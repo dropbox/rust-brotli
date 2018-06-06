@@ -264,7 +264,12 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
     let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
     let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
-    let mut log = |data:&[brotli::interface::Command<brotli::InputReference>]| {for cmd in data.iter() {util::write_one(cmd)} };
+    let mut log = |pm:&brotli::interface::PredictionModeContextMap<brotli::InputReference>,
+                   data:&[brotli::interface::Command<brotli::SliceOffset>],
+                   mb:brotli::InputPair| {
+        util::write_one(&brotli::interface::Command::PredictionMode(*pm));
+        for cmd in data.iter() {
+            util::write_one(&brotli::thaw(cmd, &mb));} };
     if params.log_meta_block {
         println_stderr!("window {} 0 0 0", params.lgwin);
     }
@@ -575,7 +580,7 @@ fn main() {
           } else {
             match decompress(&mut input, &mut output, 65536) {
               Ok(_) => {}
-              Err(e) => panic!("Error {:?}", e),
+              Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
             }
           }
           if i + 1 != num_benchmarks {
@@ -594,7 +599,7 @@ fn main() {
         } else {
           match decompress(&mut input, &mut io::stdout(), 65536) {
             Ok(_) => {}
-            Err(e) => panic!("Error {:?}", e),
+            Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
           }
         }
       }
@@ -609,7 +614,7 @@ fn main() {
       } else {
         match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
           Ok(_) => return,
-          Err(e) => panic!("Error {:?}", e),
+          Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
         }
       }
     }
@@ -617,7 +622,7 @@ fn main() {
     assert_eq!(num_benchmarks, 1);
     match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
       Ok(_) => return,
-      Err(e) => panic!("Error {:?}", e),
+      Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
     }
   }
 }

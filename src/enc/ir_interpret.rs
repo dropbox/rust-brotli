@@ -17,10 +17,8 @@ pub trait IRInterpreter {
 
 
 pub fn push_base<'a,
-                 Interpreter: IRInterpreter,
-                 Cb: FnMut(&[interface::Command<InputReference>])>(xself: &mut Interpreter,
-                                                                   val: interface::Command<InputReference<'a>>,
-                                                                   callback: &mut Cb) {
+                 Interpreter: IRInterpreter>(xself: &mut Interpreter,
+                                             val: interface::Command<InputReference<'a>>) {
         match val {
            interface::Command::BlockSwitchCommand(_) |
            interface::Command::BlockSwitchDistance(_) |
@@ -53,8 +51,6 @@ pub fn push_base<'a,
                xself.inc_local_byte_offset(lit.data.slice().len());
            }
         }
-        let cbval = [val];
-        callback(&cbval[..]);        
     }
 
 
