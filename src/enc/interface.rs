@@ -633,7 +633,7 @@ pub trait CommandProcessor<'a> {
 }
 
 
-pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(xself: &Command<SliceType>, data: &InputPair<'a>) -> Command<InputReference<'a>> {
+pub fn thaw_pair<'a, SliceType: Unfreezable + SliceWrapper<u8>>(xself: &Command<SliceType>, data: &InputPair<'a>) -> Command<InputReference<'a>> {
     match *xself {
         Command::Literal(ref lit) => {
             Command::Literal(LiteralCommand{
@@ -646,6 +646,39 @@ pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(xself: &Command<Slice
             Command::PredictionMode(PredictionModeContextMap{
                 literal_context_map:pm.literal_context_map.thaw_pair(data).unwrap(),
                 predmode_speed_and_distance_context_map:pm.predmode_speed_and_distance_context_map.thaw_pair(data).unwrap(),
+            })
+        },
+        Command::Dict(ref d) => {
+            Command::Dict(d.clone())
+        },
+        Command::Copy(ref c) => {
+            Command::Copy(c.clone())
+        },
+        Command::BlockSwitchCommand(ref c) => {
+            Command::BlockSwitchCommand(c.clone())
+        },
+        Command::BlockSwitchLiteral(ref c) => {
+            Command::BlockSwitchLiteral(c.clone())
+        },
+        Command::BlockSwitchDistance(ref c) => {
+            Command::BlockSwitchDistance(c.clone())
+        },
+    }
+}
+
+pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(xself: &Command<SliceType>, data: &'a[u8]) -> Command<InputReference<'a>> {
+    match *xself {
+        Command::Literal(ref lit) => {
+            Command::Literal(LiteralCommand{
+                data:lit.data.thaw(data),
+                prob:FeatureFlagSliceType::default(),
+                high_entropy: lit.high_entropy,
+            })
+        },
+        Command::PredictionMode(ref pm) => {
+            Command::PredictionMode(PredictionModeContextMap{
+                literal_context_map:pm.literal_context_map.thaw(data),
+                predmode_speed_and_distance_context_map:pm.predmode_speed_and_distance_context_map.thaw(data),
             })
         },
         Command::Dict(ref d) => {

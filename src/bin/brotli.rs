@@ -269,7 +269,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                    mb:brotli::InputPair| {
         util::write_one(&brotli::interface::Command::PredictionMode(*pm));
         for cmd in data.iter() {
-            util::write_one(&brotli::thaw(cmd, &mb));} };
+            util::write_one(&brotli::thaw_pair(cmd, &mb));} };
     if params.log_meta_block {
         println_stderr!("window {} 0 0 0", params.lgwin);
     }
