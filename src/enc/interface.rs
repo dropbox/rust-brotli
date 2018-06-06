@@ -528,26 +528,36 @@ impl SliceWrapper<u8> for SliceOffset {
     }
 }
 
+pub trait Freezable {
+    fn freeze(&self) -> SliceOffset;
+}
+
+pub trait Unfreezable {
+    fn thaw<'a>(&self, data: &'a [u8]) -> InputReference<'a>;
+    fn thaw_mut<'a>(&self, data: &'a mut [u8]) -> InputReferenceMut<'a>;
+    fn thaw_pair<'a>(&self, pair: &InputPair<'a>) -> Result<InputReference<'a>, ()>;
+}
+
 impl<'a> From<InputReference<'a>> for SliceOffset {
     fn from(f: InputReference<'a>) -> Self {
         debug_assert!(f.data.len() <= 0xffffffff);
         SliceOffset(f.orig_offset, f.data.len() as u32)
     }
 }
-impl SliceOffset {
-    pub fn thaw<'a>(&self, data: &'a [u8]) -> InputReference<'a> {
+impl Unfreezable for SliceOffset {
+    fn thaw<'a>(&self, data: &'a [u8]) -> InputReference<'a> {
         InputReference{
             data: data.split_at(self.0).1.split_at(self.1 as usize).0,
             orig_offset: self.0,
         }
     }
-    pub fn thaw_mut<'a>(&self, data: &'a mut [u8]) -> InputReferenceMut<'a> {
+    fn thaw_mut<'a>(&self, data: &'a mut [u8]) -> InputReferenceMut<'a> {
         InputReferenceMut{
             data: data.split_at_mut(self.0).1.split_at_mut(self.1 as usize).0,
             orig_offset: self.0,
         }
     }
-    pub fn thaw_pair<'a>(&self, pair: &InputPair<'a>) -> Result<InputReference<'a>, ()> {
+    fn thaw_pair<'a>(&self, pair: &InputPair<'a>) -> Result<InputReference<'a>, ()> {
         if self.0 >= pair.1.orig_offset {
             return Ok(InputReference{
                 data: pair.1.data.split_at(self.0 - pair.1.orig_offset).1.split_at(self.1 as usize).0,
@@ -564,6 +574,8 @@ impl SliceOffset {
             Err(())
         }
     }
+}
+impl SliceOffset {
     pub fn offset(&self) -> usize {
         self.0
     }
@@ -576,9 +588,6 @@ impl SliceOffset {
 }
 
 
-pub trait Freezable {
-    fn freeze(&self) -> SliceOffset;
-}
 
 pub type StaticCommand = Command<SliceOffset>;
 
@@ -624,7 +633,7 @@ pub trait CommandProcessor<'a> {
 }
 
 
-pub fn thaw<'a>(xself: &Command<SliceOffset>, data: &InputPair<'a>) -> Command<InputReference<'a>> {
+pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(xself: &Command<SliceType>, data: &InputPair<'a>) -> Command<InputReference<'a>> {
     match *xself {
         Command::Literal(ref lit) => {
             Command::Literal(LiteralCommand{
