@@ -3,6 +3,10 @@
 [![crates.io](http://meritbadge.herokuapp.com/brotli)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+## What's new in 2.4
+The callback with the compression intermediate representation now passes a full metablock at a time. Also these items are mutable
+in case futher optimization is desired
+
 ## What's new in 2.3
 
 Flush now produces output instead of calling finish on the stream. This allows you to use the writer abstraction to
