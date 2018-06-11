@@ -332,7 +332,7 @@ fn total_roundtrip_helper(data: &[u8]) {
     }
     roundtrip_helper(data, 10, 23, true);
 }
-static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("testdata/random_then_unicode");
+static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
 #[test]
 fn test_random_then_unicode_0() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13, false);
@@ -428,29 +428,29 @@ fn test_random_then_unicode_9_5x() {
 
 #[test]
 fn test_alice29_11() {
-    let c_size = roundtrip_helper(include_bytes!("testdata/alice29.txt"), 11, 22, false);
+    let c_size = roundtrip_helper(include_bytes!("../../testdata/alice29.txt"), 11, 22, false);
     assert_eq!(c_size, alice_compressed_size_11);
 }
 
 #[test]
 fn test_alice29_10() {
-    let c_size = roundtrip_helper(include_bytes!("testdata/alice29.txt"), 10, 22, false);
+    let c_size = roundtrip_helper(include_bytes!("../../testdata/alice29.txt"), 10, 22, false);
     assert_eq!(c_size, alice_compressed_size_10);
 }
 
 #[test]
 fn test_roundtrip_quickfox_repeated() {
-  total_roundtrip_helper(include_bytes!("testdata/quickfox_repeated"));
+  total_roundtrip_helper(include_bytes!("../../testdata/quickfox_repeated"));
 }
 
 #[test]
 fn test_roundtrip_alice29() {
-  total_roundtrip_helper(include_bytes!("testdata/alice29.txt"));
+  total_roundtrip_helper(include_bytes!("../../testdata/alice29.txt"));
 }
 
 #[test]
 fn test_roundtrip_as_you_lik() {
-  total_roundtrip_helper(include_bytes!("testdata/asyoulik.txt"));
+  total_roundtrip_helper(include_bytes!("../../testdata/asyoulik.txt"));
 }
 
 #[cfg(not(feature="no-stdlib"))]
@@ -551,35 +551,35 @@ fn simple_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_64x() {
-  reader_helper(include_bytes!("testdata/64x"), 9, 20);
+  reader_helper(include_bytes!("../../testdata/64x"), 9, 20);
 }
 /*
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_simple_64x() {
-    bogus_reader_helper(include_bytes!("testdata/64x"), 9, 20);
+    bogus_reader_helper(include_bytes!("../../testdata/64x"), 9, 20);
 }*/
 
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_as_you_lik() {
-  reader_helper(include_bytes!("testdata/asyoulik.txt"), 9, 20);
+  reader_helper(include_bytes!("../../testdata/asyoulik.txt"), 9, 20);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_quickfox_repeated() {
-  reader_helper(include_bytes!("testdata/quickfox_repeated"), 9, 20);
+  reader_helper(include_bytes!("../../testdata/quickfox_repeated"), 9, 20);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_random_then_unicode() {
-  reader_helper(include_bytes!("testdata/random_then_unicode"), 9, 20);
+  reader_helper(include_bytes!("../../testdata/random_then_unicode"), 9, 20);
 }
 
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_reader_alice() {
-  reader_helper(include_bytes!("testdata/alice29.txt"), 9, 22);
+  reader_helper(include_bytes!("../../testdata/alice29.txt"), 9, 22);
 }
 
 #[cfg(not(feature="no-stdlib"))]
@@ -634,28 +634,28 @@ fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32, do_flus
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_as_you_lik() {
-  writer_helper(include_bytes!("testdata/asyoulik.txt"), 17, 9, 20, false);
+  writer_helper(include_bytes!("../../testdata/asyoulik.txt"), 17, 9, 20, false);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_64x() {
-  writer_helper(include_bytes!("testdata/64x"), 17, 9, 20, false);
+  writer_helper(include_bytes!("../../testdata/64x"), 17, 9, 20, false);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_quickfox_repeated() {
-  writer_helper(include_bytes!("testdata/quickfox_repeated"), 251, 9, 20, false);
+  writer_helper(include_bytes!("../../testdata/quickfox_repeated"), 251, 9, 20, false);
 }
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_random_then_unicode() {
-  writer_helper(include_bytes!("testdata/random_then_unicode"), 277, 9, 20, false);
+  writer_helper(include_bytes!("../../testdata/random_then_unicode"), 277, 9, 20, false);
 }
 
 #[cfg(not(feature="no-stdlib"))]
 #[test]
 fn test_writer_alice() {
-  writer_helper(include_bytes!("testdata/alice29.txt"), 299, 9, 22, true);
+  writer_helper(include_bytes!("../../testdata/alice29.txt"), 299, 9, 22, true);
 }
 
 
@@ -881,7 +881,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
 
 fn expand_test_data(size: usize) -> Vec<u8> {
     let mut ret = vec![0u8; size];
-    let original_data = include_bytes!("testdata/random_then_unicode");
+    let original_data = include_bytes!("../../testdata/random_then_unicode");
     let mut count = 0;
     let mut iter = 0usize;
     while count < size {
@@ -1010,16 +1010,16 @@ fn bench_e2e_rt_q5_1024k(bench: &mut Bencher) {
 
 #[test]
 fn test_64x() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/64x.compressed"),
-                                           include_bytes!("testdata/64x"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/64x.compressed"),
+                                           include_bytes!("../../testdata/64x"),
                                            3,
                                            3);
 }
 
 #[test]
 fn test_as_you_like_it() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/asyoulik.txt.compressed"),
-                                           include_bytes!("testdata/asyoulik.txt"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/asyoulik.txt.compressed"),
+                                           include_bytes!("../../testdata/asyoulik.txt"),
                                            65536,
                                            65536);
 }
@@ -1028,13 +1028,13 @@ fn test_as_you_like_it() {
 #[test]
 #[should_panic]
 fn test_negative_hypothesis() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/64x"),
-                                           include_bytes!("testdata/64x"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/64x"),
+                                           include_bytes!("../../testdata/64x"),
                                            3,
                                            3);
 }
-static ALICE29_BR: &'static [u8] = include_bytes!("testdata/alice29.txt.compressed");
-static ALICE29: &'static [u8] = include_bytes!("testdata/alice29.txt");
+static ALICE29_BR: &'static [u8] = include_bytes!("../../testdata/alice29.txt.compressed");
+static ALICE29: &'static [u8] = include_bytes!("../../testdata/alice29.txt");
 #[test]
 fn test_alice29() {
   assert_decompressed_input_matches_output(ALICE29_BR, ALICE29, 65536, 65536);
@@ -1053,8 +1053,8 @@ fn test_alice1() {
 
 #[test]
 fn test_backward65536() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/backward65536.compressed"),
-                                           include_bytes!("testdata/backward65536"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/backward65536.compressed"),
+                                           include_bytes!("../../testdata/backward65536"),
                                            65536,
                                            65536);
 }
@@ -1062,158 +1062,158 @@ fn test_backward65536() {
 
 #[test]
 fn test_compressed_file() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/compressed_file.compressed"),
-                                           include_bytes!("testdata/compressed_file"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/compressed_file.compressed"),
+                                           include_bytes!("../../testdata/compressed_file"),
                                            65536,
                                            65536);
 }
 
 #[test]
 fn test_compressed_repeated() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/compressed_repeated.\
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/compressed_repeated.\
                                                            compressed"),
-                                           include_bytes!("testdata/compressed_repeated"),
+                                           include_bytes!("../../testdata/compressed_repeated"),
                                            65536,
                                            65536);
 }
 
 #[test]
 fn test_empty() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty0() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.00"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.00"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty1() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.01"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.01"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty2() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.02"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.02"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty3() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.03"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.03"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty4() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.04"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.04"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty5() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.05"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.05"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty6() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.06"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.06"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty7() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.07"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.07"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty8() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.08"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.08"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty9() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.09"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.09"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty10() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.10"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.10"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty11() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.11"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.11"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty12() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.12"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.12"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty13() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.13"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.13"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty14() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.14"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.14"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty15() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.15"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.15"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty16() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.16"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.16"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty17() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.17"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.17"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }
 #[test]
 fn test_empty18() {
-  assert_decompressed_input_matches_output(include_bytes!("testdata/empty.compressed.18"),
-                                           include_bytes!("testdata/empty"),
+  assert_decompressed_input_matches_output(include_bytes!("../../testdata/empty.compressed.18"),
+                                           include_bytes!("../../testdata/empty"),
                                            65536,
                                            65536);
 }

@@ -289,47 +289,47 @@ macro_rules! test_roundtrip_file {
 
 #[test]
 fn test_roundtrip_64x() {
-  test_roundtrip_file!("../bin/testdata/64x", 72, 9, 10, 3, 2);
+  test_roundtrip_file!("../../testdata/64x", 72, 9, 10, 3, 2);
 }
 #[test]
 fn test_roundtrip_ukkonooa() {
-  test_roundtrip_file!("../bin/testdata/ukkonooa", 82, 9, 10, 3, 2);
+  test_roundtrip_file!("../../testdata/ukkonooa", 82, 9, 10, 3, 2);
 }
 #[test]
 fn test_roundtrip_backward65536() {
-  test_roundtrip_file!("../bin/testdata/backward65536", 72000, 9, 10, 3, 2);
+  test_roundtrip_file!("../../testdata/backward65536", 72000, 9, 10, 3, 2);
 }
 #[test]
 fn test_roundtrip_aaabaaaa() {
-  test_roundtrip_file!("../bin/testdata/aaabaaaa", 72000, 9, 10, 3, 2);
+  test_roundtrip_file!("../../testdata/aaabaaaa", 72000, 9, 10, 3, 2);
 }
 #[test]
 fn test_roundtrip_monkey() {
-  test_roundtrip_file!("../bin/testdata/monkey", 72000, 9, 10, 16, 15);
+  test_roundtrip_file!("../../testdata/monkey", 72000, 9, 10, 16, 15);
 }
 #[test]
 fn test_roundtrip_quickfox_repeated() {
-  test_roundtrip_file!("../bin/testdata/quickfox_repeated", 16384, 9, 10, 257, 255);
+  test_roundtrip_file!("../../testdata/quickfox_repeated", 16384, 9, 10, 257, 255);
 }
 
 #[test]
 fn test_roundtrip_asyoulik() {
-  test_roundtrip_file!("../bin/testdata/asyoulik.txt", 64384, 9, 15, 513, 511);
+  test_roundtrip_file!("../../testdata/asyoulik.txt", 64384, 9, 15, 513, 511);
 }
 
 #[test]
 fn test_roundtrip_asyoulik9_5() {
-  test_roundtrip_file!("../bin/testdata/asyoulik.txt", 62384, 10, 15, 513, 511);
+  test_roundtrip_file!("../../testdata/asyoulik.txt", 62384, 10, 15, 513, 511);
 }
 
 #[test]
 fn test_roundtrip_compressed() {
-  test_roundtrip_file!("../bin/testdata/compressed_file", 50400, 9, 10, 1025, 1024);
+  test_roundtrip_file!("../../testdata/compressed_file", 50400, 9, 10, 1025, 1024);
 }
 
 #[test]
 fn test_roundtrip_compressed_repeated() {
-  test_roundtrip_file!("../bin/testdata/compressed_repeated",
+  test_roundtrip_file!("../../testdata/compressed_repeated",
                        120000,
                        9,
                        16,
@@ -339,7 +339,7 @@ fn test_roundtrip_compressed_repeated() {
 
 #[test]
 fn test_roundtrip_quickfox() {
-  test_roundtrip_file!("../bin/testdata/quickfox", 256, 9, 10, 1, 2);
+  test_roundtrip_file!("../../testdata/quickfox", 256, 9, 10, 1, 2);
 }
 
 
