@@ -41,7 +41,7 @@ let mut writer = brotli::Compressor::new(&mut io::stdout(), 4096 /* buffer size 
 ### With the Stream Copy abstraction
 
 ```rust
-match brotli::BrotliCompress(&mut io::stdin(), &mut io::stdout(), quality as u32, lg_window_size as u32) {
+match brotli::BrotliCompress(&mut io::stdin(), &mut io::stdout(), &brotli_encoder_params) {
     Ok(_) => {},
     Err(e) => panic!("Error {:?}", e),
 }
