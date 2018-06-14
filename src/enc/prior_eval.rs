@@ -405,10 +405,10 @@ impl<'a,
        let epsilon = 6.0;
        let mut max_popularity = 0u32;
        let mut max_popularity_index = 0u8;
-       let mut popularity = [0u32; WhichPrior::NUM_PRIORS as usize];
+       assert_eq!(WhichPrior::NUM_PRIORS as usize, 9); // workaround rust 1.8.0 compiler bug
+       let mut popularity = [0u32; 9];
        let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
-       assert_eq!(super::interface::NUM_MIXING_VALUES, 8192);
-       for i in 0..8192 {
+       for i in 0..super::interface::NUM_MIXING_VALUES {
            let cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::CM as usize;
            let slow_cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::SLOW_CM as usize;
            let fast_cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::FAST_CM as usize;
