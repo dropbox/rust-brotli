@@ -407,7 +407,8 @@ impl<'a,
        let mut max_popularity_index = 0u8;
        let mut popularity = [0u32; WhichPrior::NUM_PRIORS as usize];
        let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
-       for i in 0..super::interface::NUM_MIXING_VALUES {
+       assert_eq!(super::interface::NUM_MIXING_VALUES, 8192);
+       for i in 0..8192 {
            let cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::CM as usize;
            let slow_cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::SLOW_CM as usize;
            let fast_cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::FAST_CM as usize;
