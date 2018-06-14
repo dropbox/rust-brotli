@@ -45,11 +45,13 @@ pub trait Prior {
     #[allow(unused_variables)]
     #[inline]
     fn score_index(stride_byte: u8, selected_context: u8, actual_context: usize, high_nibble: Option<u8>) -> usize {
-        let which: WhichPrior = Self::which();
+        let which = Self::which() as usize;
+        assert!(which < WhichPrior::NUM_PRIORS as usize);
+        assert!(actual_context < 256);
         if let Some(nibble) = high_nibble {
-        actual_context + 4096 + 256 * nibble as usize + (which as usize * 8192)
+            WhichPrior::NUM_PRIORS as usize * (actual_context + 4096 + 256 * nibble as usize) + which
         } else {
-            actual_context + 256 * (stride_byte >> 4) as usize + (which as usize * 8192)
+            WhichPrior::NUM_PRIORS as usize * (actual_context + 256 * (stride_byte >> 4) as usize) + which
         }
     }
     fn which() -> WhichPrior;
@@ -401,18 +403,20 @@ impl<'a,
    }
    pub fn choose_bitmask(&mut self) {
        let epsilon = 6.0;
-       let max = 8192;
+       let mut max_popularity = 0u32;
+       let mut max_popularity_index = 0u8;
+       let mut popularity = [0u32; WhichPrior::NUM_PRIORS as usize];
        let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
-       for i in 0..max {
-           let cm_index = i + max * WhichPrior::CM as usize;
-           let slow_cm_index = i + max * WhichPrior::SLOW_CM as usize;
-           let fast_cm_index = i + max * WhichPrior::FAST_CM as usize;
-           let stride_index1 = i + max * WhichPrior::STRIDE1 as usize;
-           let stride_index2 = i + max * WhichPrior::STRIDE2 as usize;
-           let stride_index3 = i + max * WhichPrior::STRIDE3 as usize;
-           let stride_index4 = i + max * WhichPrior::STRIDE4 as usize;
-           let stride_index8 = i + max * WhichPrior::STRIDE8 as usize;
-           let adv_index = i + max * WhichPrior::ADV as usize;
+       for i in 0..super::interface::NUM_MIXING_VALUES {
+           let cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::CM as usize;
+           let slow_cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::SLOW_CM as usize;
+           let fast_cm_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::FAST_CM as usize;
+           let stride_index1 = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::STRIDE1 as usize;
+           let stride_index2 = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::STRIDE2 as usize;
+           let stride_index3 = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::STRIDE3 as usize;
+           let stride_index4 = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::STRIDE4 as usize;
+           let stride_index8 = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::STRIDE8 as usize;
+           let adv_index = i * WhichPrior::NUM_PRIORS as usize + WhichPrior::ADV as usize;
            let cm_score = self.score.slice()[cm_index];
            let slow_cm_score = self.score.slice()[slow_cm_index];
            let fast_cm_score = self.score.slice()[fast_cm_index] + 16.0;
@@ -454,7 +458,17 @@ impl<'a,
            } else {
                bitmask[i] = 0;
            }
-           //eprintln!("Score {} {}: {}", cm_score, stride_score, bitmask[i]);
+           if stride_score == 0 {
+               bitmask[i] = max_popularity_index;
+               //eprintln!("Miss {}[{}] ~ {}", bitmask[i], i, max_popularity_index);
+           } else {
+               popularity[bitmask[i] as usize] += 1;
+               if popularity[bitmask[i] as usize] > max_popularity {
+                   max_popularity = popularity[bitmask[i] as usize];
+                   max_popularity_index = bitmask[i];
+               }
+               //eprintln!("Score {} {} {} {} {}: {}[{}] max={},{}", cm_score, adv_score, slow_cm_score, fast_cm_score, stride_score, bitmask[i], i, max_popularity, max_popularity_index);
+           }
        }
        self.context_map.set_mixing_values(&bitmask);
    }
