@@ -266,7 +266,10 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
     let mut log = |pm:&mut brotli::interface::PredictionModeContextMap<brotli::InputReferenceMut>,
                    data:&mut [brotli::interface::Command<brotli::SliceOffset>],
-                   mb:brotli::InputPair| {
+                   mb:brotli::InputPair,
+                   _mfv: &mut HeapAllocator<brotli::enc::Mem256f>,
+                   _mpdf: &mut HeapAllocator<brotli::enc::PDF>,
+                   _mc: &mut HeapAllocator<StaticCommand>| {
         let tmp = brotli::interface::Command::PredictionMode(
             brotli::interface::PredictionModeContextMap::<brotli::InputReference>{
                 literal_context_map:brotli::InputReference::from(&pm.literal_context_map),

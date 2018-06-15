@@ -2052,7 +2052,7 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
                              AllocZN:alloc::Allocator<ZopfliNode>,
                              MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                       &mut [interface::StaticCommand],
-                                                      interface::InputPair)>(
+                                                      interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
     empty_m8: AllocU8,
     empty_m16: AllocU16,
     empty_m32: AllocU32,
@@ -2674,7 +2674,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              storage: &mut [u8],
             cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                          &mut [interface::StaticCommand],
-                                         interface::InputPair) {
+                                         interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand) {
 
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_bytes: u16;
@@ -2949,7 +2949,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
 //              mut output: &'a mut &'a mut [u8]
 ) -> i32 where MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                         &mut [interface::StaticCommand],
-                                        interface::InputPair){
+                                        interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand){
   let delta: u64 = UnprocessedInputSize(s);
   let mut bytes: u32 = delta as (u32);
   let mut wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
@@ -3251,7 +3251,7 @@ fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
                    AllocZN:alloc::Allocator<ZopfliNode>,
                    MetaBlockCallback:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                            &mut [interface::StaticCommand],
-                                           interface::InputPair)>(
+                                           interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
     s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     m64: &mut AllocU64,
     mf64: &mut AllocF64,
@@ -3576,7 +3576,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
                                    AllocZN: alloc::Allocator<ZopfliNode>,
                                    MetablockCallback:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                            &mut [interface::StaticCommand],
-                                                           interface::InputPair)>(
+                                                           interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
     s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     m64: &mut AllocU64,
     mf64: &mut AllocF64,
@@ -3811,7 +3811,7 @@ pub fn BrotliEncoderWriteData<'a, AllocU8: alloc::Allocator<u8>,
                               AllocZN:alloc::Allocator<ZopfliNode>,
                               MetablockCallback:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                        &mut [interface::StaticCommand],
-                                                       interface::InputPair)>(
+                                                       interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
     s: &'a mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
     m64: &mut AllocU64,
     mf64: &mut AllocF64,

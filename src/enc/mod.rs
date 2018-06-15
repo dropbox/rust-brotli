@@ -163,7 +163,7 @@ pub fn BrotliCompressCustomAlloc<InputType,
 {
   let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<InputReferenceMut>,
                           _cmds: &mut [interface::StaticCommand],
-                          _mb: interface::InputPair|();
+                          _mb: interface::InputPair, _mfv: &mut AllocFV, _mpdf: &mut AllocPDF, _mc: &mut AllocStaticCommand|();
   BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
                            &mut IoWriterWrapper::<OutputType>(w),
                            input_buffer,
@@ -212,7 +212,7 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocZN: Allocator<ZopfliNode>,
                               MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                        &mut [interface::StaticCommand],
-                                                       interface::InputPair)>
+                                                       interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>
   (r: &mut InputType,
    w: &mut OutputType,
    input_buffer: &mut [u8],

@@ -29,7 +29,7 @@ use super::entropy_encode::{HuffmanTree, BrotliWriteHuffmanTree, BrotliCreateHuf
 use super::histogram::{HistogramAddItem, HistogramLiteral, HistogramCommand, HistogramDistance,
                        ContextType};
 use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::super::core;
 use super::find_stride;
 use super::vectorization::Mem256f;
@@ -163,17 +163,14 @@ impl<'a,
         self.loc = 0;
         self.block_type_literal = 0;
     }
-    fn flush<Cb>(&mut self, callback: &mut Cb) where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
-                                                              &mut[interface::StaticCommand],
-                                                              InputPair) {
-        callback(&mut self.pred_mode, self.queue.slice_mut().split_at_mut(self.loc).0, self.mb);
-        self.clear();
-    }
-    fn free<Cb>(&mut self, m8: &mut AllocU8, m16: &mut AllocU16, m32: &mut AllocU32, mf64: &mut AllocF,
+    fn free<AllocFV:alloc::Allocator<Mem256f>, AllocPDF:Allocator<PDF>, Cb>(&mut self, m8: &mut AllocU8, m16: &mut AllocU16, m32: &mut AllocU32, mf64: &mut AllocF, mfv: &mut AllocFV, mpdf: &mut AllocPDF,
                 callback: &mut Cb) -> Result<(), ()> where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
-                                                  &mut [interface::StaticCommand],
-                                                  InputPair) {
-       self.flush(callback);
+                                                                    &mut [interface::StaticCommand],
+                                                                    InputPair,
+                                                                    &mut AllocFV,
+                                                                    &mut AllocPDF, &mut AllocStaticCommand) {
+       callback(&mut self.pred_mode, self.queue.slice_mut().split_at_mut(self.loc).0, self.mb, mfv, mpdf, self.mc);
+       self.clear();
        self.entropy_tally_scratch.free(m32);
        self.entropy_pyramid.free(m32);
        self.context_map_entropy.free(m16, m32, mf64);
@@ -447,8 +444,8 @@ fn LogMetaBlock<'a,
                     m16: &mut AllocU16,
                     m32: &mut AllocU32,
                     mf: &mut AllocF,
-                    _mfv: &mut AllocFV,
-                    _mpdf: &mut AllocPDF,
+                    mfv: &mut AllocFV,
+                    mpdf: &mut AllocPDF,
                     mc: &mut AllocStaticCommand,
                     commands: &[Command], input0: &'a[u8],input1: &'a[u8],
                     dist_cache: &[i32;kNumDistanceCacheEntries],
@@ -458,7 +455,7 @@ fn LogMetaBlock<'a,
                     context_type:Option<ContextType>,
                     callback: &mut Cb) where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                       &mut [interface::StaticCommand],
-                                                      InputPair){
+                                                      InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64 + interface::DISTANCE_CONTEXT_MAP_OFFSET];
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -599,7 +596,7 @@ fn LogMetaBlock<'a,
                                            &block_type,
                                            params,
                                            context_type);
-    command_queue.free(m8, m16, m32, mf, callback).unwrap();
+    command_queue.free(m8, m16, m32, mf, mfv, mpdf, callback).unwrap();
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
 }
@@ -2164,7 +2161,7 @@ pub fn BrotliStoreMetaBlock<'a,
    storage: &mut [u8],
   callback: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                   &mut[interface::StaticCommand],
-                                                  InputPair) {
+                                                  InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
       LogMetaBlock(m8, m16, m32, mf, mfv, mpdf, mc, commands.split_at(n_commands).0, input0, input1,
@@ -2480,7 +2477,7 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
      storage: &mut [u8],
     f:&mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                &mut [interface::StaticCommand],
-                               InputPair) {
+                               InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
       LogMetaBlock(m8,
@@ -2683,7 +2680,7 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                 storage: &mut [u8],
                                 cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                   &mut [interface::StaticCommand],
-                                                  InputPair) {
+                                                  InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
       LogMetaBlock(m8,
@@ -2865,7 +2862,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
      suppress_meta_block_logging: bool,
      cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                   &mut [interface::StaticCommand],
-                                  InputPair){
+                                  InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand){
   let (input0,input1) = InputPairFromMaskedInput(input, position, len, mask);
   BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);

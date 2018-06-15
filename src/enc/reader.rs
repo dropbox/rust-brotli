@@ -1,6 +1,5 @@
 use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
-use super::input_pair;
 use enc::PDF;
 use enc::StaticCommand;
 use super::command::Command;
@@ -422,9 +421,9 @@ impl<ErrType,
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
                          AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, ErrType > {
-        let mut nop_callback = |_pm:&mut interface::PredictionModeContextMap<input_pair::InputReferenceMut>,
-                                _queue:&mut [interface::Command<interface::SliceOffset>],
-                                _mb:interface::InputPair|();
+        let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<interface::InputReferenceMut>,
+                                _cmds: &mut [interface::StaticCommand],
+                                _mb: interface::InputPair, _mfv: &mut AllocFV, _mpdf: &mut AllocPDF, _mc: &mut AllocStaticCommand|();
         let mut output_offset : usize = 0;
         let mut avail_out = buf.len() - output_offset;
         let mut avail_in = self.input_len - self.input_offset;
