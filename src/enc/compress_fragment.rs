@@ -201,7 +201,7 @@ fn EmitInsertLen(insertlen: usize,
                     storage);
     {
       let _rhs = 1;
-      let _lhs = &mut histo[(21usize)];
+      let _lhs = &mut histo[(61usize)];
       *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
   }
@@ -258,7 +258,7 @@ fn EmitLongInsertLen(insertlen: usize,
                     storage);
     {
       let _rhs = 1;
-      let _lhs = &mut histo[(22usize)];
+      let _lhs = &mut histo[(62usize)];
       *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
   } else {
@@ -272,7 +272,7 @@ fn EmitLongInsertLen(insertlen: usize,
                     storage);
     {
       let _rhs = 1;
-      let _lhs = &mut histo[(23usize)];
+      let _lhs = &mut histo[(63usize)];
       *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
   }
@@ -424,7 +424,7 @@ fn EmitCopyLenLastDistance(copylen: usize,
                     storage);
     {
       let _rhs = 1;
-      let _lhs = &mut histo[(47usize)];
+      let _lhs = &mut histo[(39usize)];
       *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
     {
@@ -504,7 +504,7 @@ fn EmitCopyLen(copylen: usize,
                     storage);
     {
       let _rhs = 1;
-      let _lhs = &mut histo[(47usize)];
+      let _lhs = &mut histo[(39usize)];
       *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
   }
