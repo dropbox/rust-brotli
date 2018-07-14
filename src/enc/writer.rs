@@ -8,6 +8,7 @@ use super::hash_to_binary_tree::ZopfliNode;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
                     BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
+use super::backward_references::BrotliEncoderParams;
 use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use brotli_decompressor::CustomWrite;
@@ -218,6 +219,12 @@ impl<W: Write> CompressorWriter<W> {
                                                            lgwin))
   }
 
+  pub fn with_params(w: W, buffer_size: usize, params: &BrotliEncoderParams) -> Self {
+    let mut writer = Self::new(w, buffer_size, params.quality as u32, params.lgwin as u32);
+    (writer.0).0.state.params = params.clone();
+    writer
+  }
+
   pub fn get_ref(&self) -> &W {
     self.0.get_ref()
   }
@@ -408,9 +415,9 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
            if BrotliEncoderIsFinished(&mut self.state) != 0 {
               return Ok(());
            }
-        }        
+        }
     }
-    
+
     pub fn get_ref(&self) -> &W {
       &self.output
     }
