@@ -18,12 +18,13 @@ pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
+use alloc;
 #[cfg(not(feature="no-stdlib"))]
 use std::io;
 
 #[cfg(not(feature="no-stdlib"))]
 use std::io::{Read, Error, ErrorKind};
-
+use core::simd::{i16x16, f32x8};
 
 
 
@@ -38,6 +39,8 @@ pub struct CompressorReaderCustomAlloc<R: Read,
                                        AllocCommand: Allocator<Command>,
                                        AllocF64: Allocator<super::util::floatX>,
                                        AllocFV: Allocator<Mem256f>,
+                                       AllocF8: alloc::Allocator<f32x8>,
+                                       Alloc16x16: alloc::Allocator<i16x16>,
                                        AllocPDF: Allocator<PDF>,
                                        AllocStaticCommand: Allocator<StaticCommand>,
                                        AllocHL: Allocator<HistogramLiteral>,
@@ -50,7 +53,7 @@ pub struct CompressorReaderCustomAlloc<R: Read,
     CompressorReaderCustomIo<io::Error,
                              IntoIoReader<R>,
                              BufferType,
-                             AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand, AllocF64, AllocFV, AllocPDF, AllocStaticCommand,
+                             AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand, AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand,
                              AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>);
 
 
@@ -65,6 +68,8 @@ impl<R: Read,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
      AllocFV: Allocator<Mem256f>,
+     AllocF8: alloc::Allocator<f32x8>,
+     Alloc16x16: alloc::Allocator<i16x16>,
      AllocPDF: Allocator<PDF>,
      AllocStaticCommand: Allocator<StaticCommand>,
      AllocHL: Allocator<HistogramLiteral>,
@@ -75,7 +80,7 @@ impl<R: Read,
      AllocHT: Allocator<HuffmanTree>,
      AllocZN: Allocator<ZopfliNode>>
     CompressorReaderCustomAlloc<R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                                AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>
+                                AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>
     {
 
     pub fn new(r: R, buffer : BufferType,
@@ -87,6 +92,8 @@ impl<R: Read,
                alloc_c : AllocCommand,
                alloc_f64 : AllocF64,
                alloc_fv : AllocFV,
+               alloc_f8: AllocF8,
+               alloc_i16x16: Alloc16x16,
                alloc_pdf : AllocPDF,
                alloc_sc : AllocStaticCommand,
                alloc_hl:AllocHL,
@@ -99,16 +106,16 @@ impl<R: Read,
                q: u32,
                lgwin: u32) -> Self {
         CompressorReaderCustomAlloc::<R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                                AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>(
+                                AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>(
           CompressorReaderCustomIo::<Error,
                                  IntoIoReader<R>,
                                  BufferType,
                                  AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                                 AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>::new(
+                                 AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>::new(
               IntoIoReader::<R>(r),
               buffer,
               alloc_u8, alloc_u16, alloc_i32, alloc_u32, alloc_u64, alloc_c,
-              alloc_f64, alloc_fv, alloc_pdf, alloc_sc, alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct,alloc_ht, alloc_zn,
+              alloc_f64, alloc_fv, alloc_f8, alloc_i16x16, alloc_pdf, alloc_sc, alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct,alloc_ht, alloc_zn,
               Error::new(ErrorKind::InvalidData,
                          "Invalid Data"),
               q, lgwin))
@@ -130,6 +137,8 @@ impl<R: Read,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
      AllocFV: Allocator<Mem256f>,
+     AllocF8: alloc::Allocator<f32x8>,
+     Alloc16x16: alloc::Allocator<i16x16>,
      AllocPDF: Allocator<PDF>,
      AllocStaticCommand: Allocator<StaticCommand>,
      AllocHL: Allocator<HistogramLiteral>,
@@ -140,7 +149,7 @@ impl<R: Read,
      AllocHT: Allocator<HuffmanTree>,
      AllocZN: Allocator<ZopfliNode>>
     Read for CompressorReaderCustomAlloc<R, BufferType,
-                                         AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand, AllocF64, AllocFV, AllocPDF, AllocStaticCommand,
+                                         AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand, AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand,
                                          AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
   	fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
        self.0.read(buf)
@@ -160,6 +169,8 @@ pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
                                      HeapAlloc<Command>,
                                      HeapAlloc<super::util::floatX>,
                                      HeapAlloc<Mem256f>,
+                                     HeapAlloc<f32x8>,
+                                     HeapAlloc<i16x16>,
                                      HeapAlloc<PDF>,
                                      HeapAlloc<StaticCommand>,
                                      HeapAlloc<HistogramLiteral>,
@@ -183,6 +194,8 @@ impl<R: Read> CompressorReader<R> {
     let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };
     let alloc_f64 = HeapAlloc::<super::util::floatX> { default_value: 0.0 as super::util::floatX };
     let alloc_fv = HeapAlloc::<Mem256f> { default_value: Mem256f::default() };
+    let alloc_f8 = HeapAlloc::<f32x8> { default_value: f32x8::default() };
+    let alloc_i16x16 = HeapAlloc::<i16x16> { default_value: i16x16::default() };
     let alloc_pdf = HeapAlloc::<PDF> { default_value: PDF::default() };
     let alloc_sc = HeapAlloc::<StaticCommand> { default_value: StaticCommand::default() };
     let alloc_hl = HeapAlloc::<HistogramLiteral> { default_value: HistogramLiteral::default() };
@@ -202,6 +215,8 @@ impl<R: Read> CompressorReader<R> {
                                                            alloc_c,
                                                            alloc_f64,
                                                            alloc_fv,
+                                                           alloc_f8,
+                                                           alloc_i16x16,
                                                            alloc_pdf,
                                                            alloc_sc,
                                                            alloc_hl,
@@ -240,6 +255,8 @@ pub struct CompressorReaderCustomIo<ErrType,
                                     AllocCommand: Allocator<Command>,
                                     AllocF64: Allocator<super::util::floatX>,
                                     AllocFV: Allocator<Mem256f>,
+                                    AllocF8: alloc::Allocator<f32x8>,
+                                    Alloc16x16: alloc::Allocator<i16x16>,
                                     AllocPDF: Allocator<PDF>,
                                     AllocStaticCommand: Allocator<StaticCommand>,
                                     AllocHL: Allocator<HistogramLiteral>,
@@ -261,6 +278,8 @@ pub struct CompressorReaderCustomIo<ErrType,
   alloc_u64: AllocU64,
   alloc_f64: AllocF64,
   alloc_fv: AllocFV,
+  alloc_f8: AllocF8,
+  alloc_16x16: Alloc16x16,
   alloc_pdf: AllocPDF,
   alloc_sc: AllocStaticCommand,
   alloc_hl: AllocHL,
@@ -284,6 +303,8 @@ impl<ErrType,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
      AllocFV: Allocator<Mem256f>,
+     AllocF8: alloc::Allocator<f32x8>,
+     Alloc16x16: alloc::Allocator<i16x16>,
      AllocPDF: Allocator<PDF>,
      AllocStaticCommand: Allocator<StaticCommand>,
      AllocHL: Allocator<HistogramLiteral>,
@@ -294,7 +315,7 @@ impl<ErrType,
      AllocHT: Allocator<HuffmanTree>,
      AllocZN: Allocator<ZopfliNode>>
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                         AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>
+                         AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>
 {
 
     pub fn new(r: R, buffer : BufferType,
@@ -306,6 +327,8 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
                alloc_c : AllocCommand,
                alloc_f64 : AllocF64,
                alloc_fv : AllocFV,
+               alloc_f8: AllocF8,
+               alloc_i16x16: Alloc16x16,
                alloc_pdf : AllocPDF,
                alloc_sc : AllocStaticCommand,
                alloc_hl:AllocHL,
@@ -333,6 +356,8 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
             alloc_u64:alloc_u64,
             alloc_f64:alloc_f64,
             alloc_fv:alloc_fv,
+            alloc_f8:alloc_f8,
+            alloc_i16x16:alloc_i16x16,
             alloc_pdf:alloc_pdf,
             alloc_sc:alloc_sc,
             alloc_hl:alloc_hl,
@@ -383,6 +408,8 @@ impl<ErrType,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
      AllocFV: Allocator<Mem256f>,
+     AllocF8: alloc::Allocator<f32x8>,
+     Alloc16x16: alloc::Allocator<i16x16>,
      AllocPDF: Allocator<PDF>,
      AllocStaticCommand: Allocator<StaticCommand>,
      AllocHL: Allocator<HistogramLiteral>,
@@ -393,7 +420,7 @@ impl<ErrType,
      AllocHT: Allocator<HuffmanTree>,
      AllocZN: Allocator<ZopfliNode>> Drop for
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                         AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
+                         AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
     fn drop(&mut self) {
         BrotliEncoderDestroyInstance(&mut self.state);
     }
@@ -409,6 +436,8 @@ impl<ErrType,
      AllocCommand: Allocator<Command>,
      AllocF64: Allocator<super::util::floatX>,
      AllocFV: Allocator<Mem256f>,
+     AllocF8: Allocator<f32x8>,
+     Alloc16x16: Allocator<i16x16>,
      AllocPDF: Allocator<PDF>,
      AllocStaticCommand: Allocator<StaticCommand>,
      AllocHL: Allocator<HistogramLiteral>,
@@ -419,7 +448,7 @@ impl<ErrType,
      AllocHT: Allocator<HuffmanTree>,
      AllocZN: Allocator<ZopfliNode>> CustomRead<ErrType> for
 CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                         AllocF64, AllocFV, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
+                         AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, ErrType > {
         let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<interface::InputReferenceMut>,
                                 _cmds: &mut [interface::StaticCommand],
@@ -455,6 +484,8 @@ CompressorReaderCustomIo<ErrType, R, BufferType, AllocU8, AllocU16, AllocI32, Al
                 &mut self.alloc_u64,
                 &mut self.alloc_f64,
                 &mut self.alloc_fv,
+                &mut self.alloc_f8,
+                &mut self.alloc_i16x16,
                 &mut self.alloc_pdf,
                 &mut self.alloc_sc,
                 &mut self.alloc_hl,
