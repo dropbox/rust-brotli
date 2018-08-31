@@ -1,5 +1,6 @@
 #![cfg(test)]
 use core;
+use super::{i16x16,f32x8};
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
 use super::vectorization::Mem256f;
@@ -53,6 +54,10 @@ fn oneshot_compress(input: &[u8],
     unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
   let stack_fv_buffer =
     unsafe { define_allocator_memory_pool!(48, Mem256f, [0; 128 * 1024], calloc) };
+  let stack_f8_buffer =
+    unsafe { define_allocator_memory_pool!(48, f32x8, [0; 128 * 1024], calloc) };
+  let stack_16x16_buffer =
+    unsafe { define_allocator_memory_pool!(48, i16x16, [0; 128 * 1024], calloc) };
   let stack_hl_buffer =
     unsafe { define_allocator_memory_pool!(48, HistogramLiteral, [0; 128 * 1024], calloc) };
   let stack_hc_buffer =
@@ -86,6 +91,8 @@ fn oneshot_compress(input: &[u8],
                                                                          bzero);
   let mut mf64 = CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
   let mut mfv = CallocatedFreelist2048::<Mem256f>::new_allocator(stack_fv_buffer.data, bzero);
+  let mut mf8 = CallocatedFreelist2048::<f32x8>::new_allocator(stack_f8_buffer.data, bzero);
+  let mut m16x16 = CallocatedFreelist2048::<i16x16>::new_allocator(stack_16x16_buffer.data, bzero);
   let mut mpdf = CallocatedFreelist2048::<PDF>::new_allocator(stack_pdf_buffer.data, bzero);
   let mut msc = CallocatedFreelist2048::<StaticCommand>::new_allocator(stack_sc_buffer.data, bzero);
   let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data,
@@ -149,6 +156,8 @@ fn oneshot_compress(input: &[u8],
                                                &mut stack_u64_allocator,
                                                &mut mf64,
                                                &mut mfv,
+                                               &mut mf8,
+                                               &mut m16x16,
                                                &mut mpdf,
                                                &mut msc,
                                                &mut mhl,

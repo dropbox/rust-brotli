@@ -1,4 +1,4 @@
-
+#![feature(stdsimd)] //FIXME
 #![cfg_attr(feature="benchmark", feature(test))]
 
 mod integration_tests;
@@ -20,7 +20,7 @@ use brotli::enc::backward_references::BrotliEncoderMode;
 use brotli::enc::command::Command;
 use brotli::enc::entropy_encode::HuffmanTree;
 use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
-
+use brotli::enc::{i16x16, f32x8};
 
 pub struct Rebox<T> {
   b: Box<[T]>,
@@ -296,6 +296,8 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    HeapAllocator::<Command>{default_value:Command::default()},
                                    HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
                                    HeapAllocator::<brotli::enc::Mem256f>{default_value:brotli::enc::Mem256f::default()},
+                                   HeapAllocator::<f32x8>{default_value:brotli::enc::f32x8::default()},
+                                   HeapAllocator::<i16x16>{default_value:brotli::enc::i16x16::default()},
                                    HeapAllocator::<brotli::enc::PDF>{default_value:brotli::enc::PDF::default()},
                                    HeapAllocator::<StaticCommand>{default_value:StaticCommand::default()},
                                    HeapAllocator::<HistogramLiteral>{

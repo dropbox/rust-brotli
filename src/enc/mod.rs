@@ -33,7 +33,7 @@ pub mod prior_eval;
 pub mod stride_eval;
 pub mod context_map_entropy;
 pub mod pdf;
-use core::simd::{i16x16, f32x8};
+pub use core::simd::{i16x16, f32x8};
 mod test;
 mod weights;
 pub use self::util::floatX;

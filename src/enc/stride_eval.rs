@@ -5,9 +5,81 @@ use super::interface;
 use super::backward_references::BrotliEncoderParams;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::ir_interpret::{IRInterpreter, push_base};
-use super::util::{floatX};
+use super::util::{floatX, FastLog2u16};
+use super::prior_eval::{DEFAULT_SPEED};
+const NIBBLE_PRIOR_SIZE: usize = 16;
+pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
 
-use super::prior_eval::{Prior,Stride1Prior,init_cdfs, DEFAULT_SPEED, STRIDE_PRIOR_SIZE};
+pub fn local_init_cdfs(cdfs: &mut [u16]) {
+    for (index, item) in cdfs.iter_mut().enumerate() {
+        *item = 4 + 4 * (index as u16 & 0xf);
+    }
+}
+#[allow(unused_variables)]
+fn stride_lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+    if let Some(nibble) = high_nibble {
+        1 + 2 * (actual_context as usize
+                 | ((stride_byte as usize & 0xf) << 8)
+                 | ((nibble as usize) << 12))
+    } else {
+        2 * (actual_context as usize | ((stride_byte as usize) << 8))
+    }
+}
+
+struct CDF<'a> {
+    cdf:&'a mut [u16],
+}
+struct Stride1Prior{
+}
+impl Stride1Prior {
+    pub fn offset() -> usize{
+        0
+    }
+    fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
+        stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
+    }
+    fn lookup_mut(data:&mut [u16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> CDF {
+        let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
+                             high_nibble) * NIBBLE_PRIOR_SIZE;
+        CDF::from(data.split_at_mut(index).1.split_at_mut(16).0)
+    }
+}
+
+impl<'a> CDF<'a> {
+    pub fn cost(&self, nibble_u8:u8) -> floatX {
+        assert_eq!(self.cdf.len(), 16);
+        let nibble = nibble_u8 as usize & 0xf;
+        let mut pdf = self.cdf[nibble];
+        if nibble_u8 != 0 {
+            pdf -= self.cdf[nibble - 1];
+        }
+        FastLog2u16(self.cdf[15]) - FastLog2u16(pdf)
+    }
+    pub fn update(&mut self, nibble_u8:u8, speed: (u16, u16)) {
+        assert_eq!(self.cdf.len(), 16);
+        for nib_range in (nibble_u8 as usize & 0xf) .. 16 {
+            self.cdf[nib_range] += speed.0;
+        }
+        if self.cdf[15] >= speed.1 {
+            const CDF_BIAS:[u16;16] = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+            for nibble_index in 0..16  {
+                let tmp = &mut self.cdf[nibble_index];
+                *tmp = (tmp.wrapping_add(CDF_BIAS[nibble_index])).wrapping_sub(
+                    tmp.wrapping_add(CDF_BIAS[nibble_index]) >> 2);
+            }
+        }
+    }
+}
+
+impl<'a> From<&'a mut[u16]> for CDF<'a> {
+    fn from(cdf: &'a mut[u16]) -> CDF<'a> {
+        assert_eq!(cdf.len(), 16);
+        CDF {
+            cdf:cdf,
+        }
+    }
+}
+
 
 pub struct StrideEval<'a,
                      AllocU16:alloc::Allocator<u16> + 'a,
@@ -97,7 +169,7 @@ impl<'a,
          stride_speed: stride_speed,
       };
       for stride_prior in ret.stride_priors.iter_mut() {
-          init_cdfs(stride_prior.slice_mut());
+          local_init_cdfs(stride_prior.slice_mut());
       }
       ret
    }
