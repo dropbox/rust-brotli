@@ -4,7 +4,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
-#![feature(stdsimd)] //FIXME
+#![cfg_attr(feature="simd", feature(stdsimd))]
+
 #[macro_use]
 // <-- for debugging, remove xprintln from bit_reader and replace with println
 #[cfg(not(feature="no-stdlib"))]

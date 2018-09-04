@@ -33,7 +33,18 @@ pub mod prior_eval;
 pub mod stride_eval;
 pub mod context_map_entropy;
 pub mod pdf;
-pub use core::simd::{i16x16, f32x8};
+mod compat;
+#[cfg(feature="simd")]
+use core::simd::{i16x16, f32x8};
+#[cfg(feature="simd")]
+pub type s16 = i16x16;
+#[cfg(feature="simd")]
+pub type v8 = f32x8;
+#[cfg(not(feature="simd"))]
+pub type s16 = compat::Compat16x16;
+#[cfg(not(feature="simd"))]
+pub type v8 = compat::CompatF8;
+
 mod test;
 mod weights;
 pub use self::util::floatX;
@@ -90,8 +101,8 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             },
                             HeapAlloc::<floatX> { default_value: 0.0 as floatX },
                             HeapAlloc::<Mem256f> { default_value: Mem256f::default() },
-                            HeapAlloc::<f32x8> { default_value: f32x8::default() },
-                            HeapAlloc::<i16x16> { default_value: i16x16::default() },
+                            HeapAlloc::<v8> { default_value: v8::default() },
+                            HeapAlloc::<s16> { default_value: s16::default() },
                             HeapAlloc::<PDF> { default_value: PDF::default() },
                             HeapAlloc::<StaticCommand> { default_value: StaticCommand::default() },
                             HeapAlloc::<HistogramLiteral>{
@@ -128,8 +139,8 @@ pub fn BrotliCompressCustomAlloc<InputType,
                                  AllocCommand: Allocator<Command>,
                                  AllocF64: Allocator<util::floatX>,
                                  AllocFV: Allocator<Mem256f>,
-                                 AllocF8: Allocator<f32x8>,
-                                 Alloc16x16: Allocator<i16x16>,
+                                 AllocF8: Allocator<v8>,
+                                 Alloc16x16: Allocator<s16>,
                                  AllocPDF: Allocator<PDF>,
                                  AllocStaticCommand: Allocator<StaticCommand>,
                                  AllocHL: Allocator<HistogramLiteral>,
@@ -209,8 +220,8 @@ pub fn BrotliCompressCustomIo<ErrType,
                               AllocCommand: Allocator<Command>,
                               AllocF64: Allocator<util::floatX>,
                               AllocFV: Allocator<Mem256f>,
-                              AllocF8: Allocator<f32x8>,
-                              Alloc16x16: Allocator<i16x16>,
+                              AllocF8: Allocator<v8>,
+                              Alloc16x16: Allocator<s16>,
                               AllocPDF: Allocator<PDF>,
                               AllocStaticCommand: Allocator<StaticCommand>,
                               AllocHL: Allocator<HistogramLiteral>,

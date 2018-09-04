@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 #![allow(unused_macros)]
 #[cfg(not(feature="no-stdlib"))]
-use core::simd::{f32x8, i16x16};
+use super::{v8, s16};
 use std::io::Write;
 use super::util::floatX;
 use super::prior_eval;
@@ -439,8 +439,8 @@ fn LogMetaBlock<'a,
                 AllocU32:alloc::Allocator<u32>,
                 AllocF:alloc::Allocator<floatX>,
                 AllocFV:alloc::Allocator<Mem256f>,
-                AllocF8:alloc::Allocator<f32x8>,
-                Alloc16x16:alloc::Allocator<i16x16>,
+                AllocF8:alloc::Allocator<v8>,
+                Alloc16x16:alloc::Allocator<s16>,
                 AllocPDF: alloc::Allocator<PDF>,
                 AllocStaticCommand: alloc::Allocator<StaticCommand>,
                 Cb>(m8: &mut AllocU8,
@@ -2133,8 +2133,8 @@ pub fn BrotliStoreMetaBlock<'a,
                             AllocU32: alloc::Allocator<u32>,
                             AllocF: alloc::Allocator<floatX>,
                             AllocFV:alloc::Allocator<Mem256f>,
-                            AllocF8:alloc::Allocator<f32x8>,
-                            Alloc16x16:alloc::Allocator<i16x16>,
+                            AllocF8:alloc::Allocator<v8>,
+                            Alloc16x16:alloc::Allocator<s16>,
                             AllocPDF: alloc::Allocator<PDF>,
                             AllocStaticCommand: alloc::Allocator<StaticCommand>,
                             AllocHT: alloc::Allocator<HuffmanTree>,
@@ -2462,8 +2462,8 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
                                    AllocU32:alloc::Allocator<u32>,
                                    AllocF:alloc::Allocator<floatX>,
                                    AllocFV:alloc::Allocator<Mem256f>,
-                                   AllocF8:alloc::Allocator<f32x8>,
-                                   Alloc16x16:alloc::Allocator<i16x16>,
+                                   AllocF8:alloc::Allocator<v8>,
+                                   Alloc16x16:alloc::Allocator<s16>,
                                    AllocPDF:alloc::Allocator<PDF>,
                                    AllocStaticCommand: alloc::Allocator<StaticCommand>,
                                    Cb>
@@ -2671,8 +2671,8 @@ pub fn BrotliStoreMetaBlockFast<Cb,
                                 AllocU32:alloc::Allocator<u32>,
                                 AllocF:alloc::Allocator<floatX>,
                                 AllocFV:alloc::Allocator<Mem256f>,
-                                AllocF8:alloc::Allocator<f32x8>,
-                                Alloc16x16:alloc::Allocator<i16x16>,
+                                AllocF8:alloc::Allocator<v8>,
+                                Alloc16x16:alloc::Allocator<s16>,
                                 AllocPDF:alloc::Allocator<PDF>,
                                 AllocStaticCommand: alloc::Allocator<StaticCommand>,
                                 AllocHT: alloc::Allocator<HuffmanTree>>(
@@ -2865,8 +2865,8 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
                                         AllocU32:alloc::Allocator<u32>,
                                         AllocF:alloc::Allocator<floatX>,
                                         AllocFV:alloc::Allocator<Mem256f>,
-                                        AllocF8:alloc::Allocator<f32x8>,
-                                        Alloc16x16:alloc::Allocator<i16x16>,
+                                        AllocF8:alloc::Allocator<v8>,
+                                        Alloc16x16:alloc::Allocator<s16>,
                                         AllocPDF:alloc::Allocator<PDF>,
                                         AllocStaticCommand: alloc::Allocator<StaticCommand>>
     (m8: &mut AllocU8,

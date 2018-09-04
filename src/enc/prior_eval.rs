@@ -7,7 +7,7 @@ use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::ir_interpret::{IRInterpreter, push_base};
 use super::util::{floatX, FastLog2u16};
 use super::find_stride;
-use core::simd::{i16x16, f32x8};
+use super::{s16, v8};
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;
 pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * 2;
@@ -31,13 +31,13 @@ pub enum WhichPrior {
 pub trait Prior {
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize;
     #[inline]
-    fn lookup_mut(data:&mut [i16x16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> CDF {
+    fn lookup_mut(data:&mut [s16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> CDF {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble);
         CDF::from(&mut data[index])
     }
     #[inline]
-    fn lookup(data:&[i16x16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> &i16x16 {
+    fn lookup(data:&[s16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> &s16 {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble);
         &data[index]
@@ -256,7 +256,7 @@ impl Prior for AdvPrior {
 }
 
 pub struct CDF<'a> {
-    cdf:&'a mut i16x16,
+    cdf:&'a mut s16,
 }
 
 impl<'a> CDF<'a> {
@@ -275,15 +275,15 @@ impl<'a> CDF<'a> {
             *self.cdf = self.cdf.replace(nib_range as usize, self.cdf.extract(nib_range) + speed.0 as i16); // FIXME: perf: do as single op/splat
         }
         if self.cdf.extract(15) >= speed.1 as i16 {
-          let CDF_BIAS = i16x16::new(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16);
+          let CDF_BIAS = s16::new(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16);
           *self.cdf = *self.cdf + CDF_BIAS - ((*self.cdf + CDF_BIAS) >> 2);
         }
     }
 }
 
-impl<'a> From<&'a mut i16x16> for CDF<'a> {
+impl<'a> From<&'a mut s16> for CDF<'a> {
     #[inline]
-    fn from(cdf: &'a mut i16x16) -> CDF<'a> {
+    fn from(cdf: &'a mut s16) -> CDF<'a> {
         CDF {
             cdf:cdf,
         }
@@ -291,17 +291,17 @@ impl<'a> From<&'a mut i16x16> for CDF<'a> {
 }
 
 
-pub fn init_cdfs(cdfs: &mut [i16x16]) {
+pub fn init_cdfs(cdfs: &mut [s16]) {
   for item in cdfs.iter_mut() {
-    *item = i16x16::new(4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64);
+    *item = s16::new(4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64);
    }
 }
 
 
 pub struct PriorEval<'a,
-                     Alloc16x16:alloc::Allocator<i16x16>,
+                     Alloc16x16:alloc::Allocator<s16>,
                      AllocU32:alloc::Allocator<u32>,
-                     AllocFx8:alloc::Allocator<f32x8>,
+                     AllocFx8:alloc::Allocator<v8>,
                      > {
     input: InputPair<'a>,
     context_map: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
@@ -321,9 +321,9 @@ pub struct PriorEval<'a,
 }
 
 impl<'a,
-     Alloc16x16:alloc::Allocator<i16x16>,
+     Alloc16x16:alloc::Allocator<s16>,
      AllocU32:alloc::Allocator<u32>,
-     AllocFx8:alloc::Allocator<f32x8>,
+     AllocFx8:alloc::Allocator<v8>,
      > PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
   pub fn new(m16x16: &mut Alloc16x16,
               _m32: &mut AllocU32,
@@ -490,8 +490,8 @@ impl<'a,
        })
    }
   fn update_cost_base(&mut self, stride_prior: [u8;8], stride_prior_offset:usize, selected_bits: u8, cm_prior: usize, literal: u8) {
-      let mut l_score = f32x8::splat(0.0);
-      let mut h_score = f32x8::splat(0.0);
+      let mut l_score = v8::splat(0.0);
+      let mut h_score = v8::splat(0.0);
       let base_stride_prior = stride_prior[stride_prior_offset.wrapping_sub(self.cur_stride as usize) & 7];
       let hscore_index = upper_score_index(base_stride_prior, selected_bits, cm_prior);
       let lscore_index = lower_score_index(base_stride_prior, selected_bits, cm_prior, literal);
@@ -580,7 +580,6 @@ impl<'a,
        }
        {
            type CurPrior = Stride3Prior;
-           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            let mut cdf = CurPrior::lookup_mut(self.stride_priors[2].slice_mut(),
                                               stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7],
                                               selected_bits,
@@ -608,7 +607,6 @@ impl<'a,
        }
 /*       {
            type CurPrior = Stride8Prior;
-           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.stride_priors[4].slice_mut(),
                                               stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal>>4));
@@ -627,14 +625,12 @@ impl<'a,
 */
        type CurPrior = AdvPrior;
        {
-           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, None);
            let mut cdf = CurPrior::lookup_mut(self.adv_priors.slice_mut(),
                                               base_stride_prior, selected_bits, cm_prior, None);
            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal>>4));
            cdf.update(literal >> 4, self.stride_speed[1]);
        }
        {
-           let score_index = CurPrior::score_index(base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            let mut cdf = CurPrior::lookup_mut(self.adv_priors.slice_mut(),
                                               base_stride_prior, selected_bits, cm_prior, Some(literal >> 4));
            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal&0xf));
@@ -644,9 +640,9 @@ impl<'a,
        self.score.slice_mut()[hscore_index] += h_score;
   }
 }
-impl<'a, Alloc16x16: alloc::Allocator<i16x16>,
+impl<'a, Alloc16x16: alloc::Allocator<s16>,
      AllocU32:alloc::Allocator<u32>,
-     AllocFx8: alloc::Allocator<f32x8>> IRInterpreter for PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
+     AllocFx8: alloc::Allocator<v8>> IRInterpreter for PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
     #[inline]
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
@@ -685,9 +681,9 @@ impl<'a, Alloc16x16: alloc::Allocator<i16x16>,
 
 
 
-impl<'a, 'b, Alloc16x16: alloc::Allocator<i16x16>,
+impl<'a, 'b, Alloc16x16: alloc::Allocator<s16>,
      AllocU32:alloc::Allocator<u32>,
-     AllocFx8: alloc::Allocator<f32x8>>  interface::CommandProcessor<'b> for PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
+     AllocFx8: alloc::Allocator<v8>>  interface::CommandProcessor<'b> for PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
     #[inline]
     fn push(&mut self,
             val: interface::Command<InputReference<'b>>) {
