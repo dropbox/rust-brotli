@@ -35,15 +35,19 @@ pub mod context_map_entropy;
 pub mod pdf;
 mod compat;
 #[cfg(feature="simd")]
-use core::simd::{i16x16, f32x8};
+use core::simd::{i16x16, f32x8, i32x8};
 #[cfg(feature="simd")]
 pub type s16 = i16x16;
 #[cfg(feature="simd")]
 pub type v8 = f32x8;
+#[cfg(feature="simd")]
+pub type s8 = i32x8;
 #[cfg(not(feature="simd"))]
 pub type s16 = compat::Compat16x16;
 #[cfg(not(feature="simd"))]
 pub type v8 = compat::CompatF8;
+#[cfg(not(feature="simd"))]
+pub type s8 = compat::Compat32x8;
 
 mod test;
 mod weights;
@@ -61,7 +65,7 @@ use self::histogram::{ContextType, HistogramLiteral, HistogramCommand, Histogram
 use self::command::{Command};
 use self::entropy_encode::{HuffmanTree};
 use brotli_decompressor::{CustomRead, CustomWrite};
-pub use self::vectorization::{v128,v128i,v256,v256i, Mem256f};
+pub use self::vectorization::{v256,v256i, Mem256f};
 pub use interface::{InputReference,InputPair, InputReferenceMut};
 
 

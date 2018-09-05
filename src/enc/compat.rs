@@ -1,5 +1,5 @@
 #![cfg_attr(feature="simd", allow(unused))]
-use core::ops::{Shr, Add, Sub, AddAssign};
+use core::ops::{Shr, Add, Sub, AddAssign, Mul};
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Compat16x16([i16;16]);
 impl Compat16x16 {
@@ -93,6 +93,25 @@ impl<Scalar:Clone> Shr<Scalar> for Compat16x16 where i64:From<Scalar> {
     }
 }
 
+#[derive(Default, Copy, Clone, Debug)]
+pub struct Compat32x8([i32;8]);
+impl Compat32x8 {
+    pub fn splat(a: i32) -> Compat32x8 {
+        Compat32x8([a, a, a, a, a, a, a, a])
+    }
+    pub fn new(a0: i32, a1: i32, a2: i32, a3: i32,
+               a4: i32, a5: i32, a6: i32, a7: i32) -> Compat32x8 {
+        Compat32x8([a0, a1, a2, a3, a4, a5, a6, a7])
+    }
+    pub fn extract(&self, i: usize) -> i32 {
+        self.0[i]
+    }
+    pub fn replace(&self, i: usize, data: i32) -> Compat32x8 {
+        let mut ret = *self;
+        ret.0[i] = data;
+        ret
+    }
+}
 
 #[derive(Default, Copy, Clone, Debug)]
 pub struct CompatF8([f32;8]);
@@ -112,6 +131,32 @@ impl CompatF8 {
         ret
     }
 }
+impl Add for Compat32x8 {
+    type Output = Compat32x8;
+    fn add(self, other: Compat32x8) -> Compat32x8 {
+        Compat32x8::new(self.0[0].wrapping_add(other.0[0]),
+                      self.0[1].wrapping_add(other.0[1]),
+                      self.0[2].wrapping_add(other.0[2]),
+                      self.0[3].wrapping_add(other.0[3]),
+                      self.0[4].wrapping_add(other.0[4]),
+                      self.0[5].wrapping_add(other.0[5]),
+                      self.0[6].wrapping_add(other.0[6]),
+                      self.0[7].wrapping_add(other.0[7]))
+    }
+}
+impl Mul for Compat32x8 {
+    type Output = Compat32x8;
+    fn mul(self, other: Compat32x8) -> Compat32x8 {
+        Compat32x8::new(self.0[0].wrapping_mul(other.0[0]),
+                      self.0[1].wrapping_mul(other.0[1]),
+                      self.0[2].wrapping_mul(other.0[2]),
+                      self.0[3].wrapping_mul(other.0[3]),
+                      self.0[4].wrapping_mul(other.0[4]),
+                      self.0[5].wrapping_mul(other.0[5]),
+                      self.0[6].wrapping_mul(other.0[6]),
+                      self.0[7].wrapping_mul(other.0[7]))
+    }
+}
 impl Add for CompatF8 {
     type Output = CompatF8;
     fn add(self, other: CompatF8) -> CompatF8 {
@@ -123,6 +168,19 @@ impl Add for CompatF8 {
                       self.0[5] + other.0[5],
                       self.0[6] + other.0[6],
                       self.0[7] + other.0[7])
+    }
+}
+impl Mul for CompatF8 {
+    type Output = CompatF8;
+    fn mul(self, other: CompatF8) -> CompatF8 {
+        CompatF8::new(self.0[0] * other.0[0],
+                      self.0[1] * other.0[1],
+                      self.0[2] * other.0[2],
+                      self.0[3] * other.0[3],
+                      self.0[4] * other.0[4],
+                      self.0[5] * other.0[5],
+                      self.0[6] * other.0[6],
+                      self.0[7] * other.0[7])
     }
 }
 impl AddAssign for CompatF8 {

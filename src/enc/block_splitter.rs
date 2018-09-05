@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use super::vectorization::{v128,v128i,v256,v256i, Mem256f};
+use super::vectorization::{v256,v256i, Mem256f, sum8i};
 use super::backward_references::BrotliEncoderParams;
 
 use super::bit_cost::BrotliPopulationCost;
@@ -48,10 +48,10 @@ fn update_cost_and_signal(num_histograms32: u32,
                           switch_signal: &mut [u8]) {
     if (false) { // scalar mode
         for k in 0.. ((num_histograms32 as usize + 7)>> 3 << 3) {
-            cost[k>>3].0[k&7] -= min_cost;
-            if (cost[k>>3].0[k&7] >= block_switch_cost) {
+            cost[k>>3] = cost[k>>3].replace(k&7, cost[k>>3].extract(k&7) - min_cost);
+            if (cost[k>>3].extract(k&7) >= block_switch_cost) {
                 let mask = ((1 as u8) << (k & 7)) as u8;
-                cost[k>>3].0[k&7] = block_switch_cost;
+                cost[k>>3] = cost[k>>3].replace(k&7, block_switch_cost);
                 switch_signal[ix + (k >> 3)] |= mask;
             }
         }
@@ -60,12 +60,12 @@ fn update_cost_and_signal(num_histograms32: u32,
     if (false) { // scalar mode
 
         for k in 0.. ((num_histograms32 as usize + 7)>> 3 << 3) {
-            cost[k>>3].0[k&7] -= min_cost;
-            let cmpge = if (cost[k>>3].0[k&7] >= block_switch_cost) { 0xff }else{0};
+            cost[k>>3] = cost[k>>3].replace(k&7, cost[k>>3].extract(k&7) - min_cost);
+            let cmpge = if (cost[k>>3].extract(k&7) >= block_switch_cost) { 0xff }else{0};
             let mask = ((1 as u8) << (k & 7)) as u8;
             let bits = cmpge & mask;
-            if block_switch_cost < cost[k>>3].0[k&7] {
-                cost[k>>3].0[k&7] = block_switch_cost;
+            if block_switch_cost < cost[k>>3].extract(k&7) {
+                cost[k>>3] = cost[k>>3].replace(k&7, block_switch_cost);
             }
             switch_signal[ix + (k >> 3)] |= bits;
             //if (((k + 1)>> 3) != (k >>3)) {
@@ -74,28 +74,27 @@ fn update_cost_and_signal(num_histograms32: u32,
         }
         return;
     }
-    let ymm_min_cost = bcast256!(min_cost);
-    let ymm_block_switch_cost = bcast256!(block_switch_cost);
-    let ymm_and_mask = v256i::setr(1<<0,
-                                   1<<1,
-                                   1<<2,
-                                   1<<3,
-                                   1<<4,
-                                   1<<5,
-                                   1<<6,
-                                   1<<7);
+    let ymm_min_cost = v256::splat(min_cost);
+    let ymm_block_switch_cost = v256::splat(block_switch_cost);
+    let ymm_and_mask = v256i::new(1<<0,
+                                  1<<1,
+                                  1<<2,
+                                  1<<3,
+                                  1<<4,
+                                  1<<5,
+                                  1<<6,
+                                  1<<7);
     
     for (index, cost_it) in cost[..((num_histograms32 as usize + 7)>> 3)].iter_mut().enumerate() {
-        let mut ymm_cost = v256::new(cost_it);
-        let costk_minus_min_cost = sub256!(ymm_cost, ymm_min_cost);
-        let ymm_cmpge = cmpge256!(costk_minus_min_cost, ymm_block_switch_cost);
-        let ymm_bits = and256i!(ymm_cmpge, ymm_and_mask);
-        let result = ymm_bits.hi.x3 +ymm_bits.hi.x2 +ymm_bits.hi.x1 +ymm_bits.hi.x0
-            + ymm_bits.lo.x3 +ymm_bits.lo.x2 +ymm_bits.lo.x1 +ymm_bits.lo.x0;
+        let mut ymm_cost = *cost_it;
+        let costk_minus_min_cost = ymm_cost - ymm_min_cost;
+        let ymm_cmpge = v256i::from(costk_minus_min_cost.ge(ymm_block_switch_cost));
+        let ymm_bits = ymm_cmpge & ymm_and_mask;
+        let result = sum8(ymm_bits);
         //super::vectorization::sum8(ymm_bits) as u8;
         switch_signal[ix + index] |= result as u8;
-        ymm_cost = min256!(costk_minus_min_cost, ymm_block_switch_cost);
-        *cost_it = Mem256f::new(ymm_cost);
+        ymm_cost = costk_minus_min_cost.min(ymm_block_switch_cost);
+        *cost_it = Mem256f::from(ymm_cost);
         //println_stderr!("{:} ss {:} c {:?}", (index << 3) + 7, switch_signal[ix + index],*cost_it);
     }
 }
@@ -168,7 +167,7 @@ fn MyRand(seed: &mut u32) -> u32 {
 
 
 fn InitialEntropyCodes<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
-                       IntegerType: Sized + Clone>
+         IntegerType: Sized + Clone>
   (data: &[IntegerType],
    length: usize,
    stride: usize,

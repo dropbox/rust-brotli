@@ -5,7 +5,7 @@ use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2, floatX, FastLog2u16};
 
-use super::vectorization::{v256,v128,v256i,v128i, Mem256i, sum8};
+use super::vectorization::{v256,v256i, Mem256i, sum8, log2i, log2, cast_f32_to_i32};
 
 static kCopyBase: [u32; 24] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70,
                                    102, 134, 198, 326, 582, 1094, 2118];
@@ -82,7 +82,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       for i in 0..nnz {
           // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
           //                            = log2(total_count) - log2(count(symbol))
-         let element = nnz_data.slice()[i>>3].0[i&7];
+         let element = nnz_data.slice()[i>>3].extract(i&7);
          let log2p = log2total - FastLog2u16(element as u16);
          // Approximate the bit depth by round(-log2(P(symbol)))
          let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
@@ -109,7 +109,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
          for i in 0..8 {
             // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
              //                            = log2(total_count) - log2(count(symbol))
-            let ele = nnz_data_vec.0[i];
+            let ele = nnz_data_vec.extract(i);
             let log2p = log2total - FastLog2u16(ele as u16);
             // Approximate the bit depth by round(-log2(P(symbol)))
             let depth = core::cmp::min((log2p + 0.5) as i32, 15) as i32;
@@ -128,7 +128,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       if rem != 0 {
         let last_vec = nnz_data.slice()[nnz_srl_3];
         for i in 0..rem { // remainder won't have last element for sure
-          let element = last_vec.0[i];
+          let element = last_vec.extract(i);
           let log2p = log2total - FastLog2u16(element as u16);
           // Approximate the bit depth by round(-log2(P(symbol)))
           let depth = core::cmp::min((log2p + 0.5) as i32, 15);
@@ -144,7 +144,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       //println_stderr!("{:?} {:?}", &depth_histo[..], bits);
       return bits;
     }
-  let pow2l = v256::setr(
+  let pow2l = v256::new(
       1.0/*0.7071067811865476*/ as floatX,
       0.3535533905932738 as floatX,
       0.1767766952966369 as floatX,
@@ -153,7 +153,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       0.0220970869120796 as floatX,
       0.0110485434560398 as floatX,
       0.0055242717280199 as floatX);
-  let pow2h = v256::setr(
+  let pow2h = v256::new(//FIXME: setr
       0.0027621358640100 as floatX,
       0.0013810679320050 as floatX,
       0.0006905339660025 as floatX,
@@ -162,38 +162,38 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       0.0000863167457503 as floatX,
       0.0000431583728752 as floatX,
       /*0.0000215791864376f*/0.0 as floatX);
-  let ymm_tc = v256::set1(total_count as floatX);
-  let search_depthl = v256i::from(mul256!(pow2l, ymm_tc));
-  let search_depthh = v256i::from(mul256!(pow2h, ymm_tc));
-  let mut suml = v256i::set1(0);
-  let mut sumh = v256i::set1(0);
+  let ymm_tc = v256::splat(total_count as floatX);
+  let search_depthl = v256i::from(pow2l * ymm_tc);
+  let search_depthh = v256i::from(pow2h * ymm_tc);
+  let mut suml = v256i::splat(0);
+  let mut sumh = v256i::splat(0);
   for nnz_data_vec in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
-      for sub_data_item in nnz_data_vec.0.iter() {
-          let count = v256i::set1(*sub_data_item);
-          let cmpl = cmpgt256and1!(count, search_depthl);
-          let cmph = cmpgt256and1!(count, search_depthh);
-          suml = add256i!(suml, cmpl);
-          sumh = add256i!(sumh, cmph);
+      for sub_data_item_index in 0..8 {
+          let count = v256i::splat(nnz_data_vec.extract(sub_data_item_index));
+          let cmpl = v256i::from(count.gt(search_depthl)) & v256i::splat(1);
+          let cmph = v256i::from(count.gt(search_depthh)) & v256i::splat(1);
+          suml = suml + cmpl;
+          sumh = sumh + cmph;
       }
   }
   if rem != 0 {
     let last_element = nnz_data.slice()[nnz>>3];
     for sub_index in 0..rem {
-      let count = v256i::set1(last_element.0[sub_index & 7]);
-      let cmpl = cmpgt256and1!(count, search_depthl);
-      let cmph = cmpgt256and1!(count, search_depthh);
-      suml = add256i!(suml, cmpl);
-      sumh = add256i!(sumh, cmph);
+      let count = v256i::splat(last_element.extract(sub_index & 7));
+      let cmpl = v256i::from(count.gt(search_depthl)) & v256i::splat(1);
+      let cmph = v256i::from(count.gt(search_depthh)) & v256i::splat(1);
+      suml = suml + cmpl;
+      sumh = sumh + cmph;
     }
   }
     let mut max_depth : usize = 1;
   // Deal with depth_histo and max_depth
   {
-    let cumulative_sum:[Mem256i;2] = [Mem256i::new(suml),
-                                      Mem256i::new(sumh)];
-    let mut prev = cumulative_sum[0].0[0];
+    let cumulative_sum:[Mem256i;2] = [suml,
+                                      sumh];
+    let mut prev = cumulative_sum[0].extract(0);
     for j in 1..16 {
-      let cur = cumulative_sum[(j&8) >> 3].0[j & 7];
+      let cur = cumulative_sum[(j&8) >> 3].extract(j & 7);
       let delta = cur - prev;
       prev = cur;
       let mut cur = &mut depth_histo[j];
@@ -203,20 +203,20 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       }
     }
   }
-  let ymm_log2total = v256::set1(log2total);
-  let mut bits_cumulative = v256::set1(0.0 as floatX);
+  let ymm_log2total = v256::splat(log2total);
+  let mut bits_cumulative = v256::splat(0.0 as floatX);
   for nnz_data_item in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
-      let counts = v256::from(v256i::new(nnz_data_item));
-      let log_counts = logtwo256i!(counts);
-      let log2p = sub256!(ymm_log2total, log_counts);
-      let tmp = mul256!(counts, log2p);
-      bits_cumulative = add256!(bits_cumulative, tmp);
+      let counts = cast_f32_to_i32(*nnz_data_item);
+      let log_counts = log2(counts);
+      let log2p = ymm_log2total - log_counts;
+      let tmp = counts * log2p;
+      bits_cumulative = bits_cumulative + tmp;
   }
   bits += sum8(bits_cumulative);
   if rem != 0 {
     let last_vec = nnz_data.slice()[nnz_srl_3];
     for i in 0..rem {
-      let last_item = last_vec.0[i];
+      let last_item = last_vec.extract(i);
       let log2p = log2total - FastLog2u16(last_item as u16);
       bits += last_item as super::util::floatX * log2p;
     }
@@ -321,7 +321,8 @@ pub fn BrotliPopulationCost<HistogramType:SliceWrapper<u32>+CostAccessors>(
     i = 0usize;
     while i < data_size {
       if (*histogram).slice()[i] > 0u32 {
-        nnz_data.slice_mut()[nnz>>3].0[nnz&7] = histogram.slice()[i] as i32;
+        let nnz_val = &mut nnz_data.slice_mut()[nnz>>3];
+        *nnz_val = nnz_val.replace(nnz&7, histogram.slice()[i] as i32);
         i += 1;
         nnz += 1;
       } else {
