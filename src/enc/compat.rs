@@ -1,5 +1,6 @@
 #![cfg_attr(feature="simd", allow(unused))]
-use core::ops::{Shr, Add, Sub, AddAssign, Mul};
+use core::ops::{Shr, Add, Sub, AddAssign, Mul, BitAnd};
+use core::cmp::min;
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Compat16x16([i16;16]);
 impl Compat16x16 {
@@ -23,6 +24,7 @@ impl Compat16x16 {
         ret
     }
 }
+
 macro_rules! op16 {
     ($a: expr, $b: expr, $op: expr) => (
         Compat16x16::new($op($a[0], $b[0]),
@@ -111,8 +113,36 @@ impl Compat32x8 {
         ret.0[i] = data;
         ret
     }
+    pub fn gt(&self, rhs: Compat32x8) -> Compat32x8 {
+        Self::new(-((self.extract(0) > rhs.extract(0)) as i32),
+                  -((self.extract(1) > rhs.extract(1)) as i32),
+                  -((self.extract(2) > rhs.extract(2)) as i32),
+                  -((self.extract(3) > rhs.extract(3)) as i32),
+                  -((self.extract(4) > rhs.extract(4)) as i32),
+                  -((self.extract(5) > rhs.extract(5)) as i32),
+                  -((self.extract(6) > rhs.extract(6)) as i32),
+                  -((self.extract(7) > rhs.extract(7)) as i32))
+    }
+    pub fn ge(&self, rhs: Compat32x8) -> Compat32x8 {
+        Self::new(-((self.extract(0) >= rhs.extract(0)) as i32),
+                  -((self.extract(1) >= rhs.extract(1)) as i32),
+                  -((self.extract(2) >= rhs.extract(2)) as i32),
+                  -((self.extract(3) >= rhs.extract(3)) as i32),
+                  -((self.extract(4) >= rhs.extract(4)) as i32),
+                  -((self.extract(5) >= rhs.extract(5)) as i32),
+                  -((self.extract(6) >= rhs.extract(6)) as i32),
+                  -((self.extract(7) >= rhs.extract(7)) as i32))
+    }
 }
 
+
+fn fmin(a: f32, b:f32) -> f32 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
 #[derive(Default, Copy, Clone, Debug)]
 pub struct CompatF8([f32;8]);
 impl CompatF8 {
@@ -130,6 +160,26 @@ impl CompatF8 {
         ret.0[i] = data;
         ret
     }
+    pub fn ge(&self, rhs: CompatF8) -> Compat32x8 {
+        Compat32x8::new(-((self.extract(0) >= rhs.extract(0)) as i32),
+                  -((self.extract(1) >= rhs.extract(1)) as i32),
+                  -((self.extract(2) >= rhs.extract(2)) as i32),
+                  -((self.extract(3) >= rhs.extract(3)) as i32),
+                  -((self.extract(4) >= rhs.extract(4)) as i32),
+                  -((self.extract(5) >= rhs.extract(5)) as i32),
+                  -((self.extract(6) >= rhs.extract(6)) as i32),
+                  -((self.extract(7) >= rhs.extract(7)) as i32))
+    }
+    pub fn min(&self, rhs: CompatF8) -> CompatF8 {
+        Self::new(fmin(self.extract(0), rhs.extract(0)),
+                  fmin(self.extract(1), rhs.extract(1)),
+                  fmin(self.extract(2), rhs.extract(2)),
+                  fmin(self.extract(3), rhs.extract(3)),
+                  fmin(self.extract(4), rhs.extract(4)),
+                  fmin(self.extract(5), rhs.extract(5)),
+                  fmin(self.extract(6), rhs.extract(6)),
+                  fmin(self.extract(7), rhs.extract(7)))
+    }
 }
 impl Add for Compat32x8 {
     type Output = Compat32x8;
@@ -142,6 +192,20 @@ impl Add for Compat32x8 {
                       self.0[5].wrapping_add(other.0[5]),
                       self.0[6].wrapping_add(other.0[6]),
                       self.0[7].wrapping_add(other.0[7]))
+    }
+}
+
+impl BitAnd for Compat32x8 {
+    type Output = Compat32x8;
+    fn bitand(self, other: Compat32x8) -> Compat32x8 {
+        Compat32x8::new(self.0[0] & other.0[0],
+                      self.0[1] & other.0[1],
+                      self.0[2] & other.0[2],
+                      self.0[3] & other.0[3],
+                      self.0[4] & other.0[4],
+                      self.0[5] & other.0[5],
+                      self.0[6] & other.0[6],
+                      self.0[7] % other.0[7])
     }
 }
 impl Mul for Compat32x8 {
@@ -168,6 +232,19 @@ impl Add for CompatF8 {
                       self.0[5] + other.0[5],
                       self.0[6] + other.0[6],
                       self.0[7] + other.0[7])
+    }
+}
+impl Sub for CompatF8 {
+    type Output = CompatF8;
+    fn sub(self, other: CompatF8) -> CompatF8 {
+        CompatF8::new(self.0[0] - other.0[0],
+                      self.0[1] - other.0[1],
+                      self.0[2] - other.0[2],
+                      self.0[3] - other.0[3],
+                      self.0[4] - other.0[4],
+                      self.0[5] - other.0[5],
+                      self.0[6] - other.0[6],
+                      self.0[7] - other.0[7])
     }
 }
 impl Mul for CompatF8 {

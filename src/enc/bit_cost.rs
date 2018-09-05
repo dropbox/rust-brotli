@@ -5,7 +5,7 @@ use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2, floatX, FastLog2u16};
 
-use super::vectorization::{v256,v256i, Mem256i, sum8, log2i, log2, cast_f32_to_i32};
+use super::vectorization::{v256,v256i, Mem256i, sum8, log2i, log2, cast_f32_to_i32, cast_i32_to_f32};
 
 static kCopyBase: [u32; 24] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70,
                                    102, 134, 198, 326, 582, 1094, 2118];
@@ -163,8 +163,8 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       0.0000431583728752 as floatX,
       /*0.0000215791864376f*/0.0 as floatX);
   let ymm_tc = v256::splat(total_count as floatX);
-  let search_depthl = v256i::from(pow2l * ymm_tc);
-  let search_depthh = v256i::from(pow2h * ymm_tc);
+  let search_depthl = cast_f32_to_i32(pow2l * ymm_tc);
+  let search_depthh = cast_f32_to_i32(pow2h * ymm_tc);
   let mut suml = v256i::splat(0);
   let mut sumh = v256i::splat(0);
   for nnz_data_vec in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
@@ -206,7 +206,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
   let ymm_log2total = v256::splat(log2total);
   let mut bits_cumulative = v256::splat(0.0 as floatX);
   for nnz_data_item in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
-      let counts = cast_f32_to_i32(*nnz_data_item);
+      let counts = cast_i32_to_f32(*nnz_data_item);
       let log_counts = log2(counts);
       let log2p = ymm_log2total - log_counts;
       let tmp = counts * log2p;
