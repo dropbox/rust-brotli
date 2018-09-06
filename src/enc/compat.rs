@@ -205,7 +205,7 @@ impl BitAnd for Compat32x8 {
                       self.0[4] & other.0[4],
                       self.0[5] & other.0[5],
                       self.0[6] & other.0[6],
-                      self.0[7] % other.0[7])
+                      self.0[7] & other.0[7])
     }
 }
 impl Mul for Compat32x8 {
