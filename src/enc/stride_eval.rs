@@ -32,9 +32,6 @@ struct CDF<'a> {
 struct Stride1Prior{
 }
 impl Stride1Prior {
-    pub fn offset() -> usize{
-        0
-    }
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }

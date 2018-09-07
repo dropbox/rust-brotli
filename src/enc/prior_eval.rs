@@ -58,10 +58,10 @@ pub trait Prior {
 }
 
 
-fn upper_score_index(stride_byte: u8, selected_context: u8, actual_context: usize) -> usize {
+fn upper_score_index(stride_byte: u8, _selected_context: u8, actual_context: usize) -> usize {
   actual_context + 256 * (stride_byte >> 4) as usize
 }
-fn lower_score_index(stride_byte: u8, selected_context: u8, actual_context: usize, high_nibble: u8) -> usize {
+fn lower_score_index(_stride_byte: u8, _selected_context: u8, actual_context: usize, high_nibble: u8) -> usize {
   actual_context + 4096 + 256 * high_nibble as usize
 }
 
@@ -263,9 +263,9 @@ impl<'a> CDF<'a> {
     #[inline(always)]
     pub fn cost(&self, nibble_u8:u8) -> floatX {
         let nibble = nibble_u8 as usize & 0xf;
-        let mut pdf = self.cdf.extract(usize::from(nibble_u8));
+        let mut pdf = self.cdf.extract(usize::from(nibble));
         if nibble_u8 != 0 {
-            pdf -= self.cdf.extract(usize::from(nibble_u8));
+            pdf -= self.cdf.extract(usize::from(nibble));
         }
         FastLog2u16(self.cdf.extract(15) as u16) - FastLog2u16(pdf as u16)
     }

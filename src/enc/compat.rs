@@ -1,13 +1,14 @@
 #![cfg_attr(feature="simd", allow(unused))]
 use core::ops::{Shr, Add, Sub, AddAssign, Mul, BitAnd};
-use core::cmp::min;
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Compat16x16([i16;16]);
 impl Compat16x16 {
+    #[inline(always)]
     pub fn splat(a: i16) -> Compat16x16 {
         Compat16x16([a, a, a, a, a, a, a, a,
                      a, a, a, a, a, a, a, a,])
     }
+    #[inline(always)]
     pub fn new(a0: i16, a1: i16, a2: i16, a3: i16,
                a4: i16, a5: i16, a6: i16, a7: i16,
                a8: i16, a9: i16, a10: i16, a11: i16,
@@ -15,9 +16,11 @@ impl Compat16x16 {
         Compat16x16([a0, a1, a2, a3, a4, a5, a6, a7,
                      a8, a9, a10, a11, a12, a13, a14, a15])
     }
+    #[inline(always)]
     pub fn extract(&self, i: usize) -> i16 {
         self.0[i]
     }
+    #[inline(always)]
     pub fn replace(&self, i: usize, data: i16) -> Compat16x16 {
         let mut ret = *self;
         ret.0[i] = data;
@@ -67,29 +70,35 @@ macro_rules! scalar_op16 {
                          
         )
 }
+#[inline(always)]
 fn wrapping_i16_add(a: i16, b:i16) -> i16 {
     a.wrapping_add(b)
 }
+#[inline(always)]
 fn wrapping_i16_sub(a: i16, b:i16) -> i16 {
     a.wrapping_sub(b)
 }
+#[inline(always)]
 fn shift16<Scalar>(a: i16, b:Scalar) -> i16 where i64:From<Scalar> {
     a >> i64::from(b)
 }
 impl Add for Compat16x16 {
     type Output = Compat16x16;
+    #[inline(always)]
     fn add(self, other: Compat16x16) -> Compat16x16 {
         op16!(self.0, other.0, wrapping_i16_add)
     }
 }
 impl Sub for Compat16x16 {
     type Output = Compat16x16;
+    #[inline(always)]
     fn sub(self, other: Compat16x16) -> Compat16x16 {
         op16!(self.0, other.0, wrapping_i16_sub)
     }
 }
 impl<Scalar:Clone> Shr<Scalar> for Compat16x16 where i64:From<Scalar> {
     type Output = Compat16x16;
+    #[inline(always)]
     fn shr(self, other: Scalar) -> Compat16x16 {
         scalar_op16!(self.0, other.clone(), shift16)
     }
@@ -98,21 +107,26 @@ impl<Scalar:Clone> Shr<Scalar> for Compat16x16 where i64:From<Scalar> {
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Compat32x8([i32;8]);
 impl Compat32x8 {
+    #[inline(always)]
     pub fn splat(a: i32) -> Compat32x8 {
         Compat32x8([a, a, a, a, a, a, a, a])
     }
+    #[inline(always)]
     pub fn new(a0: i32, a1: i32, a2: i32, a3: i32,
                a4: i32, a5: i32, a6: i32, a7: i32) -> Compat32x8 {
         Compat32x8([a0, a1, a2, a3, a4, a5, a6, a7])
     }
+    #[inline(always)]
     pub fn extract(&self, i: usize) -> i32 {
         self.0[i]
     }
+    #[inline(always)]
     pub fn replace(&self, i: usize, data: i32) -> Compat32x8 {
         let mut ret = *self;
         ret.0[i] = data;
         ret
     }
+    #[inline(always)]
     pub fn gt(&self, rhs: Compat32x8) -> Compat32x8 {
         Self::new(-((self.extract(0) > rhs.extract(0)) as i32),
                   -((self.extract(1) > rhs.extract(1)) as i32),
@@ -123,6 +137,7 @@ impl Compat32x8 {
                   -((self.extract(6) > rhs.extract(6)) as i32),
                   -((self.extract(7) > rhs.extract(7)) as i32))
     }
+    #[inline(always)]
     pub fn ge(&self, rhs: Compat32x8) -> Compat32x8 {
         Self::new(-((self.extract(0) >= rhs.extract(0)) as i32),
                   -((self.extract(1) >= rhs.extract(1)) as i32),
@@ -136,6 +151,7 @@ impl Compat32x8 {
 }
 
 
+#[inline(always)]
 fn fmin(a: f32, b:f32) -> f32 {
     if a < b {
         a
@@ -146,20 +162,25 @@ fn fmin(a: f32, b:f32) -> f32 {
 #[derive(Default, Copy, Clone, Debug)]
 pub struct CompatF8([f32;8]);
 impl CompatF8 {
+    #[inline(always)]
     pub fn new(a0: f32, a1: f32, a2: f32, a3: f32, a4: f32, a5: f32, a6: f32, a7: f32) -> CompatF8 {
         CompatF8([a0, a1, a2, a3, a4, a5, a6, a7])
     }
+    #[inline(always)]
     pub fn splat(a: f32) -> CompatF8 {
         CompatF8([a, a, a, a, a, a, a, a])
     }
+    #[inline(always)]
     pub fn extract(&self, i: usize) -> f32 {
         self.0[i]
     }
+    #[inline(always)]
     pub fn replace(&self, i: usize, data: f32) -> CompatF8 {
         let mut ret = *self;
         ret.0[i] = data;
         ret
     }
+    #[inline(always)]
     pub fn ge(&self, rhs: CompatF8) -> Compat32x8 {
         Compat32x8::new(-((self.extract(0) >= rhs.extract(0)) as i32),
                   -((self.extract(1) >= rhs.extract(1)) as i32),
@@ -170,6 +191,7 @@ impl CompatF8 {
                   -((self.extract(6) >= rhs.extract(6)) as i32),
                   -((self.extract(7) >= rhs.extract(7)) as i32))
     }
+    #[inline(always)]
     pub fn min(&self, rhs: CompatF8) -> CompatF8 {
         Self::new(fmin(self.extract(0), rhs.extract(0)),
                   fmin(self.extract(1), rhs.extract(1)),
@@ -183,6 +205,7 @@ impl CompatF8 {
 }
 impl Add for Compat32x8 {
     type Output = Compat32x8;
+    #[inline(always)]
     fn add(self, other: Compat32x8) -> Compat32x8 {
         Compat32x8::new(self.0[0].wrapping_add(other.0[0]),
                       self.0[1].wrapping_add(other.0[1]),
@@ -197,6 +220,7 @@ impl Add for Compat32x8 {
 
 impl BitAnd for Compat32x8 {
     type Output = Compat32x8;
+    #[inline(always)]
     fn bitand(self, other: Compat32x8) -> Compat32x8 {
         Compat32x8::new(self.0[0] & other.0[0],
                       self.0[1] & other.0[1],
@@ -210,6 +234,7 @@ impl BitAnd for Compat32x8 {
 }
 impl Mul for Compat32x8 {
     type Output = Compat32x8;
+    #[inline(always)]
     fn mul(self, other: Compat32x8) -> Compat32x8 {
         Compat32x8::new(self.0[0].wrapping_mul(other.0[0]),
                       self.0[1].wrapping_mul(other.0[1]),
@@ -223,6 +248,7 @@ impl Mul for Compat32x8 {
 }
 impl Add for CompatF8 {
     type Output = CompatF8;
+    #[inline(always)]
     fn add(self, other: CompatF8) -> CompatF8 {
         CompatF8::new(self.0[0] + other.0[0],
                       self.0[1] + other.0[1],
@@ -236,6 +262,7 @@ impl Add for CompatF8 {
 }
 impl Sub for CompatF8 {
     type Output = CompatF8;
+    #[inline(always)]
     fn sub(self, other: CompatF8) -> CompatF8 {
         CompatF8::new(self.0[0] - other.0[0],
                       self.0[1] - other.0[1],
@@ -249,6 +276,7 @@ impl Sub for CompatF8 {
 }
 impl Mul for CompatF8 {
     type Output = CompatF8;
+    #[inline(always)]
     fn mul(self, other: CompatF8) -> CompatF8 {
         CompatF8::new(self.0[0] * other.0[0],
                       self.0[1] * other.0[1],
@@ -261,6 +289,7 @@ impl Mul for CompatF8 {
     }
 }
 impl AddAssign for CompatF8 {
+    #[inline(always)]
     fn add_assign(&mut self, other: CompatF8) {
         self.0[0] += other.0[0];
         self.0[1] += other.0[1];

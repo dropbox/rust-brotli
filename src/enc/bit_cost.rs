@@ -5,7 +5,7 @@ use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2, floatX, FastLog2u16};
 
-use super::vectorization::{v256,v256i, Mem256i, sum8, log2i, log2, cast_f32_to_i32, cast_i32_to_f32};
+use super::vectorization::{v256,v256i, Mem256i, sum8, log2, cast_f32_to_i32, cast_i32_to_f32};
 
 static kCopyBase: [u32; 24] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70,
                                    102, 134, 198, 326, 582, 1094, 2118];
