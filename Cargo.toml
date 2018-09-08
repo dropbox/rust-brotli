@@ -21,6 +21,7 @@ lto=true
 [dependencies]
 "alloc-no-stdlib" = "~1.3"
 "brotli-decompressor" = "~1.3"
+"packed_simd" = {version="0.2", optional=true}
 
 [features]
 seccomp = ["brotli-decompressor/seccomp"]
@@ -29,4 +30,4 @@ external-literal-probability = []
 disable-timer = ["brotli-decompressor/disable-timer"]
 benchmark = ["brotli-decompressor/benchmark"]
 vector_scratch_space = []
-simd = []
+simd = ["packed_simd/into_bits"]

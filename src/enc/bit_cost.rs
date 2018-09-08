@@ -4,7 +4,8 @@ use super::histogram::CostAccessors;
 use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2, floatX, FastLog2u16};
-
+#[cfg(feature="simd")]
+use packed_simd::IntoBits;
 use super::vectorization::{v256,v256i, Mem256i, sum8, cast_f32_to_i32, cast_i32_to_f32, log2i};
 
 static kCopyBase: [u32; 24] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70,
@@ -170,20 +171,20 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
   for nnz_data_vec in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
       for sub_data_item_index in 0..8 {
           let count = v256i::splat(nnz_data_vec.extract(sub_data_item_index));
-          let cmpl = v256i::from(count.gt(search_depthl)) & v256i::splat(1);
-          let cmph = v256i::from(count.gt(search_depthh)) & v256i::splat(1);
-          suml = suml + cmpl;
-          sumh = sumh + cmph;
+          let cmpl:v256i = count.gt(search_depthl).into_bits();
+          let cmph:v256i = count.gt(search_depthh).into_bits();
+          suml = suml + (cmpl & v256i::splat(1));
+          sumh = sumh + (cmph & v256i::splat(1));
       }
   }
   if rem != 0 {
     let last_element = nnz_data.slice()[nnz>>3];
     for sub_index in 0..rem {
       let count = v256i::splat(last_element.extract(sub_index & 7));
-      let cmpl = v256i::from(count.gt(search_depthl)) & v256i::splat(1);
-      let cmph = v256i::from(count.gt(search_depthh)) & v256i::splat(1);
-      suml = suml + cmpl;
-      sumh = sumh + cmph;
+      let cmpl:v256i = count.gt(search_depthl).into_bits();
+      let cmph:v256i = count.gt(search_depthh).into_bits();
+      suml = suml + (cmpl & v256i::splat(1));
+      sumh = sumh + (cmph & v256i::splat(1));
     }
   }
     let mut max_depth : usize = 1;

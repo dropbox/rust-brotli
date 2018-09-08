@@ -10,7 +10,7 @@ os:
   - osx
 
 script:
-  - rustc --version | grep nightly && cargo test --features=simd || echo skip
+  - rustc --version | grep nightly && cargo test --features=simd || echo skip && rustc --version | grep -v nightly
   - cargo test
   - cargo test --features=no-stdlib
   - cargo test --release

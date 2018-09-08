@@ -10,7 +10,8 @@
 // <-- for debugging, remove xprintln from bit_reader and replace with println
 #[cfg(not(feature="no-stdlib"))]
 extern crate std;
-
+#[cfg(feature="simd")]
+extern crate packed_simd;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;

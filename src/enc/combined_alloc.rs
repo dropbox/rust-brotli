@@ -273,3 +273,4 @@ implement_allocator!(AllocContextType, ContextType, AllocContextType::AllocatedM
 implement_allocator!(AllocHuffmanTree, HuffmanTree, AllocHuffmanTree::AllocatedMemory, alloc_ht);
 implement_allocator!(AllocZopfliNode, ZopfliNode, AllocZopfliNode::AllocatedMemory, alloc_zn);
 
+

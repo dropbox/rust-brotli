@@ -26,6 +26,9 @@ impl Compat16x16 {
         ret.0[i] = data;
         ret
     }
+    pub fn into_bits(&self) -> Self {
+        *self
+    }
 }
 
 macro_rules! op16 {
@@ -147,6 +150,9 @@ impl Compat32x8 {
                   -((self.extract(5) >= rhs.extract(5)) as i32),
                   -((self.extract(6) >= rhs.extract(6)) as i32),
                   -((self.extract(7) >= rhs.extract(7)) as i32))
+    }
+    pub fn into_bits(&self) -> Self {
+       *self
     }
 }
 
