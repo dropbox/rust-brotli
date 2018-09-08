@@ -1,4 +1,5 @@
 #[macro_use]
+pub mod combined_alloc;
 pub mod vectorization;
 pub mod input_pair;
 pub mod fast_log;
@@ -34,6 +35,7 @@ pub mod stride_eval;
 pub mod context_map_entropy;
 pub mod pdf;
 mod compat;
+pub use self::combined_alloc::CombiningAllocator;
 #[cfg(feature="simd")]
 use core::simd::{i16x16, f32x8, i32x8};
 #[cfg(feature="simd")]
