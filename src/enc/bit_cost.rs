@@ -5,7 +5,7 @@ use super::super::alloc::SliceWrapper;
 
 use super::util::{brotli_max_uint32_t, FastLog2, floatX, FastLog2u16};
 
-use super::vectorization::{v256,v256i, Mem256i, sum8, log2, cast_f32_to_i32, cast_i32_to_f32};
+use super::vectorization::{v256,v256i, Mem256i, sum8, cast_f32_to_i32, cast_i32_to_f32, log2i};
 
 static kCopyBase: [u32; 24] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70,
                                    102, 134, 198, 326, 582, 1094, 2118];
@@ -207,7 +207,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
   let mut bits_cumulative = v256::splat(0.0 as floatX);
   for nnz_data_item in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
       let counts = cast_i32_to_f32(*nnz_data_item);
-      let log_counts = log2(counts);
+      let log_counts = log2i(*nnz_data_item);
       let log2p = ymm_log2total - log_counts;
       let tmp = counts * log2p;
       bits_cumulative = bits_cumulative + tmp;

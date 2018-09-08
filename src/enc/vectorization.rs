@@ -27,16 +27,6 @@ pub fn log2i(x: v256i) -> v256 {
               FastLog2(x.extract(6) as u64),
               FastLog2(x.extract(7) as u64))
 }
-pub fn log2(x: v256) -> v256 {
-    v256::new(x.extract(0).log2(),
-              x.extract(1).log2(),
-              x.extract(2).log2(),
-              x.extract(3).log2(),
-              x.extract(4).log2(),
-              x.extract(5).log2(),
-              x.extract(6).log2(),
-              x.extract(7).log2())
-}
 pub fn cast_i32_to_f32(x: v256i) -> v256 {
     v256::new(x.extract(0) as f32,
               x.extract(1) as f32,

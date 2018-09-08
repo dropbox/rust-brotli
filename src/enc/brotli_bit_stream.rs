@@ -3,8 +3,9 @@
 #![allow(unused_imports)]
 #![allow(unused_macros)]
 #[cfg(not(feature="no-stdlib"))]
-use super::{v8, s16};
 use std::io::Write;
+use super::{v8, s16};
+
 use super::util::floatX;
 use super::prior_eval;
 use super::stride_eval;
