@@ -37,7 +37,7 @@ pub mod pdf;
 pub use self::combined_alloc::{CombiningAllocator, BrotliAlloc};
 mod compat;
 #[cfg(feature="simd")]
-use core::simd::{i16x16, f32x8, i32x8};
+use packed_simd::{i16x16, f32x8, i32x8};
 #[cfg(feature="simd")]
 pub type s16 = i16x16;
 #[cfg(feature="simd")]
