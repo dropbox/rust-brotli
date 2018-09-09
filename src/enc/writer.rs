@@ -1,4 +1,3 @@
-use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
 use super::command::Command;
 
@@ -116,7 +115,6 @@ impl<W: Write> CompressorWriter<W> {
     let alloc_u64 = HeapAlloc::<u64> { default_value: 0 };
     let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };
     let alloc_f64 = HeapAlloc::<super::util::floatX> { default_value: 0.0 as super::util::floatX };
-    let alloc_fv = HeapAlloc::<Mem256f> { default_value: Mem256f::default() };
     let alloc_f8 = HeapAlloc::<v8> {default_value: v8::default() };
     let alloc_16x16 = HeapAlloc::<s16> {default_value: s16::default() };
     let alloc_pdf = HeapAlloc::<PDF> { default_value: PDF::default() };

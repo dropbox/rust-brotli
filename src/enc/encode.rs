@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use super::hash_to_binary_tree::{InitializeH10, ZopfliNode};
+use super::hash_to_binary_tree::InitializeH10;
 use super::constants::{BROTLI_WINDOW_GAP, BROTLI_CONTEXT_LUT, BROTLI_CONTEXT,
                        BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_MAX_NPOSTFIX, BROTLI_MAX_NDIRECT};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
@@ -9,9 +9,7 @@ use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionH
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 use alloc::Allocator;
 use super::combined_alloc::BrotliAlloc;
-use super::vectorization::Mem256f;
 use super::interface;
-use super::interface::StaticCommand;
 use super::bit_cost::{BitsEntropy, ShannonEntropy};
 #[allow(unused_imports)]
 use super::block_split::BlockSplit;
@@ -27,7 +25,6 @@ use super::compress_fragment::BrotliCompressFragmentFast;
 use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 #[allow(unused_imports)]
 use super::entropy_encode::{BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree};
-use super::cluster::{HistogramPair};
 use super::metablock::{BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliOptimizeHistograms, BrotliInitDistanceParams};
 use super::static_dict::{BrotliGetDictionary, kNumDistanceCacheEntries};
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance, CostAccessors};
@@ -35,9 +32,7 @@ use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
-use super::pdf::PDF;
 use core;
-use super::{v8, s16};
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
 //                                          dictionary: &[BrotliDictionary],
 //                                          num_bytes: usize,

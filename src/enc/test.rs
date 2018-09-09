@@ -3,7 +3,6 @@ use core;
 use super::{s16, v8};
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
-use super::vectorization::Mem256f;
 use super::cluster::HistogramPair;
 use super::ZopfliNode;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderSetParameter,
@@ -53,8 +52,6 @@ fn oneshot_compress(input: &[u8],
     unsafe { define_allocator_memory_pool!(96, u64, [0; 32 * 1024], calloc) };
   let stack_f64_buffer =
     unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
-  let stack_fv_buffer =
-    unsafe { define_allocator_memory_pool!(48, Mem256f, [0; 128 * 1024], calloc) };
   let stack_f8_buffer =
     unsafe { define_allocator_memory_pool!(48, v8, [0; 128 * 1024], calloc) };
   let stack_16x16_buffer =
@@ -86,27 +83,26 @@ fn oneshot_compress(input: &[u8],
                                                                          bzero);
   let stack_u32_allocator = CallocatedFreelist4096::<u32>::new_allocator(stack_u32_buffer.data,
                                                                          bzero);
-  let mut stack_u64_allocator = CallocatedFreelist1024::<u64>::new_allocator(stack_u64_buffer.data,
+  let stack_u64_allocator = CallocatedFreelist1024::<u64>::new_allocator(stack_u64_buffer.data,
                                                                          bzero);
-  let mut stack_zn_allocator = CallocatedFreelist1024::<ZopfliNode>::new_allocator(stack_zn_buffer.data,
+  let stack_zn_allocator = CallocatedFreelist1024::<ZopfliNode>::new_allocator(stack_zn_buffer.data,
                                                                          bzero);
-  let mut mf64 = CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
-  let mut mfv = CallocatedFreelist2048::<Mem256f>::new_allocator(stack_fv_buffer.data, bzero);
-  let mut mf8 = CallocatedFreelist2048::<v8>::new_allocator(stack_f8_buffer.data, bzero);
-  let mut m16x16 = CallocatedFreelist2048::<s16>::new_allocator(stack_16x16_buffer.data, bzero);
-  let mut mpdf = CallocatedFreelist2048::<PDF>::new_allocator(stack_pdf_buffer.data, bzero);
-  let mut msc = CallocatedFreelist2048::<StaticCommand>::new_allocator(stack_sc_buffer.data, bzero);
+  let mf64 = CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
+  let mf8 = CallocatedFreelist2048::<v8>::new_allocator(stack_f8_buffer.data, bzero);
+  let m16x16 = CallocatedFreelist2048::<s16>::new_allocator(stack_16x16_buffer.data, bzero);
+  let mpdf = CallocatedFreelist2048::<PDF>::new_allocator(stack_pdf_buffer.data, bzero);
+  let msc = CallocatedFreelist2048::<StaticCommand>::new_allocator(stack_sc_buffer.data, bzero);
   let stack_mc_allocator = CallocatedFreelist2048::<Command>::new_allocator(stack_mc_buffer.data,
                                                                             bzero);
-  let mut mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data,
+  let mhl = CallocatedFreelist2048::<HistogramLiteral>::new_allocator(stack_hl_buffer.data,
                                                                           bzero);
-  let mut mhc = CallocatedFreelist2048::<HistogramCommand>::new_allocator(stack_hc_buffer.data,
+  let mhc = CallocatedFreelist2048::<HistogramCommand>::new_allocator(stack_hc_buffer.data,
                                                                           bzero);
-  let mut mhd = CallocatedFreelist2048::<HistogramDistance>::new_allocator(stack_hd_buffer.data,
+  let mhd = CallocatedFreelist2048::<HistogramDistance>::new_allocator(stack_hd_buffer.data,
                                                                            bzero);
-  let mut mhp = CallocatedFreelist2048::<HistogramPair>::new_allocator(stack_hp_buffer.data, bzero);
-  let mut mct = CallocatedFreelist2048::<ContextType>::new_allocator(stack_ct_buffer.data, bzero);
-  let mut mht = CallocatedFreelist2048::<HuffmanTree>::new_allocator(stack_ht_buffer.data, bzero);
+  let mhp = CallocatedFreelist2048::<HistogramPair>::new_allocator(stack_hp_buffer.data, bzero);
+  let mct = CallocatedFreelist2048::<ContextType>::new_allocator(stack_ct_buffer.data, bzero);
+  let mht = CallocatedFreelist2048::<HuffmanTree>::new_allocator(stack_ht_buffer.data, bzero);
   let mut s_orig = BrotliEncoderCreateInstance(CombiningAllocator::new(
       stack_u8_allocator,
       stack_u16_allocator,

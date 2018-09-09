@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use super::combined_alloc::BrotliAlloc;
-use super::vectorization::Mem256f;
 use super::backward_references::{BrotliEncoderParams};
 use super::encode::{BROTLI_DISTANCE_ALPHABET_SIZE, BROTLI_MAX_DISTANCE_BITS, BROTLI_LARGE_MAX_DISTANCE_BITS, BROTLI_MAX_ALLOWED_DISTANCE};
 use super::constants::BROTLI_MAX_NPOSTFIX;
@@ -9,7 +8,6 @@ use super::block_split::BlockSplit;
 use super::block_splitter::BrotliSplitBlock;
 use super::brotli_bit_stream::MetaBlockSplit;
 use super::cluster::BrotliClusterHistograms;
-use super::cluster::HistogramPair;
 use super::command::{Command, CommandCopyLen, CommandRestoreDistanceCode, PrefixEncodeCopyDistance, BrotliDistanceParams};
 use super::entropy_encode::BrotliOptimizeHuffmanCountsForRle;
 use super::histogram::{BrotliBuildHistogramsWithContext, CostAccessors, HistogramLiteral,
@@ -18,7 +16,6 @@ use super::histogram::{BrotliBuildHistogramsWithContext, CostAccessors, Histogra
                        };
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
-use super::pdf::PDF;
 use super::util::{brotli_min_size_t, brotli_max_size_t};
 use core;
 

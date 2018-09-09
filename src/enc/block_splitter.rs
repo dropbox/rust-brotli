@@ -13,7 +13,7 @@ use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::util::{FastLog2, brotli_max_uint8_t, brotli_min_size_t};
 #[cfg(feature="simd")]
-use packed_simd::{FromBits, IntoBits};
+use packed_simd::IntoBits;
 use core;
 static kMaxLiteralHistograms: usize = 100usize;
 
