@@ -331,10 +331,9 @@ impl Default for ContextType {
 
 
 pub struct BlockSplitIterator<'a,
-                              AllocU8: alloc::Allocator<u8> + 'a,
-                              AllocU32: alloc::Allocator<u32> + 'a>
+                              Alloc: alloc::Allocator<u8> + 'a + alloc::Allocator<u32> + 'a>
 {
-  pub split_: &'a BlockSplit<AllocU8, AllocU32>,
+  pub split_: &'a BlockSplit<Alloc>,
   pub idx_: usize,
   pub type_: usize,
   pub length_: usize,
@@ -342,9 +341,9 @@ pub struct BlockSplitIterator<'a,
 
 
 
-fn NewBlockSplitIterator<'a, AllocU8: alloc::Allocator<u8>, AllocU32: alloc::Allocator<u32>>
-  (split: &'a BlockSplit<AllocU8, AllocU32>)
-   -> BlockSplitIterator<'a, AllocU8, AllocU32> {
+fn NewBlockSplitIterator<'a, Alloc: alloc::Allocator<u8> +  alloc::Allocator<u32>>
+  (split: &'a BlockSplit<Alloc>)
+   -> BlockSplitIterator<'a, Alloc> {
   return BlockSplitIterator::<'a> {
            split_: split,
            idx_: 0i32 as (usize),
@@ -359,10 +358,9 @@ fn NewBlockSplitIterator<'a, AllocU8: alloc::Allocator<u8>, AllocU32: alloc::All
 
 
 fn InitBlockSplitIterator<'a,
-                          AllocU8:alloc::Allocator<u8>,
-                          AllocU32:alloc::Allocator<u32>>(
-          xself: &'a mut BlockSplitIterator<'a, AllocU8, AllocU32>,
-split: &'a BlockSplit<AllocU8, AllocU32>){
+                          Alloc:alloc::Allocator<u8> + alloc::Allocator<u32>>(
+          xself: &'a mut BlockSplitIterator<'a, Alloc>,
+split: &'a BlockSplit<Alloc>){
   (*xself).split_ = split;
   (*xself).idx_ = 0i32 as (usize);
   (*xself).type_ = 0i32 as (usize);
@@ -373,8 +371,7 @@ split: &'a BlockSplit<AllocU8, AllocU32>){
   } as (usize);
 }
 fn BlockSplitIteratorNext<'a,
-                          AllocU8: alloc::Allocator<u8>,
-AllocU32:alloc::Allocator<u32>>(xself: &mut BlockSplitIterator<AllocU8, AllocU32>){
+                          Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>>(xself: &mut BlockSplitIterator<Alloc>){
   if (*xself).length_ == 0i32 as (usize) {
     (*xself).idx_ = (*xself).idx_.wrapping_add(1 as (usize));
     (*xself).type_ = (*(*xself).split_).types.slice()[(*xself).idx_ as (usize)] as (usize);
@@ -475,13 +472,12 @@ pub fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
 }
 
 pub fn BrotliBuildHistogramsWithContext<'a,
-                                        AllocU8: alloc::Allocator<u8>,
-                                        AllocU32: alloc::Allocator<u32>>
+                                        Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>>
   (cmds: &[Command],
    num_commands: usize,
-   literal_split: &BlockSplit<AllocU8, AllocU32>,
-   insert_and_copy_split: &BlockSplit<AllocU8, AllocU32>,
-   dist_split: &BlockSplit<AllocU8, AllocU32>,
+   literal_split: &BlockSplit<Alloc>,
+   insert_and_copy_split: &BlockSplit<Alloc>,
+   dist_split: &BlockSplit<Alloc>,
    ringbuffer: &[u8],
    start_pos: usize,
    mask: usize,
@@ -492,9 +488,9 @@ pub fn BrotliBuildHistogramsWithContext<'a,
    insert_and_copy_histograms: &mut [HistogramCommand],
    copy_dist_histograms: &mut [HistogramDistance]) {
   let mut pos: usize = start_pos;
-  let mut literal_it: BlockSplitIterator<AllocU8, AllocU32>;
-  let mut insert_and_copy_it: BlockSplitIterator<AllocU8, AllocU32>;
-  let mut dist_it: BlockSplitIterator<AllocU8, AllocU32>;
+  let mut literal_it: BlockSplitIterator<Alloc>;
+  let mut insert_and_copy_it: BlockSplitIterator<Alloc>;
+  let mut dist_it: BlockSplitIterator<Alloc>;
   let mut i: usize;
   literal_it = NewBlockSplitIterator(literal_split);
   insert_and_copy_it = NewBlockSplitIterator(insert_and_copy_split);

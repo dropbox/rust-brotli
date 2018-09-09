@@ -14,7 +14,7 @@ use brotli_decompressor::CustomWrite;
 use super::interface;
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::{IntoIoWriter, IoWriterWrapper};
-
+use super::combined_alloc::{CombiningAllocator, BrotliAlloc};
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
@@ -30,94 +30,32 @@ use enc::{s16, v8};
 #[cfg(not(feature="no-stdlib"))]
 pub struct CompressorWriterCustomAlloc<W: Write,
                                        BufferType : SliceWrapperMut<u8>,
-                                       AllocU8: Allocator<u8>,
-                                       AllocU16: Allocator<u16>,
-                                       AllocI32: Allocator<i32>,
-                                       AllocU32: Allocator<u32>,
-                                       AllocU64: Allocator<u64>,
-                                       AllocCommand: Allocator<Command>,
-                                       AllocF64: Allocator<super::util::floatX>,
-                                       AllocFV: Allocator<Mem256f>,
-                                       AllocF8: Allocator<v8>,
-                                       Alloc16x16: Allocator<s16>,
-                                       AllocPDF: Allocator<PDF>,
-                                       AllocStaticCommand: Allocator<StaticCommand>,
-                                       AllocHL: Allocator<HistogramLiteral>,
-                                       AllocHC: Allocator<HistogramCommand>,
-                                       AllocHD: Allocator<HistogramDistance>,
-                                       AllocHP: Allocator<HistogramPair>,
-                                       AllocCT: Allocator<ContextType>,
-                                       AllocHT: Allocator<HuffmanTree>,
-                                       AllocZN: Allocator<ZopfliNode>> (
+                                       Alloc: BrotliAlloc> (
     CompressorWriterCustomIo<io::Error,
                              IntoIoWriter<W>,
                              BufferType,
-                             AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand, AllocF64, AllocFV,
-                             AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand,
-                             AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>);
+                             Alloc>);
 
 
 #[cfg(not(feature="no-stdlib"))]
 impl<W: Write,
      BufferType : SliceWrapperMut<u8>,
-     AllocU8: Allocator<u8>,
-     AllocU16: Allocator<u16>,
-     AllocI32: Allocator<i32>,
-     AllocU32: Allocator<u32>,
-     AllocU64: Allocator<u64>,
-     AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<Mem256f>,
-     AllocF8: Allocator<v8>,
-     Alloc16x16: Allocator<s16>,
-     AllocPDF: Allocator<PDF>,
-     AllocStaticCommand: Allocator<StaticCommand>,
-     AllocHL: Allocator<HistogramLiteral>,
-     AllocHC: Allocator<HistogramCommand>,
-     AllocHD: Allocator<HistogramDistance>,
-     AllocHP: Allocator<HistogramPair>,
-     AllocCT: Allocator<ContextType>,
-     AllocHT: Allocator<HuffmanTree>,
-     AllocZN: Allocator<ZopfliNode>>
-    CompressorWriterCustomAlloc<W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                                AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand,
-                                AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>
+     Alloc: BrotliAlloc>
+    CompressorWriterCustomAlloc<W, BufferType, Alloc>
     {
 
     pub fn new(w: W, buffer : BufferType,
-               alloc_u8 : AllocU8,
-               alloc_u16 : AllocU16,
-               alloc_i32 : AllocI32,
-               alloc_u32 : AllocU32,
-               alloc_u64 : AllocU64,
-               alloc_c : AllocCommand,
-               alloc_f64 : AllocF64,
-               alloc_fv : AllocFV,
-               alloc_f8: AllocF8,
-               alloc_16x16: Alloc16x16,
-               alloc_pdf : AllocPDF,
-               alloc_sc : AllocStaticCommand,
-               alloc_hl:AllocHL,
-               alloc_hc:AllocHC,
-               alloc_hd:AllocHD,
-               alloc_hp:AllocHP,
-               alloc_ct:AllocCT,
-               alloc_ht:AllocHT,
-               alloc_zn:AllocZN,
+               alloc: Alloc,
                q: u32,
                lgwin: u32) -> Self {
-        CompressorWriterCustomAlloc::<W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                                AllocF64,AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand,AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>(
+        CompressorWriterCustomAlloc::<W, BufferType, Alloc>(
           CompressorWriterCustomIo::<Error,
                                  IntoIoWriter<W>,
                                  BufferType,
-                                 AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                                 AllocF64,AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>::new(
+                                 Alloc>::new(
               IntoIoWriter::<W>(w),
               buffer,
-              alloc_u8, alloc_u16, alloc_i32, alloc_u32, alloc_u64, alloc_c,
-              alloc_f64, alloc_fv, alloc_f8, alloc_16x16, alloc_pdf, alloc_sc,
-              alloc_hl, alloc_hc, alloc_hd, alloc_hp, alloc_ct,alloc_ht, alloc_zn,
+              alloc,
               Error::new(ErrorKind::InvalidData,
                          "Invalid Data"),
               q, lgwin))
@@ -131,28 +69,9 @@ impl<W: Write,
 #[cfg(not(feature="no-stdlib"))]
 impl<W: Write,
      BufferType: SliceWrapperMut<u8>,
-     AllocU8: Allocator<u8>,
-     AllocU16: Allocator<u16>,
-     AllocI32: Allocator<i32>,
-     AllocU32: Allocator<u32>,
-     AllocU64: Allocator<u64>,
-     AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<Mem256f>,
-     AllocF8: Allocator<v8>,
-     Alloc16x16: Allocator<s16>,
-     AllocPDF: Allocator<PDF>,
-     AllocStaticCommand: Allocator<StaticCommand>,
-     AllocHL: Allocator<HistogramLiteral>,
-     AllocHC: Allocator<HistogramCommand>,
-     AllocHD: Allocator<HistogramDistance>,
-     AllocHP: Allocator<HistogramPair>,
-     AllocCT: Allocator<ContextType>,
-     AllocHT: Allocator<HuffmanTree>,
-     AllocZN: Allocator<ZopfliNode>>
+     Alloc: BrotliAlloc>
     Write for CompressorWriterCustomAlloc<W, BufferType,
-                                         AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand, AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand,
-                                         AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
+                                         Alloc> {
   	fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
        self.0.write(buf)
     }
@@ -166,25 +85,24 @@ impl<W: Write,
 pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
                                      <HeapAlloc<u8>
                                       as Allocator<u8>>::AllocatedMemory,
-                                     HeapAlloc<u8>,
-                                     HeapAlloc<u16>,
-                                     HeapAlloc<i32>,
-                                     HeapAlloc<u32>,
-                                     HeapAlloc<u64>,
-                                     HeapAlloc<Command>,
-                                     HeapAlloc<super::util::floatX>,
-                                     HeapAlloc<Mem256f>,
-                                     HeapAlloc<v8>,
-                                     HeapAlloc<s16>,
-                                     HeapAlloc<PDF>,
-                                     HeapAlloc<StaticCommand>,
-                                     HeapAlloc<HistogramLiteral>,
-                                     HeapAlloc<HistogramCommand>,
-                                     HeapAlloc<HistogramDistance>,
-                                     HeapAlloc<HistogramPair>,
-                                     HeapAlloc<ContextType>,
-                                     HeapAlloc<HuffmanTree>,
-                                     HeapAlloc<ZopfliNode>>);
+                                     CombiningAllocator<HeapAlloc<u8>,
+                                                        HeapAlloc<u16>,
+                                                        HeapAlloc<i32>,
+                                                        HeapAlloc<u32>,
+                                                        HeapAlloc<u64>,
+                                                        HeapAlloc<Command>,
+                                                        HeapAlloc<super::util::floatX>,
+                                                        HeapAlloc<v8>,
+                                                        HeapAlloc<s16>,
+                                                        HeapAlloc<PDF>,
+                                                        HeapAlloc<StaticCommand>,
+                                                        HeapAlloc<HistogramLiteral>,
+                                                        HeapAlloc<HistogramCommand>,
+                                                        HeapAlloc<HistogramDistance>,
+                                                        HeapAlloc<HistogramPair>,
+                                                        HeapAlloc<ContextType>,
+                                                        HeapAlloc<HuffmanTree>,
+                                                        HeapAlloc<ZopfliNode>>>);
 
 
 #[cfg(not(any(feature="no-stdlib")))]
@@ -212,25 +130,25 @@ impl<W: Write> CompressorWriter<W> {
     let alloc_zn = HeapAlloc::<ZopfliNode> { default_value: ZopfliNode::default() };
     CompressorWriter::<W>(CompressorWriterCustomAlloc::new(w,
                                                            buffer,
-                                                           alloc_u8,
-                                                           alloc_u16,
-                                                           alloc_i32,
-                                                           alloc_u32,
-                                                           alloc_u64,
-                                                           alloc_c,
-                                                           alloc_f64,
-                                                           alloc_fv,
-                                                           alloc_f8,
-                                                           alloc_16x16,
-                                                           alloc_pdf,
-                                                           alloc_sc,
-                                                           alloc_hl,
-                                                           alloc_hc,
-                                                           alloc_hd,
-                                                           alloc_hp,
-                                                           alloc_ct,
-                                                           alloc_ht,
-                                                           alloc_zn,
+                                                           CombiningAllocator::new(alloc_u8,
+                                                                                   alloc_u16,
+                                                                                   alloc_i32,
+                                                                                   alloc_u32,
+                                                                                   alloc_u64,
+                                                                                   alloc_c,
+                                                                                   alloc_f64,
+                                                                                   alloc_f8,
+                                                                                   alloc_16x16,
+                                                                                   alloc_pdf,
+                                                                                   alloc_sc,
+                                                                                   alloc_hl,
+                                                                                   alloc_hc,
+                                                                                   alloc_hd,
+                                                                                   alloc_hp,
+                                                                                   alloc_ct,
+                                                                                   alloc_ht,
+                                                                                   alloc_zn,
+                                                           ),
                                                            q,
                                                            lgwin))
   }
@@ -255,45 +173,13 @@ impl<W: Write> Write for CompressorWriter<W> {
 pub struct CompressorWriterCustomIo<ErrType,
                                     W: CustomWrite<ErrType>,
                                     BufferType: SliceWrapperMut<u8>,
-                                    AllocU8: Allocator<u8>,
-                                    AllocU16: Allocator<u16>,
-                                    AllocI32: Allocator<i32>,
-                                    AllocU32: Allocator<u32>,
-                                    AllocU64: Allocator<u64>,
-                                    AllocCommand: Allocator<Command>,
-                                    AllocF64: Allocator<super::util::floatX>,
-                                    AllocFV: Allocator<Mem256f>,
-                                    AllocF8: Allocator<v8>,
-                                    Alloc16x16: Allocator<s16>,
-                                    AllocPDF: Allocator<PDF>,
-                                    AllocStaticCommand: Allocator<StaticCommand>,
-                                    AllocHL: Allocator<HistogramLiteral>,
-                                    AllocHC: Allocator<HistogramCommand>,
-                                    AllocHD: Allocator<HistogramDistance>,
-                                    AllocHP: Allocator<HistogramPair>,
-                                    AllocCT: Allocator<ContextType>,
-                                    AllocHT: Allocator<HuffmanTree>,
-                                    AllocZN: Allocator<ZopfliNode>>
+                                    Alloc: BrotliAlloc>
 {
   output_buffer: BufferType,
   total_out: Option<usize>,
   output: W,
   error_if_invalid_data: Option<ErrType>,
-  alloc_u64: AllocU64,
-  alloc_f64: AllocF64,
-  alloc_fv: AllocFV,
-  alloc_f8: AllocF8,
-  alloc_16x16: Alloc16x16,
-  alloc_pdf: AllocPDF,
-  alloc_sc: AllocStaticCommand,
-  alloc_hl: AllocHL,
-  alloc_hc: AllocHC,
-  alloc_hd: AllocHD,
-  alloc_hp: AllocHP,
-  alloc_ct: AllocCT,
-  alloc_ht: AllocHT,
-  alloc_zn: AllocZN,
-  state: BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+  state: BrotliEncoderStateStruct<Alloc>,
 }
 pub fn write_all<ErrType, W: CustomWrite<ErrType>>(writer: &mut W, mut buf : &[u8]) -> Result<(), ErrType> {
     while buf.len() != 0 {
@@ -307,49 +193,12 @@ pub fn write_all<ErrType, W: CustomWrite<ErrType>>(writer: &mut W, mut buf : &[u
 impl<ErrType,
      W: CustomWrite<ErrType>,
      BufferType : SliceWrapperMut<u8>,
-     AllocU8: Allocator<u8>,
-     AllocU16: Allocator<u16>,
-     AllocI32: Allocator<i32>,
-     AllocU32: Allocator<u32>,
-     AllocU64: Allocator<u64>,
-     AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<Mem256f>,
-     AllocF8: Allocator<v8>,
-     Alloc16x16: Allocator<s16>,
-     AllocPDF: Allocator<PDF>,
-     AllocStaticCommand: Allocator<StaticCommand>,
-     AllocHL: Allocator<HistogramLiteral>,
-     AllocHC: Allocator<HistogramCommand>,
-     AllocHD: Allocator<HistogramDistance>,
-     AllocHP: Allocator<HistogramPair>,
-     AllocCT: Allocator<ContextType>,
-     AllocHT: Allocator<HuffmanTree>,
-     AllocZN: Allocator<ZopfliNode>>
-CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                         AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN>
+     Alloc: BrotliAlloc>
+CompressorWriterCustomIo<ErrType, W, BufferType, Alloc>
 {
 
     pub fn new(w: W, buffer : BufferType,
-                              alloc_u8 : AllocU8,
-               alloc_u16 : AllocU16,
-               alloc_i32 : AllocI32,
-               alloc_u32 : AllocU32,
-               alloc_u64 : AllocU64,
-               alloc_c : AllocCommand,
-               alloc_f64 : AllocF64,
-               alloc_fv: AllocFV,
-               alloc_f8: AllocF8,
-               alloc_16x16: Alloc16x16,
-               alloc_pdf: AllocPDF,
-               alloc_sc: AllocStaticCommand,
-               alloc_hl:AllocHL,
-               alloc_hc:AllocHC,
-               alloc_hd:AllocHD,
-               alloc_hp:AllocHP,
-               alloc_ct:AllocCT,
-               alloc_ht:AllocHT,
-               alloc_zn:AllocZN,
+               alloc : Alloc,
                invalid_data_error_type : ErrType,
                q: u32,
                lgwin: u32) -> Self {
@@ -357,25 +206,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
             output_buffer : buffer,
             total_out : Some(0),
             output: w,
-            state : BrotliEncoderCreateInstance(alloc_u8,
-                                     alloc_u16,
-                                     alloc_i32,
-                                     alloc_u32,
-                                     alloc_c),
-            alloc_u64:alloc_u64,
-            alloc_f64:alloc_f64,
-            alloc_fv:alloc_fv,
-            alloc_f8:alloc_f8,
-            alloc_16x16:alloc_16x16,
-            alloc_pdf:alloc_pdf,
-            alloc_sc:alloc_sc,
-            alloc_hl:alloc_hl,
-            alloc_hc:alloc_hc,
-            alloc_hd:alloc_hd,
-            alloc_hp:alloc_hp,
-            alloc_ct:alloc_ct,
-            alloc_ht:alloc_ht,
-            alloc_zn:alloc_zn,
+            state : BrotliEncoderCreateInstance(alloc),
             error_if_invalid_data : Some(invalid_data_error_type),
         };
         BrotliEncoderSetParameter(&mut ret.state,
@@ -390,7 +221,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
     fn flush_or_close(&mut self, op:BrotliEncoderOperation) -> Result<(), ErrType>{
        let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<interface::InputReferenceMut>,
                                _cmds: &mut [interface::StaticCommand],
-                               _mb: interface::InputPair, _mfv: &mut AllocFV, _mpdf: &mut AllocPDF, _mc: &mut AllocStaticCommand|();
+                               _mb: interface::InputPair, _mfv: &mut Alloc|();
 
         loop {
             let mut avail_in : usize = 0;
@@ -399,20 +230,6 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
             let mut output_offset : usize = 0;
             let ret = BrotliEncoderCompressStream(
                 &mut self.state,
-                &mut self.alloc_u64,
-                &mut self.alloc_f64,
-                &mut self.alloc_fv,
-                &mut self.alloc_f8,
-                &mut self.alloc_16x16,
-                &mut self.alloc_pdf,
-                &mut self.alloc_sc,
-                &mut self.alloc_hl,
-                &mut self.alloc_hc,
-                &mut self.alloc_hd,
-                &mut self.alloc_hp,
-                &mut self.alloc_ct,
-                &mut self.alloc_ht,
-                &mut self.alloc_zn,
                 op,
                 &mut avail_in,
                 &[],
@@ -448,27 +265,8 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
 impl<ErrType,
      W: CustomWrite<ErrType>,
      BufferType : SliceWrapperMut<u8>,
-     AllocU8: Allocator<u8>,
-     AllocU16: Allocator<u16>,
-     AllocI32: Allocator<i32>,
-     AllocU32: Allocator<u32>,
-     AllocU64: Allocator<u64>,
-     AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<Mem256f>,
-     AllocF8: Allocator<v8>,
-     Alloc16x16: Allocator<s16>,
-     AllocPDF: Allocator<PDF>,
-     AllocStaticCommand: Allocator<StaticCommand>,
-     AllocHL: Allocator<HistogramLiteral>,
-     AllocHC: Allocator<HistogramCommand>,
-     AllocHD: Allocator<HistogramDistance>,
-     AllocHP: Allocator<HistogramPair>,
-     AllocCT: Allocator<ContextType>,
-     AllocHT: Allocator<HuffmanTree>,
-     AllocZN: Allocator<ZopfliNode>> Drop for
-CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                         AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand, AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
+     Alloc: BrotliAlloc> Drop for
+CompressorWriterCustomIo<ErrType, W, BufferType, Alloc> {
     fn drop(&mut self) {
         match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
               Ok(_) => {},
@@ -480,32 +278,12 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
 impl<ErrType,
      W: CustomWrite<ErrType>,
      BufferType : SliceWrapperMut<u8>,
-     AllocU8: Allocator<u8>,
-     AllocU16: Allocator<u16>,
-     AllocI32: Allocator<i32>,
-     AllocU32: Allocator<u32>,
-     AllocU64: Allocator<u64>,
-     AllocCommand: Allocator<Command>,
-     AllocF64: Allocator<super::util::floatX>,
-     AllocFV: Allocator<Mem256f>,
-     AllocF8: Allocator<v8>,
-     Alloc16x16: Allocator<s16>,
-     AllocPDF: Allocator<PDF>,
-     AllocStaticCommand: Allocator<StaticCommand>,
-     AllocHL: Allocator<HistogramLiteral>,
-     AllocHC: Allocator<HistogramCommand>,
-     AllocHD: Allocator<HistogramDistance>,
-     AllocHP: Allocator<HistogramPair>,
-     AllocCT: Allocator<ContextType>,
-     AllocHT: Allocator<HuffmanTree>,
-     AllocZN: Allocator<ZopfliNode>> CustomWrite<ErrType> for
-CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, AllocU32, AllocU64, AllocCommand,
-                         AllocF64, AllocFV, AllocF8, Alloc16x16, AllocPDF, AllocStaticCommand,
-                         AllocHL, AllocHC, AllocHD, AllocHP, AllocCT, AllocHT, AllocZN> {
+     Alloc: BrotliAlloc> CustomWrite<ErrType> for
+CompressorWriterCustomIo<ErrType, W, BufferType, Alloc> {
 	fn write(&mut self, buf: & [u8]) -> Result<usize, ErrType > {
         let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<interface::InputReferenceMut>,
                                 _cmds: &mut [interface::StaticCommand],
-                                _mb: interface::InputPair, _mfv: &mut AllocFV, _mpdf: &mut AllocPDF, _mc: &mut AllocStaticCommand|();
+                                _mb: interface::InputPair, _mfv: &mut Alloc|();
         let mut avail_in = buf.len();
         let mut input_offset : usize = 0;
         while avail_in != 0 {
@@ -513,20 +291,6 @@ CompressorWriterCustomIo<ErrType, W, BufferType, AllocU8, AllocU16, AllocI32, Al
             let mut avail_out = self.output_buffer.slice_mut().len();
             let ret = BrotliEncoderCompressStream(
                 &mut self.state,
-                &mut self.alloc_u64,
-                &mut self.alloc_f64,
-                &mut self.alloc_fv,
-                &mut self.alloc_f8,
-                &mut self.alloc_16x16,
-                &mut self.alloc_pdf,
-                &mut self.alloc_sc,
-                &mut self.alloc_hl,
-                &mut self.alloc_hc,
-                &mut self.alloc_hd,
-                &mut self.alloc_hp,
-                &mut self.alloc_ct,
-                &mut self.alloc_ht,
-                &mut self.alloc_zn,
                 BrotliEncoderOperation::BROTLI_OPERATION_PROCESS,
                 &mut avail_in,
                 &buf[..],

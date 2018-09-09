@@ -1,5 +1,4 @@
 #[macro_use]
-pub mod combined_alloc;
 pub mod vectorization;
 pub mod input_pair;
 pub mod fast_log;
@@ -9,6 +8,7 @@ pub mod brotli_bit_stream;
 pub mod constants;
 pub mod entropy_encode;
 pub mod static_dict;
+pub mod combined_alloc;
 pub mod static_dict_lut;
 pub mod dictionary_hash;
 pub mod util;
@@ -34,10 +34,10 @@ pub mod prior_eval;
 pub mod stride_eval;
 pub mod context_map_entropy;
 pub mod pdf;
+pub use self::combined_alloc::{CombiningAllocator, BrotliAlloc};
 mod compat;
-pub use self::combined_alloc::CombiningAllocator;
 #[cfg(feature="simd")]
-use packed_simd::{i16x16, f32x8, i32x8};
+use core::simd::{i16x16, f32x8, i32x8};
 #[cfg(feature="simd")]
 pub type s16 = i16x16;
 #[cfg(feature="simd")]
@@ -82,6 +82,8 @@ pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, 
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
+
+
 #[cfg(not(any(feature="no-stdlib")))]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                                              w: &mut OutputType,
@@ -97,120 +99,67 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             &mut input_buffer[..],
                             &mut output_buffer[..],
                             params,
-                            HeapAlloc::<u8> { default_value: 0 },
-                            HeapAlloc::<u16> { default_value: 0 },
-                            HeapAlloc::<i32> { default_value: 0 },
-                            HeapAlloc::<u32> { default_value: 0 },
-                            HeapAlloc::<u64> { default_value: 0 },
-                            HeapAlloc::<Command> {
-                                default_value: Command::default(),
-                            },
-                            HeapAlloc::<floatX> { default_value: 0.0 as floatX },
-                            HeapAlloc::<Mem256f> { default_value: Mem256f::default() },
-                            HeapAlloc::<v8> { default_value: v8::default() },
-                            HeapAlloc::<s16> { default_value: s16::default() },
-                            HeapAlloc::<PDF> { default_value: PDF::default() },
-                            HeapAlloc::<StaticCommand> { default_value: StaticCommand::default() },
-                            HeapAlloc::<HistogramLiteral>{
-                                default_value: HistogramLiteral::default(),
-                            },
-                            HeapAlloc::<HistogramCommand>{
-                                default_value: HistogramCommand::default(),
-                            },
-                            HeapAlloc::<HistogramDistance>{
-                                default_value: HistogramDistance::default(),
-                            },
-                            HeapAlloc::<HistogramPair>{
-                                default_value: HistogramPair::default(),
-                            },
-                            HeapAlloc::<ContextType>{
-                                default_value: ContextType::default(),
-                            },
-                            HeapAlloc::<HuffmanTree>{
-                                default_value: HuffmanTree::default(),
-                            },
-                            HeapAlloc::<ZopfliNode>{
-                                default_value: ZopfliNode::default(),
-                            })
+                            CombiningAllocator::new(
+                                HeapAlloc::<u8> { default_value: 0 },
+                                HeapAlloc::<u16> { default_value: 0 },
+                                HeapAlloc::<i32> { default_value: 0 },
+                                HeapAlloc::<u32> { default_value: 0 },
+                                HeapAlloc::<u64> { default_value: 0 },
+                                HeapAlloc::<Command> {
+                                    default_value: Command::default(),
+                                },
+                                HeapAlloc::<floatX> { default_value: 0.0 as floatX },
+                                HeapAlloc::<v8> { default_value: v8::default() },
+                                HeapAlloc::<s16> { default_value: s16::default() },
+                                HeapAlloc::<PDF> { default_value: PDF::default() },
+                                HeapAlloc::<StaticCommand> { default_value: StaticCommand::default() },
+                                HeapAlloc::<HistogramLiteral>{
+                                    default_value: HistogramLiteral::default(),
+                                },
+                                HeapAlloc::<HistogramCommand>{
+                                    default_value: HistogramCommand::default(),
+                                },
+                                HeapAlloc::<HistogramDistance>{
+                                    default_value: HistogramDistance::default(),
+                                },
+                                HeapAlloc::<HistogramPair>{
+                                    default_value: HistogramPair::default(),
+                                },
+                                HeapAlloc::<ContextType>{
+                                    default_value: ContextType::default(),
+                                },
+                                HeapAlloc::<HuffmanTree>{
+                                    default_value: HuffmanTree::default(),
+                                },
+                                HeapAlloc::<ZopfliNode>{
+                                    default_value: ZopfliNode::default(),
+                                },
+                            ))
 }
 
 #[cfg(not(feature="no-stdlib"))]
 pub fn BrotliCompressCustomAlloc<InputType,
                                  OutputType,
-                                 AllocU8: Allocator<u8>,
-                                 AllocU16: Allocator<u16>,
-                                 AllocI32: Allocator<i32>,
-                                 AllocU32: Allocator<u32>,
-                                 AllocU64: Allocator<u64>,
-                                 AllocCommand: Allocator<Command>,
-                                 AllocF64: Allocator<util::floatX>,
-                                 AllocFV: Allocator<Mem256f>,
-                                 AllocF8: Allocator<v8>,
-                                 Alloc16x16: Allocator<s16>,
-                                 AllocPDF: Allocator<PDF>,
-                                 AllocStaticCommand: Allocator<StaticCommand>,
-                                 AllocHL: Allocator<HistogramLiteral>,
-                                 AllocHC: Allocator<HistogramCommand>,
-                                 AllocHD: Allocator<HistogramDistance>,
-                                 AllocHP: Allocator<HistogramPair>,
-                                 AllocCT: Allocator<ContextType>,
-                                 AllocHT: Allocator<HuffmanTree>,
-                                 AllocZN: Allocator<ZopfliNode>>
+                                 Alloc: BrotliAlloc>
   (r: &mut InputType,
    w: &mut OutputType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
    params: &BrotliEncoderParams,
-   alloc_u8: AllocU8,
-   alloc_u16: AllocU16,
-   alloc_i32: AllocI32,
-   alloc_u32: AllocU32,
-   alloc_u64: AllocU64,
-   alloc_mc: AllocCommand,
-   alloc_f64: AllocF64,
-   alloc_fv: AllocFV,
-   alloc_f8: AllocF8,
-   alloc_16x16: Alloc16x16,
-   alloc_pdf: AllocPDF,
-   alloc_sc: AllocStaticCommand,
-   alloc_hl: AllocHL,
-   alloc_hc: AllocHC,
-   alloc_hd: AllocHD,
-   alloc_hp: AllocHP,
-   alloc_ct: AllocCT,
-   alloc_ht: AllocHT,
-   alloc_zn: AllocZN)
+   alloc: Alloc)
    -> Result<usize, io::Error>
   where InputType: Read,
         OutputType: Write
 {
   let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<InputReferenceMut>,
                           _cmds: &mut [interface::StaticCommand],
-                          _mb: interface::InputPair, _mfv: &mut AllocFV, _mpdf: &mut AllocPDF, _mc: &mut AllocStaticCommand|();
+                          _mb: interface::InputPair, _m: &mut Alloc|();
   BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
                            &mut IoWriterWrapper::<OutputType>(w),
                            input_buffer,
                            output_buffer,
                            params,
-                           alloc_u8,
-                           alloc_u16,
-                           alloc_i32,
-                           alloc_u32,
-                           alloc_u64,
-                           alloc_mc,
-                           alloc_f64,
-                           alloc_fv,
-                           alloc_f8,
-                           alloc_16x16,
-                           alloc_pdf,
-                           alloc_sc,
-                           alloc_hl,
-                           alloc_hc,
-                           alloc_hd,
-                           alloc_hp,
-                           alloc_ct,
-                           alloc_ht,
-                           alloc_zn,
+                           alloc,
                            &mut nop_callback,
                            Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
@@ -218,52 +167,16 @@ pub fn BrotliCompressCustomAlloc<InputType,
 pub fn BrotliCompressCustomIo<ErrType,
                               InputType,
                               OutputType,
-                              AllocU8: Allocator<u8>,
-                              AllocU16: Allocator<u16>,
-                              AllocI32: Allocator<i32>,
-                              AllocU32: Allocator<u32>,
-                              AllocU64: Allocator<u64>,
-                              AllocCommand: Allocator<Command>,
-                              AllocF64: Allocator<util::floatX>,
-                              AllocFV: Allocator<Mem256f>,
-                              AllocF8: Allocator<v8>,
-                              Alloc16x16: Allocator<s16>,
-                              AllocPDF: Allocator<PDF>,
-                              AllocStaticCommand: Allocator<StaticCommand>,
-                              AllocHL: Allocator<HistogramLiteral>,
-                              AllocHC: Allocator<HistogramCommand>,
-                              AllocHD: Allocator<HistogramDistance>,
-                              AllocHP: Allocator<HistogramPair>,
-                              AllocCT: Allocator<ContextType>,
-                              AllocHT: Allocator<HuffmanTree>,
-                              AllocZN: Allocator<ZopfliNode>,
+                              Alloc: BrotliAlloc,
                               MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                        &mut [interface::StaticCommand],
-                                                       interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>
+                                                       interface::InputPair, &mut Alloc)>
   (r: &mut InputType,
    w: &mut OutputType,
    input_buffer: &mut [u8],
    output_buffer: &mut [u8],
    params: &BrotliEncoderParams,
-   mu8: AllocU8,
-   mu16: AllocU16,
-   mi32: AllocI32,
-   mu32: AllocU32,
-   mut m64: AllocU64,
-   mc: AllocCommand,
-   mut mf64: AllocF64,
-   mut mfv: AllocFV,
-   mut mf8: AllocF8,
-   mut m16x16: Alloc16x16,
-   mut mpdf: AllocPDF,
-   mut msc: AllocStaticCommand,
-   mut mhl: AllocHL,
-   mut mhc: AllocHC,
-   mut mhd: AllocHD,
-   mut mhp: AllocHP,
-   mut mct: AllocCT,
-   mut mht: AllocHT,
-   mut mzn: AllocZN,
+   alloc: Alloc,
    metablock_callback: &mut MetablockCallback,
    unexpected_eof_error_constant: ErrType)
    -> Result<usize, ErrType>
@@ -272,7 +185,7 @@ pub fn BrotliCompressCustomIo<ErrType,
 {
   assert!(input_buffer.len() != 0);
   assert!(output_buffer.len() != 0);
-  let mut s_orig = BrotliEncoderCreateInstance(mu8, mu16, mi32, mu32, mc);
+  let mut s_orig = BrotliEncoderCreateInstance(alloc);
   s_orig.params = params.clone();
   let mut next_in_offset: usize = 0;  
   let mut next_out_offset: usize = 0;
@@ -310,8 +223,6 @@ pub fn BrotliCompressCustomIo<ErrType,
               op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
           }
           let result = BrotliEncoderCompressStream(s,
-                                                   &mut m64,
-                                                   &mut mf64, &mut mfv, &mut mf8, &mut m16x16, &mut mpdf, &mut msc, &mut mhl, &mut mhc, &mut mhd, &mut mhp, &mut mct, &mut mht, &mut mzn,
                                                    op,
                                                    &mut available_in,
                                                    input_buffer,

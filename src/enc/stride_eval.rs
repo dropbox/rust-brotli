@@ -1,6 +1,6 @@
 use core;
 use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::interface;
 use super::backward_references::BrotliEncoderParams;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
@@ -79,33 +79,24 @@ impl<'a> From<&'a mut[u16]> for CDF<'a> {
 
 
 pub struct StrideEval<'a,
-                     AllocU16:alloc::Allocator<u16> + 'a,
-                     AllocU32:alloc::Allocator<u32> + 'a,
-                     AllocF:alloc::Allocator<floatX> +'a,
+                     Alloc:alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX> +'a,
                      > {
     input: InputPair<'a>,
-    mf: &'a mut AllocF,
-    m16: &'a mut AllocU16,
-    _m32: &'a mut AllocU32,
+    alloc: &'a mut Alloc,
     context_map: &'a interface::PredictionModeContextMap<InputReferenceMut<'a>>,
     block_type: u8,
     local_byte_offset: usize,
-    _nop: AllocU32::AllocatedMemory,    
-    stride_priors: [AllocU16::AllocatedMemory;8],
-    score: AllocF::AllocatedMemory,
+    stride_priors: [<Alloc as Allocator<u16>>::AllocatedMemory;8],
+    score: <Alloc as Allocator<floatX>>::AllocatedMemory,
     cur_score_epoch: usize,
     stride_speed: [(u16, u16);2],
     cur_stride: u8,
 }
 
 impl<'a,
-     AllocU16:alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF:alloc::Allocator<floatX>+'a,
-     > StrideEval<'a, AllocU16, AllocU32, AllocF> {
-   pub fn new(m16: &'a mut AllocU16,
-              _m32: &'a mut AllocU32,
-              mf: &'a mut AllocF,
+     Alloc:alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>+'a,
+     > StrideEval<'a, Alloc> {
+   pub fn new(alloc: &'a mut Alloc,
               input: InputPair<'a>,
               prediction_mode: &'a interface::PredictionModeContextMap<InputReferenceMut<'a>>,
               params: &BrotliEncoderParams,
@@ -125,42 +116,39 @@ impl<'a,
           stride_speed[1] = stride_speed[0];
       }
       let score = if do_alloc {
-          mf.alloc_cell(8 * 4) // FIXME make this bigger than just 4
+          <Alloc as Allocator<floatX>>::alloc_cell(alloc, 8 * 4) // FIXME make this bigger than just 4
       } else {
-          AllocF::AllocatedMemory::default()
+          <Alloc as Allocator<floatX>>::AllocatedMemory::default()
       };
       let stride_priors = if do_alloc {
-          [m16.alloc_cell(STRIDE_PRIOR_SIZE),
-           m16.alloc_cell(STRIDE_PRIOR_SIZE),
-           m16.alloc_cell(STRIDE_PRIOR_SIZE),
-           m16.alloc_cell(STRIDE_PRIOR_SIZE),
-           m16.alloc_cell(STRIDE_PRIOR_SIZE),
-           m16.alloc_cell(STRIDE_PRIOR_SIZE),
-           m16.alloc_cell(STRIDE_PRIOR_SIZE),
-           m16.alloc_cell(STRIDE_PRIOR_SIZE),
+          [<Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
+           <Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
+           <Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
+           <Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
+           <Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
+           <Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
+           <Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
+           <Alloc as Allocator<u16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE),
           ]
       } else {
-          [AllocU16::AllocatedMemory::default(),
-           AllocU16::AllocatedMemory::default(),
-           AllocU16::AllocatedMemory::default(),
-           AllocU16::AllocatedMemory::default(),
-           AllocU16::AllocatedMemory::default(),
-           AllocU16::AllocatedMemory::default(),
-           AllocU16::AllocatedMemory::default(),
-           AllocU16::AllocatedMemory::default(),
+          [<Alloc as Allocator<u16>>::AllocatedMemory::default(),
+           <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+           <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+           <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+           <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+           <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+           <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+           <Alloc as Allocator<u16>>::AllocatedMemory::default(),
               ]
       };
-      let mut ret = StrideEval::<AllocU16, AllocU32, AllocF>{
+      let mut ret = StrideEval::<Alloc>{
          input: input,
          context_map: prediction_mode,
           block_type: 0,
-          m16: m16,
-          _m32: _m32,
-          mf: mf,
+          alloc: alloc,
           cur_stride: 1,
           cur_score_epoch: 0,
          local_byte_offset: 0,
-         _nop:  AllocU32::AllocatedMemory::default(),
          stride_priors: stride_priors,
          score: score,
          stride_speed: stride_speed,
@@ -210,20 +198,16 @@ impl<'a,
        }
    }
 }
-impl<'a, AllocU16: alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>> Drop for StrideEval<'a, AllocU16, AllocU32, AllocF> {
+impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>> Drop for StrideEval<'a, Alloc> {
    fn drop(&mut self) {
-       self.mf.free_cell(core::mem::replace(&mut self.score, AllocF::AllocatedMemory::default()));
+       <Alloc as Allocator<floatX>>::free_cell(&mut self.alloc, core::mem::replace(&mut self.score, <Alloc as Allocator<floatX>>::AllocatedMemory::default()));
        for i in 0..8 {
-           self.m16.free_cell(core::mem::replace(&mut self.stride_priors[i], AllocU16::AllocatedMemory::default()));
+           <Alloc as Allocator<u16>>::free_cell(&mut self.alloc, core::mem::replace(&mut self.stride_priors[i], <Alloc as Allocator<u16>>::AllocatedMemory::default()));
        }
    }
 }
 
-impl<'a, AllocU16: alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>> IRInterpreter for StrideEval<'a, AllocU16, AllocU32, AllocF> {
+impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>> IRInterpreter for StrideEval<'a, Alloc> {
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
     }
@@ -269,9 +253,7 @@ impl<'a, AllocU16: alloc::Allocator<u16>,
 }
 
 
-impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'b> for StrideEval<'a, AllocU16, AllocU32, AllocF> {
+impl<'a, 'b, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>> interface::CommandProcessor<'b> for StrideEval<'a, Alloc> {
     fn push(&mut self,
             val: interface::Command<InputReference<'b>>) {
         push_base(self, val)

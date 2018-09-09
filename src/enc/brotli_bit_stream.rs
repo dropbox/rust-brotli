@@ -5,10 +5,10 @@
 #[cfg(not(feature="no-stdlib"))]
 use std::io::Write;
 use super::{v8, s16};
-
 use super::util::floatX;
 use super::prior_eval;
 use super::stride_eval;
+use super::combined_alloc::BrotliAlloc;
 
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::block_split::BlockSplit;
@@ -88,21 +88,17 @@ fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality:u8) ->
 const COMMAND_BUFFER_SIZE: usize = 4096;
 
 struct CommandQueue<'a,
-                    AllocU8:alloc::Allocator<u8>,
-                    AllocU16:alloc::Allocator<u16>,
-                    AllocU32:alloc::Allocator<u32>,
-                    AllocF:alloc::Allocator<floatX>,
-                    AllocStaticCommand:alloc::Allocator<StaticCommand>+'a> {
+                    Alloc:BrotliAlloc+'a> {
     mb: InputPair<'a>,
     mb_byte_offset: usize,
-    mc: &'a mut AllocStaticCommand,
-    queue: AllocStaticCommand::AllocatedMemory,
+    mc: &'a mut Alloc,
+    queue: <Alloc as Allocator<StaticCommand>>::AllocatedMemory,
     pred_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
     loc: usize,
-    entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
-    best_strides_per_block_type: AllocU8::AllocatedMemory,
-    entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
-    context_map_entropy: ContextMapEntropy<'a, AllocU16, AllocU32, AllocF>,
+    entropy_tally_scratch: find_stride::EntropyTally<Alloc>,
+    best_strides_per_block_type: <Alloc as Allocator<u8>>::AllocatedMemory,
+    entropy_pyramid: find_stride::EntropyPyramid<Alloc>,
+    context_map_entropy: ContextMapEntropy<'a, Alloc>,
     stride_detection_quality: u8,
     high_entropy_detection_quality: u8,
     block_type_literal: u8,
@@ -110,33 +106,27 @@ struct CommandQueue<'a,
     overfull: bool,
 }
 
-impl<'a,
-     AllocU8:alloc::Allocator<u8>,
-     AllocU16:alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF:alloc::Allocator<floatX>,
-     AllocStaticCommand:alloc::Allocator<StaticCommand>> CommandQueue<'a, AllocU8, AllocU16, AllocU32, AllocF, AllocStaticCommand> {
-    fn new(_m32: &mut AllocU32,
-           mc: &'a mut AllocStaticCommand,
+impl<'a, Alloc:BrotliAlloc> CommandQueue<'a, Alloc> {
+    fn new(alloc: &'a mut Alloc,
            num_commands: usize,
            pred_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
            mb: InputPair<'a>,
            stride_detection_quality: u8,
            high_entropy_detection_quality: u8,
-           context_map_entropy: ContextMapEntropy<'a, AllocU16, AllocU32, AllocF>,
-           best_strides: AllocU8::AllocatedMemory,
-           entropy_tally_scratch: find_stride::EntropyTally<AllocU32>,
-           entropy_pyramid: find_stride::EntropyPyramid<AllocU32>,
-           ) -> CommandQueue <'a, AllocU8, AllocU16, AllocU32, AllocF, AllocStaticCommand> {
+           context_map_entropy: ContextMapEntropy<'a, Alloc>,
+           best_strides: <Alloc as Allocator<u8>>::AllocatedMemory,
+           entropy_tally_scratch: find_stride::EntropyTally<Alloc>,
+           entropy_pyramid: find_stride::EntropyPyramid<Alloc>,
+           ) -> CommandQueue <'a, Alloc> {
 
         // assume no more than 1/16 of the stream is block_types which may chop up literals
         // also there's the first btypel and a potential wrap around the ring buffer
-        let queue = mc.alloc_cell(num_commands * 17 / 16 + 4);
+        let queue = <Alloc as Allocator<StaticCommand>>::alloc_cell(alloc, num_commands * 17 / 16 + 4);
         CommandQueue {
-            mb:mb,
-            mc:mc,
+            mc:alloc,
             queue: queue, // always need a spare command in case the ring buffer splits a literal into two
             pred_mode:pred_mode,
+            mb:mb,
             mb_byte_offset:0,
             loc:0,
             best_strides_per_block_type: best_strides,
@@ -165,19 +155,21 @@ impl<'a,
         self.loc = 0;
         self.block_type_literal = 0;
     }
-    fn free<AllocFV:alloc::Allocator<Mem256f>, AllocPDF:Allocator<PDF>, Cb>(&mut self, m8: &mut AllocU8, m16: &mut AllocU16, m32: &mut AllocU32, mf64: &mut AllocF, mfv: &mut AllocFV, mpdf: &mut AllocPDF,
+    fn free<Cb>(&mut self,
                 callback: &mut Cb) -> Result<(), ()> where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                                     &mut [interface::StaticCommand],
                                                                     InputPair,
-                                                                    &mut AllocFV,
-                                                                    &mut AllocPDF, &mut AllocStaticCommand) {
-       callback(&mut self.pred_mode, self.queue.slice_mut().split_at_mut(self.loc).0, self.mb, mfv, mpdf, self.mc);
+                                                                    &mut Alloc) {
+       callback(&mut self.pred_mode, self.queue.slice_mut().split_at_mut(self.loc).0, self.mb, self.mc);
        self.clear();
-       self.entropy_tally_scratch.free(m32);
-       self.entropy_pyramid.free(m32);
-       self.context_map_entropy.free(m16, m32, mf64);
-       self.mc.free_cell(core::mem::replace(&mut self.queue, AllocStaticCommand::AllocatedMemory::default()));
-       m8.free_cell(core::mem::replace(&mut self.best_strides_per_block_type, AllocU8::AllocatedMemory::default()));
+       self.entropy_tally_scratch.free(&mut self.mc);
+       self.entropy_pyramid.free(&mut self.mc);
+       self.context_map_entropy.free(&mut self.mc);
+       <Alloc as Allocator<StaticCommand>>::free_cell(self.mc,
+                                                       core::mem::replace(&mut self.queue,
+                                                                          <Alloc as Allocator<StaticCommand>>::AllocatedMemory::default()));
+       <Alloc as Allocator<u8>>::free_cell(self.mc,
+                                           core::mem::replace(&mut self.best_strides_per_block_type, <Alloc as Allocator<u8>>::AllocatedMemory::default()));
        if self.overfull {
           return Err(());
        }
@@ -185,22 +177,12 @@ impl<'a,
     }
 }
 
-impl<'a,
-     AllocU8: alloc::Allocator<u8>,
-     AllocU16: alloc::Allocator<u16>,
-     AllocU32: alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>,
-     AllocStaticCommand: alloc::Allocator<StaticCommand>> interface::CommandProcessor<'a> for CommandQueue<'a,
-                                                                                        AllocU8,
-                                                                                        AllocU16,
-                                                                                        AllocU32,
-                                                                                        AllocF,
-                                                                                        AllocStaticCommand> {
+impl<'a, Alloc: BrotliAlloc> interface::CommandProcessor<'a> for CommandQueue<'a, Alloc> {
     fn push (&mut self, val: interface::Command<InputReference<'a> >) {
         if self.full() {
-            let mut tmp = self.mc.alloc_cell(self.queue.slice().len() * 2);
+            let mut tmp = <Alloc as Allocator<StaticCommand>>::alloc_cell(self.mc, self.queue.slice().len() * 2);
             tmp.slice_mut().split_at_mut(self.queue.slice().len()).0.clone_from_slice(self.queue.slice());
-            self.mc.free_cell(core::mem::replace(&mut self.queue, tmp));
+            <Alloc as Allocator<StaticCommand>>::free_cell(self.mc, core::mem::replace(&mut self.queue, tmp));
         }
         if !self.full() {
             self.queue.slice_mut()[self.loc] = val.freeze();
@@ -224,12 +206,7 @@ fn warn_on_missing_free() {
 fn warn_on_missing_free() {
      // no way to warn in this case
 }
-impl<'a,
-     AllocU8: alloc::Allocator<u8>,
-     AllocU16: alloc::Allocator<u16>,
-     AllocU32: alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>,
-     AllocStaticCommand: alloc::Allocator<StaticCommand>> Drop for CommandQueue<'a, AllocU8, AllocU16, AllocU32, AllocF, AllocStaticCommand> {
+impl<'a, Alloc: BrotliAlloc> Drop for CommandQueue<'a, Alloc> {
   fn drop(&mut self) {
       if !self.entropy_tally_scratch.is_free() {
           warn_on_missing_free();
@@ -435,24 +412,8 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a> > (
 }
 
 fn LogMetaBlock<'a,
-                AllocU8:alloc::Allocator<u8>,
-                AllocU16:alloc::Allocator<u16>,
-                AllocU32:alloc::Allocator<u32>,
-                AllocF:alloc::Allocator<floatX>,
-                AllocFV:alloc::Allocator<Mem256f>,
-                AllocF8:alloc::Allocator<v8>,
-                Alloc16x16:alloc::Allocator<s16>,
-                AllocPDF: alloc::Allocator<PDF>,
-                AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                Cb>(m8: &mut AllocU8,
-                    m16: &mut AllocU16,
-                    m32: &mut AllocU32,
-                    mf: &mut AllocF,
-                    mfv: &mut AllocFV,
-                    mf8: &mut AllocF8,
-                    m16x16: &mut Alloc16x16,
-                    mpdf: &mut AllocPDF,
-                    mc: &mut AllocStaticCommand,
+                Alloc: BrotliAlloc,
+                Cb>(alloc: &mut Alloc,
                     commands: &[Command], input0: &'a[u8],input1: &'a[u8],
                     dist_cache: &[i32;kNumDistanceCacheEntries],
                     recoder_state :&mut RecoderState,
@@ -461,7 +422,7 @@ fn LogMetaBlock<'a,
                     context_type:Option<ContextType>,
                     callback: &mut Cb) where Cb:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                       &mut [interface::StaticCommand],
-                                                      InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand){
+                                                      InputPair, &mut Alloc){
     let mut local_literal_context_map = [0u8; 256 * 64];
     let mut local_distance_context_map = [0u8; 256 * 64 + interface::DISTANCE_CONTEXT_MAP_OFFSET];
     assert_eq!(*block_type.btypel.types.iter().max().unwrap_or(&0) as u32 + 1,
@@ -501,22 +462,20 @@ fn LogMetaBlock<'a,
     let mut entropy_tally_scratch;
     let mut entropy_pyramid;
     if params.stride_detection_quality == 1 || params.stride_detection_quality == 2 {
-        entropy_tally_scratch = find_stride::EntropyTally::<AllocU32>::new(m32, None);
-        entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::new(m32);
+        entropy_tally_scratch = find_stride::EntropyTally::<Alloc>::new(alloc, None);
+        entropy_pyramid = find_stride::EntropyPyramid::<Alloc>::new(alloc);
         entropy_pyramid.populate(input0, input1, &mut entropy_tally_scratch);
     } else {
-        entropy_tally_scratch = find_stride::EntropyTally::<AllocU32>::disabled_placeholder(m32);
-        entropy_pyramid = find_stride::EntropyPyramid::<AllocU32>::disabled_placeholder(m32);
+        entropy_tally_scratch = find_stride::EntropyTally::<Alloc>::disabled_placeholder(alloc);
+        entropy_pyramid = find_stride::EntropyPyramid::<Alloc>::disabled_placeholder(alloc);
     }
     let input = InputPair(InputReference{data:input0, orig_offset:0}, InputReference{data:input1, orig_offset:input0.len()});
-    let mut best_strides = AllocU8::AllocatedMemory::default();
+    let mut best_strides = <Alloc as Allocator<u8>>::AllocatedMemory::default();
     if params.stride_detection_quality > 2 {
-         let mut stride_selector = stride_eval::StrideEval::<AllocU16,
-                                                           AllocU32,
-                                                           AllocF>::new(m16, m32, mf,
-                                                                        input,
-                                                                        &prediction_mode,
-                                                                        &params);
+         let mut stride_selector = stride_eval::StrideEval::<Alloc>::new(alloc,
+                                                                         input,
+                                                                         &prediction_mode,
+                                                                         &params);
         process_command_queue(&mut stride_selector,
                               input,
                               commands,
@@ -525,13 +484,13 @@ fn LogMetaBlock<'a,
                               &block_type,
                               params,
                               context_type);
-        best_strides = m8.alloc_cell(stride_selector.num_types());
+        best_strides = <Alloc as Allocator<u8>>::alloc_cell(alloc, stride_selector.num_types());
         stride_selector.choose_stride(best_strides.slice_mut());
     }
-    let mut context_map_entropy = ContextMapEntropy::<AllocU16, AllocU32, AllocF>::new(m16, m32, mf, input,
-                                                                                       entropy_pyramid.stride_last_level_range(),
-                                                                                       prediction_mode,
-                                                                                       params.cdf_adaptation_detection);
+    let mut context_map_entropy = ContextMapEntropy::<Alloc>::new(alloc, input,
+                                                                  entropy_pyramid.stride_last_level_range(),
+                                                                  prediction_mode,
+                                                                  params.cdf_adaptation_detection);
     if params.cdf_adaptation_detection != 0 {
         process_command_queue(&mut context_map_entropy,
                          input,
@@ -564,9 +523,7 @@ fn LogMetaBlock<'a,
         best_speed_log("Stride", &stride_speed, &bcost);
         best_speed_log("StrideCombined", &combined_speed, &ccost);
      }
-     let mut prior_selector = prior_eval::PriorEval::<Alloc16x16,
-                                                      AllocU32,
-                                                      AllocF8>::new(m16x16, m32, mf8, input,
+     let mut prior_selector = prior_eval::PriorEval::<Alloc>::new(alloc, input,
                                                                    entropy_pyramid.stride_last_level_range(),
                                                                    context_map_entropy.take_prediction_mode(),
                                                                    &params);
@@ -582,8 +539,9 @@ fn LogMetaBlock<'a,
         prior_selector.choose_bitmask();
      }     
      let prediction_mode = prior_selector.take_prediction_mode();
-     prior_selector.free(m16x16, m32, mf8);
-     let mut command_queue = CommandQueue::new(m32, mc, commands.len(),
+     prior_selector.free(alloc);
+     let mut command_queue = CommandQueue::new(alloc,
+                                               commands.len(),
                                                prediction_mode,
                                                input,
                                                params.stride_detection_quality,
@@ -602,7 +560,7 @@ fn LogMetaBlock<'a,
                                            &block_type,
                                            params,
                                            context_type);
-    command_queue.free(m8, m16, m32, mf, mfv, mpdf, callback).unwrap();
+    command_queue.free(callback).unwrap();
 //   ::std::io::stderr().write(input0).unwrap();
 //   ::std::io::stderr().write(input1).unwrap();
 }
@@ -1160,73 +1118,61 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
   }
 }
 
-pub struct MetaBlockSplit<AllocU8: alloc::Allocator<u8>,
-                          AllocU32: alloc::Allocator<u32>,
-                          AllocHL: alloc::Allocator<HistogramLiteral>,
-                          AllocHC: alloc::Allocator<HistogramCommand>,
-                          AllocHD: alloc::Allocator<HistogramDistance>>
+pub struct MetaBlockSplit<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32> + alloc::Allocator<HistogramLiteral> + alloc::Allocator<HistogramCommand> + alloc::Allocator<HistogramDistance>>
 {
-  pub literal_split: BlockSplit<AllocU8, AllocU32>,
-  pub command_split: BlockSplit<AllocU8, AllocU32>,
-  pub distance_split: BlockSplit<AllocU8, AllocU32>,
-  pub literal_context_map: AllocU32::AllocatedMemory,
+  pub literal_split: BlockSplit<Alloc>,
+  pub command_split: BlockSplit<Alloc>,
+  pub distance_split: BlockSplit<Alloc>,
+  pub literal_context_map: <Alloc as Allocator<u32>>::AllocatedMemory,
   pub literal_context_map_size: usize,
-  pub distance_context_map: AllocU32::AllocatedMemory,
+  pub distance_context_map: <Alloc as Allocator<u32>>::AllocatedMemory,
   pub distance_context_map_size: usize,
-  pub literal_histograms: AllocHL::AllocatedMemory,
+  pub literal_histograms: <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory,
   pub literal_histograms_size: usize,
-  pub command_histograms: AllocHC::AllocatedMemory,
+  pub command_histograms: <Alloc as Allocator<HistogramCommand>>::AllocatedMemory,
   pub command_histograms_size: usize,
-  pub distance_histograms: AllocHD::AllocatedMemory,
+  pub distance_histograms: <Alloc as Allocator<HistogramDistance>>::AllocatedMemory,
   pub distance_histograms_size: usize,
 }
-impl <AllocU8: alloc::Allocator<u8>,
-                          AllocU32: alloc::Allocator<u32>,
-                          AllocHL: alloc::Allocator<HistogramLiteral>,
-                          AllocHC: alloc::Allocator<HistogramCommand>,
-      AllocHD: alloc::Allocator<HistogramDistance>>
-    MetaBlockSplit <AllocU8, AllocU32, AllocHL, AllocHC, AllocHD> {
+impl <Alloc: alloc::Allocator<u8> + alloc::Allocator<u32> + alloc::Allocator<HistogramLiteral> + alloc::Allocator<HistogramCommand> + alloc::Allocator<HistogramDistance>>
+    MetaBlockSplit <Alloc> {
     pub fn new() -> Self {
         return MetaBlockSplit {
-            literal_split:BlockSplit::<AllocU8, AllocU32>::new(),
-            command_split:BlockSplit::<AllocU8, AllocU32>::new(),
-            distance_split:BlockSplit::<AllocU8, AllocU32>::new(),
-            literal_context_map : AllocU32::AllocatedMemory::default(),
+            literal_split:BlockSplit::<Alloc>::new(),
+            command_split:BlockSplit::<Alloc>::new(),
+            distance_split:BlockSplit::<Alloc>::new(),
+            literal_context_map : <Alloc as Allocator<u32>>::AllocatedMemory::default(),
             literal_context_map_size : 0,
-            distance_context_map : AllocU32::AllocatedMemory::default(),
+            distance_context_map : <Alloc as Allocator<u32>>::AllocatedMemory::default(),
             distance_context_map_size : 0,
-            literal_histograms : AllocHL::AllocatedMemory::default(),
+            literal_histograms : <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory::default(),
             literal_histograms_size : 0,
-            command_histograms : AllocHC::AllocatedMemory::default(),
+            command_histograms : <Alloc as Allocator<HistogramCommand>>::AllocatedMemory::default(),
             command_histograms_size : 0,
-            distance_histograms : AllocHD::AllocatedMemory::default(),
+            distance_histograms : <Alloc as Allocator<HistogramDistance>>::AllocatedMemory::default(),
             distance_histograms_size : 0,
         }
     }
     pub fn destroy(&mut self,
-                   m8: &mut AllocU8,
-                   m32: &mut AllocU32,
-                   mhl: &mut AllocHL,
-                   mhc: &mut AllocHC,
-                   mhd: &mut AllocHD) {
-        self.literal_split.destroy(m8,m32);
-        self.command_split.destroy(m8,m32);
-        self.distance_split.destroy(m8,m32);
-        m32.free_cell(core::mem::replace(&mut self.literal_context_map,
-                                         AllocU32::AllocatedMemory::default()));
+                   alloc: &mut Alloc) {
+        self.literal_split.destroy(alloc);
+        self.command_split.destroy(alloc);
+        self.distance_split.destroy(alloc);
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut self.literal_context_map,
+                                         <Alloc as Allocator<u32>>::AllocatedMemory::default()));
         self.literal_context_map_size = 0;
-        m32.free_cell(core::mem::replace(&mut self.distance_context_map,
-                                         AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut self.distance_context_map,
+                                         <Alloc as Allocator<u32>>::AllocatedMemory::default()));
         self.distance_context_map_size = 0;
-        mhl.free_cell(core::mem::replace(&mut self.literal_histograms,
-                                         AllocHL::AllocatedMemory::default()));
+        <Alloc as Allocator<HistogramLiteral>>::free_cell(alloc, core::mem::replace(&mut self.literal_histograms,
+                                         <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory::default()));
 
         self.literal_histograms_size = 0;
-        mhc.free_cell(core::mem::replace(&mut self.command_histograms,
-                                         AllocHC::AllocatedMemory::default()));
+        <Alloc as Allocator<HistogramCommand>>::free_cell(alloc, core::mem::replace(&mut self.command_histograms,
+                                         <Alloc as Allocator<HistogramCommand>>::AllocatedMemory::default()));
         self.command_histograms_size = 0;
-        mhd.free_cell(core::mem::replace(&mut self.distance_histograms,
-                                         AllocHD::AllocatedMemory::default()));
+        <Alloc as Allocator<HistogramDistance>>::free_cell(alloc, core::mem::replace(&mut self.distance_histograms,
+                                         <Alloc as Allocator<HistogramDistance>>::AllocatedMemory::default()));
         self.distance_histograms_size = 0;
     }
 }
@@ -1244,7 +1190,7 @@ pub struct BlockSplitCode {
   pub length_bits: [u16; 26],
 }
 
-pub struct BlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allocator<u16>> {
+pub struct BlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>> {
   /*    pub alloc_u8 : AllocU8,
     pub alloc_u16 : AllocU16,
     pub alloc_u32 : AllocU32,
@@ -1258,8 +1204,8 @@ pub struct BlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allo
   pub block_ix_: usize,
   pub block_len_: usize,
   pub entropy_ix_: usize,
-  pub depths_: AllocU8::AllocatedMemory,
-  pub bits_: AllocU16::AllocatedMemory,
+  pub depths_: <Alloc as Allocator<u8>>::AllocatedMemory,
+  pub bits_: <Alloc as Allocator<u16>>::AllocatedMemory,
 }
 
 fn Log2FloorNonZero(mut n: u64) -> u32 {
@@ -1328,20 +1274,20 @@ fn NewBlockTypeCodeCalculator() -> BlockTypeCodeCalculator {
          };
 }
 
-fn NewBlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allocator<u16>>
+fn NewBlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>
   (histogram_length: usize,
    num_block_types: usize,
    block_types: &'a [u8],
    block_lengths: &'a [u32],
    num_blocks: usize)
-   -> BlockEncoder<'a, AllocU8, AllocU16> {
+   -> BlockEncoder<'a, Alloc> {
   let block_len: usize;
   if num_blocks != 0 && block_lengths.len() != 0 {
     block_len = block_lengths[0] as usize;
   } else {
     block_len = 0;
   }
-  return BlockEncoder::<AllocU8, AllocU16> {
+  return BlockEncoder::<Alloc> {
            histogram_length_: histogram_length,
            num_block_types_: num_block_types,
            block_types_: block_types,
@@ -1357,8 +1303,8 @@ fn NewBlockEncoder<'a, AllocU8: alloc::Allocator<u8>, AllocU16: alloc::Allocator
            block_ix_: 0,
            block_len_: block_len,
            entropy_ix_: 0,
-           depths_: AllocU8::AllocatedMemory::default(),
-           bits_: AllocU16::AllocatedMemory::default(),
+           depths_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
+           bits_: <Alloc as Allocator<u16>>::AllocatedMemory::default(),
          };
 }
 
@@ -1632,9 +1578,8 @@ fn BuildAndStoreBlockSplitCode(types: &[u8],
 }
 
 fn BuildAndStoreBlockSwitchEntropyCodes<'a,
-                                        AllocU8: alloc::Allocator<u8>,
-                                        AllocU16: alloc::Allocator<u16>>
-  (xself: &mut BlockEncoder<'a, AllocU8, AllocU16>,
+                                        Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>
+  (xself: &mut BlockEncoder<'a, Alloc>,
    tree: &mut [HuffmanTree],
    storage_ix: &mut usize,
    storage: &mut [u8]) {
@@ -1935,12 +1880,10 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(m: &mut AllocU32,
   m.free_cell(rle_symbols);
 }
 
-fn BuildAndStoreEntropyCodes<AllocU8: alloc::Allocator<u8>,
-                             AllocU16: alloc::Allocator<u16>,
+fn BuildAndStoreEntropyCodes<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>,
                              HistogramType: SliceWrapper<u32>>
-  (m8: &mut AllocU8,
-   m16: &mut AllocU16,
-   xself: &mut BlockEncoder<AllocU8, AllocU16>,
+  (m: &mut Alloc,
+   xself: &mut BlockEncoder<Alloc>,
    histograms: &[HistogramType],
    histograms_size: usize,
    alphabet_size: usize,
@@ -1949,14 +1892,14 @@ fn BuildAndStoreEntropyCodes<AllocU8: alloc::Allocator<u8>,
    storage: &mut [u8]) {
   let table_size: usize = histograms_size.wrapping_mul(xself.histogram_length_);
   (*xself).depths_ = if table_size != 0 {
-    m8.alloc_cell(table_size)
+    <Alloc as Allocator<u8>>::alloc_cell(m, table_size)
   } else {
-    AllocU8::AllocatedMemory::default()
+    <Alloc as Allocator<u8>>::AllocatedMemory::default()
   };
   (*xself).bits_ = if table_size != 0 {
-    m16.alloc_cell(table_size)
+    <Alloc as Allocator<u16>>::alloc_cell(m, table_size)
   } else {
-    AllocU16::AllocatedMemory::default()
+    <Alloc as Allocator<u16>>::AllocatedMemory::default()
   };
   {
     let mut i: usize;
@@ -1978,9 +1921,8 @@ fn BuildAndStoreEntropyCodes<AllocU8: alloc::Allocator<u8>,
   }
 }
 
-fn StoreSymbol<AllocU8: alloc::Allocator<u8>,
-               AllocU16: alloc::Allocator<u16>>
-               (xself: &mut BlockEncoder<AllocU8, AllocU16>,
+fn StoreSymbol<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>
+               (xself: &mut BlockEncoder<Alloc>,
                symbol: usize,
                storage_ix: &mut usize,
                storage: &mut [u8]){
@@ -2065,9 +2007,7 @@ fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
   //  0i32 as (u8)
 }
 
-fn StoreSymbolWithContext<AllocU8: alloc::Allocator<u8>,
-                          AllocU16: alloc::Allocator<u16>>(xself: &mut BlockEncoder<AllocU8,
-                                                                                        AllocU16>,
+fn StoreSymbolWithContext<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(xself: &mut BlockEncoder<Alloc>,
                                                            symbol: usize,
                                                            context: usize,
                                                            context_map: &[u32],
@@ -2115,11 +2055,10 @@ fn CommandDistanceContext(xself: &Command) -> u32 {
   3u32
 }
 
-fn CleanupBlockEncoder<AllocU8: alloc::Allocator<u8>,
-                        AllocU16: alloc::Allocator<u16>>(m8: &mut AllocU8,
-m16 : &mut AllocU16, xself: &mut BlockEncoder<AllocU8, AllocU16>){
-  m8.free_cell(core::mem::replace(&mut (*xself).depths_, AllocU8::AllocatedMemory::default()));
-  m16.free_cell(core::mem::replace(&mut (*xself).bits_, AllocU16::AllocatedMemory::default()));
+fn CleanupBlockEncoder<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(m: &mut Alloc,
+                                                                            xself: &mut BlockEncoder<Alloc>){
+  <Alloc as Allocator<u8>>::free_cell(m, core::mem::replace(&mut (*xself).depths_, <Alloc as Allocator<u8>>::AllocatedMemory::default()));
+  <Alloc as Allocator<u16>>::free_cell(m, core::mem::replace(&mut (*xself).bits_, <Alloc as Allocator<u16>>::AllocatedMemory::default()));
 }
 
 fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
@@ -2128,31 +2067,8 @@ fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
 }
 
 
-pub fn BrotliStoreMetaBlock<'a,
-                            AllocU8: alloc::Allocator<u8>,
-                            AllocU16: alloc::Allocator<u16>,
-                            AllocU32: alloc::Allocator<u32>,
-                            AllocF: alloc::Allocator<floatX>,
-                            AllocFV:alloc::Allocator<Mem256f>,
-                            AllocF8:alloc::Allocator<v8>,
-                            Alloc16x16:alloc::Allocator<s16>,
-                            AllocPDF: alloc::Allocator<PDF>,
-                            AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                            AllocHT: alloc::Allocator<HuffmanTree>,
-                            AllocHL: alloc::Allocator<HistogramLiteral>,
-                            AllocHC: alloc::Allocator<HistogramCommand>,
-                            AllocHD: alloc::Allocator<HistogramDistance>,
-                            Cb>
-  (m8: &mut AllocU8,
-   m16: &mut AllocU16,
-   m32: &mut AllocU32,
-   mf: &mut AllocF,
-   mfv: &mut AllocFV,
-   mf8: &mut AllocF8,
-   m16x16: &mut Alloc16x16,
-   mpdf: &mut AllocPDF,
-   mc: &mut AllocStaticCommand,
-   mht: &mut AllocHT,
+pub fn BrotliStoreMetaBlock<'a, Alloc: BrotliAlloc, Cb>
+  (alloc: &mut Alloc,
    input: &'a[u8],
    start_pos: usize,
    length: usize,
@@ -2165,16 +2081,16 @@ pub fn BrotliStoreMetaBlock<'a,
    distance_cache: &[i32; kNumDistanceCacheEntries],
    commands: &[Command],
    n_commands: usize,
-   mb: &mut MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>,
+   mb: &mut MetaBlockSplit<Alloc>,
    recoder_state: &mut RecoderState,
    storage_ix: &mut usize,
    storage: &mut [u8],
   callback: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                   &mut[interface::StaticCommand],
-                                                  InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand) {
+                                                  InputPair, &mut Alloc) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m8, m16, m32, mf, mfv, mf8, m16x16, mpdf, mc, commands.split_at(n_commands).0, input0, input1,
+      LogMetaBlock(alloc, commands.split_at(n_commands).0, input0, input1,
                    distance_cache,
                    recoder_state,
                    block_split_reference(mb),
@@ -2186,32 +2102,32 @@ pub fn BrotliStoreMetaBlock<'a,
   let mut i: usize;
   let num_distance_symbols = params.dist.alphabet_size;
   let mut num_effective_distance_symbols = num_distance_symbols as usize;
-  let mut tree: AllocHT::AllocatedMemory;
+  let mut tree: <Alloc as Allocator<HuffmanTree>>::AllocatedMemory;
   let _literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
-  let mut literal_enc: BlockEncoder<AllocU8, AllocU16>;
-  let mut command_enc: BlockEncoder<AllocU8, AllocU16>;
-  let mut distance_enc: BlockEncoder<AllocU8, AllocU16>;
+  let mut literal_enc: BlockEncoder<Alloc>;
+  let mut command_enc: BlockEncoder<Alloc>;
+  let mut distance_enc: BlockEncoder<Alloc>;
   let dist = &params.dist;
   if params.large_window && num_effective_distance_symbols > BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS {
       num_effective_distance_symbols = BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS;
   }
   StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
   tree = if 2i32 * 704i32 + 1i32 != 0 {
-    mht.alloc_cell((2i32 * 704i32 + 1i32) as (usize))
+    <Alloc as Allocator<HuffmanTree>>::alloc_cell(alloc, (2i32 * 704i32 + 1i32) as (usize))
   } else {
-    AllocHT::AllocatedMemory::default()
+    <Alloc as Allocator<HuffmanTree>>::AllocatedMemory::default()
   };
-  literal_enc = NewBlockEncoder::<AllocU8, AllocU16>(BROTLI_NUM_LITERAL_SYMBOLS,
+  literal_enc = NewBlockEncoder::<Alloc>(BROTLI_NUM_LITERAL_SYMBOLS,
                                                      (*mb).literal_split.num_types,
                                                      (*mb).literal_split.types.slice(),
                                                      (*mb).literal_split.lengths.slice(),
                                                      (*mb).literal_split.num_blocks);
-  command_enc = NewBlockEncoder::<AllocU8, AllocU16>(BROTLI_NUM_COMMAND_SYMBOLS,
+  command_enc = NewBlockEncoder::<Alloc>(BROTLI_NUM_COMMAND_SYMBOLS,
                                                      (*mb).command_split.num_types,
                                                      (*mb).command_split.types.slice(),
                                                      (*mb).command_split.lengths.slice(),
                                                      (*mb).command_split.num_blocks);
-  distance_enc = NewBlockEncoder::<AllocU8, AllocU16>(num_effective_distance_symbols,
+  distance_enc = NewBlockEncoder::<Alloc>(num_effective_distance_symbols,
                                                       (*mb).distance_split.num_types,
                                                       (*mb).distance_split.types.slice(),
                                                       (*mb).distance_split.lengths.slice(),
@@ -2238,7 +2154,7 @@ pub fn BrotliStoreMetaBlock<'a,
                            storage_ix,
                            storage);
   } else {
-    EncodeContextMap(m32,
+    EncodeContextMap(alloc,
                      (*mb).literal_context_map.slice(),
                      (*mb).literal_context_map_size,
                      (*mb).literal_histograms_size,
@@ -2253,7 +2169,7 @@ pub fn BrotliStoreMetaBlock<'a,
                            storage_ix,
                            storage);
   } else {
-    EncodeContextMap(m32,
+    EncodeContextMap(alloc,
                      (*mb).distance_context_map.slice(),
                      (*mb).distance_context_map_size,
                      (*mb).distance_histograms_size,
@@ -2261,8 +2177,7 @@ pub fn BrotliStoreMetaBlock<'a,
                      storage_ix,
                      storage);
   }
-  BuildAndStoreEntropyCodes(m8,
-                            m16,
+  BuildAndStoreEntropyCodes(alloc,
                             &mut literal_enc,
                             (*mb).literal_histograms.slice(),
                             (*mb).literal_histograms_size,
@@ -2270,8 +2185,7 @@ pub fn BrotliStoreMetaBlock<'a,
                             tree.slice_mut(),
                             storage_ix,
                             storage);
-  BuildAndStoreEntropyCodes(m8,
-                            m16,
+  BuildAndStoreEntropyCodes(alloc,
                             &mut command_enc,
                             (*mb).command_histograms.slice(),
                             (*mb).command_histograms_size,
@@ -2279,8 +2193,7 @@ pub fn BrotliStoreMetaBlock<'a,
                             tree.slice_mut(),
                             storage_ix,
                             storage);
-  BuildAndStoreEntropyCodes(m8,
-                            m16,
+  BuildAndStoreEntropyCodes(alloc,
                             &mut distance_enc,
                             (*mb).distance_histograms.slice(),
                             (*mb).distance_histograms_size,
@@ -2289,7 +2202,7 @@ pub fn BrotliStoreMetaBlock<'a,
                             storage_ix,
                             storage);
   {
-    mht.free_cell(core::mem::replace(&mut tree, AllocHT::AllocatedMemory::default()));
+    <Alloc as Allocator<HuffmanTree>>::free_cell(alloc, core::mem::replace(&mut tree, <Alloc as Allocator<HuffmanTree>>::AllocatedMemory::default()));
   }
   i = 0usize;
   while i < n_commands {
@@ -2358,9 +2271,9 @@ pub fn BrotliStoreMetaBlock<'a,
     }
     i = i.wrapping_add(1 as (usize));
   }
-  CleanupBlockEncoder(m8, m16, &mut distance_enc);
-  CleanupBlockEncoder(m8, m16, &mut command_enc);
-  CleanupBlockEncoder(m8, m16, &mut literal_enc);
+  CleanupBlockEncoder(alloc, &mut distance_enc);
+  CleanupBlockEncoder(alloc, &mut command_enc);
+  CleanupBlockEncoder(alloc, &mut literal_enc);
   if is_last != 0 {
     JumpToByteBoundary(storage_ix, storage);
   }
@@ -2457,26 +2370,8 @@ fn StoreDataWithHuffmanCodes(input: &[u8],
 
 fn nop<'a>(_data:&[interface::Command<InputReference>]){
 }
-pub fn BrotliStoreMetaBlockTrivial<'a,
-                                   AllocU8:alloc::Allocator<u8>,
-                                   AllocU16:alloc::Allocator<u16>,
-                                   AllocU32:alloc::Allocator<u32>,
-                                   AllocF:alloc::Allocator<floatX>,
-                                   AllocFV:alloc::Allocator<Mem256f>,
-                                   AllocF8:alloc::Allocator<v8>,
-                                   Alloc16x16:alloc::Allocator<s16>,
-                                   AllocPDF:alloc::Allocator<PDF>,
-                                   AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                                   Cb>
-    (m8: &mut AllocU8,
-     m16:&mut AllocU16,
-     m32:&mut AllocU32,
-     mf:&mut AllocF,
-     mfv:&mut AllocFV,
-     mf8: &mut AllocF8,
-     m16x16: &mut Alloc16x16,
-     mpdf:&mut AllocPDF,
-     mc:&mut AllocStaticCommand,
+pub fn BrotliStoreMetaBlockTrivial<'a, Alloc: BrotliAlloc, Cb>
+    (alloc: &mut Alloc,
      input: &'a [u8],
      start_pos: usize,
      length: usize,
@@ -2491,18 +2386,10 @@ pub fn BrotliStoreMetaBlockTrivial<'a,
      storage: &mut [u8],
     f:&mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                &mut [interface::StaticCommand],
-                               InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand) {
+                               InputPair, &mut Alloc) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m8,
-                   m16,
-                   m32,
-                   mf,
-                   mfv,
-                   mf8,
-                   m16x16,
-                   mpdf,
-                   mc,
+      LogMetaBlock(alloc,
                    commands.split_at(n_commands).0,
                    input0,
                    input1,
@@ -2625,12 +2512,8 @@ fn block_split_nop() -> MetaBlockSplitRefs<'static> {
 }
 
 fn block_split_reference<'a,
-                         AllocU8: alloc::Allocator<u8>,
-                         AllocU32: alloc::Allocator<u32>,
-                         AllocHL: alloc::Allocator<HistogramLiteral>,
-                         AllocHC: alloc::Allocator<HistogramCommand>,
-                         AllocHD: alloc::Allocator<HistogramDistance>>
-    (mb:&'a MetaBlockSplit<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>) -> MetaBlockSplitRefs<'a> {
+                         Alloc: BrotliAlloc>
+    (mb:&'a MetaBlockSplit<Alloc>) -> MetaBlockSplitRefs<'a> {
         return MetaBlockSplitRefs::<'a> {
             btypel:BlockSplitRef {
                 types: mb.literal_split.types.slice().split_at(mb.literal_split.num_blocks).0,
@@ -2667,26 +2550,8 @@ impl RecoderState {
 
 
 pub fn BrotliStoreMetaBlockFast<Cb,
-                                AllocU8:alloc::Allocator<u8>,
-                                AllocU16:alloc::Allocator<u16>,
-                                AllocU32:alloc::Allocator<u32>,
-                                AllocF:alloc::Allocator<floatX>,
-                                AllocFV:alloc::Allocator<Mem256f>,
-                                AllocF8:alloc::Allocator<v8>,
-                                Alloc16x16:alloc::Allocator<s16>,
-                                AllocPDF:alloc::Allocator<PDF>,
-                                AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                                AllocHT: alloc::Allocator<HuffmanTree>>(
-  m : &mut AllocHT,
-  m8:  &mut AllocU8,
-  m16: &mut AllocU16,
-  m32: &mut AllocU32,
-  mf: &mut AllocF,
-  mfv: &mut AllocFV,
-  mf8: &mut AllocF8,
-  m16x16: &mut Alloc16x16,
-  mpdf: &mut AllocPDF,
-  mc: &mut AllocStaticCommand,
+                                Alloc: BrotliAlloc>(
+  m : &mut Alloc,
   input: &[u8],
   start_pos: usize,
   length: usize,
@@ -2702,19 +2567,11 @@ pub fn BrotliStoreMetaBlockFast<Cb,
   cb: &mut Cb,
 ) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                   &mut [interface::StaticCommand],
-                  InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand
+                  InputPair, &mut Alloc
 ) {
   let (input0,input1) = InputPairFromMaskedInput(input, start_pos, length, mask);
   if params.log_meta_block {
-      LogMetaBlock(m8,
-                   m16,
-                   m32,
-                   mf,
-                   mfv,
-                   mf8,
-                   m16x16,
-                   mpdf,
-                   mc,
+      LogMetaBlock(m,
                    commands.split_at(n_commands).0, input0, input1, dist_cache, recoder_state,
                    block_split_nop(),
                    params,
@@ -2860,25 +2717,8 @@ fn InputPairFromMaskedInput<'a>(input:&'a [u8], position: usize, len: usize, mas
   return (&input[masked_pos..masked_pos + len], &[]);
 
 }
-pub fn BrotliStoreUncompressedMetaBlock<Cb,
-                                        AllocU8:alloc::Allocator<u8>,
-                                        AllocU16:alloc::Allocator<u16>,
-                                        AllocU32:alloc::Allocator<u32>,
-                                        AllocF:alloc::Allocator<floatX>,
-                                        AllocFV:alloc::Allocator<Mem256f>,
-                                        AllocF8:alloc::Allocator<v8>,
-                                        Alloc16x16:alloc::Allocator<s16>,
-                                        AllocPDF:alloc::Allocator<PDF>,
-                                        AllocStaticCommand: alloc::Allocator<StaticCommand>>
-    (m8: &mut AllocU8,
-     m16:&mut AllocU16,
-     m32:&mut AllocU32,
-     mf:&mut AllocF,
-     mfv: &mut AllocFV,
-     mf8: &mut AllocF8,
-     m16x16: &mut Alloc16x16,
-     mpdf: &mut AllocPDF,
-     mc: &mut AllocStaticCommand,
+pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>
+    (alloc: &mut Alloc,
      is_final_block: i32,
      input: &[u8],
      position: usize,
@@ -2891,7 +2731,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
      suppress_meta_block_logging: bool,
      cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                   &mut [interface::StaticCommand],
-                                  InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand){
+                                  InputPair, &mut Alloc){
   let (input0,input1) = InputPairFromMaskedInput(input, position, len, mask);
   BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
@@ -2910,7 +2750,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb,
                         dist_prefix_:0
     }];
 
-    LogMetaBlock(m8, m16, m32, mf, mfv, mf8, m16x16, mpdf, mc, &cmds, input0, input1, &[0i32, 0i32, 0i32, 0i32], recoder_state,
+    LogMetaBlock(alloc, &cmds, input0, input1, &[0i32, 0i32, 0i32, 0i32], recoder_state,
                  block_split_nop(),
                  params,
                  None,

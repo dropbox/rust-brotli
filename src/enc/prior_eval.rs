@@ -1,6 +1,6 @@
 use core;
 use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::interface;
 use super::backward_references::BrotliEncoderParams;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
@@ -299,35 +299,29 @@ pub fn init_cdfs(cdfs: &mut [s16]) {
 
 
 pub struct PriorEval<'a,
-                     Alloc16x16:alloc::Allocator<s16>,
-                     AllocU32:alloc::Allocator<u32>,
-                     AllocFx8:alloc::Allocator<v8>,
+                     Alloc:alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator<v8>,
                      > {
     input: InputPair<'a>,
     context_map: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
     block_type: u8,
     local_byte_offset: usize,
-    _nop: AllocU32::AllocatedMemory,    
-    cm_priors: Alloc16x16::AllocatedMemory,
-    slow_cm_priors: Alloc16x16::AllocatedMemory,
-    fast_cm_priors: Alloc16x16::AllocatedMemory,
-    stride_priors: [Alloc16x16::AllocatedMemory; 4],
-    adv_priors: Alloc16x16::AllocatedMemory,
+    _nop: <Alloc as Allocator<u32>>::AllocatedMemory,    
+    cm_priors: <Alloc as Allocator<s16>>::AllocatedMemory,
+    slow_cm_priors: <Alloc as Allocator<s16>>::AllocatedMemory,
+    fast_cm_priors: <Alloc as Allocator<s16>>::AllocatedMemory,
+    stride_priors: [<Alloc as Allocator<s16>>::AllocatedMemory; 4],
+    adv_priors: <Alloc as Allocator<s16>>::AllocatedMemory,
     _stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
-    score: AllocFx8::AllocatedMemory,
+    score: <Alloc as Allocator<v8>>::AllocatedMemory,
     cm_speed: [(u16, u16);2],
     stride_speed: [(u16, u16);2],
     cur_stride: u8,
 }
 
 impl<'a,
-     Alloc16x16:alloc::Allocator<s16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocFx8:alloc::Allocator<v8>,
-     > PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
-  pub fn new(m16x16: &mut Alloc16x16,
-              _m32: &mut AllocU32,
-              mf: &mut AllocFx8,
+     Alloc:alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator<v8>,
+     > PriorEval<'a, Alloc> {
+  pub fn new(alloc: &mut Alloc,
               input: InputPair<'a>,
               stride: [u8; find_stride::NUM_LEAF_NODES],
               prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
@@ -360,35 +354,35 @@ impl<'a,
       if stride_speed[1] == (0, 0) {
           stride_speed[1] = stride_speed[0];
       }
-      let mut ret = PriorEval::<Alloc16x16, AllocU32, AllocFx8>{
+      let mut ret = PriorEval::<Alloc>{
          input: input,
          context_map: prediction_mode,
          block_type: 0,
          cur_stride: 1,
          local_byte_offset: 0,
-         _nop:  AllocU32::AllocatedMemory::default(),
-         cm_priors: if do_alloc {m16x16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {
-             Alloc16x16::AllocatedMemory::default()},
-         slow_cm_priors: if do_alloc {m16x16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {
-             Alloc16x16::AllocatedMemory::default()},
-         fast_cm_priors: if do_alloc {m16x16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {
-             Alloc16x16::AllocatedMemory::default()},
+         _nop: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
+         cm_priors: if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, CONTEXT_MAP_PRIOR_SIZE)} else {
+             <Alloc as Allocator<s16>>::AllocatedMemory::default()},
+         slow_cm_priors: if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, CONTEXT_MAP_PRIOR_SIZE)} else {
+             <Alloc as Allocator<s16>>::AllocatedMemory::default()},
+         fast_cm_priors: if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, CONTEXT_MAP_PRIOR_SIZE)} else {
+             <Alloc as Allocator<s16>>::AllocatedMemory::default()},
          stride_priors: [
-             if do_alloc {m16x16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
-                 Alloc16x16::AllocatedMemory::default()},
-             if do_alloc {m16x16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
-                 Alloc16x16::AllocatedMemory::default()},
-             if do_alloc {m16x16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
-                 Alloc16x16::AllocatedMemory::default()},
-             if do_alloc {m16x16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
-                 Alloc16x16::AllocatedMemory::default()},
+             if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)} else {
+                 <Alloc as Allocator<s16>>::AllocatedMemory::default()},
+             if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)} else {
+                 <Alloc as Allocator<s16>>::AllocatedMemory::default()},
+             if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)} else {
+                 <Alloc as Allocator<s16>>::AllocatedMemory::default()},
+             if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)} else {
+                 <Alloc as Allocator<s16>>::AllocatedMemory::default()},
              /*if do_alloc {m16x16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
                  Alloc16x16::AllocatedMemory::default()},*/],
-         adv_priors: if do_alloc {m16x16.alloc_cell(ADV_PRIOR_SIZE)} else {
-             Alloc16x16::AllocatedMemory::default()},
+         adv_priors: if do_alloc {<Alloc as Allocator<s16>>::alloc_cell(alloc, ADV_PRIOR_SIZE)} else {
+             <Alloc as Allocator<s16>>::AllocatedMemory::default()},
          _stride_pyramid_leaves: stride,
-         score: if do_alloc {mf.alloc_cell(8192)} else {
-             AllocFx8::AllocatedMemory::default()},
+         score: if do_alloc {<Alloc as Allocator<v8>>::alloc_cell(alloc, 8192)} else {
+             <Alloc as Allocator<v8>>::AllocatedMemory::default()},
          cm_speed: cm_speed,
          stride_speed: stride_speed,
       };
@@ -468,19 +462,17 @@ impl<'a,
        self.context_map.set_mixing_values(&bitmask);
    }
    pub fn free(&mut self,
-               m16x16: &mut Alloc16x16,
-               _m32: &mut AllocU32,
-               mf8: &mut AllocFx8) {
-       mf8.free_cell(core::mem::replace(&mut self.score, AllocFx8::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.cm_priors, Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.slow_cm_priors, Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.fast_cm_priors, Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.stride_priors[0], Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.stride_priors[1], Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.stride_priors[2], Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.stride_priors[3], Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.stride_priors[4], Alloc16x16::AllocatedMemory::default()));
-       m16x16.free_cell(core::mem::replace(&mut self.adv_priors, Alloc16x16::AllocatedMemory::default()));
+               alloc: &mut Alloc) {
+       <Alloc as Allocator<v8>>::free_cell(alloc, core::mem::replace(&mut self.score, <Alloc as Allocator<v8>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.slow_cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.fast_cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+      <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[0], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[1], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[2], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[3], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[4], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.adv_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
    }
                 
    pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {
@@ -640,9 +632,7 @@ impl<'a,
        self.score.slice_mut()[hscore_index] += h_score;
   }
 }
-impl<'a, Alloc16x16: alloc::Allocator<s16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocFx8: alloc::Allocator<v8>> IRInterpreter for PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
+impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator<v8>> IRInterpreter for PriorEval<'a, Alloc> {
     #[inline]
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
@@ -681,9 +671,7 @@ impl<'a, Alloc16x16: alloc::Allocator<s16>,
 
 
 
-impl<'a, 'b, Alloc16x16: alloc::Allocator<s16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocFx8: alloc::Allocator<v8>>  interface::CommandProcessor<'b> for PriorEval<'a, Alloc16x16, AllocU32, AllocFx8> {
+impl<'a, 'b, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator<v8>>  interface::CommandProcessor<'b> for PriorEval<'a, Alloc> {
     #[inline]
     fn push(&mut self,
             val: interface::Command<InputReference<'b>>) {

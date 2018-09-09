@@ -7,7 +7,8 @@ use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionH
                                  H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher, H9,
                                  H9_BUCKET_BITS, H9_BLOCK_SIZE, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
-
+use alloc::Allocator;
+use super::combined_alloc::BrotliAlloc;
 use super::vectorization::Mem256f;
 use super::interface;
 use super::interface::StaticCommand;
@@ -173,23 +174,15 @@ fn IsNextOutNull(next_out :&NextOut) -> bool {
     }
 }
 
-pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
-                                    AllocU16: alloc::Allocator<u16>,
-                                    AllocU32: alloc::Allocator<u32>,
-                                    AllocI32: alloc::Allocator<i32>,
-                                    AllocCommand: alloc::Allocator<Command>>
+pub struct BrotliEncoderStateStruct<Alloc: BrotliAlloc>
 {
   pub params: BrotliEncoderParams,
-  pub m8: AllocU8,
-  pub m16: AllocU16,
-  pub mi32: AllocI32,
-  pub m32: AllocU32,
-  pub mc: AllocCommand,
-  pub hasher_: UnionHasher<AllocU16, AllocU32>,
+  pub m8: Alloc,
+  pub hasher_: UnionHasher<Alloc>,
   pub input_pos_: u64,
-  pub ringbuffer_: RingBuffer<AllocU8>,
+  pub ringbuffer_: RingBuffer<Alloc>,
   pub cmd_alloc_size_: usize,
-  pub commands_: AllocCommand::AllocatedMemory, // not sure about this one
+  pub commands_: <Alloc as Allocator<Command>>::AllocatedMemory, // not sure about this one
   pub num_commands_: usize,
   pub num_literals_: usize,
   pub last_insert_len_: usize,
@@ -202,16 +195,16 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
   pub prev_byte_: u8,
   pub prev_byte2_: u8,
   pub storage_size_: usize,
-  pub storage_: AllocU8::AllocatedMemory,
+  pub storage_: <Alloc as Allocator<u8>>::AllocatedMemory,
   pub small_table_: [i32; 1024],
-  pub large_table_: AllocI32::AllocatedMemory,
+  pub large_table_: <Alloc as Allocator<i32>>::AllocatedMemory,
 //  pub large_table_size_: usize, // <-- get this by doing large_table_.len()
   pub cmd_depths_: [u8; 128],
   pub cmd_bits_: [u16; 128],
   pub cmd_code_: [u8; 512],
   pub cmd_code_numbits_: usize,
-  pub command_buf_: AllocU32::AllocatedMemory,
-  pub literal_buf_: AllocU8::AllocatedMemory,
+  pub command_buf_: <Alloc as Allocator<u32>>::AllocatedMemory,
+  pub literal_buf_: <Alloc as Allocator<u8>>::AllocatedMemory,
   next_out_: NextOut,
   pub available_out_: usize,
   pub total_out_: usize,
@@ -228,12 +221,8 @@ pub struct BrotliEncoderStateStruct<AllocU8: alloc::Allocator<u8>,
 
 
 
-pub fn BrotliEncoderSetParameter<AllocU8: alloc::Allocator<u8>,
-                                 AllocU16: alloc::Allocator<u16>,
-                                 AllocU32: alloc::Allocator<u32>,
-                                 AllocI32: alloc::Allocator<i32>,
-                                 AllocCommand: alloc::Allocator<Command>>
-  (state: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+pub fn BrotliEncoderSetParameter<Alloc: BrotliAlloc>
+  (state: &mut BrotliEncoderStateStruct<Alloc>,
    p: BrotliEncoderParameter,
    value: u32)
    -> i32 {
@@ -413,12 +402,8 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
          };
 }
 
-fn ExtendLastCommand<AllocU8:alloc::Allocator<u8>,
-                     AllocU16:alloc::Allocator<u16>,
-                     AllocU32:alloc::Allocator<u32>,
-                     AllocI32:alloc::Allocator<i32>,
-                     AllocCommand:alloc::Allocator<Command>>(
-    s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+fn ExtendLastCommand<Alloc:BrotliAlloc>(
+    s: &mut BrotliEncoderStateStruct<Alloc>,
     bytes: &mut u32,
     wrapped_last_processed_pos: &mut u32
 ) {
@@ -470,19 +455,11 @@ fn RingBufferInit<AllocU8: alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
          };
 }
 
-pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
-                                   AllocU16: alloc::Allocator<u16>,
-                                   AllocU32: alloc::Allocator<u32>,
-                                   AllocI32: alloc::Allocator<i32>,
-                                   AllocCommand: alloc::Allocator<Command>>
-  (m8: AllocU8,
-   m16: AllocU16,
-   mi32: AllocI32,
-   m32: AllocU32,
-   mc: AllocCommand)
-   -> BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand> {
+pub fn BrotliEncoderCreateInstance<Alloc: BrotliAlloc>
+  (m8: Alloc)
+   -> BrotliEncoderStateStruct<Alloc> {
   let cache: [i32; 16] = [4, 11, 15, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-  BrotliEncoderStateStruct::<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand> {
+  BrotliEncoderStateStruct::<Alloc> {
     params: BrotliEncoderInitParams(),
     input_pos_: 0,
     num_commands_: 0usize,
@@ -493,13 +470,13 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     prev_byte_: 0i32 as (u8),
     prev_byte2_: 0i32 as (u8),
     storage_size_: 0usize,
-    storage_: AllocU8::AllocatedMemory::default(),
-    hasher_: UnionHasher::<AllocU16, AllocU32>::default(),
-    large_table_: AllocI32::AllocatedMemory::default(),
+    storage_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
+    hasher_: UnionHasher::<Alloc>::default(),
+    large_table_: <Alloc as Allocator<i32>>::AllocatedMemory::default(),
 //    large_table_size_: 0usize,
     cmd_code_numbits_: 0usize,
-    command_buf_: AllocU32::AllocatedMemory::default(),
-    literal_buf_: AllocU8::AllocatedMemory::default(),
+    command_buf_: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
+    literal_buf_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
     next_out_: NextOut::None,
     available_out_: 0usize,
     total_out_: 0usize,
@@ -507,7 +484,7 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     is_last_block_emitted_: 0i32,
     is_initialized_: 0i32,
     ringbuffer_: RingBufferInit(),
-    commands_: AllocCommand::AllocatedMemory::default(),
+    commands_: <Alloc as Allocator<Command>>::AllocatedMemory::default(),
     cmd_alloc_size_: 0usize,
     dist_cache_: cache,
     saved_dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
@@ -517,10 +494,6 @@ pub fn BrotliEncoderCreateInstance<AllocU8: alloc::Allocator<u8>,
     last_bytes_bits_: 0,
     cmd_code_: [0; 512],
     m8: m8,
-    m16: m16,
-    mi32:mi32,
-    m32: m32,
-    mc: mc,
     remaining_metadata_bytes_: 0,
     small_table_: [0; 1024],
     tiny_buf_: [0; 16],
@@ -535,37 +508,37 @@ fn RingBufferFree<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
                                                  rb: &mut RingBuffer<AllocU8>) {
   m.free_cell(core::mem::replace(&mut rb.data_mo, AllocU8::AllocatedMemory::default()));
 }
-fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>(
-m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU32>){
-  handle.free(m16, m32);
+fn DestroyHasher<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(
+m16: &mut Alloc, handle: &mut UnionHasher<Alloc>){
+  handle.free(m16);
 }
 /*
 fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>(
 m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU32>){
   match handle {
     &mut UnionHasher::H2(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     }
     &mut UnionHasher::H3(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     }
     &mut UnionHasher::H4(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     }
     &mut UnionHasher::H54(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     }
     &mut UnionHasher::H5(ref mut hasher) => {
       m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-      m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     }
     &mut UnionHasher::H6(ref mut hasher) => {
       m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-      m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     }
     &mut UnionHasher::H9(ref mut hasher) => {
       m16.free_cell(core::mem::replace(&mut hasher.num_, AllocU16::AllocatedMemory::default()));
-      m32.free_cell(core::mem::replace(&mut hasher.buckets_, AllocU32::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     }
     _ => {}
   }
@@ -573,40 +546,33 @@ m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU
 }
 */
 
-fn BrotliEncoderCleanupState<AllocU8: alloc::Allocator<u8>,
-                             AllocU16: alloc::Allocator<u16>,
-                             AllocU32: alloc::Allocator<u32>,
-                             AllocI32: alloc::Allocator<i32>,
-                             AllocCommand: alloc::Allocator<Command>>
-  (s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) {
+fn BrotliEncoderCleanupState<Alloc:BrotliAlloc>
+  (s: &mut BrotliEncoderStateStruct<Alloc>) {
   {
-    s.m8.free_cell(core::mem::replace(&mut (*s).storage_, AllocU8::AllocatedMemory::default()));
+    <Alloc as Allocator<u8>>::free_cell(&mut s.m8, core::mem::replace(&mut (*s).storage_,
+                                                                      <Alloc as Allocator<u8>>::AllocatedMemory::default()));
   }
   {
-    s.mc.free_cell(core::mem::replace(&mut (*s).commands_,
-                                      AllocCommand::AllocatedMemory::default()));
+    <Alloc as Allocator<Command>>::free_cell(&mut s.m8, core::mem::replace(&mut (*s).commands_,
+                                                                           <Alloc as Allocator<Command>>::AllocatedMemory::default()));
   }
   RingBufferFree(&mut s.m8, &mut (*s).ringbuffer_);
-  DestroyHasher(&mut s.m16, &mut s.m32, &mut (*s).hasher_);
+  DestroyHasher(&mut s.m8, &mut (*s).hasher_);
   {
-    s.mi32.free_cell(core::mem::replace(&mut (*s).large_table_,
-                                       AllocI32::AllocatedMemory::default()));
+    <Alloc as Allocator<i32>>::free_cell(&mut s.m8, core::mem::replace(&mut (*s).large_table_,
+                                       <Alloc as Allocator<i32>>::AllocatedMemory::default()));
   }
   {
-    s.m32.free_cell(core::mem::replace(&mut (*s).command_buf_,
-                                       AllocU32::AllocatedMemory::default()));
+    <Alloc as Allocator<u32>>::free_cell(&mut s.m8, core::mem::replace(&mut (*s).command_buf_,
+                                       <Alloc as Allocator<u32>>::AllocatedMemory::default()));
   }
   {
-    s.m8.free_cell(core::mem::replace(&mut (*s).literal_buf_, AllocU8::AllocatedMemory::default()));
+    <Alloc as Allocator<u8>>::free_cell(&mut s.m8, core::mem::replace(&mut (*s).literal_buf_, <Alloc as Allocator<u8>>::AllocatedMemory::default()));
   }
 }
 
-pub fn BrotliEncoderDestroyInstance<AllocU8: alloc::Allocator<u8>,
-                                    AllocU16: alloc::Allocator<u16>,
-                                    AllocU32: alloc::Allocator<u32>,
-                                    AllocI32: alloc::Allocator<i32>,
-                                    AllocCommand: alloc::Allocator<Command>>
-  (s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) {
+pub fn BrotliEncoderDestroyInstance<Alloc: BrotliAlloc>
+  (s: &mut BrotliEncoderStateStruct<Alloc>) {
   BrotliEncoderCleanupState(s);
 }
 
@@ -1003,12 +969,8 @@ fn InitCommandPrefixCodes(cmd_depths: &mut [u8],
   *cmd_code_numbits = kDefaultCommandCodeNumBits;
 }
 
-fn EnsureInitialized<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>
-  (s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>)
+fn EnsureInitialized<Alloc: BrotliAlloc>
+  (s: &mut BrotliEncoderStateStruct<Alloc>)
    -> i32 {
   if (*s).is_initialized_ != 0 {
     return 1i32;
@@ -1141,12 +1103,8 @@ fn RingBufferWrite<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
   }
 }
 
-fn CopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
-                         AllocU16: alloc::Allocator<u16>,
-                         AllocU32: alloc::Allocator<u32>,
-                         AllocI32: alloc::Allocator<i32>,
-                         AllocCommand: alloc::Allocator<Command>>
-  (s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+fn CopyInputToRingBuffer<Alloc: BrotliAlloc>
+  (s: &mut BrotliEncoderStateStruct<Alloc>,
    input_size: usize,
    input_buffer: &[u8]) {
   if EnsureInitialized(s) == 0 {
@@ -1268,10 +1226,8 @@ fn InitializeH54<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &B
     }
 }
 
-fn InitializeH9<AllocU16:alloc::Allocator<u16>,
-                AllocU32:alloc::Allocator<u32>>(m16: &mut AllocU16,
-                                                m32: &mut AllocU32,
-                                                params : &BrotliEncoderParams) -> H9<AllocU16, AllocU32> {
+fn InitializeH9<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(m16: &mut Alloc,
+                                                                     params : &BrotliEncoderParams) -> H9<Alloc> {
     H9 {
         dict_search_stats_:Struct1{
             params:params.hasher,
@@ -1279,21 +1235,20 @@ fn InitializeH9<AllocU16:alloc::Allocator<u16>,
             dict_num_lookups:0,
             dict_num_matches:0,
         },
-        num_:m16.alloc_cell(1<<H9_BUCKET_BITS),
-        buckets_:m32.alloc_cell(H9_BLOCK_SIZE<<H9_BUCKET_BITS),
+        num_:<Alloc as Allocator<u16>>::alloc_cell(m16, 1<<H9_BUCKET_BITS),
+        buckets_:<Alloc as Allocator<u32>>::alloc_cell(m16, H9_BLOCK_SIZE<<H9_BUCKET_BITS),
         h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
 
-fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
-  (m16: &mut AllocU16,
-   m32: &mut AllocU32,
+fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
+  (m16: &mut Alloc,
    params: &BrotliEncoderParams)
-   -> AdvHasher<H5Sub, AllocU16, AllocU32> {
+   -> AdvHasher<H5Sub, Alloc> {
   let block_size = 1u64 << params.hasher.block_bits;
   let bucket_size = 1u64 << params.hasher.bucket_bits;
-  let buckets = m32.alloc_cell((bucket_size * block_size) as usize);
-  let num = m16.alloc_cell(bucket_size as usize);
+  let buckets : <Alloc as Allocator<u32>>::AllocatedMemory = <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
+  let num : <Alloc as Allocator<u16>>::AllocatedMemory = <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
   AdvHasher {
     buckets: buckets,
     h9_opts: super::backward_references::H9Opts::new(&params.hasher),
@@ -1311,15 +1266,14 @@ fn InitializeH5<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
     block_mask_: block_size.wrapping_sub(1u64) as (u32),
   }
 }
-fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
-  (m16: &mut AllocU16,
-   m32: &mut AllocU32,
+fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
+  (m16: &mut Alloc,
    params: &BrotliEncoderParams)
-   -> AdvHasher<H6Sub, AllocU16, AllocU32> {
+   -> AdvHasher<H6Sub, Alloc> {
   let block_size = 1u64 << params.hasher.block_bits;
   let bucket_size = 1u64 << params.hasher.bucket_bits;
-  let buckets = m32.alloc_cell((bucket_size * block_size) as usize);
-  let num = m16.alloc_cell(bucket_size as usize);
+  let buckets: <Alloc as Allocator<u32>>::AllocatedMemory = <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
+  let num: <Alloc as Allocator<u16>>::AllocatedMemory = <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
   AdvHasher {
     buckets: buckets,
     num: num,
@@ -1340,29 +1294,28 @@ fn InitializeH6<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>
   }
 }
 
-fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
-  (m16: &mut AllocU16,
-   m32: &mut AllocU32,
+fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
+  (m: &mut Alloc,
    params: &BrotliEncoderParams)
-   -> UnionHasher<AllocU16, AllocU32> {
+   -> UnionHasher<Alloc> {
   let hasher_type: i32 = params.hasher.type_;
   if hasher_type == 2i32 {
-    return UnionHasher::H2(InitializeH2(m32, params));
+    return UnionHasher::H2(InitializeH2(m, params));
   }
   if hasher_type == 3i32 {
-    return UnionHasher::H3(InitializeH3(m32, params));
+    return UnionHasher::H3(InitializeH3(m, params));
   }
   if hasher_type == 4i32 {
-    return UnionHasher::H4(InitializeH4(m32, params));
+    return UnionHasher::H4(InitializeH4(m, params));
   }
   if hasher_type == 5i32 {
-    return UnionHasher::H5(InitializeH5(m16, m32, params));
+    return UnionHasher::H5(InitializeH5(m, params));
   }
   if hasher_type == 6i32 {
-    return UnionHasher::H6(InitializeH6(m16, m32, params));
+    return UnionHasher::H6(InitializeH6(m, params));
   }
   if hasher_type == 9i32 {
-    return UnionHasher::H9(InitializeH9(m16, m32, params));
+    return UnionHasher::H9(InitializeH9(m, params));
   }
   /*
     if hasher_type == 40i32 {
@@ -1376,38 +1329,35 @@ fn BrotliMakeHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<
     }
 */
   if hasher_type == 54i32 {
-    return UnionHasher::H54(InitializeH54(m32, params));
+    return UnionHasher::H54(InitializeH54(m, params));
   }
     if hasher_type == 10i32 {
-      return UnionHasher::H10(InitializeH10(m32, false, params, 0));
+      return UnionHasher::H10(InitializeH10(m, false, params, 0));
   }
   // since we don't support all of these, fall back to something sane
-  return UnionHasher::H6(InitializeH6(m16, m32, params));
+  return UnionHasher::H6(InitializeH6(m, params));
       
 //  return UnionHasher::Uninit;
 }
-fn HasherReset<AllocU16:alloc::Allocator<u16>,
-AllocU32:alloc::Allocator<u32>>(t: &mut UnionHasher<AllocU16, AllocU32>){
+fn HasherReset<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>,>(t: &mut UnionHasher<Alloc>){
   match t {
     &mut UnionHasher::Uninit => {}
     _ => (t.GetHasherCommon()).is_prepared_ = 0i32,
   };
 }
-fn GetHasherCommon<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
-  (t: &mut UnionHasher<AllocU16, AllocU32>)
+fn GetHasherCommon<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
+  (t: &mut UnionHasher<Alloc>)
    -> &mut Struct1 {
   t.GetHasherCommon()
 }
 
-fn HasherSetup<AllocU16:alloc::Allocator<u16>,
-               AllocU32:alloc::Allocator<u32>>(m16: &mut AllocU16,
-                                               m32: &mut AllocU32,
-                                               handle: &mut UnionHasher<AllocU16, AllocU32>,
-                                               params: &mut BrotliEncoderParams,
-                                               data: &[u8],
-                                               position: usize,
-                                               input_size: usize,
-                                               is_last: i32){
+fn HasherSetup<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(m16: &mut Alloc,
+                                                                    handle: &mut UnionHasher<Alloc>,
+                                                                    params: &mut BrotliEncoderParams,
+                                                                    data: &[u8],
+                                                                    position: usize,
+                                                                    input_size: usize,
+                                                                    is_last: i32){
   let one_shot: i32 = (position == 0usize && (is_last != 0)) as (i32);
   let is_uninit = match (handle) {
     &mut UnionHasher::Uninit => true,
@@ -1418,7 +1368,7 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
     ChooseHasher(&mut (*params));
     //alloc_size = HasherSize(params, one_shot, input_size);
     //xself = BrotliAllocate(m, alloc_size.wrapping_mul(::std::mem::size_of::<u8>()))
-    *handle = BrotliMakeHasher(m16, m32, params);
+    *handle = BrotliMakeHasher(m16, params);
     handle.GetHasherCommon().params = (*params).hasher;
     HasherReset(handle); // this sets everything to zero, unlike in C
     handle.GetHasherCommon().is_prepared_ = 1;
@@ -1436,14 +1386,13 @@ fn HasherSetup<AllocU16:alloc::Allocator<u16>,
   }
 }
 
-fn HasherPrependCustomDictionary<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
-  (m16: &mut AllocU16,
-   m32: &mut AllocU32,
-   handle: &mut UnionHasher<AllocU16, AllocU32>,
+fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
+  (m: &mut Alloc,
+   handle: &mut UnionHasher<Alloc>,
    params: &mut BrotliEncoderParams,
    size: usize,
    dict: &[u8]) {
-  HasherSetup(m16, m32, handle, params, dict, 0usize, size, 0i32);
+  HasherSetup(m, handle, params, dict, 0usize, size, 0i32);
   match handle {
     &mut UnionHasher::H2(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
@@ -1457,12 +1406,8 @@ fn HasherPrependCustomDictionary<AllocU16: alloc::Allocator<u16>, AllocU32: allo
   }
 }
 
-pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
-                                        AllocU16: alloc::Allocator<u16>,
-                                        AllocU32: alloc::Allocator<u32>,
-                                        AllocI32: alloc::Allocator<i32>,
-                                        AllocCommand: alloc::Allocator<Command>>
-  (s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+pub fn BrotliEncoderSetCustomDictionary<Alloc: BrotliAlloc>
+  (s: &mut BrotliEncoderStateStruct<Alloc>,
    size: usize,
    mut dict: &[u8]) {
   let max_dict_size: usize = (1usize << (*s).params.lgwin).wrapping_sub(16usize);
@@ -1486,10 +1431,8 @@ pub fn BrotliEncoderSetCustomDictionary<AllocU8: alloc::Allocator<u8>,
   if dict_size > 1usize {
     (*s).prev_byte2_ = dict[(dict_size.wrapping_sub(2usize) as (usize))];
   }
-  let m16 = &mut s.m16;
-  let m32 = &mut s.m32;
+  let m16 = &mut s.m8;
   HasherPrependCustomDictionary(m16,
-                                m32,
                                 &mut (*s).hasher_,
                                 &mut (*s).params,
                                 dict_size,
@@ -1516,18 +1459,16 @@ pub fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
   if result < input_size { 0usize } else { result }
 }
 
-fn InitOrStitchToPreviousBlock<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>>
-  (m16: &mut AllocU16,
-   m32: &mut AllocU32,
-   handle: &mut UnionHasher<AllocU16, AllocU32>,
+fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
+  (m: &mut Alloc,
+   handle: &mut UnionHasher<Alloc>,
    data: &[u8],
    mask: usize,
    params: &mut BrotliEncoderParams,
    position: usize,
    input_size: usize,
    is_last: i32) {
-  HasherSetup(m16,
-              m32,
+  HasherSetup(m,
               handle,
               params,
               data,
@@ -2033,53 +1974,12 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
    } as (usize))] = 3i32 as (u8);
   result
 }
-pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
-                             AllocU16: alloc::Allocator<u16>,
-                             AllocU32: alloc::Allocator<u32>,
-                             AllocI32: alloc::Allocator<i32>,
-                             AllocU64: alloc::Allocator<u64>,
-                             AllocF64: alloc::Allocator<super::util::floatX>,
-                             AllocFV: alloc::Allocator<Mem256f>,
-                             AllocF8:alloc::Allocator<v8>,
-                             Alloc16x16:alloc::Allocator<s16>,
-                             AllocPDF: alloc::Allocator<PDF>,
-                             AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                             AllocHL: alloc::Allocator<HistogramLiteral>,
-                             AllocHC: alloc::Allocator<HistogramCommand>,
-                             AllocHD: alloc::Allocator<HistogramDistance>,
-                             AllocHP: alloc::Allocator<HistogramPair>,
-                             AllocCT: alloc::Allocator<ContextType>,
-                             AllocCommand: alloc::Allocator<Command>,
-                             AllocHT:alloc::Allocator<HuffmanTree>,
-                             AllocZN:alloc::Allocator<ZopfliNode>,
+pub fn BrotliEncoderCompress<Alloc: BrotliAlloc,
                              MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                       &mut [interface::StaticCommand],
-                                                      interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
-    empty_m8: AllocU8,
-    empty_m16: AllocU16,
-    empty_m32: AllocU32,
-    empty_mi32: AllocI32,
-    empty_mc: AllocCommand,
-    m8: &mut AllocU8,
-    m16: &mut AllocU16,
-    m32: &mut AllocU32,
-    mi32: &mut AllocI32,
-    mc: &mut AllocCommand,
-    m64: &mut AllocU64,
-    mf64: &mut AllocF64,
-    mfv: &mut AllocFV,
-    mf8: &mut AllocF8,
-    m16x16: &mut Alloc16x16,
-    mpdf: &mut AllocPDF,
-    msc: &mut AllocStaticCommand,
-    mhl: &mut AllocHL,
-    mhc: &mut AllocHC,
-    mhd: &mut AllocHD,
-    mhp: &mut AllocHP,
-    mct: &mut AllocCT,
-    mht: &mut AllocHT,
-    mzn: &mut AllocZN,
-
+                                                      interface::InputPair, &mut Alloc)>(
+    empty_m8: Alloc,
+    m8: &mut Alloc,
     quality: i32,
     lgwin: i32,
     mode: BrotliEncoderMode,
@@ -2118,11 +2018,7 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
   }
   if is_fallback == 0 {
     
-    let mut s_orig = BrotliEncoderCreateInstance(core::mem::replace(m8, empty_m8),
-                                                 core::mem::replace(m16, empty_m16),
-                                                 core::mem::replace(mi32, empty_mi32),
-                                                 core::mem::replace(m32, empty_m32),
-                                                 core::mem::replace(mc, empty_mc));
+    let mut s_orig = BrotliEncoderCreateInstance(core::mem::replace(m8, empty_m8));
     let mut result: i32;
     {
       let s = &mut s_orig;
@@ -2147,8 +2043,6 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
           BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_LARGE_WINDOW, 1);
       }
       result = BrotliEncoderCompressStream(s,
-                                             m64,
-                                             mf64, mfv, mf8, m16x16, mpdf, msc, mhl, mhc, mhd, mhp, mct, mht, mzn,
                                              BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
                                              &mut available_in,
                                              &mut next_in_array,
@@ -2166,10 +2060,6 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
       BrotliEncoderDestroyInstance(s);
     }
     core::mem::replace(m8, s_orig.m8);
-    core::mem::replace(m16, s_orig.m16);
-    core::mem::replace(m32, s_orig.m32);
-    core::mem::replace(mi32, s_orig.mi32);
-    core::mem::replace(mc, s_orig.mc); // unreplace these things so the empty ones are the ones thrown out
     if result == 0 || max_out_size != 0 && (*encoded_size > max_out_size) {
         is_fallback = 1i32;
     } else {
@@ -2188,15 +2078,7 @@ pub fn BrotliEncoderCompress<AllocU8: alloc::Allocator<u8>,
   0i32
 }
 
-fn InjectBytePaddingBlock<AllocU8: alloc::Allocator<u8>,
-                        AllocU16: alloc::Allocator<u16>,
-                        AllocU32: alloc::Allocator<u32>,
-                        AllocI32: alloc::Allocator<i32>,
-                        AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8,
-                                                                                                  AllocU16,
-                                                                                                  AllocU32,
-                                                                                                  AllocI32, 
-                                                                                                  AllocCommand>) {
+fn InjectBytePaddingBlock<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) {
   let mut seal: u32 = (*s).last_bytes_ as (u32);
   let mut seal_bits: usize = (*s).last_bytes_bits_ as (usize);
   let destination: &mut [u8];
@@ -2219,16 +2101,8 @@ fn InjectBytePaddingBlock<AllocU8: alloc::Allocator<u8>,
   }
   (*s).available_out_ = (*s).available_out_.wrapping_add(seal_bits.wrapping_add(7usize) >> 3i32);
 }
-fn InjectFlushOrPushOutput<AllocU8: alloc::Allocator<u8>,
-                           AllocU16: alloc::Allocator<u16>,
-                           AllocU32: alloc::Allocator<u32>,
-                           AllocI32: alloc::Allocator<i32>,
-                           AllocCommand: alloc::Allocator<Command>>(
-    s: &mut BrotliEncoderStateStruct<AllocU8,
-                                         AllocU16,
-                                         AllocU32,
-                                         AllocI32, 
-                                         AllocCommand>,
+fn InjectFlushOrPushOutput<Alloc: BrotliAlloc>(
+    s: &mut BrotliEncoderStateStruct<Alloc>,
     available_out: &mut usize,
     next_out_array: &mut [u8],
     next_out_offset: &mut usize,
@@ -2257,20 +2131,12 @@ fn InjectFlushOrPushOutput<AllocU8: alloc::Allocator<u8>,
   0i32
 }
 
-fn UnprocessedInputSize<AllocU8: alloc::Allocator<u8>,
-                        AllocU16: alloc::Allocator<u16>,
-                        AllocU32: alloc::Allocator<u32>,
-                        AllocI32: alloc::Allocator<i32>,
-                        AllocCommand: alloc::Allocator<Command>>(
-                            s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> u64 {
+fn UnprocessedInputSize<Alloc:BrotliAlloc>(
+                            s: &mut BrotliEncoderStateStruct<Alloc>) -> u64 {
   (*s).input_pos_.wrapping_sub((*s).last_processed_pos_)
 }
 
-fn UpdateSizeHint<AllocU8: alloc::Allocator<u8>,
-                  AllocU16: alloc::Allocator<u16>,
-                  AllocU32: alloc::Allocator<u32>,
-                  AllocI32: alloc::Allocator<i32>,
-                  AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+fn UpdateSizeHint<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>,
                         available_in: usize) {
   if (*s).params.size_hint == 0usize {
     let delta: u64 = UnprocessedInputSize(s);
@@ -2298,34 +2164,18 @@ fn WrapPosition(position: u64) -> u32 {
   result
 }
 
-fn InputBlockSize<AllocU8: alloc::Allocator<u8>,
-                  AllocU16: alloc::Allocator<u16>,
-                  AllocU32: alloc::Allocator<u32>,
-                  AllocI32: alloc::Allocator<i32>,
-                  AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8,
-                                                                                                 AllocU16,
-                                                                                                AllocU32,
-                                                                                                AllocI32, 
-                                                                                                 AllocCommand>) -> usize {
+fn InputBlockSize<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> usize {
   if EnsureInitialized(s) == 0 {
     return 0usize;
   }
   1usize << (*s).params.lgblock
 }
 
-fn GetBrotliStorage<AllocU8: alloc::Allocator<u8>,
-                    AllocU16: alloc::Allocator<u16>,
-                    AllocU32: alloc::Allocator<u32>,
-                    AllocI32: alloc::Allocator<i32>,
-                    AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8,
-                                                                                                  AllocU16,
-                                                                                                  AllocU32,
-                                                                                                  AllocI32, 
-                                                                                                  AllocCommand>,
-                                                                    size: usize) {
+fn GetBrotliStorage<Alloc:BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>,
+                                       size: usize) {
   if (*s).storage_size_ < size {
-    (*s).m8.free_cell(core::mem::replace(&mut (*s).storage_, AllocU8::AllocatedMemory::default()));
-    (*s).storage_ = (*s).m8.alloc_cell(size);
+    <Alloc as Allocator<u8>>::free_cell(&mut (*s).m8, core::mem::replace(&mut (*s).storage_, <Alloc as Allocator<u8>>::AllocatedMemory::default()));
+    (*s).storage_ = <Alloc as Allocator<u8>>::alloc_cell(&mut (*s).m8, size);
     (*s).storage_size_ = size;
   }
 }
@@ -2348,7 +2198,7 @@ fn HashTableSize(max_table_size: usize, input_size: usize) -> usize {
 
 macro_rules! GetHashTable {
     ($s : expr, $quality: expr, $input_size : expr, $table_size : expr) => {
-        GetHashTableInternal(&mut $s.mi32, &mut $s.small_table_, &mut $s.large_table_,
+        GetHashTableInternal(&mut $s.m8, &mut $s.small_table_, &mut $s.large_table_,
                              $quality, $input_size, $table_size)
     };
 }
@@ -2386,11 +2236,7 @@ fn GetHashTableInternal<'a, AllocI32: alloc::Allocator<i32>>(mi32: &mut AllocI32
   }
   table // FIXME: probably need a macro to do this without borrowing the whole EncoderStateStruct
 }
-fn UpdateLastProcessedPos<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> i32 {
+fn UpdateLastProcessedPos<Alloc:BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> i32 {
   let wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
   let wrapped_input_pos: u32 = WrapPosition((*s).input_pos_);
   (*s).last_processed_pos_ = (*s).input_pos_;
@@ -2629,37 +2475,9 @@ fn DecideOverLiteralContextModeling(input: &[u8],
                      literal_context_map);
   }
 }
-fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
-                          AllocU16: alloc::Allocator<u16>,
-                          AllocU32: alloc::Allocator<u32>,
-                          AllocF64: alloc::Allocator<super::util::floatX>,
-                          AllocFV: alloc::Allocator<Mem256f>,
-                          AllocF8:alloc::Allocator<v8>,
-                          Alloc16x16:alloc::Allocator<s16>,
-                          AllocPDF: alloc::Allocator<PDF>,
-                          AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                          AllocHL: alloc::Allocator<HistogramLiteral>,
-                          AllocHC: alloc::Allocator<HistogramCommand>,
-                          AllocHD: alloc::Allocator<HistogramDistance>,
-                          AllocHP: alloc::Allocator<HistogramPair>,
-                          AllocCT: alloc::Allocator<ContextType>,
-                          AllocHT: alloc::Allocator<HuffmanTree>,
+fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                           Cb>
-            (m8: &mut AllocU8,
-             m16: &mut AllocU16,
-             m32: &mut AllocU32,
-             mf64: &mut AllocF64,
-             mfv: &mut AllocFV,
-             mf8: &mut AllocF8,
-             m16x16: &mut Alloc16x16,
-             mpdf: &mut AllocPDF,
-             mc: &mut AllocStaticCommand,
-             mhl: &mut AllocHL,
-             mhc: &mut AllocHC,
-             mhd: &mut AllocHD,
-             mhp: &mut AllocHP,
-             mct: &mut AllocCT,
-             mht: &mut AllocHT,
+            (alloc: &mut Alloc,
              data: &[u8],
              mask: usize,
              last_flush_pos: u64,
@@ -2682,7 +2500,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
              storage: &mut [u8],
             cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                          &mut [interface::StaticCommand],
-                                         interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand) {
+                                         interface::InputPair, &mut Alloc) {
 
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_bytes: u16;
@@ -2701,15 +2519,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                     num_literals,
                     num_commands) == 0 {
     dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
-    BrotliStoreUncompressedMetaBlock(m8,
-                                     m16,
-                                     m32,
-                                     mf64,
-                                     mfv,
-                                     mf8,
-                                     m16x16,
-                                     mpdf,
-                                     mc,
+    BrotliStoreUncompressedMetaBlock(alloc,
                                      is_last,
                                      data,
                                      wrapped_last_flush_pos as (usize),
@@ -2733,16 +2543,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                               params.dist.distance_postfix_bits);
   }*/ // why was this removed??
   if (*params).quality <= 2i32 {
-    BrotliStoreMetaBlockFast(mht,
-                             m8,
-                             m16,
-                             m32,
-                             mf64,
-                             mfv,
-                             mf8,
-                             m16x16,
-                             mpdf,
-                             mc,
+    BrotliStoreMetaBlockFast(alloc,
                              data,
                              wrapped_last_flush_pos as (usize),
                              bytes,
@@ -2760,10 +2561,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
       return;
     }
   } else if (*params).quality < 4i32 {
-    BrotliStoreMetaBlockTrivial(m8, m16, m32, mf64, mfv,
-                                mf8,
-                                m16x16,
-                                mpdf, mc,
+    BrotliStoreMetaBlockTrivial(alloc,
                                 data,
                                 wrapped_last_flush_pos as (usize),
                                 bytes,
@@ -2783,7 +2581,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
   } else {
     //let mut literal_context_mode: ContextType = ContextType::CONTEXT_UTF8;
     
-    let mut mb = MetaBlockSplit::<AllocU8, AllocU32, AllocHL, AllocHC, AllocHD>::new();
+    let mut mb = MetaBlockSplit::<Alloc>::new();
     if (*params).quality < 10i32 {
       let mut num_literal_contexts: usize = 1usize;
       let mut literal_context_map: &[u32] = &[];
@@ -2797,7 +2595,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                          &mut num_literal_contexts,
                                          &mut literal_context_map);
       }
-      BrotliBuildMetaBlockGreedy(m8, m32, mhl, mhc, mhd,
+      BrotliBuildMetaBlockGreedy(alloc,
                                  data,
                                  wrapped_last_flush_pos as (usize),
                                  mask,
@@ -2811,7 +2609,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                                  num_commands,
                                  &mut mb);
     } else {
-      BrotliBuildMetaBlock(m8, m16, m32, mf64, mfv, mpdf, mhl, mhc, mhd, mhp, mct,
+      BrotliBuildMetaBlock(alloc,
                            data,
                            wrapped_last_flush_pos as (usize),
                            mask,
@@ -2834,10 +2632,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
         BrotliOptimizeHistograms(num_effective_dist_codes as usize,
                                &mut mb);
     }
-    BrotliStoreMetaBlock(m8, m16, m32, mf64, mfv,
-                         mf8,
-                         m16x16,
-                         mpdf, mc, mht,
+    BrotliStoreMetaBlock(alloc,
                          data,
                          wrapped_last_flush_pos as (usize),
                          bytes,
@@ -2855,7 +2650,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
                          storage_ix,
                          storage,
                          cb);
-    mb.destroy(m8, m32, mhl, mhc, mhd);
+    mb.destroy(alloc);
   }
   if bytes.wrapping_add(4usize) < *storage_ix >> 3i32 {
       dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
@@ -2865,15 +2660,7 @@ fn WriteMetaBlockInternal<AllocU8: alloc::Allocator<u8>,
       storage[0] = last_bytes as u8;
       storage[1] = (last_bytes >> 8) as u8;
       *storage_ix = last_bytes_bits as (usize);
-      BrotliStoreUncompressedMetaBlock(m8,
-                                       m16,
-                                       m32,
-                                       mf64,
-                                       mfv,
-                                       mf8,
-                                       m16x16,
-                                       mpdf,
-                                       mc,
+      BrotliStoreUncompressedMetaBlock(alloc,
                                        is_last,
                                        data,
                                        wrapped_last_flush_pos as (usize),
@@ -2931,41 +2718,9 @@ fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
 }
         
 
-fn EncodeData<AllocU8: alloc::Allocator<u8>,
-              AllocU16: alloc::Allocator<u16>,
-              AllocU32: alloc::Allocator<u32>,
-              AllocI32: alloc::Allocator<i32>,
-              AllocU64: alloc::Allocator<u64>,
-              AllocF64: alloc::Allocator<super::util::floatX>,
-              AllocFV: alloc::Allocator<Mem256f>,
-              AllocF8: alloc::Allocator<v8>,
-              Alloc16x16: alloc::Allocator<s16>,
-              AllocPDF: alloc::Allocator<PDF>,
-              AllocStaticCommand: alloc::Allocator<StaticCommand>,
-              AllocHL: alloc::Allocator<HistogramLiteral>,
-              AllocHC: alloc::Allocator<HistogramCommand>,
-              AllocHD: alloc::Allocator<HistogramDistance>,
-              AllocHP: alloc::Allocator<HistogramPair>,
-              AllocCT: alloc::Allocator<ContextType>,
-              AllocCommand: alloc::Allocator<Command>,
-              AllocHT:alloc::Allocator<HuffmanTree>,
-              AllocZN: alloc::Allocator<ZopfliNode>,
+fn EncodeData<Alloc: BrotliAlloc,
               MetablockCallback>(
-    s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
-    m64: &mut AllocU64,
-    mf64: &mut AllocF64,
-    mfv: &mut AllocFV,
-    mf8: &mut AllocF8,
-    m16x16: &mut Alloc16x16,
-    mpdf: &mut AllocPDF,
-    mc: &mut AllocStaticCommand,
-    mhl: &mut AllocHL,
-    mhc: &mut AllocHC,
-    mhd: &mut AllocHD,
-    mhp: &mut AllocHP,
-    mct: &mut AllocCT,
-    mht: &mut AllocHT,
-    mzn: &mut AllocZN,
+    s: &mut BrotliEncoderStateStruct<Alloc>,
     is_last: i32,
     force_flush: i32,
     out_size: &mut usize,
@@ -2973,7 +2728,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
 //              mut output: &'a mut &'a mut [u8]
 ) -> i32 where MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                         &mut [interface::StaticCommand],
-                                        interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand){
+                                        interface::InputPair, &mut Alloc){
   let delta: u64 = UnprocessedInputSize(s);
   let mut bytes: u32 = delta as (u32);
   let mut wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
@@ -2993,9 +2748,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     return 0i32;
   }
   if (*s).params.quality == 1i32 && (*s).command_buf_.slice().len() == 0 {
-    let new_buf = (*s).m32.alloc_cell(kCompressFragmentTwoPassBlockSize);
+    let new_buf = <Alloc as Allocator<u32>>::alloc_cell(&mut (*s).m8, kCompressFragmentTwoPassBlockSize);
     (*s).command_buf_ = new_buf;
-    let new_buf8 = (*s).m8.alloc_cell(kCompressFragmentTwoPassBlockSize);
+    let new_buf8 = <Alloc as Allocator<u8>>::alloc_cell(&mut (*s).m8, kCompressFragmentTwoPassBlockSize);
     (*s).literal_buf_ = new_buf8;
   }
   if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
@@ -3015,7 +2770,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
     table = GetHashTable!(s, (*s).params.quality, bytes as (usize), &mut table_size);
     if (*s).params.quality == 0i32 {
-      BrotliCompressFragmentFast(mht,
+      BrotliCompressFragmentFast(&mut s.m8,
                                  &mut data[((wrapped_last_processed_pos & mask) as (usize))..],
                                  bytes as (usize),
                                  is_last,
@@ -3028,7 +2783,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                  &mut storage_ix,
                                  (*s).storage_.slice_mut());
     } else {
-      BrotliCompressFragmentTwoPass(mht,
+      BrotliCompressFragmentTwoPass(&mut s.m8,
                                     &mut data[((wrapped_last_processed_pos & mask) as (usize))..],
                                     bytes as (usize),
                                     is_last,
@@ -3055,15 +2810,15 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     if newsize > (*s).cmd_alloc_size_ {
       newsize = newsize.wrapping_add(bytes.wrapping_div(4u32).wrapping_add(16u32) as (usize));
       (*s).cmd_alloc_size_ = newsize;
-      let mut new_commands = s.mc.alloc_cell(newsize);
+      let mut new_commands = <Alloc as Allocator<Command>>::alloc_cell(&mut s.m8, newsize);
       if (*s).commands_.slice().len() != 0 {
         new_commands.slice_mut()[..(*s).num_commands_].clone_from_slice(&(*s).commands_.slice()[..(*s).num_commands_]);
-        s.mc.free_cell(core::mem::replace(&mut (*s).commands_, AllocCommand::AllocatedMemory::default()));
+        <Alloc as Allocator<Command>>::free_cell(&mut s.m8, core::mem::replace(&mut (*s).commands_, <Alloc as Allocator<Command>>::AllocatedMemory::default()));
       }
       (*s).commands_ = new_commands;
     }
   }
-  InitOrStitchToPreviousBlock(&mut (*s).m16, &mut (*s).m32,
+  InitOrStitchToPreviousBlock(&mut (*s).m8,
                               &mut (*s).hasher_,
                               &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as (usize))..],
                               mask as (usize),
@@ -3107,7 +2862,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                            &mut (*s).num_commands_,
                                            &mut (*s).num_literals_);"####);
   } else {
-    BrotliCreateBackwardReferences(&mut (*s).m32, m64, mf64, mzn, &dictionary,
+    BrotliCreateBackwardReferences(&mut (*s).m8, &dictionary,
                                    bytes as (usize),
                                    wrapped_last_processed_pos as (usize),
                                    &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
@@ -3169,7 +2924,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
     (*s).storage_.slice_mut()[(0usize)] = (*s).last_bytes_ as u8;
     (*s).storage_.slice_mut()[(1usize)] = ((*s).last_bytes_ >> 8) as u8;
-    WriteMetaBlockInternal(&mut (*s).m8, &mut (*s).m16, &mut (*s).m32, mf64, mfv, mf8, m16x16, mpdf, mc, mhl, mhc, mhd, mhp, mct, mht,
+    WriteMetaBlockInternal(&mut (*s).m8,
                            &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                            mask as (usize),
                            (*s).last_flush_pos_,
@@ -3218,11 +2973,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
   }
 }
 
-fn WriteMetadataHeader<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>)
+fn WriteMetadataHeader<Alloc:BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>)
                        -> usize {
   let block_size = (*s).remaining_metadata_bytes_ as (usize);
   let header = GetNextOut!(*s);
@@ -3256,43 +3007,11 @@ fn WriteMetadataHeader<AllocU8: alloc::Allocator<u8>,
 fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
   if a < b { a } else { b }
 }
-fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
-              AllocU16: alloc::Allocator<u16>,
-              AllocU32: alloc::Allocator<u32>,
-                   AllocI32: alloc::Allocator<i32>,
-                   AllocU64: alloc::Allocator<u64>,
-              AllocF64: alloc::Allocator<super::util::floatX>,
-              AllocFV: alloc::Allocator<Mem256f>,
-              AllocF8: alloc::Allocator<v8>,
-              Alloc16x16: alloc::Allocator<s16>,
-              AllocPDF: alloc::Allocator<PDF>,
-              AllocStaticCommand: alloc::Allocator<StaticCommand>,
-              AllocHL: alloc::Allocator<HistogramLiteral>,
-              AllocHC: alloc::Allocator<HistogramCommand>,
-              AllocHD: alloc::Allocator<HistogramDistance>,
-              AllocHP: alloc::Allocator<HistogramPair>,
-              AllocCT: alloc::Allocator<ContextType>,
-              AllocCommand: alloc::Allocator<Command>,
-                   AllocHT:alloc::Allocator<HuffmanTree>,
-                   AllocZN:alloc::Allocator<ZopfliNode>,
+fn ProcessMetadata<Alloc: BrotliAlloc,
                    MetaBlockCallback:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                            &mut [interface::StaticCommand],
-                                           interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
-    s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
-    m64: &mut AllocU64,
-    mf64: &mut AllocF64,
-    mfv: &mut AllocFV,
-    mf8: &mut AllocF8,
-    m16x16: &mut Alloc16x16,
-    mpdf: &mut AllocPDF,
-    mc: &mut AllocStaticCommand,
-    mhl: &mut AllocHL,
-    mhc: &mut AllocHC,
-    mhd: &mut AllocHD,
-    mhp: &mut AllocHP,
-    mct: &mut AllocCT,
-    mht: &mut AllocHT,
-    mzn: &mut AllocZN,
+                                           interface::InputPair, &mut Alloc)>(
+    s: &mut BrotliEncoderStateStruct<Alloc>,
     available_in: &mut usize,
     next_in_array: &[u8],
     next_in_offset: &mut usize,
@@ -3329,7 +3048,7 @@ fn ProcessMetadata<AllocU8: alloc::Allocator<u8>,
     if (*s).input_pos_ != (*s).last_flush_pos_ {
       let mut avail_out : usize = (*s).available_out_;
       let result: i32 =
-            EncodeData(s, m64, mf64, mfv, mf8, m16x16, mpdf, mc, mhl, mhc, mhd, mhp, mct, mht, mzn, 0i32, 1i32, &mut avail_out, metablock_callback);
+            EncodeData(s, 0i32, 1i32, &mut avail_out, metablock_callback);
       (*s).available_out_ = avail_out;
       if result == 0 {
         return 0i32;
@@ -3406,25 +3125,15 @@ fn CheckFlushCompleteInner(stream_state: &mut BrotliEncoderStreamState,
   }
 }
 
-fn CheckFlushComplete<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) {
+fn CheckFlushComplete<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) {
     CheckFlushCompleteInner(&mut (*s).stream_state_,
                             (*s).available_out_,
                             &mut (*s).next_out_);
 }
 
 
-fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                                   AllocCommand: alloc::Allocator<Command>,
-                                   AllocHT: alloc::Allocator<HuffmanTree>>(
-    s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
-    mht: &mut AllocHT,
+fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
+    s: &mut BrotliEncoderStateStruct<Alloc>,
     op: BrotliEncoderOperation,
     available_in: &mut usize,
     next_in_array: &[u8],
@@ -3437,22 +3146,22 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
   let block_size_limit: usize = 1usize << (*s).params.lgwin;
   let buf_size: usize = brotli_min_size_t(kCompressFragmentTwoPassBlockSize,
                                           brotli_min_size_t(*available_in, block_size_limit));
-  let mut command_buf = AllocU32::AllocatedMemory::default();
-  let mut literal_buf = AllocU8::AllocatedMemory::default();
+  let mut command_buf = <Alloc as Allocator<u32>>::AllocatedMemory::default();
+  let mut literal_buf = <Alloc as Allocator<u8>>::AllocatedMemory::default();
   if (*s).params.quality != 0i32 && ((*s).params.quality != 1i32) {
     return 0i32;
   }
   if (*s).params.quality == 1i32 {
     if (*s).command_buf_.slice().len() == 0 && (buf_size == kCompressFragmentTwoPassBlockSize) {
-      (*s).command_buf_ = s.m32.alloc_cell(kCompressFragmentTwoPassBlockSize);
-      (*s).literal_buf_ = s.m8.alloc_cell(kCompressFragmentTwoPassBlockSize);
+      (*s).command_buf_ = <Alloc as Allocator<u32>>::alloc_cell(&mut s.m8, kCompressFragmentTwoPassBlockSize);
+      (*s).literal_buf_ = <Alloc as Allocator<u8>>::alloc_cell(&mut s.m8, kCompressFragmentTwoPassBlockSize);
     }
     if (*s).command_buf_.slice().len() != 0 {
-      command_buf = core::mem::replace(&mut (*s).command_buf_, AllocU32::AllocatedMemory::default());
-      literal_buf = core::mem::replace(&mut (*s).literal_buf_, AllocU8::AllocatedMemory::default());
+      command_buf = core::mem::replace(&mut (*s).command_buf_, <Alloc as Allocator<u32>>::AllocatedMemory::default());
+      literal_buf = core::mem::replace(&mut (*s).literal_buf_, <Alloc as Allocator<u8>>::AllocatedMemory::default());
     } else {
-      command_buf = s.m32.alloc_cell(buf_size);
-      literal_buf = s.m8.alloc_cell(buf_size);
+      command_buf = <Alloc as Allocator<u32>>::alloc_cell(&mut s.m8, buf_size);
+      literal_buf = <Alloc as Allocator<u8>>::alloc_cell(&mut s.m8, buf_size);
     }
   }
   while 1i32 != 0 {
@@ -3499,7 +3208,7 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
       storage[(1usize)] = ((*s).last_bytes_  >> 8) as u8;
       table = GetHashTable!(s, (*s).params.quality, block_size, &mut table_size);
       if (*s).params.quality == 0i32 {
-        BrotliCompressFragmentFast(mht,
+        BrotliCompressFragmentFast(&mut s.m8,
                                    &(next_in_array)[*next_in_offset..],
                                    block_size,
                                    is_last,
@@ -3512,7 +3221,7 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
                                    &mut storage_ix,
                                    storage);
       } else {
-        BrotliCompressFragmentTwoPass(mht,
+        BrotliCompressFragmentTwoPass(&mut s.m8,
                                       &(next_in_array)[*next_in_offset..],
                                       block_size,
                                       is_last,
@@ -3563,20 +3272,16 @@ fn BrotliEncoderCompressStreamFast<AllocU8: alloc::Allocator<u8>,
   }
   if command_buf.slice().len() == kCompressFragmentTwoPassBlockSize && s.command_buf_.slice().len() == 0 {
       // undo temporary aliasing of command_buf and literal_buf
-      (*s).command_buf_ = core::mem::replace(&mut command_buf, AllocU32::AllocatedMemory::default());
-      (*s).literal_buf_ = core::mem::replace(&mut literal_buf, AllocU8::AllocatedMemory::default());
+      (*s).command_buf_ = core::mem::replace(&mut command_buf, <Alloc as Allocator<u32>>::AllocatedMemory::default());
+      (*s).literal_buf_ = core::mem::replace(&mut literal_buf, <Alloc as Allocator<u8>>::AllocatedMemory::default());
   } else {
-      s.m32.free_cell(command_buf);
-      s.m8.free_cell(literal_buf);
+      <Alloc as Allocator<u32>>::free_cell(&mut s.m8, command_buf);
+      <Alloc as Allocator<u8>>::free_cell(&mut s.m8, literal_buf);
   }
   CheckFlushComplete(s);
   1i32
 }
-fn RemainingInputBlockSize<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> usize {
+fn RemainingInputBlockSize<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> usize {
   let delta: u64 = UnprocessedInputSize(s);
   let block_size: usize = InputBlockSize(s);
   if delta >= block_size as u64 {
@@ -3585,43 +3290,11 @@ fn RemainingInputBlockSize<AllocU8: alloc::Allocator<u8>,
   (block_size as u64).wrapping_sub(delta) as usize
 }
 
-pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
-                                   AllocU16: alloc::Allocator<u16>,
-                                   AllocU32: alloc::Allocator<u32>,
-                                   AllocI32: alloc::Allocator<i32>,
-                                   AllocU64: alloc::Allocator<u64>,
-                                   AllocF64: alloc::Allocator<super::util::floatX>,
-                                   AllocFV: alloc::Allocator<Mem256f>,
-                                   AllocF8:alloc::Allocator<v8>,
-                                   Alloc16x16:alloc::Allocator<s16>,
-                                   AllocPDF: alloc::Allocator<PDF>,
-                                   AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                                   AllocHL: alloc::Allocator<HistogramLiteral>,
-                                   AllocHC: alloc::Allocator<HistogramCommand>,
-                                   AllocHD: alloc::Allocator<HistogramDistance>,
-                                   AllocHP: alloc::Allocator<HistogramPair>,
-                                   AllocCT: alloc::Allocator<ContextType>,
-                                   AllocCommand: alloc::Allocator<Command>,
-                                   AllocHT:alloc::Allocator<HuffmanTree>,
-                                   AllocZN: alloc::Allocator<ZopfliNode>,
+pub fn BrotliEncoderCompressStream<Alloc: BrotliAlloc,
                                    MetablockCallback:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                            &mut [interface::StaticCommand],
-                                                           interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
-    s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
-    m64: &mut AllocU64,
-    mf64: &mut AllocF64,
-    mfv: &mut AllocFV,
-    mf8: &mut AllocF8,
-    m16x16: &mut Alloc16x16,
-    mpdf: &mut AllocPDF,
-    mc: &mut AllocStaticCommand,
-    mhl: &mut AllocHL,
-    mhc: &mut AllocHC,
-    mhd: &mut AllocHD,
-    mhp: &mut AllocHP,
-    mct: &mut AllocCT,
-    mht: &mut AllocHT,
-    mzn: &mut AllocZN,
+                                                           interface::InputPair, &mut Alloc)>(
+    s: &mut BrotliEncoderStateStruct<Alloc>,
     op: BrotliEncoderOperation,
     available_in: &mut usize,
     next_in_array: &[u8],
@@ -3645,7 +3318,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
   }
   if op as (i32) == BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA as (i32) {
     UpdateSizeHint(s, 0usize);
-    return ProcessMetadata(s, m64, mf64, mfv, mf8, m16x16, mpdf, mc, mhl, mhc, mhd, mhp, mct, mht, mzn, available_in, next_in_array, next_in_offset, available_out, next_out_array, next_out_offset, total_out, metablock_callback);
+    return ProcessMetadata(s, available_in, next_in_array, next_in_offset, available_out, next_out_array, next_out_offset, total_out, metablock_callback);
   }
   if (*s).stream_state_ as (i32) ==
      BrotliEncoderStreamState::BROTLI_STREAM_METADATA_HEAD as (i32) ||
@@ -3658,7 +3331,6 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
   }
   if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
     return BrotliEncoderCompressStreamFast(s,
-                                           mht,
                                            op,
                                            available_in,
                                            next_in_array,
@@ -3709,7 +3381,6 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
         UpdateSizeHint(s, *available_in);
         let mut avail_out = (*s).available_out_;
         result = EncodeData(s,
-                            m64, mf64, mfv, mf8, m16x16, mpdf, mc, mhl, mhc, mhd, mhp, mct, mht, mzn,
                             is_last,
                             force_flush,
                             &mut avail_out,
@@ -3742,11 +3413,7 @@ pub fn BrotliEncoderCompressStream<AllocU8: alloc::Allocator<u8>,
   1i32
 }
 
-pub fn BrotliEncoderIsFinished<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> i32 {
+pub fn BrotliEncoderIsFinished<Alloc:BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> i32 {
   if !!((*s).stream_state_ as (i32) == BrotliEncoderStreamState::BROTLI_STREAM_FINISHED as (i32) &&
         (BrotliEncoderHasMoreOutput(s) == 0)) {
     1i32
@@ -3756,13 +3423,8 @@ pub fn BrotliEncoderIsFinished<AllocU8: alloc::Allocator<u8>,
 }
 
 
-pub fn BrotliEncoderHasMoreOutput<AllocU8: alloc::Allocator<u8>,
-                                  AllocU16: alloc::Allocator<u16>,
-                                  AllocU32: alloc::Allocator<u32>,
-                                  AllocI32: alloc::Allocator<i32>,
-                                  AllocCommand: alloc::Allocator<Command>>(
-    s: &BrotliEncoderStateStruct<AllocU8,
-                                 AllocU16, AllocU32, AllocI32, AllocCommand>) -> i32 {
+pub fn BrotliEncoderHasMoreOutput<Alloc: BrotliAlloc>(
+    s: &BrotliEncoderStateStruct<Alloc>) -> i32 {
   if !!((*s).available_out_ != 0usize) {
     1i32
   } else {
@@ -3771,11 +3433,7 @@ pub fn BrotliEncoderHasMoreOutput<AllocU8: alloc::Allocator<u8>,
 }
 
 
-pub fn BrotliEncoderTakeOutput<'a, AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &'a mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+pub fn BrotliEncoderTakeOutput<'a, Alloc:BrotliAlloc>(s: &'a mut BrotliEncoderStateStruct<Alloc>,
                                size: &mut usize)
                                -> &'a [u8] {
   let mut consumed_size: usize = (*s).available_out_;
@@ -3804,70 +3462,30 @@ pub fn BrotliEncoderVersion() -> u32 {
 }
 
 
-pub fn BrotliEncoderInputBlockSize<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>) -> usize {
+pub fn BrotliEncoderInputBlockSize<Alloc:BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> usize {
   InputBlockSize(s)
 }
 
 
-pub fn BrotliEncoderCopyInputToRingBuffer<AllocU8: alloc::Allocator<u8>,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>,
-                     AllocI32: alloc::Allocator<i32>,
-                     AllocCommand: alloc::Allocator<Command>>(s: &mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
+pub fn BrotliEncoderCopyInputToRingBuffer<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>,
                                           input_size: usize,
                                           input_buffer: &[u8]) {
   CopyInputToRingBuffer(s, input_size, input_buffer);
 }
 
 
-pub fn BrotliEncoderWriteData<'a, AllocU8: alloc::Allocator<u8>,
-                              AllocU16: alloc::Allocator<u16>,
-                              AllocU32: alloc::Allocator<u32>,
-                              AllocI32: alloc::Allocator<i32>,
-                              AllocU64: alloc::Allocator<u64>,
-                              AllocF64: alloc::Allocator<super::util::floatX>,
-                              AllocFV: alloc::Allocator<Mem256f>,
-                              AllocF8: alloc::Allocator<v8>,
-                              Alloc16x16: alloc::Allocator<s16>,
-                              AllocPDF: alloc::Allocator<PDF>,
-                              AllocStaticCommand: alloc::Allocator<StaticCommand>,
-                              AllocHL: alloc::Allocator<HistogramLiteral>,
-                              AllocHC: alloc::Allocator<HistogramCommand>,
-                              AllocHD: alloc::Allocator<HistogramDistance>,
-                              AllocHP: alloc::Allocator<HistogramPair>,
-                              AllocCT: alloc::Allocator<ContextType>,
-                              AllocCommand: alloc::Allocator<Command>,
-                              AllocHT:alloc::Allocator<HuffmanTree>,
-                              AllocZN:alloc::Allocator<ZopfliNode>,
+pub fn BrotliEncoderWriteData<'a, Alloc: BrotliAlloc,
                               MetablockCallback:FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                                        &mut [interface::StaticCommand],
-                                                       interface::InputPair, &mut AllocFV, &mut AllocPDF, &mut AllocStaticCommand)>(
-    s: &'a mut BrotliEncoderStateStruct<AllocU8, AllocU16, AllocU32, AllocI32, AllocCommand>,
-    m64: &mut AllocU64,
-    mf64: &mut AllocF64,
-    mfv: &mut AllocFV,
-    mf8: &mut AllocF8,
-    m16x16: &mut Alloc16x16,
-    mpdf: &mut AllocPDF,
-    mc: &mut AllocStaticCommand,
-    mhl: &mut AllocHL,
-    mhc: &mut AllocHC,
-    mhd: &mut AllocHD,
-    mhp: &mut AllocHP,
-    mct: &mut AllocCT,
-    mht: &mut AllocHT,
-    mzn: &mut AllocZN,
+                                                       interface::InputPair, &mut Alloc)>(
+    s: &'a mut BrotliEncoderStateStruct<Alloc>,
     is_last: i32,
     force_flush: i32,
     out_size: &mut usize,
     output: &'a mut &'a mut [u8],
     metablock_callback: &mut MetablockCallback)
                               -> i32 {
-    let ret = EncodeData(s, m64, mf64, mfv, mf8, m16x16, mpdf, mc, mhl, mhc, mhd, mhp, mct, mht, mzn, is_last, force_flush, out_size, metablock_callback);
+    let ret = EncodeData(s, is_last, force_flush, out_size, metablock_callback);
     *output = (*s).storage_.slice_mut();
     ret
 }

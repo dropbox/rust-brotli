@@ -1,26 +1,27 @@
 #![allow(dead_code)]
 use super::super::alloc;
+use super::super::alloc::Allocator;
 use super::super::alloc::SliceWrapper;
 use core;
-pub struct BlockSplit<AllocU8: alloc::Allocator<u8>, AllocU32: alloc::Allocator<u32>> {
+pub struct BlockSplit<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> {
   pub num_types: usize,
   pub num_blocks: usize,
-  pub types: AllocU8::AllocatedMemory,
-  pub lengths: AllocU32::AllocatedMemory,
+  pub types: <Alloc as Allocator<u8>>::AllocatedMemory,
+  pub lengths: <Alloc as Allocator<u32>>::AllocatedMemory,
 }
 
-impl<AllocU8: alloc::Allocator<u8>, AllocU32: alloc::Allocator<u32>> BlockSplit<AllocU8, AllocU32> {
-  pub fn new() -> BlockSplit<AllocU8, AllocU32> {
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> BlockSplit<Alloc> {
+  pub fn new() -> BlockSplit<Alloc> {
     BlockSplit {
       num_types: 0,
       num_blocks: 0,
-      types: AllocU8::AllocatedMemory::default(),
-      lengths: AllocU32::AllocatedMemory::default(),
+      types: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
+      lengths: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
     }
   }
-  pub fn destroy(&mut self, m8: &mut AllocU8, m32: &mut AllocU32) {
-    m8.free_cell(core::mem::replace(&mut self.types, AllocU8::AllocatedMemory::default()));
-    m32.free_cell(core::mem::replace(&mut self.lengths, AllocU32::AllocatedMemory::default()));
+  pub fn destroy(&mut self, m: &mut Alloc) {
+    <Alloc as Allocator<u8>>::free_cell(m, core::mem::replace(&mut self.types, <Alloc as Allocator<u8>>::AllocatedMemory::default()));
+    <Alloc as Allocator<u32>>::free_cell(m, core::mem::replace(&mut self.lengths, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
     self.num_blocks = 0;
     self.num_types = 0;
   }

@@ -1,7 +1,7 @@
 use core;
 pub use super::ir_interpret::{IRInterpreter, Context, push_base};
 use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::interface;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::util::{floatX, FastLog2u16};
@@ -243,9 +243,7 @@ const SINGLETON_STRIDE_STRATEGY: usize = 1;
 const SINGLETON_CM_STRATEGY: usize = 0;
     
 pub struct ContextMapEntropy<'a,
-                             AllocU16:alloc::Allocator<u16>,
-                             AllocU32:alloc::Allocator<u32>,
-                             AllocF:alloc::Allocator<floatX>,
+                             Alloc:alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>,
                              > {
     input: InputPair<'a>,
     context_map: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
@@ -253,37 +251,29 @@ pub struct ContextMapEntropy<'a,
     cur_stride: u8,
     local_byte_offset: usize,
     weight: [[Weights; NUM_SPEEDS_TO_TRY];2],
-    _nop: AllocU32::AllocatedMemory,
     
-    cm_priors: AllocU16::AllocatedMemory,
-    stride_priors: AllocU16::AllocatedMemory,
+    cm_priors: <Alloc as Allocator<u16>>::AllocatedMemory,
+    stride_priors: <Alloc as Allocator<u16>>::AllocatedMemory,
     _stride_pyramid_leaves: [u8; find_stride::NUM_LEAF_NODES],
     singleton_costs: [[[floatX;NUM_SPEEDS_TO_TRY];2];3],
-    phantom: core::marker::PhantomData<AllocF>,
 }
 impl<'a,
-     AllocU16:alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF:alloc::Allocator<floatX>,
-     > ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
-   pub fn new(m16: &mut AllocU16,
-              _m32: &mut AllocU32,
-              _mf: &mut AllocF,
+     Alloc:alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>,
+     > ContextMapEntropy<'a, Alloc> {
+   pub fn new(m16: &mut Alloc,
               input: InputPair<'a>,
               stride: [u8; find_stride::NUM_LEAF_NODES],
               prediction_mode: interface::PredictionModeContextMap<InputReferenceMut<'a>>,
               cdf_detection_quality: u8) -> Self {
       let cdf_detect = cdf_detection_quality != 0;
-      let mut ret = ContextMapEntropy::<AllocU16, AllocU32, AllocF>{
-         phantom:core::marker::PhantomData::<AllocF>::default(),
+      let mut ret = ContextMapEntropy::<Alloc>{
          input: input,
          context_map: prediction_mode,
          block_type: 0,
          cur_stride: 1,
          local_byte_offset: 0,
-         _nop:  AllocU32::AllocatedMemory::default(),
-         cm_priors: if cdf_detect {m16.alloc_cell(CONTEXT_MAP_PRIOR_SIZE)} else {AllocU16::AllocatedMemory::default()},
-         stride_priors: if cdf_detect {m16.alloc_cell(STRIDE_PRIOR_SIZE)} else {AllocU16::AllocatedMemory::default()},
+         cm_priors: if cdf_detect {<Alloc as Allocator<u16>>::alloc_cell(m16, CONTEXT_MAP_PRIOR_SIZE)} else {<Alloc as Allocator<u16>>::AllocatedMemory::default()},
+         stride_priors: if cdf_detect {<Alloc as Allocator<u16>>::alloc_cell(m16, STRIDE_PRIOR_SIZE)} else {<Alloc as Allocator<u16>>::AllocatedMemory::default()},
          _stride_pyramid_leaves: stride,
          weight:[[Weights::new(); NUM_SPEEDS_TO_TRY],
                  [Weights::new(); NUM_SPEEDS_TO_TRY]],
@@ -368,9 +358,9 @@ impl<'a,
        }
        ret
    }
-   pub fn free(&mut self, m16: &mut AllocU16, _m32: &mut AllocU32, _mf64: &mut AllocF) {
-        m16.free_cell(core::mem::replace(&mut self.cm_priors, AllocU16::AllocatedMemory::default()));
-        m16.free_cell(core::mem::replace(&mut self.stride_priors, AllocU16::AllocatedMemory::default()));
+   pub fn free(&mut self, alloc: &mut Alloc) {
+        <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::replace(&mut self.cm_priors, <Alloc as Allocator<u16>>::AllocatedMemory::default()));
+        <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors, <Alloc as Allocator<u16>>::AllocatedMemory::default()));
    }
    fn update_cost_base(&mut self, stride_prior: u8, _selected_bits:u8, cm_prior: usize, literal: u8) {
        let upper_nibble = (literal >> 4);
@@ -421,18 +411,14 @@ impl<'a,
    }
 }
 
-impl<'a, 'b, AllocU16: alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>> interface::CommandProcessor<'b> for ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
+impl<'a, 'b, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>> interface::CommandProcessor<'b> for ContextMapEntropy<'a, Alloc> {
     fn push(&mut self,
             val: interface::Command<InputReference<'b>>) {
         push_base(self, val)
     }
 }
 
-impl<'a, AllocU16: alloc::Allocator<u16>,
-     AllocU32:alloc::Allocator<u32>,
-     AllocF: alloc::Allocator<floatX>> IRInterpreter for ContextMapEntropy<'a, AllocU16, AllocU32, AllocF> {
+impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<floatX>> IRInterpreter for ContextMapEntropy<'a, Alloc> {
     fn inc_local_byte_offset(&mut self, inc: usize) {
         self.local_byte_offset += inc;
     }

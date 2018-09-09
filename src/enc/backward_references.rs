@@ -5,7 +5,7 @@ use super::dictionary_hash::kStaticDictionaryHash;
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
 use super::static_dict::BrotliDictionary;
 use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::util::{Log2FloorNonZero, brotli_max_size_t, floatX};
 use core;
 static kBrotliMinWindowBits: i32 = 10i32;
@@ -525,10 +525,9 @@ impl H9Opts {
    }
 }
 
-pub struct H9<AllocU16: alloc::Allocator<u16>,
-              AllocU32: alloc::Allocator<u32>> {
-    pub num_:AllocU16::AllocatedMemory,//[u16;1 << H9_BUCKET_BITS],
-    pub buckets_:AllocU32::AllocatedMemory,//[u32; H9_BLOCK_SIZE << H9_BUCKET_BITS],
+pub struct H9<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
+    pub num_:<Alloc as Allocator<u16>>::AllocatedMemory,//[u16;1 << H9_BUCKET_BITS],
+    pub buckets_:<Alloc as Allocator<u32>>::AllocatedMemory,//[u32; H9_BLOCK_SIZE << H9_BUCKET_BITS],
     pub dict_search_stats_:Struct1,
     pub h9_opts: H9Opts,
 }
@@ -619,8 +618,7 @@ fn BackwardReferenceScoreUsingLastDistanceH9(
       kDistanceShortCodeCost[distance_short_code])) >> 2
 }
 
-impl<AllocU16: alloc::Allocator<u16>,
-              AllocU32: alloc::Allocator<u32>> AnyHasher for H9<AllocU16, AllocU32> {
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Alloc> {
   #[inline(always)]
     fn Opts(&self) -> H9Opts {
        self.h9_opts
@@ -810,8 +808,7 @@ pub trait AdvHashSpecialization {
 }
 
 pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized,
-                     AllocU16: alloc::Allocator<u16>,
-                     AllocU32: alloc::Allocator<u32>>
+                     Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
 {
   pub GetHasherCommon: Struct1,
   pub bucket_size_: u64,
@@ -819,8 +816,8 @@ pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized,
   pub specialization: Specialization, // contains hash_mask_
   pub hash_shift_: i32,
   pub block_mask_: u32,
-  pub num: AllocU16::AllocatedMemory,
-  pub buckets: AllocU32::AllocatedMemory,
+  pub num: <Alloc as Allocator<u16>>::AllocatedMemory,
+  pub buckets: <Alloc as Allocator<u32>>::AllocatedMemory,
   pub h9_opts: H9Opts,
 }
 pub struct H5Sub {}
@@ -876,8 +873,8 @@ fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> usiz
 }
 
 
-impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
-  for AdvHasher<Specialization, AllocU16, AllocU32> {
+impl<Specialization: AdvHashSpecialization, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
+  for AdvHasher<Specialization, Alloc> {
   fn Opts(&self) -> H9Opts {
      self.h9_opts
   }
@@ -1278,16 +1275,16 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
   is_match_found
 }
 
-pub enum UnionHasher<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> {
+pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
   Uninit,
-  H2(BasicHasher<H2Sub<AllocU32>>),
-  H3(BasicHasher<H3Sub<AllocU32>>),
-  H4(BasicHasher<H4Sub<AllocU32>>),
-  H54(BasicHasher<H54Sub<AllocU32>>),
-  H5(AdvHasher<H5Sub, AllocU16, AllocU32>),
-  H6(AdvHasher<H6Sub, AllocU16, AllocU32>),
-  H9(H9<AllocU16, AllocU32>),
-  H10(H10<AllocU32, H10Buckets<AllocU32>, H10DefaultParams>),
+  H2(BasicHasher<H2Sub<Alloc>>),
+  H3(BasicHasher<H3Sub<Alloc>>),
+  H4(BasicHasher<H4Sub<Alloc>>),
+  H54(BasicHasher<H54Sub<Alloc>>),
+  H5(AdvHasher<H5Sub, Alloc>),
+  H6(AdvHasher<H6Sub, Alloc>),
+  H9(H9<Alloc>),
+  H10(H10<Alloc, H10Buckets<Alloc>, H10DefaultParams>),
 }
 macro_rules! match_all_hashers_mut {
     ($xself : expr, $func_call : ident, $( $args:expr),*) => {
@@ -1319,8 +1316,8 @@ macro_rules! match_all_hashers {
         }
     };
 }
-impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
-  for UnionHasher<AllocU16, AllocU32> {
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
+  for UnionHasher<Alloc> {
   fn Opts(&self) -> H9Opts {
     return match_all_hashers!(self, Opts,);
   }
@@ -1392,45 +1389,45 @@ impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> AnyHasher
   }
 }
 
-impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> UnionHasher<AllocU16, AllocU32> {
-  pub fn free (&mut self, m16: &mut AllocU16, m32: &mut AllocU32) {
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> UnionHasher<Alloc> {
+  pub fn free (&mut self, alloc: &mut Alloc) {
     match self {
       &mut UnionHasher::H2(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
       }
       &mut UnionHasher::H3(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
       }
       &mut UnionHasher::H4(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
       }
       &mut UnionHasher::H54(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
       }
       &mut UnionHasher::H5(ref mut hasher) => {
-        m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-        m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::replace(&mut hasher.num, <Alloc as Allocator<u16>>::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut hasher.buckets, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
       }
       &mut UnionHasher::H6(ref mut hasher) => {
-        m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-        m32.free_cell(core::mem::replace(&mut hasher.buckets, AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::replace(&mut hasher.num, <Alloc as Allocator<u16>>::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut hasher.buckets, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
       }
       &mut UnionHasher::H9(ref mut hasher) => {
-        m16.free_cell(core::mem::replace(&mut hasher.num_, AllocU16::AllocatedMemory::default()));
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_, AllocU32::AllocatedMemory::default()));
+        <Alloc as Allocator<u16>>::free_cell(alloc,core::mem::replace(&mut hasher.num_, <Alloc as Allocator<u16>>::AllocatedMemory::default()));
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::replace(&mut hasher.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
       }
       &mut UnionHasher::H10(ref mut hasher) => {
-        hasher.free(m32);
+        hasher.free(alloc);
       }
       _ => {}
     }
-    *self = UnionHasher::<AllocU16, AllocU32>::default();
+    *self = UnionHasher::<Alloc>::default();
   }
 }
 
 
-impl<AllocU16: alloc::Allocator<u16>, AllocU32: alloc::Allocator<u32>> Default
-  for UnionHasher<AllocU16, AllocU32> {
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> Default
+  for UnionHasher<Alloc> {
   fn default() -> Self {
     UnionHasher::Uninit
   }
@@ -1624,22 +1621,15 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
   *last_insert_len = insert_length;
   *num_commands = (*num_commands).wrapping_add(new_commands_count);
 }
-pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
-                                      AllocU32: alloc::Allocator<u32>,
-                                      AllocU64: alloc::Allocator<u64>,
-                                      AllocF: alloc::Allocator<floatX>,
-                                      AllocZN:alloc::Allocator<ZopfliNode>>
-  (m32 : &mut AllocU32,
-   m64 : &mut AllocU64,
-   mf : &mut AllocF,
-   mz : &mut AllocZN,
+pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator<u64> + alloc::Allocator<floatX> + alloc::Allocator<ZopfliNode>>
+  (alloc : &mut Alloc,
    dictionary: &BrotliDictionary,
    num_bytes: usize,
    position: usize,
    ringbuffer: &[u8],
    ringbuffer_mask: usize,
    params: &BrotliEncoderParams,
-   hasher_union: &mut UnionHasher<AllocU16, AllocU32>,
+   hasher_union: &mut UnionHasher<Alloc>,
    dist_cache: &mut [i32],
    last_insert_len: &mut usize,
    commands: &mut [Command],
@@ -1650,7 +1640,7 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
       &mut UnionHasher::H10(ref mut hasher) => {
           if params.quality >= 11 {
               super::backward_references_hq::BrotliCreateHqZopfliBackwardReferences(
-                  m32, m64, mf, mz, dictionary,
+                  alloc, dictionary,
                   num_bytes,
                   position,
                   ringbuffer,
@@ -1664,7 +1654,8 @@ pub fn BrotliCreateBackwardReferences<AllocU16: alloc::Allocator<u16>,
                   num_literals)
           } else {
               super::backward_references_hq::BrotliCreateZopfliBackwardReferences(
-                  mf, mz, dictionary,
+                  alloc,
+                  dictionary,
                   num_bytes,
                   position,
                   ringbuffer,

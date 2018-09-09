@@ -35,7 +35,9 @@ impl <T1, T2, AllocT1:Allocator<T1>, AllocT2:Allocator<T2>> Allocator<T2> for Co
 }
 */
 
-//pub trait BrotliAlloc:Allocator<u8> + Allocator<u16> + Allocator<i32> + Allocator<u32> + Allocator<u64> + Allocator<Command> + Allocator<super::util::floatX> + Allocator<v8> + Allocator<s16> + Allocator<PDF> + Allocator<StaticCommand> + Allocator<HistogramLiteral> + Allocator<HistogramCommand> + Allocator<HistogramDistance> + Allocator<HistogramPair> + Allocator<ContextType> + Allocator<HuffmanTree> + Allocator<ZopfliNode>{}
+pub trait BrotliAlloc:Allocator<u8> + Allocator<u16> + Allocator<i32> + Allocator<u32> + Allocator<u64> + Allocator<Command> + Allocator<super::util::floatX> + Allocator<v8> + Allocator<s16> + Allocator<PDF> + Allocator<StaticCommand> + Allocator<HistogramLiteral> + Allocator<HistogramCommand> + Allocator<HistogramDistance> + Allocator<HistogramPair> + Allocator<ContextType> + Allocator<HuffmanTree> + Allocator<ZopfliNode>{
+}
+
 pub struct CombiningAllocator<AllocU8:Allocator<u8>,
                           AllocU16:Allocator<u16>,
                           AllocI32:Allocator<i32>,
@@ -172,7 +174,7 @@ impl<AllocU8:Allocator<u8>,
      AllocContextType:Allocator<ContextType>,
      AllocHuffmanTree:Allocator<HuffmanTree>,
      AllocZopfliNode:Allocator<ZopfliNode>,
-     > Allocator<u8> for CombiningAllocator<AllocU8,
+     > BrotliAlloc for CombiningAllocator<AllocU8,
                                             AllocU16,
                                             AllocI32,
                                             AllocU32,
@@ -191,13 +193,6 @@ impl<AllocU8:Allocator<u8>,
                                             AllocHuffmanTree,
                                             AllocZopfliNode,
                                             > {
-  type AllocatedMemory = AllocU8::AllocatedMemory;
-  fn alloc_cell(&mut self, size: usize) -> <Self as Allocator<u8>>::AllocatedMemory {
-    self.alloc_u8.alloc_cell(size)
-  }
-  fn free_cell(&mut self, data: <Self as Allocator<u8>>::AllocatedMemory) {
-    self.alloc_u8.free_cell(data)
-  }
 }
 
 
@@ -254,6 +249,7 @@ macro_rules! implement_allocator {
 };
 }
 
+implement_allocator!(AllocU8, u8, AllocU8::AllocatedMemory, alloc_u8);
 implement_allocator!(AllocU16, u16, AllocU16::AllocatedMemory, alloc_u16);
 
 implement_allocator!(AllocI32, i32, AllocI32::AllocatedMemory, alloc_i32);
