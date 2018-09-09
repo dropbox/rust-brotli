@@ -1,3 +1,4 @@
+#![cfg_attr(feature="no-stdlib", allow(unused_imports))]
 use super::cluster::HistogramPair;
 use super::command::Command;
 

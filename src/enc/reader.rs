@@ -1,3 +1,5 @@
+#![cfg_attr(feature="no-stdlib", allow(unused_imports))]
+
 use super::cluster::HistogramPair;
 use enc::PDF;
 use enc::StaticCommand;

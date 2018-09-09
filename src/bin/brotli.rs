@@ -1,5 +1,4 @@
 #![cfg_attr(feature="benchmark", feature(test))]
-#![cfg_attr(feature="simd", feature(stdsimd))]
 mod integration_tests;
 mod tests;
 mod util;

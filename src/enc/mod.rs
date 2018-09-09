@@ -1,3 +1,4 @@
+#![cfg_attr(feature="no-stdlib", allow(unused_imports))]
 #[macro_use]
 pub mod vectorization;
 pub mod input_pair;
