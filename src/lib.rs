@@ -21,6 +21,7 @@ pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, 
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
 pub mod enc;
+pub use self::enc::combined_alloc::CombiningAllocator;
 pub use brotli_decompressor::transform;
 pub use brotli_decompressor::dictionary;
 pub use brotli_decompressor::reader;

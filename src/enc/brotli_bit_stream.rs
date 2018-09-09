@@ -484,7 +484,8 @@ fn LogMetaBlock<'a,
                               &block_type,
                               params,
                               context_type);
-        best_strides = <Alloc as Allocator<u8>>::alloc_cell(alloc, stride_selector.num_types());
+        let ntypes = stride_selector.num_types();
+        best_strides = <Alloc as Allocator<u8>>::alloc_cell(stride_selector.alloc(), ntypes);
         stride_selector.choose_stride(best_strides.slice_mut());
     }
     let mut context_map_entropy = ContextMapEntropy::<Alloc>::new(alloc, input,

@@ -158,6 +158,9 @@ impl<'a,
       }
       ret
    }
+   pub fn alloc(&mut self) -> &mut Alloc {
+       self.alloc
+   }
    pub fn choose_stride(&self, stride_data: &mut[u8]) {
        assert_eq!(stride_data.len(), self.cur_score_epoch);
        assert!(self.score.slice().len() > stride_data.len());
@@ -220,11 +223,11 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         self.cur_score_epoch += 1;
         if self.cur_score_epoch * 8 + 7 >= self.score.slice().len() {
             let new_len = self.score.slice().len() * 2;
-            let mut new_score = self.mf.alloc_cell(new_len);
+            let mut new_score = <Alloc as Allocator<floatX>>::alloc_cell(self.alloc, new_len);
             for (src, dst) in self.score.slice().iter().zip(new_score.slice_mut().split_at_mut(self.score.slice().len()).0.iter_mut()) {
                 *dst = *src;
             }
-            self.mf.free_cell(core::mem::replace(&mut self.score, new_score));
+            <Alloc as Allocator<floatX>>::free_cell(self.alloc, core::mem::replace(&mut self.score, new_score));
         }
     }
     fn block_type(&self) -> u8 {

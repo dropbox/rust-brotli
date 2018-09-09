@@ -418,7 +418,7 @@ fn InitBlockSplitter<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + C
       while _new_size < max_num_blocks {
         _new_size = _new_size.wrapping_mul(2usize);
       }
-      let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(_new_size);
+      let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
       new_array.slice_mut()[..(*split).lengths.slice().len()].clone_from_slice((*split)
                                                                                  .lengths
                                                                                  .slice());
@@ -865,7 +865,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<Alloc: alloc::Allocator<u8> + alloc::A
     i = i.wrapping_add(1 as (usize));
   }
   lit_blocks = if num_contexts == 1usize {
-    LitBlocks::plain(InitBlockSplitter(alloc,
+    LitBlocks::plain(InitBlockSplitter::<HistogramLiteral, Alloc>(alloc,
                                        256usize,
                                        512usize,
                                        400.0 as super::util::floatX,
@@ -874,7 +874,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<Alloc: alloc::Allocator<u8> + alloc::A
                                        &mut (*mb).literal_histograms,
                                        &mut (*mb).literal_histograms_size))
   } else {
-    LitBlocks::ctx(InitContextBlockSplitter(alloc,
+    LitBlocks::ctx(InitContextBlockSplitter::<Alloc>(alloc,
                                             256usize,
                                             num_contexts,
                                             512usize,
@@ -884,7 +884,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<Alloc: alloc::Allocator<u8> + alloc::A
                                             &mut (*mb).literal_histograms,
                                             &mut (*mb).literal_histograms_size))
   };
-  cmd_blocks = InitBlockSplitter(alloc,
+  cmd_blocks = InitBlockSplitter::<HistogramCommand, Alloc>(alloc,
                                  704usize,
                                  1024usize,
                                  500.0 as super::util::floatX,
@@ -892,7 +892,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<Alloc: alloc::Allocator<u8> + alloc::A
                                  &mut (*mb).command_split,
                                  &mut (*mb).command_histograms,
                                  &mut (*mb).command_histograms_size);
-  dist_blocks = InitBlockSplitter(alloc,
+  dist_blocks = InitBlockSplitter::<HistogramDistance, Alloc>(alloc,
                                   64usize,
                                   512usize,
                                   100.0 as super::util::floatX,

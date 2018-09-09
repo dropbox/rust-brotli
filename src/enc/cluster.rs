@@ -5,7 +5,7 @@ use super::histogram::{CostAccessors, HistogramSelfAddHistogram, HistogramAddHis
 use super::util::FastLog2;
 use super::util::brotli_min_size_t;
 use alloc;
-use alloc::{SliceWrapper, SliceWrapperMut};
+use alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use core;
 #[derive(Clone,Copy)]
 pub struct HistogramPair {
@@ -352,22 +352,20 @@ pub fn BrotliHistogramRemap<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u3
        increasing order.
    Returns N, the number of unique values in symbols[]. */
 pub fn BrotliHistogramReindex<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
-                            AllocU32:alloc::Allocator<u32>,
-                            AllocH:alloc::Allocator<HistogramType> >
-                            (m: &mut AllocU32,
-                             mh: &mut AllocH,
+                            Alloc:alloc::Allocator<u32> + alloc::Allocator<HistogramType> >
+                            (alloc: &mut Alloc,
                              out: &mut [HistogramType],
                              symbols: &mut [u32],
                              length: usize)
 -> usize{
   static kInvalidIndex: u32 = !(0u32);
-  let mut new_index: AllocU32::AllocatedMemory = if length != 0 {
-    m.alloc_cell(length)
+  let mut new_index = if length != 0 {
+    <Alloc as Allocator<u32>>::alloc_cell(alloc, length)
   } else {
-    AllocU32::AllocatedMemory::default()
+    <Alloc as Allocator<u32>>::AllocatedMemory::default()
   };
   let mut next_index: u32;
-  let mut tmp: AllocH::AllocatedMemory;
+  let mut tmp: <Alloc as Allocator<HistogramType>>::AllocatedMemory;
   let mut i: usize;
   i = 0usize;
   while i < length {
@@ -390,9 +388,9 @@ pub fn BrotliHistogramReindex<HistogramType:SliceWrapperMut<u32> + SliceWrapper<
   /* TODO: by using idea of "cycle-sort" we can avoid allocation of
      tmp and reduce the number of copying by the factor of 2. */
   tmp = if next_index != 0 {
-    mh.alloc_cell(next_index as usize)
+    <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, next_index as usize)
   } else {
-    AllocH::AllocatedMemory::default()
+    <Alloc as Allocator<HistogramType>>::AllocatedMemory::default()
   };
   next_index = 0u32;
   i = 0usize;
@@ -408,7 +406,7 @@ pub fn BrotliHistogramReindex<HistogramType:SliceWrapperMut<u32> + SliceWrapper<
     i = i.wrapping_add(1 as (usize));
   }
   {
-    m.free_cell(new_index);
+    <Alloc as Allocator<u32>>::free_cell(alloc, new_index);
   }
   i = 0usize;
   while i < next_index as (usize) {
@@ -418,18 +416,14 @@ pub fn BrotliHistogramReindex<HistogramType:SliceWrapperMut<u32> + SliceWrapper<
     i = i.wrapping_add(1 as (usize));
   }
   {
-    mh.free_cell(tmp)
+    <Alloc as Allocator<HistogramType>>::free_cell(alloc, tmp)
   }
   next_index as (usize)
 }
 
 pub fn BrotliClusterHistograms<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors+Clone,
-                                      AllocU32:alloc::Allocator<u32>,
-                                      AllocHP:alloc::Allocator<HistogramPair>,
-                                      AllocH:alloc::Allocator<HistogramType> >
-                                     (m32: &mut AllocU32,
-                                      mhp: &mut AllocHP,
-                                      mh: &mut AllocH,
+                                      Alloc:alloc::Allocator<u32> + alloc::Allocator<HistogramPair> + alloc::Allocator<HistogramType> >
+                                     (alloc: &mut Alloc,
                                       inp: &[HistogramType],
                                       in_size: usize,
                                       max_histograms: usize,
@@ -438,20 +432,20 @@ pub fn BrotliClusterHistograms<HistogramType:SliceWrapperMut<u32> + SliceWrapper
                                       out_size: &mut usize,
                                       histogram_symbols: &mut [u32]){
   let mut cluster_size = if in_size != 0 {
-    m32.alloc_cell(in_size)
+    <Alloc as Allocator<u32>>::alloc_cell(alloc, in_size)
   } else {
-    AllocU32::AllocatedMemory::default()
+    <Alloc as Allocator<u32>>::AllocatedMemory::default()
   };
   let mut clusters = if in_size != 0 {
-    m32.alloc_cell(in_size)
+    <Alloc as Allocator<u32>>::alloc_cell(alloc, in_size)
   } else {
-    AllocU32::AllocatedMemory::default()
+    <Alloc as Allocator<u32>>::AllocatedMemory::default()
   };
   let mut num_clusters: usize = 0usize;
   let max_input_histograms: usize = 64usize;
   let pairs_capacity: usize = max_input_histograms.wrapping_mul(max_input_histograms)
     .wrapping_div(2usize);
-  let mut pairs = mhp.alloc_cell(pairs_capacity.wrapping_add(1usize));
+  let mut pairs = <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity.wrapping_add(1usize));
   let mut i: usize;
   i = 0usize;
   while i < in_size {
@@ -509,17 +503,17 @@ pub fn BrotliClusterHistograms<HistogramType:SliceWrapperMut<u32> + SliceWrapper
         } else {
           pairs_capacity
         };
-        let mut new_array: AllocHP::AllocatedMemory;
+        let mut new_array: <Alloc as Allocator<HistogramPair>>::AllocatedMemory;
         while _new_size < max_num_pairs.wrapping_add(1usize) {
           _new_size = _new_size.wrapping_mul(2usize);
         }
         new_array = if _new_size != 0 {
-          mhp.alloc_cell(_new_size)
+          <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, _new_size)
         } else {
-          AllocHP::AllocatedMemory::default()
+          <Alloc as Allocator<HistogramPair>>::AllocatedMemory::default()
         };
         new_array.slice_mut()[..pairs_capacity].clone_from_slice(&pairs.slice()[..pairs_capacity]);
-        mhp.free_cell(core::mem::replace(&mut pairs, new_array));
+        <Alloc as Allocator<HistogramPair>>::free_cell(alloc, core::mem::replace(&mut pairs, new_array));
       }
     }
     num_clusters = BrotliHistogramCombine(out,
@@ -533,8 +527,8 @@ pub fn BrotliClusterHistograms<HistogramType:SliceWrapperMut<u32> + SliceWrapper
                                           max_num_pairs,
                                           scratch_space);
   }
-  mhp.free_cell(pairs);
-  m32.free_cell(cluster_size);
+  <Alloc as Allocator<HistogramPair>>::free_cell(alloc, pairs);
+  <Alloc as Allocator<u32>>::free_cell(alloc, cluster_size);
   BrotliHistogramRemap(inp,
                        in_size,
                        clusters.slice(),
@@ -542,8 +536,8 @@ pub fn BrotliClusterHistograms<HistogramType:SliceWrapperMut<u32> + SliceWrapper
                        scratch_space,
                        out,
                        histogram_symbols);
-  m32.free_cell(clusters);
-  *out_size = BrotliHistogramReindex(m32, mh, out, histogram_symbols, in_size);
+  <Alloc as Allocator<u32>>::free_cell(alloc, clusters);
+  *out_size = BrotliHistogramReindex(alloc, out, histogram_symbols, in_size);
 }
 
 

@@ -23,6 +23,7 @@ extern "C" {
 use super::pdf::PDF;
 use super::command::Command;
 use super::entropy_encode::HuffmanTree;
+use super::combined_alloc::CombiningAllocator;
 pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState};
 use brotli_decompressor::HuffmanCode;
 use core::ops;
@@ -106,11 +107,26 @@ fn oneshot_compress(input: &[u8],
   let mut mhp = CallocatedFreelist2048::<HistogramPair>::new_allocator(stack_hp_buffer.data, bzero);
   let mut mct = CallocatedFreelist2048::<ContextType>::new_allocator(stack_ct_buffer.data, bzero);
   let mut mht = CallocatedFreelist2048::<HuffmanTree>::new_allocator(stack_ht_buffer.data, bzero);
-  let mut s_orig = BrotliEncoderCreateInstance(stack_u8_allocator,
-                                               stack_u16_allocator,
-                                               stack_i32_allocator,
-                                               stack_u32_allocator,
-                                               stack_mc_allocator);
+  let mut s_orig = BrotliEncoderCreateInstance(CombiningAllocator::new(
+      stack_u8_allocator,
+      stack_u16_allocator,
+      stack_i32_allocator,
+      stack_u32_allocator,
+      stack_u64_allocator,
+      stack_mc_allocator,
+      mf64,
+      mf8,
+      m16x16,
+      mpdf,
+     msc,
+      mhl,
+     mhc,
+      mhd,
+      mhp,
+      mct,
+      mht,
+     stack_zn_allocator,
+  ));
   let mut next_in_offset: usize = 0;
   let mut next_out_offset: usize = 0;
   {
@@ -148,25 +164,9 @@ fn oneshot_compress(input: &[u8],
       let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<interface::InputReferenceMut>,
                               _cmds: &mut [interface::StaticCommand],
                               _mb: interface::InputPair,
-                             _mfv:&mut StackAllocator<Mem256f,CallocatedFreelist2048<Mem256f>>,
-                             _mpdf:&mut StackAllocator<PDF, CallocatedFreelist2048<PDF>>,
-                             _mc:&mut StackAllocator<StaticCommand, CallocatedFreelist2048<StaticCommand>>|();
+                              _mfv:&mut CombiningAllocator<_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_>|();
 
       let result = BrotliEncoderCompressStream(s,
-                                               &mut stack_u64_allocator,
-                                               &mut mf64,
-                                               &mut mfv,
-                                               &mut mf8,
-                                               &mut m16x16,
-                                               &mut mpdf,
-                                               &mut msc,
-                                               &mut mhl,
-                                               &mut mhc,
-                                               &mut mhd,
-                                               &mut mhp,
-                                               &mut mct,
-                                               &mut mht,
-                                               &mut stack_zn_allocator,
                                                op,
                                                &mut available_in,
                                                input,

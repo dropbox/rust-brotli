@@ -465,14 +465,14 @@ impl<'a,
                alloc: &mut Alloc) {
        <Alloc as Allocator<v8>>::free_cell(alloc, core::mem::replace(&mut self.score, <Alloc as Allocator<v8>>::AllocatedMemory::default()));
        <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.slow_cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.fast_cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-      <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[0], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[1], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[2], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[3], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.stride_priors[4], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(core::mem::replace(&mut self.adv_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.slow_cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.fast_cm_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+      <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[0], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[1], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[2], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[3], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[4], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.adv_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
    }
                 
    pub fn take_prediction_mode(&mut self) -> interface::PredictionModeContextMap<InputReferenceMut<'a>> {

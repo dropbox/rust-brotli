@@ -892,14 +892,16 @@ fn SplitByteVector<HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32>+CostAcce
     <Alloc as Allocator<u8>>::free_cell(alloc, switch_signal);
     <Alloc as Allocator<u16>>::free_cell(alloc, new_id);
     <Alloc as Allocator<HistogramType>>::free_cell(alloc, histograms);
-    ClusterBlocks(alloc,
-                  data,
-                  length,
-                  num_blocks,
-                  scratch_space,
-                  block_ids.slice_mut(),
-                  split
-);
+    ClusterBlocks::<HistogramType,
+      Alloc,
+      IntegerType>(alloc,
+                   data,
+                   length,
+                   num_blocks,
+                   scratch_space,
+                   block_ids.slice_mut(),
+                   split
+    );
     <Alloc as Allocator<u8>>::free_cell(alloc, block_ids);
   }
 }
@@ -926,16 +928,18 @@ pub fn BrotliSplitBlock<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + al
     let literals_count: usize = CountLiterals(cmds, num_commands);
     let mut literals = <Alloc as Allocator<u8>>::alloc_cell(alloc, literals_count);
     CopyLiteralsToByteArray(cmds, num_commands, data, pos, mask, literals.slice_mut());
-    SplitByteVector(alloc,
-                    literals.slice(),
-                    literals_count,
-                    kSymbolsPerLiteralHistogram,
-                    kMaxLiteralHistograms,
-                    kLiteralStrideLength,
-                    kLiteralBlockSwitchCost,
-                    params,
-                    lit_scratch_space,
-                    literal_split);
+    SplitByteVector::<HistogramLiteral,
+                      Alloc,
+                      u8>(alloc,
+                          literals.slice(),
+                          literals_count,
+                          kSymbolsPerLiteralHistogram,
+                          kMaxLiteralHistograms,
+                          kLiteralStrideLength,
+                          kLiteralBlockSwitchCost,
+                          params,
+                          lit_scratch_space,
+                          literal_split);
     <Alloc as Allocator<u8>>::free_cell(alloc, literals);
   }
   {
@@ -943,7 +947,7 @@ pub fn BrotliSplitBlock<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + al
     for i in 0..core::cmp::min(num_commands, cmds.len()) {
       insert_and_copy_codes.slice_mut()[(i as (usize))] = (cmds[(i as (usize))]).cmd_prefix_;
     }
-    SplitByteVector(alloc,
+    SplitByteVector::<HistogramCommand, Alloc, u16>(alloc,
                     insert_and_copy_codes.slice(),
                     num_commands,
                     kSymbolsPerCommandHistogram,
@@ -973,7 +977,7 @@ pub fn BrotliSplitBlock<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + al
       }
       i = i.wrapping_add(1 as (usize));
     }
-    SplitByteVector(alloc,
+    SplitByteVector::<HistogramDistance, Alloc, u16>(alloc,
                     distance_prefixes.slice(),
                     j,
                     kSymbolsPerDistanceHistogram,
