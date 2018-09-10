@@ -67,7 +67,6 @@ fn lower_score_index(_stride_byte: u8, _selected_context: u8, actual_context: us
   actual_context + 4096 + 256 * high_nibble as usize
 }
 
-
 #[allow(unused_variables)]
 #[inline]
 fn stride_lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
@@ -267,7 +266,7 @@ impl<'a> CDF<'a> {
         let nibble = nibble_u8 as usize & 0xf;
         let mut pdf = self.cdf.extract(usize::from(nibble));
         if nibble_u8 != 0 {
-            pdf -= self.cdf.extract(usize::from(nibble));
+            pdf -= self.cdf.extract(usize::from(nibble - 1));
         }
         FastLog2u16(self.cdf.extract(15) as u16) - FastLog2u16(pdf as u16)
     }
