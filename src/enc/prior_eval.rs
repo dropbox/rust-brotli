@@ -62,6 +62,8 @@ fn upper_score_index(stride_byte: u8, _selected_context: u8, actual_context: usi
   actual_context + 256 * (stride_byte >> 4) as usize
 }
 fn lower_score_index(_stride_byte: u8, _selected_context: u8, actual_context: usize, high_nibble: u8) -> usize {
+    debug_assert!(actual_context< 256);
+    debug_assert!(high_nibble < 16);
   actual_context + 4096 + 256 * high_nibble as usize
 }
 
@@ -401,8 +403,8 @@ impl<'a,
        let epsilon = 6.0;
        let mut max_popularity = 0u32;
        let mut max_popularity_index = 0u8;
-       assert_eq!(WhichPrior::NUM_PRIORS as usize, 9); // workaround rust 1.8.0 compiler bug
-       let mut popularity = [0u32; 9];
+       assert_eq!(WhichPrior::NUM_PRIORS as usize, 8);
+       let mut popularity = [0u32; 8];
        let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
        for (i, score) in self.score.slice().iter().enumerate() {
            let cm_score = score.extract(WhichPrior::CM as usize);
@@ -471,7 +473,7 @@ impl<'a,
        <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[1], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
        <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[2], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
        <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[3], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
-       <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[4], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+       //<Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[4], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
        <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.adv_priors, <Alloc as Allocator<s16>>::AllocatedMemory::default()));
    }
                 
@@ -486,7 +488,7 @@ impl<'a,
       let mut h_score = v8::splat(0.0);
       let base_stride_prior = stride_prior[stride_prior_offset.wrapping_sub(self.cur_stride as usize) & 7];
       let hscore_index = upper_score_index(base_stride_prior, selected_bits, cm_prior);
-      let lscore_index = lower_score_index(base_stride_prior, selected_bits, cm_prior, literal);
+      let lscore_index = lower_score_index(base_stride_prior, selected_bits, cm_prior, literal>>4);
        {
            type CurPrior = CMPrior;
            let mut cdf = CurPrior::lookup_mut(self.cm_priors.slice_mut(),
