@@ -8,10 +8,12 @@ use super::ir_interpret::{IRInterpreter, push_base};
 use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 use super::{s16, v8};
+#[cfg(feature="simd")]
+use packed_simd::IntoBits;
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;
 pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * 2;
-pub const ADV_PRIOR_SIZE: usize = 256 * 256 * 16 * 2;
+pub const ADV_PRIOR_SIZE: usize = 65536 + (20 << 16);
 pub const DEFAULT_SPEED: (u16, u16) = (8, 8192);
 
 pub enum WhichPrior {
@@ -30,20 +32,20 @@ pub enum WhichPrior {
 
 pub trait Prior {
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize;
-    #[inline]
+    #[inline(always)]
     fn lookup_mut(data:&mut [s16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> CDF {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble);
         CDF::from(&mut data[index])
     }
-    #[inline]
+    #[inline(always)]
     fn lookup(data:&[s16], stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> &s16 {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context,
                              high_nibble);
         &data[index]
     }
     #[allow(unused_variables)]
-    #[inline]
+    #[inline(always)]
     fn score_index(stride_byte: u8, selected_context: u8, actual_context: usize, high_nibble: Option<u8>) -> usize {
         let which = Self::which();
         assert!(which < WhichPrior::NUM_PRIORS as usize);
@@ -57,10 +59,11 @@ pub trait Prior {
     fn which() -> usize;
 }
 
-
+#[inline(always)]
 fn upper_score_index(stride_byte: u8, _selected_context: u8, actual_context: usize) -> usize {
   actual_context + 256 * (stride_byte >> 4) as usize
 }
+#[inline(always)]
 fn lower_score_index(_stride_byte: u8, _selected_context: u8, actual_context: usize, high_nibble: u8) -> usize {
     debug_assert!(actual_context< 256);
     debug_assert!(high_nibble < 16);
@@ -68,7 +71,7 @@ fn lower_score_index(_stride_byte: u8, _selected_context: u8, actual_context: us
 }
 
 #[allow(unused_variables)]
-#[inline]
+#[inline(always)]
 fn stride_lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
     if let Some(nibble) = high_nibble {
         1 + 2 * (actual_context as usize
@@ -81,17 +84,18 @@ fn stride_lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, 
 pub struct Stride1Prior{
 }
 impl Stride1Prior {
-    pub fn offset() -> usize{
+  #[inline(always)]
+  pub fn offset() -> usize{
         0
     }
 }
 
 impl Prior for Stride1Prior {
-    #[inline]
+    #[inline(always)]
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
-    #[inline]
+    #[inline(always)]
     fn which() -> usize {
         WhichPrior::STRIDE1 as usize
     }
@@ -135,7 +139,7 @@ impl Prior for Stride3Prior {
     fn lookup_lin(stride_byte:u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         stride_lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
     }
-    #[inline]
+    #[inline(always)]
     fn which() -> usize {
         WhichPrior::STRIDE3 as usize
     }
@@ -191,6 +195,7 @@ pub struct CMPrior {
 }
 impl Prior for CMPrior {
     #[allow(unused_variables)]
+    #[inline(always)]
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         if let Some(nibble) = high_nibble {
             (nibble as usize + 1) + 17 * actual_context
@@ -198,7 +203,7 @@ impl Prior for CMPrior {
             17 * actual_context as usize
         }
     }
-    #[inline]
+    #[inline(always)]
     fn which() -> usize {
         WhichPrior::CM as usize
     }
@@ -207,6 +212,7 @@ pub struct FastCMPrior {
 }
 impl Prior for FastCMPrior {
     #[allow(unused_variables)]
+    #[inline(always)]
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         if let Some(nibble) = high_nibble {
             2 * actual_context
@@ -214,7 +220,7 @@ impl Prior for FastCMPrior {
             2 * actual_context + 1
         }
     }
-    #[inline]
+    #[inline(always)]
     fn which() -> usize {
         WhichPrior::FAST_CM as usize
     }
@@ -224,6 +230,7 @@ pub struct SlowCMPrior {
 }
 impl Prior for SlowCMPrior {
     #[allow(unused_variables)]
+    #[inline(always)]
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         if let Some(nibble) = high_nibble {
             (nibble as usize + 1) + 17 * actual_context
@@ -241,6 +248,7 @@ pub struct AdvPrior {
 }
 impl Prior for AdvPrior {
     #[allow(unused_variables)]
+    #[inline(always)]
     fn lookup_lin(stride_byte: u8, selected_context:u8, actual_context:usize, high_nibble: Option<u8>) -> usize {
         if let Some(nibble) = high_nibble {
             65536 + ((actual_context as usize)
@@ -251,6 +259,7 @@ impl Prior for AdvPrior {
              | ((stride_byte as usize & 0xf0) << 8)
         }
     }
+    #[inline(always)]
     fn which() -> usize {
         WhichPrior::ADV as usize
     }
@@ -272,18 +281,21 @@ impl<'a> CDF<'a> {
     }
     #[inline(always)]
     pub fn update(&mut self, nibble_u8:u8, speed: (u16, u16)) {
-        for nib_range in (nibble_u8 as usize & 0xf) .. 16 {
-            *self.cdf = self.cdf.replace(nib_range as usize, self.cdf.extract(nib_range) + speed.0 as i16); // FIXME: perf: do as single op/splat
+        let mut cdf = *self.cdf;
+        let increment_v = s16::splat(speed.0 as i16);
+        let one_to_16 = s16::new(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16);
+        let mask_v: s16 = one_to_16.gt(s16::splat(i16::from(nibble_u8))).into_bits();
+        cdf = cdf + (increment_v & mask_v);
+        if cdf.extract(15) >= speed.1 as i16{
+            let cdf_bias = one_to_16;
+            cdf = cdf + cdf_bias - ((cdf + cdf_bias) >> 2);
         }
-        if self.cdf.extract(15) >= speed.1 as i16 {
-          let CDF_BIAS = s16::new(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16);
-          *self.cdf = *self.cdf + CDF_BIAS - ((*self.cdf + CDF_BIAS) >> 2);
-        }
+        *self.cdf = cdf;
     }
 }
 
 impl<'a> From<&'a mut s16> for CDF<'a> {
-    #[inline]
+    #[inline(always)]
     fn from(cdf: &'a mut s16) -> CDF<'a> {
         CDF {
             cdf:cdf,

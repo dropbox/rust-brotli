@@ -26,8 +26,28 @@ impl Compat16x16 {
         ret.0[i] = data;
         ret
     }
+    #[inline(always)]
     pub fn into_bits(&self) -> Self {
         *self
+    }
+    #[inline(always)]
+    pub fn gt(&self, rhs: Compat16x16) -> Compat16x16 {
+        Self::new(-((self.extract(0) > rhs.extract(0)) as i16),
+                  -((self.extract(1) > rhs.extract(1)) as i16),
+                  -((self.extract(2) > rhs.extract(2)) as i16),
+                  -((self.extract(3) > rhs.extract(3)) as i16),
+                  -((self.extract(4) > rhs.extract(4)) as i16),
+                  -((self.extract(5) > rhs.extract(5)) as i16),
+                  -((self.extract(6) > rhs.extract(6)) as i16),
+                  -((self.extract(7) > rhs.extract(7)) as i16),
+                  -((self.extract(8) > rhs.extract(8)) as i16),
+                  -((self.extract(9) > rhs.extract(9)) as i16),
+                  -((self.extract(10) > rhs.extract(10)) as i16),
+                  -((self.extract(11) > rhs.extract(11)) as i16),
+                  -((self.extract(12) > rhs.extract(12)) as i16),
+                  -((self.extract(13) > rhs.extract(13)) as i16),
+                  -((self.extract(14) > rhs.extract(14)) as i16),
+                  -((self.extract(15) > rhs.extract(15)) as i16))
     }
 }
 
@@ -82,6 +102,10 @@ fn wrapping_i16_sub(a: i16, b:i16) -> i16 {
     a.wrapping_sub(b)
 }
 #[inline(always)]
+fn i16_bitand(a: i16, b:i16) -> i16 {
+    a & b
+}
+#[inline(always)]
 fn shift16<Scalar>(a: i16, b:Scalar) -> i16 where i64:From<Scalar> {
     a >> i64::from(b)
 }
@@ -97,6 +121,13 @@ impl Sub for Compat16x16 {
     #[inline(always)]
     fn sub(self, other: Compat16x16) -> Compat16x16 {
         op16!(self.0, other.0, wrapping_i16_sub)
+    }
+}
+impl BitAnd for Compat16x16 {
+    type Output = Compat16x16;
+    #[inline(always)]
+    fn bitand(self, other: Compat16x16) -> Compat16x16 {
+        op16!(self.0, other.0, i16_bitand)
     }
 }
 impl<Scalar:Clone> Shr<Scalar> for Compat16x16 where i64:From<Scalar> {
