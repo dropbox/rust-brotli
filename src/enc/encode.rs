@@ -2752,16 +2752,17 @@ fn EncodeData<Alloc: BrotliAlloc,
   if delta > InputBlockSize(s) as u64 {
     return 0i32;
   }
-  GetBrotliStorage(s,
-                   (2u32).wrapping_mul(bytes).wrapping_add(503u32 + 16) as (usize));
-  (*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
-  (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
   let mut storage_ix: usize = usize::from((*s).last_bytes_bits_);
+  {
+    let meta_size = core::cmp::max(bytes as usize,
+                                   (*s).input_pos_.wrapping_sub((*s).last_flush_pos_) as usize);
+    GetBrotliStorage(s,
+                     (2usize).wrapping_mul(meta_size).wrapping_add(503 + 16));
+  }
   if !s.params.catable {
     s.is_first_mb = false;
   } else if bytes != 0 && (bytes <= 2 || s.is_first_mb) {
     let num_bytes_to_write_uncompressed:usize = core::cmp::min(2, bytes as usize);
-    
     {
       let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
       BrotliStoreUncompressedMetaBlock(&mut s.m8,
@@ -2804,8 +2805,12 @@ fn EncodeData<Alloc: BrotliAlloc,
       return 1i32;
     }
     let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
-      
+        
+        (*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
+        (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
+
     table = GetHashTable!(s, (*s).params.quality, bytes as (usize), &mut table_size);
+        
     if (*s).params.quality == 0i32 {
       BrotliCompressFragmentFast(&mut s.m8,
                                  &mut data[((wrapped_last_processed_pos & mask) as (usize))..],
@@ -2956,6 +2961,10 @@ fn EncodeData<Alloc: BrotliAlloc,
   }
   {
     let metablock_size: u32 = (*s).input_pos_.wrapping_sub((*s).last_flush_pos_) as (u32);
+    let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
+    (*s).storage_.slice_mut()[(0usize)] = (*s).last_bytes_ as u8;
+    (*s).storage_.slice_mut()[(1usize)] = ((*s).last_bytes_ >> 8) as u8;
+
     WriteMetaBlockInternal(&mut (*s).m8,
                            &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                            mask as (usize),
