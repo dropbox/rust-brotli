@@ -17,6 +17,7 @@ use super::block_split::BlockSplit;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
                                BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
                                BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
+                               BrotliWriteEmptyLastMetaBlock,
                                MetaBlockSplit, RecoderState};
                                
 use enc::input_pair::InputReferenceMut;
@@ -101,6 +102,7 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_CM_SPEED_LOW = 164,
   BROTLI_PARAM_CM_SPEED_LOW_MAX = 165,
   BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH = 166,
+  BROTLI_PARAM_CATABLE = 167,
 }
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
@@ -339,6 +341,10 @@ pub fn BrotliEncoderSetParameter<Alloc: BrotliAlloc>
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH as (i32) {
     (*state).params.avoid_distance_prefix_search = value != 0;
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CATABLE as (i32) {
+    (*state).params.catable = value != 0;
     return 1i32;
   }
   0i32
@@ -2480,7 +2486,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
              mask: usize,
              last_flush_pos: u64,
              bytes: usize,
-             is_last: i32,
+             mut is_last: i32,
              literal_context_mode: ContextType,
              params: &BrotliEncoderParams,
              lit_scratch_space: &mut <HistogramLiteral as CostAccessors>::i32vec,
@@ -2499,7 +2505,10 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
             cb: &mut Cb) where Cb: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
                                          &mut [interface::StaticCommand],
                                          interface::InputPair, &mut Alloc) {
-
+  let actual_is_last = is_last;
+  if params.catable {
+    is_last = 0;
+  }
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_bytes: u16;
   let last_bytes_bits: u8;
@@ -2555,9 +2564,6 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                              storage_ix,
                              storage,
                              cb);
-    if !(0i32 == 0) {
-      return;
-    }
   } else if (*params).quality < 4i32 {
     BrotliStoreMetaBlockTrivial(alloc,
                                 data,
@@ -2573,9 +2579,6 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                 storage_ix,
                                 storage,
                                 cb);
-    if !(0i32 == 0) {
-      return;
-    }
   } else {
     //let mut literal_context_mode: ContextType = ContextType::CONTEXT_UTF8;
     
@@ -2671,6 +2674,9 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                        true,
                                        cb);
   }
+  if actual_is_last != is_last {
+    BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
+  }
 }
 
 fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
@@ -2743,14 +2749,19 @@ fn EncodeData<Alloc: BrotliAlloc,
   if delta > InputBlockSize(s) as u64 {
     return 0i32;
   }
+  GetBrotliStorage(s,
+                   (2u32).wrapping_mul(bytes).wrapping_add(503u32 + 16) as (usize));
+  (*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
+  (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
+  let mut storage_ix: usize = usize::from((*s).last_bytes_bits_);
   if !s.params.catable {
     s.is_first_mb = false;
   } else if bytes <= 2 || s.is_first_mb {
     let num_bytes_to_write_uncompressed:usize = core::cmp::min(2, bytes as usize);
-    GetBrotliStorage(s, 16);
     {
+      GetBrotliStorage(s,
+                       (2u32).wrapping_mul(bytes).wrapping_add(502u32) as (usize));
       let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
-      let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
       BrotliStoreUncompressedMetaBlock(&mut s.m8,
                                        0,
                                        data,
@@ -2763,7 +2774,11 @@ fn EncodeData<Alloc: BrotliAlloc,
                                        (*s).storage_.slice_mut(),
                                        false /* suppress meta-block logging */,
                                        callback);
+      (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
+        ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
+      (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
     }
+    s.last_flush_pos_ += num_bytes_to_write_uncompressed as u64;
     bytes -= num_bytes_to_write_uncompressed as u32;
     (*s).last_processed_pos_ += num_bytes_to_write_uncompressed as u64;
     if num_bytes_to_write_uncompressed >= 2 {
@@ -2779,7 +2794,6 @@ fn EncodeData<Alloc: BrotliAlloc,
     (*s).literal_buf_ = new_buf8;
   }
   if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
-    let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
     let mut table_size: usize = 0;
     {
     let table: &mut [i32];
@@ -2787,12 +2801,8 @@ fn EncodeData<Alloc: BrotliAlloc,
       *out_size = 0usize;
       return 1i32;
     }
-    GetBrotliStorage(s,
-                     (2u32).wrapping_mul(bytes).wrapping_add(502u32) as (usize));
     let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
       
-    (*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
-    (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
     table = GetHashTable!(s, (*s).params.quality, bytes as (usize), &mut table_size);
     if (*s).params.quality == 0i32 {
       BrotliCompressFragmentFast(&mut s.m8,
@@ -2944,11 +2954,6 @@ fn EncodeData<Alloc: BrotliAlloc,
   }
   {
     let metablock_size: u32 = (*s).input_pos_.wrapping_sub((*s).last_flush_pos_) as (u32);
-    GetBrotliStorage(s,
-                     (2u32).wrapping_mul(metablock_size).wrapping_add(503) as (usize));
-    let mut storage_ix: usize = (*s).last_bytes_bits_ as (usize);
-    (*s).storage_.slice_mut()[(0usize)] = (*s).last_bytes_ as u8;
-    (*s).storage_.slice_mut()[(1usize)] = ((*s).last_bytes_ >> 8) as u8;
     WriteMetaBlockInternal(&mut (*s).m8,
                            &mut (*s).ringbuffer_.data_mo.slice_mut()[((*s).ringbuffer_.buffer_index as usize)..],
                            mask as (usize),

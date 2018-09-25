@@ -2769,3 +2769,9 @@ pub fn BrotliStoreSyncMetaBlock(storage_ix: &mut usize, storage: &mut [u8]) {
   BrotliWriteBits(6, 6, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
 }
+
+pub fn BrotliWriteEmptyLastMetaBlock(storage_ix: &mut usize, storage: &mut [u8]) {
+    BrotliWriteBits(1u8, 1u64, storage_ix, storage);
+    BrotliWriteBits(1u8, 1u64, storage_ix, storage);
+    JumpToByteBoundary(storage_ix, storage);
+}

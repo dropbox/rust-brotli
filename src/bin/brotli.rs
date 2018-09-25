@@ -406,6 +406,10 @@ fn main() {
         first = false;
         continue;
       }
+      if argument == "-catable" || argument == "--catable" {
+          params.catable = true;
+          continue;
+      }
       if argument == "--dump-dictionary" {
         util::print_dictionary(util::permute_dictionary());
         return
