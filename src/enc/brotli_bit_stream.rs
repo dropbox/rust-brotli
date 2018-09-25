@@ -2062,7 +2062,7 @@ fn CleanupBlockEncoder<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(m: &
   <Alloc as Allocator<u16>>::free_cell(m, core::mem::replace(&mut (*xself).bits_, <Alloc as Allocator<u16>>::AllocatedMemory::default()));
 }
 
-fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
+pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
   *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
   storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
 }

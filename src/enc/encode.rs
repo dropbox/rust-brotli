@@ -18,7 +18,7 @@ use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHu
                                BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
                                BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
                                BrotliWriteEmptyLastMetaBlock,
-                               MetaBlockSplit, RecoderState};
+                               MetaBlockSplit, RecoderState, JumpToByteBoundary};
                                
 use enc::input_pair::InputReferenceMut;
 use super::command::{Command, GetLengthCode, BrotliDistanceParams};
@@ -2538,6 +2538,9 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                      storage,
                                      false,
                                      cb);
+    if actual_is_last != is_last {
+      BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
+    }
     return;
   }
   last_bytes = ((storage[1] as u16) << 8) | storage[0] as u16;
@@ -2756,11 +2759,10 @@ fn EncodeData<Alloc: BrotliAlloc,
   let mut storage_ix: usize = usize::from((*s).last_bytes_bits_);
   if !s.params.catable {
     s.is_first_mb = false;
-  } else if bytes <= 2 || s.is_first_mb {
+  } else if bytes != 0 && (bytes <= 2 || s.is_first_mb) {
     let num_bytes_to_write_uncompressed:usize = core::cmp::min(2, bytes as usize);
+    
     {
-      GetBrotliStorage(s,
-                       (2u32).wrapping_mul(bytes).wrapping_add(502u32) as (usize));
       let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
       BrotliStoreUncompressedMetaBlock(&mut s.m8,
                                        0,
