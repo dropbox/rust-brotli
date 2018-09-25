@@ -2470,21 +2470,27 @@ fn DecideOverLiteralContextModeling(input: &[u8],
                      literal_context_map);
   }
 }
+
+enum MetaBlockOption {
+  ORDINARY,
+  INDEPENDENT,
+  LAST
+}
 fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                           Cb>
             (alloc: &mut Alloc,
              data: &[u8],
              mask: usize,
              last_flush_pos: u64,
-             bytes: usize,
-             is_last: i32,
+             mut bytes: usize,
+             is_last: MetaBlockOption,
              literal_context_mode: ContextType,
              params: &BrotliEncoderParams,
              lit_scratch_space: &mut <HistogramLiteral as CostAccessors>::i32vec,
              cmd_scratch_space: &mut <HistogramCommand as CostAccessors>::i32vec,
              dst_scratch_space: &mut <HistogramDistance as CostAccessors>::i32vec,
-             prev_byte: u8,
-             prev_byte2: u8,
+             mut prev_byte: u8,
+             mut prev_byte2: u8,
              num_literals: usize,
              num_commands: usize,
              commands: &mut [Command],
@@ -2497,7 +2503,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                          &mut [interface::StaticCommand],
                                          interface::InputPair, &mut Alloc) {
 
-  let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
+  let mut wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_bytes: u16;
   let last_bytes_bits: u8;
   let literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
@@ -2507,6 +2513,35 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
     *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
     return;
   }
+  
+  if let MetaBlockOption::INDEPENDENT = is_last {
+    // even though this condition could overlap with the next
+    // where the block is uncompressible...keep this independent so we can easily
+    // tell that this is special 'ctable' brotli data
+    let num_prior_bytes = core::cmp::min(2, bytes);
+    BrotliStoreUncompressedMetaBlock(alloc,
+                                     0,
+                                     data,
+                                     wrapped_last_flush_pos as (usize),
+                                     mask,
+                                     params,
+                                     num_prior_bytes,
+                                     recoder_state,
+                                     storage_ix,
+                                     storage,
+                                     false,
+                                     cb);
+    if num_prior_bytes == 1 {
+      prev_byte2 = prev_byte;
+      prev_byte = data[wrapped_last_flush_pos as usize & mask];
+    } else if num_prior_bytes == 2 {
+      prev_byte = data[(wrapped_last_flush_pos as usize + 1) & mask];
+      prev_byte2 = data[wrapped_last_flush_pos as usize & mask];
+    }
+    wrapped_last_flush_pos += num_prior_bytes as u32;
+    wrapped_last_flush_pos &= mask as u32;
+    bytes -= num_prior_bytes;
+  }
   if ShouldCompress(data,
                     mask,
                     last_flush_pos,
@@ -2515,7 +2550,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                     num_commands) == 0 {
     dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
     BrotliStoreUncompressedMetaBlock(alloc,
-                                     is_last,
+                                     if let MetaBlockOption::LAST = is_last {1} else {0},
                                      data,
                                      wrapped_last_flush_pos as (usize),
                                      mask,
@@ -2543,7 +2578,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                              wrapped_last_flush_pos as (usize),
                              bytes,
                              mask,
-                             is_last,
+                             if let MetaBlockOption::LAST = is_last {1} else {0},
                              params,
                              saved_dist_cache,
                              commands,
@@ -2561,7 +2596,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                 wrapped_last_flush_pos as (usize),
                                 bytes,
                                 mask,
-                                is_last,
+                                if let MetaBlockOption::LAST = is_last {1} else {0},
                                 params,
                                 saved_dist_cache,
                                 commands,
@@ -2634,7 +2669,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                          mask,
                          prev_byte,
                          prev_byte2,
-                         is_last,
+                         if let MetaBlockOption::LAST = is_last {1} else {0},
                          &block_params,
                          literal_context_mode,
                          saved_dist_cache,
@@ -2656,7 +2691,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
       storage[1] = (last_bytes >> 8) as u8;
       *storage_ix = last_bytes_bits as (usize);
       BrotliStoreUncompressedMetaBlock(alloc,
-                                       is_last,
+                                       if let MetaBlockOption::LAST = is_last {1} else {0},
                                        data,
                                        wrapped_last_flush_pos as (usize),
                                        mask,
@@ -2924,7 +2959,7 @@ fn EncodeData<Alloc: BrotliAlloc,
                            mask as (usize),
                            (*s).last_flush_pos_,
                            metablock_size as (usize),
-                           is_last,
+                           if is_last == 1 {MetaBlockOption::LAST} else {MetaBlockOption::ORDINARY},
                            literal_context_mode,
                            &mut (*s).params,
                            &mut (*s).literal_scratch_space,
