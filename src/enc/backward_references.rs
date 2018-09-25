@@ -88,6 +88,8 @@ pub struct BrotliEncoderParams {
   pub large_window: bool,
   // avoid search for the best ndirect vs npostfix parameters for distance
   pub avoid_distance_prefix_search: bool,
+  // construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
+  pub catable: bool,
 }
 
 impl Default for BrotliEncoderParams {
