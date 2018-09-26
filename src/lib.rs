@@ -16,7 +16,7 @@ extern crate packed_simd;
 extern crate alloc_no_stdlib as alloc;
 extern crate brotli_decompressor;
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-
+pub const VERSION: u8 = 1;
 #[cfg(not(feature="no-stdlib"))]
 pub use alloc::HeapAlloc;
 pub mod enc;

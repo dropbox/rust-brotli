@@ -399,6 +399,7 @@ fn main() {
   params.quality = 11; // default
   let mut filenames = [std::string::String::new(), std::string::String::new()];
   let mut num_benchmarks = 1;
+  let mut double_dash = false;
   if env::args_os().len() > 1 {
     let mut first = true;
     for argument in env::args() {
@@ -406,143 +407,155 @@ fn main() {
         first = false;
         continue;
       }
-      if argument == "-catable" || argument == "--catable" {
+      if argument == "--" {
+        double_dash = true;
+        continue;
+      }
+      if (argument == "-catable" || argument == "--catable") && !double_dash {
           params.catable = true;
           continue;
       }
-      if argument == "--dump-dictionary" {
+      if (argument == "-appendable" || argument == "--appendable") && !double_dash {
+          params.appendable = true;
+          continue;
+      }
+      if (argument.starts_with("-magic") || argument.starts_with("--magic")) && !double_dash {
+          params.magic_number = true;
+          continue;
+      }
+      if argument == "--dump-dictionary" && !double_dash {
         util::print_dictionary(util::permute_dictionary());
         return
       }
-      if argument == "-utf8" {
+      if argument == "-utf8" && !double_dash {
           params.mode = BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR;
           continue;
       }
-      if argument == "-msb" {
+      if argument == "-msb" && !double_dash {
           params.mode = BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR;
           continue;
       }
-      if argument == "-lsb" {
+      if argument == "-lsb" && !double_dash {
           params.mode = BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR;
           continue;
       }
-      if argument == "-signed" {
+      if argument == "-signed" && !double_dash {
           params.mode = BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR;
           continue;
       }
-      if argument == "-i" {
+      if argument == "-i" && !double_dash {
         // display the intermediate representation of metablocks
         params.log_meta_block = true;
         continue;
       }
-      if argument == "-0" || argument == "-q0" {
+      if (argument == "-0" || argument == "-q0") && !double_dash {
         params.quality = 0;
         continue;
       }
-      if argument == "-1" || argument == "-q1" {
+      if (argument == "-1" || argument == "-q1") && !double_dash {
         params.quality = 1;
         continue;
       }
-      if argument == "-2" || argument == "-q2" {
+      if (argument == "-2" || argument == "-q2") && !double_dash {
         params.quality = 2;
         continue;
       }
-      if argument == "-3" || argument == "-q3" {
+      if (argument == "-3" || argument == "-q3") && !double_dash {
         params.quality = 3;
         continue;
       }
-      if argument == "-4" || argument == "-q4" {
+      if (argument == "-4" || argument == "-q4") && !double_dash {
         params.quality = 4;
         continue;
       }
-      if argument == "-5" || argument == "-q5" {
+      if (argument == "-5" || argument == "-q5") && !double_dash {
         params.quality = 5;
         continue;
       }
-      if argument == "-6" || argument == "-q6" {
+      if (argument == "-6" || argument == "-q6") && !double_dash {
         params.quality = 6;
         continue;
       }
-      if argument == "-7" || argument == "-q7" {
+      if (argument == "-7" || argument == "-q7") && !double_dash {
         params.quality = 7;
         continue;
       }
-      if argument == "-8" || argument == "-q8" {
+      if (argument == "-8" || argument == "-q8") && !double_dash {
         params.quality = 8;
         continue;
       }
-      if argument == "-9" || argument == "-q9" {
+      if (argument == "-9" || argument == "-q9") && !double_dash {
         params.quality = 9;
         continue;
       }
-      if argument == "-9.5" || argument == "-q9.5" {
+      if (argument == "-9.5" || argument == "-q9.5") && !double_dash {
         params.quality = 10;
         params.q9_5 = true;
         continue;
       }
-      if argument == "-9.5x" || argument == "-q9.5x" {
+      if (argument == "-9.5x" || argument == "-q9.5x") && !double_dash {
         params.quality = 11;
         params.q9_5 = true;
         continue;
       }
-      if argument == "-10" || argument == "-q10" {
+      if (argument == "-10" || argument == "-q10") && !double_dash {
         params.quality = 10;
         continue;
       }
-      if argument == "-11" || argument == "-q11" {
+      if (argument == "-11" || argument == "-q11") && !double_dash {
         params.quality = 11;
         continue;
       }
-      if argument == "-q9.5y" {
+      if (argument == "-q9.5y") && !double_dash {
           params.quality = 12;
           params.q9_5 = true;
         continue;
       }
-      if argument.starts_with("-l") {
+      if argument.starts_with("-l") && !double_dash {
         params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
         continue;
       }
-      if argument.starts_with("-bytescore=") {
+      if argument.starts_with("-bytescore=") && !double_dash {
         params.hasher.literal_byte_score = argument.trim_matches('-').trim_matches('b').trim_matches('y').trim_matches('t').trim_matches('e').trim_matches('s').trim_matches('c').trim_matches('o').trim_matches('r').trim_matches('e').trim_matches('=').parse::<i32>().unwrap();
         continue;
       }
-      if argument.starts_with("-w") {
+      if argument.starts_with("-w") && !double_dash {
           params.lgwin = argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap();
           continue;
       }
-      if argument.starts_with("-l") {
+      if argument.starts_with("-l") && !double_dash {
           params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
           continue;
       }
-      if argument.starts_with("-findprior") {
+      if argument.starts_with("-findprior") && !double_dash {
           params.prior_bitmask_detection = 1;
           continue;
       }
-      if argument.starts_with("-findspeed=") {
+      if argument.starts_with("-findspeed=") && !double_dash {
           params.cdf_adaptation_detection = argument.trim_matches('-').trim_matches('f').trim_matches('i').trim_matches('n').trim_matches('d').trim_matches('r').trim_matches('a').trim_matches('n').trim_matches('d').trim_matches('o').trim_matches('m').trim_matches('=').parse::<u32>().unwrap() as u8;
           continue;
-      } else if argument == "-findspeed" {
+      } else if argument == "-findspeed" && !double_dash {
           params.cdf_adaptation_detection = 1;
           continue;
       }
-      if argument == "-basicstride" {
+      if argument == "-basicstride" && !double_dash {
           params.stride_detection_quality = 1;
           continue;
-      } else if argument == "-advstride" {
+      } else if argument == "-advstride" && !double_dash {
           params.stride_detection_quality = 3;
           continue;
       } else {
-          if argument == "-stride" {
+          if argument == "-stride" && !double_dash {
               params.stride_detection_quality = 2;
               continue;
           } else {
-              if argument.starts_with("-s") && !argument.starts_with("-speed=") {
+              if (argument.starts_with("-s") && !argument.starts_with("-speed=")) && !double_dash {
                   params.size_hint = argument.trim_matches('-').trim_matches('s').parse::<usize>().unwrap();
                   continue;
               }
           }
       }
-      if argument.starts_with("-speed=") {
+      if argument.starts_with("-speed=") && !double_dash {
           let comma_string = argument.trim_matches('-').trim_matches('s').trim_matches('p').trim_matches('e').trim_matches('e').trim_matches('d').trim_matches('=');
           let split = comma_string.split(",");
           for (index, s) in split.enumerate() {
@@ -568,18 +581,18 @@ fn main() {
           }
           continue;
       }
-      if argument == "-avoiddistanceprefixsearch" {
+      if argument == "-avoiddistanceprefixsearch" && !double_dash {
           params.avoid_distance_prefix_search = true;
       }
-      if argument.starts_with("-b") {
+      if argument.starts_with("-b") && !double_dash {
           num_benchmarks = argument.trim_matches('-').trim_matches('b').parse::<usize>().unwrap();
           continue;
       }
-      if argument == "-c" {
+      if argument == "-c" && !double_dash {
         do_compress = true;
         continue;
       }
-      if argument == "-h" || argument == "-help" || argument == "--help" {
+      if argument == "-h" || argument == "-help" || argument == "--help" && !double_dash {
         println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q9.5y or -q[0-11] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n\nThe -i parameter produces a cross human readdable IR representation of the file.\nThis can be ingested by other compressors.\nIR-specific options include:\n-findprior\n-speed=<inc,max,inc,max,inc,max,inc,max>");
         return;
       }

@@ -90,6 +90,10 @@ pub struct BrotliEncoderParams {
   pub avoid_distance_prefix_search: bool,
   // construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
   pub catable: bool,
+  // construct brotli in such a way that another concatable brotli file may be appended
+  pub appendable: bool,
+  // include a magic number and version number and size_hint at the beginning
+  pub magic_number: bool,
 }
 
 impl Default for BrotliEncoderParams {

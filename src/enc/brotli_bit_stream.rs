@@ -4,6 +4,7 @@
 #![allow(unused_macros)]
 #[cfg(not(feature="no-stdlib"))]
 use std::io::Write;
+use VERSION;
 use super::{v8, s16};
 use super::util::floatX;
 use super::prior_eval;
@@ -2774,4 +2775,32 @@ pub fn BrotliWriteEmptyLastMetaBlock(storage_ix: &mut usize, storage: &mut [u8])
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     JumpToByteBoundary(storage_ix, storage);
+}
+pub fn BrotliWriteMetadataMetaBlock(params: &BrotliEncoderParams, storage_ix: &mut usize, storage: &mut [u8]) {
+    BrotliWriteBits(1u8, 0u64, storage_ix, storage); // not last
+    BrotliWriteBits(2u8, 3u64, storage_ix, storage); // MNIBBLES = 0 (pattern 1,1)
+    BrotliWriteBits(1u8, 0u64, storage_ix, storage); // reserved
+    BrotliWriteBits(2u8, 1u64, storage_ix, storage); // num bytes for length of magic number header
+    BrotliWriteBits(8u8, 11u64, storage_ix, storage); // 1 byte of data: writing 12 for the magic number header
+    JumpToByteBoundary(storage_ix, storage);
+    let magic_number = if params.catable {
+        [0xe1, 0x97, 0x81]
+    } else if params.appendable {
+        [0xe1, 0x97, 0x82]
+    } else {
+        [0xe1, 0x97, 0x80]
+    };
+    let header = [magic_number[0], magic_number[1], magic_number[2], VERSION,
+                        (params.size_hint & 0xff) as u8,
+                        ((params.size_hint >> 8) & 0xff) as u8,
+                        ((params.size_hint >> 16) & 0xff) as u8,
+                        ((params.size_hint >> 24) & 0xff) as u8,
+                        ((params.size_hint >> 32) & 0xff) as u8,
+                        ((params.size_hint >> 40) & 0xff) as u8,
+                        ((params.size_hint >> 48) & 0xff) as u8,
+                        ((params.size_hint >> 56) & 0xff) as u8,
+    ];
+    for magic in header.iter() {
+        BrotliWriteBits(8u8, u64::from(*magic), storage_ix, storage);
+    }
 }

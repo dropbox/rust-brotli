@@ -17,7 +17,7 @@ use super::block_split::BlockSplit;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
                                BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
                                BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
-                               BrotliWriteEmptyLastMetaBlock,
+                               BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
                                MetaBlockSplit, RecoderState, JumpToByteBoundary};
                                
 use enc::input_pair::InputReferenceMut;
@@ -103,6 +103,8 @@ pub enum BrotliEncoderParameter {
   BROTLI_PARAM_CM_SPEED_LOW_MAX = 165,
   BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH = 166,
   BROTLI_PARAM_CATABLE = 167,
+  BROTLI_PARAM_APPENDABLE = 168,
+  BROTLI_PARAM_MAGIC_NUMBER = 169,
 }
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
@@ -345,6 +347,17 @@ pub fn BrotliEncoderSetParameter<Alloc: BrotliAlloc>
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_CATABLE as (i32) {
     (*state).params.catable = value != 0;
+    if !(*state).params.appendable {
+      (*state).params.appendable = value != 0;
+    }
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_APPENDABLE as (i32) {
+    (*state).params.appendable = value != 0;
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER as (i32) {
+    (*state).params.magic_number = value != 0;
     return 1i32;
   }
   0i32
@@ -394,6 +407,8 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            prior_bitmask_detection: 0,
            literal_adaptation: [(0,0);4],
            catable: false,
+           appendable: false,
+           magic_number: false,
            hasher: BrotliHasherParams {
              type_: 6,
              block_bits: 9 - 1,
@@ -594,6 +609,9 @@ fn SanitizeParams(params: &mut BrotliEncoderParams) {
     (*params).lgwin = 10i32;
   } else if (*params).lgwin > 24i32 {
     (*params).lgwin = 24i32;
+  }
+  if params.catable {
+    params.appendable = true;
   }
 }
 
@@ -2506,8 +2524,10 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                          &mut [interface::StaticCommand],
                                          interface::InputPair, &mut Alloc) {
   let actual_is_last = is_last;
-  if params.catable {
+  if params.appendable {
     is_last = 0;
+  } else {
+    assert_eq!(params.catable, false); // Sanitize Params senforces this constraint
   }
   let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
   let last_bytes: u16;
@@ -2757,13 +2777,20 @@ fn EncodeData<Alloc: BrotliAlloc,
     let meta_size = core::cmp::max(bytes as usize,
                                    (*s).input_pos_.wrapping_sub((*s).last_flush_pos_) as usize);
     GetBrotliStorage(s,
-                     (2usize).wrapping_mul(meta_size).wrapping_add(503 + 16));
+                     (2usize).wrapping_mul(meta_size).wrapping_add(503 + 24));
   }
   {
     (*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
     (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
   }
   let mut catable_header_size = 0;
+  if s.is_first_mb && s.params.magic_number {
+      // this could be written more than once if this function is called with 0 or 1 byte of data. that's ok
+      BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, (*s).storage_.slice_mut());
+      (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
+        ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
+      (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
+  }
   if !s.params.catable {
     s.is_first_mb = false;
   } else if bytes != 0 && (bytes <= 2 || s.is_first_mb) {
