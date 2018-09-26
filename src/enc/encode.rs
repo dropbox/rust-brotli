@@ -2763,6 +2763,7 @@ fn EncodeData<Alloc: BrotliAlloc,
     (*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
     (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
   }
+  let mut catable_header_size = 0;
   if !s.params.catable {
     s.is_first_mb = false;
   } else if bytes != 0 && (bytes <= 2 || s.is_first_mb) {
@@ -2797,6 +2798,9 @@ fn EncodeData<Alloc: BrotliAlloc,
     if num_bytes_to_write_uncompressed >= 2 {
       s.is_first_mb = false;
     }
+    catable_header_size = storage_ix >> 3;
+    (*s).next_out_ = NextOut::DynamicStorage(0);
+    *out_size = catable_header_size;
     delta = UnprocessedInputSize(s);
   }
   let mut wrapped_last_processed_pos: u32 = WrapPosition((*s).last_processed_pos_);
@@ -2811,7 +2815,7 @@ fn EncodeData<Alloc: BrotliAlloc,
     {
     let table: &mut [i32];
     if delta == 0 && (is_last == 0) {
-      *out_size = 0usize;
+      *out_size = catable_header_size;
       return 1i32;
     }
     let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
@@ -2951,7 +2955,7 @@ fn EncodeData<Alloc: BrotliAlloc,
       if UpdateLastProcessedPos(s) != 0 {
         HasherReset(&mut (*s).hasher_);
       }
-      *out_size = 0usize;
+      *out_size = catable_header_size;
       return 1i32;
     }
   }
@@ -2966,7 +2970,7 @@ fn EncodeData<Alloc: BrotliAlloc,
     (*s).last_insert_len_ = 0usize;
   }
   if is_last == 0 && ((*s).input_pos_ == (*s).last_flush_pos_) {
-    *out_size = 0usize;
+    *out_size = catable_header_size;
     return 1i32;
   }
   {
