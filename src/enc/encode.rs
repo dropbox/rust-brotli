@@ -2784,6 +2784,12 @@ fn EncodeData<Alloc: BrotliAlloc,
       (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
         ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
       (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
+      s.prev_byte2_ = s.prev_byte_;
+      s.prev_byte_ = data[s.last_flush_pos_ as usize & mask as usize];
+      if num_bytes_to_write_uncompressed == 2 {
+        s.prev_byte2_ = s.prev_byte_;
+        s.prev_byte_ = data[(s.last_flush_pos_ + 1) as usize & mask as usize];
+      }
     }
     s.last_flush_pos_ += num_bytes_to_write_uncompressed as u64;
     bytes -= num_bytes_to_write_uncompressed as u32;
