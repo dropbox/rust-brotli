@@ -1419,7 +1419,7 @@ pub fn BrotliEncoderSetCustomDictionary<Alloc: BrotliAlloc>
   if EnsureInitialized(s) == 0 {
     return;
   }
-  if dict_size == 0usize || (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
+  if dict_size == 0usize || (*s).params.quality == 0i32 || (*s).params.quality == 1i32 || s.params.catable {
     return;
   }
   if size > max_dict_size {

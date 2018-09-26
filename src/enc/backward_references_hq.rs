@@ -390,7 +390,7 @@ pub fn StitchToPreviousBlockH10<AllocU32:Allocator<u32>,
 }
 fn FindAllMatchesH10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params>(
     handle : &mut H10<AllocU32, Buckets, Params>,
-    dictionary : & BrotliDictionary,
+    dictionary : Option<&BrotliDictionary>,
     data : & [u8],
     ring_buffer_mask : usize,
     cur_ix : usize,
@@ -490,13 +490,14 @@ fn FindAllMatchesH10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+
                   4usize,
                   best_len.wrapping_add(1usize)
               );
-        if BrotliFindAllStaticDictionaryMatches(
-               &dictionary,
+        if dictionary.is_some() && BrotliFindAllStaticDictionaryMatches(
+               dictionary.unwrap(),
                &data[(cur_ix_masked as (usize))..],
                minlen,
                max_length,
-               &mut dict_matches[..]
-           ) != 0 {
+               &mut dict_matches[..],
+        ) != 0 {
+            assert_eq!(params.catable, false);
             let maxlen
                 : usize
                 = brotli_min_size_t(37usize,max_length);
@@ -1171,7 +1172,7 @@ pub fn BrotliZopfliComputeShortestPath<AllocU32:Allocator<u32>,
                                        Params:H10Params,
                                        AllocF:Allocator<floatX>>(
     m : &mut AllocF,
-    dictionary: &BrotliDictionary,
+    dictionary: Option<&BrotliDictionary>,
     num_bytes : usize,
     position : usize,
     ringbuffer : & [u8],
@@ -1332,7 +1333,7 @@ pub fn BrotliCreateZopfliBackwardReferences<Alloc:Allocator<u32> + Allocator<flo
                                             Buckets: Allocable<u32, Alloc>+SliceWrapperMut<u32>+SliceWrapper<u32>,
                                             Params:H10Params>(
     alloc : &mut Alloc,
-    dictionary: &BrotliDictionary,
+    dictionary: Option<&BrotliDictionary>,
     num_bytes : usize,
     position : usize,
     ringbuffer : & [u8],
@@ -1682,7 +1683,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<Alloc:Allocator<u32> + Allocator<u
                                               Buckets:Allocable<u32, Alloc>+SliceWrapperMut<u32>+SliceWrapper<u32>,
                                               Params: H10Params>(
     alloc : &mut Alloc,
-    dictionary: &BrotliDictionary,
+    dictionary: Option<&BrotliDictionary>,
     num_bytes : usize,
     position : usize,
     ringbuffer : & [u8],

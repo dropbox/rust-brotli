@@ -141,7 +141,7 @@ pub trait AnyHasher {
   fn StoreLookahead(&self) -> usize;
   fn PrepareDistanceCache(&self, distance_cache: &mut [i32]);
   fn FindLongestMatch(&mut self,
-                      dictionary: &BrotliDictionary,
+                      dictionary: Option<&BrotliDictionary>,
                       dictionary_hash: &[u16],
                       data: &[u8],
                       ring_buffer_mask: usize,
@@ -268,7 +268,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
   }
 
   fn FindLongestMatch(&mut self,
-                      dictionary: &BrotliDictionary,
+                      dictionary: Option<&BrotliDictionary>,
                       dictionary_hash: &[u16],
                       data: &[u8],
                       ring_buffer_mask: usize,
@@ -384,8 +384,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         }
       }
     }
-    if self.buckets_.USE_DICTIONARY() != 0 && (is_match_found == 0) {
-      is_match_found = SearchInStaticDictionary(dictionary,
+    if dictionary.is_some() && self.buckets_.USE_DICTIONARY() != 0 && (is_match_found == 0) {
+      is_match_found = SearchInStaticDictionary(dictionary.unwrap(),
                                                 dictionary_hash,
                                                 self,
                                                 &data[(cur_ix_masked as (usize))..],
@@ -648,7 +648,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
         adv_prepare_distance_cache(distance_cache, num_distances);
     }
     fn FindLongestMatch(&mut self,
-                        dictionary: &BrotliDictionary,
+                        dictionary: Option<&BrotliDictionary>,
                         dictionary_hash: &[u16],
                         data: &[u8],
                         ring_buffer_mask: usize,
@@ -749,9 +749,9 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
             bucket[*self_num_key as usize & H9_BLOCK_MASK] = cur_ix as u32;
             *self_num_key = self_num_key.wrapping_add(1);
         }
-        if (is_match_found == 0) {
+        if is_match_found == 0 && dictionary.is_some() {
             let (_, cur_data) = data.split_at(cur_ix_masked as usize);
-            is_match_found = SearchInStaticDictionary(dictionary,
+            is_match_found = SearchInStaticDictionary(dictionary.unwrap(),
                                                       dictionary_hash,
                                                       self,
                                                       cur_data,
@@ -947,7 +947,7 @@ impl<Specialization: AdvHashSpecialization, Alloc: alloc::Allocator<u16> + alloc
   }
 
   fn FindLongestMatch(&mut self,
-                      dictionary: &BrotliDictionary,
+                      dictionary: Option<&BrotliDictionary>,
                       dictionary_hash: &[u16],
                       data: &[u8],
                       ring_buffer_mask: usize,
@@ -1080,9 +1080,9 @@ impl<Specialization: AdvHashSpecialization, Alloc: alloc::Allocator<u16> + alloc
         *_lhs = (*_lhs as (i32) + _rhs) as (u16);
       }
     }
-    if is_match_found == 0 {
+    if is_match_found == 0 && dictionary.is_some() {
       let (_, cur_data) = data.split_at(cur_ix_masked as usize);
-      is_match_found = SearchInStaticDictionary(dictionary,
+      is_match_found = SearchInStaticDictionary(dictionary.unwrap(),
                                                 dictionary_hash,
                                                 self,
                                                 cur_data,
@@ -1357,7 +1357,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
                                   ringbuffer_mask);
   }
   fn FindLongestMatch(&mut self,
-                      dictionary: &BrotliDictionary,
+                      dictionary: Option<&BrotliDictionary>,
                       dictionary_hash: &[u16],
                       data: &[u8],
                       ring_buffer_mask: usize,
@@ -1451,7 +1451,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> Default
           },
           })
           */
-fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
+fn CreateBackwardReferences<AH: AnyHasher>(dictionary: Option<&BrotliDictionary>,
                                            dictionary_hash: &[u16],
                                            num_bytes: usize,
                                            mut position: usize,
@@ -1642,7 +1642,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
       &mut UnionHasher::H10(ref mut hasher) => {
           if params.quality >= 11 {
               super::backward_references_hq::BrotliCreateHqZopfliBackwardReferences(
-                  alloc, dictionary,
+                  alloc, if params.catable {None} else {Some(dictionary)},
                   num_bytes,
                   position,
                   ringbuffer,
@@ -1657,7 +1657,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
           } else {
               super::backward_references_hq::BrotliCreateZopfliBackwardReferences(
                   alloc,
-                  dictionary,
+                  if params.catable {None} else {Some(dictionary)},
                   num_bytes,
                   position,
                   ringbuffer,
@@ -1672,7 +1672,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
           }
     }
     &mut UnionHasher::H2(ref mut hasher) => {
-      CreateBackwardReferences(dictionary,
+      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1687,7 +1687,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H3(ref mut hasher) => {
-      CreateBackwardReferences(dictionary,
+      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1702,7 +1702,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H4(ref mut hasher) => {
-      CreateBackwardReferences(dictionary,
+      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1717,7 +1717,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H5(ref mut hasher) => {
-      CreateBackwardReferences(dictionary,
+      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1732,7 +1732,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H6(ref mut hasher) => {
-      CreateBackwardReferences(dictionary,
+      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1747,7 +1747,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H9(ref mut hasher) => {
-      CreateBackwardReferences(dictionary,
+      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1762,7 +1762,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H54(ref mut hasher) => {
-      CreateBackwardReferences(dictionary,
+      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,

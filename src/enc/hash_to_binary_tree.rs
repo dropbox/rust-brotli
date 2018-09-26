@@ -230,7 +230,7 @@ impl<AllocU32: Allocator<u32>,
   }
 
   fn FindLongestMatch(&mut self,
-                      _dictionary: &BrotliDictionary,
+                      _dictionary: Option<&BrotliDictionary>,
                       _dictionary_hash: &[u16],
                       _data: &[u8],
                       _ring_buffer_mask: usize,
