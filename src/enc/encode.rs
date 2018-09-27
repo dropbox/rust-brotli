@@ -1015,6 +1015,17 @@ fn EnsureInitialized<Alloc: BrotliAlloc>
                            &mut (*s).cmd_code_[..],
                            &mut (*s).cmd_code_numbits_);
   }
+  if s.params.catable {
+    // if we want to properly concatenate, then we need to ignore any distances
+    // this value 0x7ffffff0 was chosen to be larger than max_distance + gap
+    // but small enough so that +/-3 will not overflow (due to distance modifications)
+    for item in s.dist_cache_.iter_mut() {
+      *item = 0x7ffffff0;
+    }
+    for item in s.saved_dist_cache_.iter_mut() {
+      *item = 0x7ffffff0;
+    }
+  }
   (*s).is_initialized_ = true;
   1i32
 }
