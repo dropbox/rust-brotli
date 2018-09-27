@@ -21,6 +21,7 @@ pub const VERSION: u8 = 1;
 pub use alloc::HeapAlloc;
 pub mod enc;
 pub use self::enc::combined_alloc::CombiningAllocator;
+pub mod concat;
 pub use brotli_decompressor::transform;
 pub use brotli_decompressor::dictionary;
 pub use brotli_decompressor::reader;
