@@ -44,6 +44,7 @@ fn parse_window_size(bytes_so_far:&[u8]) -> Result<(u8, usize), ()> {  // return
       0x41 => return Ok((12, 7)),
       0x31 => return Ok((11, 7)),
       0x21 => return Ok((10, 7)),
+      0x1 => return Ok((17, 7)),
       _ => {},
     }
   }
@@ -120,6 +121,48 @@ impl BroCatliState {
       window_size:0,
     }
   }
+    
+  pub fn new_with_window_size(log_window_size: u8) -> BroCatliState {
+    // in this case setup the last_bytes of the stream to perfectly mimic what would
+    // appear in an empty stream with the selected window size...
+    // this means the window size followed by 2 sequential 1 bits (LAST_METABLOCK, EMPTY)
+    // the new_stream code should naturally find the sequential 1 bits and mask them
+    // out and then prepend the window size... then the following window sizes should
+    // be checked to be shorter
+    let last_bytes_len;
+    let last_bytes;
+      
+    if log_window_size > 24 {
+        last_bytes = [17u8, log_window_size | 64 | 128];
+        last_bytes_len = 2;
+    } else if log_window_size == 16 {
+        last_bytes = [1 | 2 | 4, 0];
+        last_bytes_len = 1;
+    } else if log_window_size > 17 {
+        last_bytes = [(3 + (log_window_size - 18) * 2) | (16 | 32), 0];
+        last_bytes_len = 1;
+    } else {
+        match log_window_size {
+            15 => last_bytes = [0x71 | 0x80, 1],
+            14 => last_bytes = [0x61 | 0x80, 1],
+            13 => last_bytes = [0x51 | 0x80, 1],
+            12 => last_bytes = [0x41 | 0x80, 1],
+            11 => last_bytes = [0x31 | 0x80, 1],
+            10 => last_bytes = [0x21 | 0x80, 1],
+            _ => {assert_eq!(log_window_size, 17); last_bytes = [0x1 | 0x80, 1];} // 17
+        }
+        last_bytes_len = 2;
+    }
+    BroCatliState {
+      last_bytes: last_bytes,
+      last_bytes_len: last_bytes_len,
+      last_byte_bit_offset: 0,
+      last_byte_sanitized: false,
+      new_stream_pending: None,
+      window_size:log_window_size,
+    }
+  }
+    
   pub fn new_brotli_file(&mut self) {
     self.new_stream_pending = Some(NewStreamData::new());
   }
@@ -206,7 +249,7 @@ impl BroCatliState {
         let whole_byte_source = (varlen_offset + 7) / 8;
         let num_whole_bytes_to_copy = usize::from(new_stream_pending.num_bytes_read) - whole_byte_source;
         for aligned_index in 0..num_whole_bytes_to_copy {
-          realigned_header[whole_byte_destination] = new_stream_pending.bytes_so_far[whole_byte_source];
+          realigned_header[whole_byte_destination + aligned_index] = new_stream_pending.bytes_so_far[whole_byte_source + aligned_index];
         }
         out_bytes[*out_offset] = realigned_header[0];
         *out_offset += 1;
@@ -233,7 +276,7 @@ impl BroCatliState {
     self.last_bytes = [0,0];
     BrotliResult::ResultSuccess
   }
-  pub fn stream(&mut self, mut in_bytes: &[u8], in_offset: &mut usize, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
+  pub fn stream(&mut self, in_bytes: &[u8], in_offset: &mut usize, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
     if let Some(mut new_stream_pending) = self.new_stream_pending.clone() {
       let flush_result = self.flush_previous_stream(out_bytes, out_offset);
       if let BrotliResult::ResultSuccess = flush_result {
@@ -307,7 +350,7 @@ impl BroCatliState {
     self.last_bytes.clone_from_slice(last_two);
     to_copy -= 2;
     out_bytes.split_at_mut(*out_offset).1.split_at_mut(to_copy).0.clone_from_slice(
-      in_bytes.split_at(*in_offset).1.split_at(to_copy).0);
+      new_in_offset.split_at(*in_offset).1.split_at(to_copy).0);
     if out_bytes.len() < in_bytes.len(){
       return BrotliResult::NeedsMoreOutput;
     } else {
