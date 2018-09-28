@@ -15,6 +15,10 @@ autobins = false
 doc = false
 name = "brotli"
 
+[[bin]]
+doc = false
+name = "broccoli"
+
 [profile.release]
 lto=true
 

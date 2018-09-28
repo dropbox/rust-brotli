@@ -100,7 +100,7 @@ fn detect_varlen_offset(bytes_so_far:&[u8]) -> Result<(usize), ()> {  // returns
 }
 
 // eat your vegetables
-pub struct BroCatliState {
+pub struct BroCatli {
   last_bytes: [u8; 2],
   last_bytes_len: u8,
   last_byte_sanitized: bool,
@@ -110,9 +110,9 @@ pub struct BroCatliState {
   window_size: u8,
 }
 
-impl BroCatliState {
-  pub fn new() -> BroCatliState {
-    BroCatliState {
+impl BroCatli {
+  pub fn new() -> BroCatli {
+    BroCatli {
       last_bytes: [0,0],
       last_bytes_len: 0,
       last_byte_bit_offset: 0,
@@ -122,7 +122,7 @@ impl BroCatliState {
     }
   }
     
-  pub fn new_with_window_size(log_window_size: u8) -> BroCatliState {
+  pub fn new_with_window_size(log_window_size: u8) -> BroCatli {
     // in this case setup the last_bytes of the stream to perfectly mimic what would
     // appear in an empty stream with the selected window size...
     // this means the window size followed by 2 sequential 1 bits (LAST_METABLOCK, EMPTY)
@@ -153,7 +153,7 @@ impl BroCatliState {
         }
         last_bytes_len = 2;
     }
-    BroCatliState {
+    BroCatli {
       last_bytes: last_bytes,
       last_bytes_len: last_bytes_len,
       last_byte_bit_offset: 0,
@@ -264,6 +264,7 @@ impl BroCatliState {
                                  usize::from(new_stream_pending.num_bytes_read - new_stream_pending.num_bytes_written.unwrap()));
     out_bytes.split_at_mut(*out_offset).1.split_at_mut(to_copy).0.clone_from_slice(
       &new_stream_pending.bytes_so_far[usize::from(new_stream_pending.num_bytes_written.unwrap())..usize::from(new_stream_pending.num_bytes_read)]);
+    *out_offset += to_copy;
     new_stream_pending.num_bytes_written = Some((new_stream_pending.num_bytes_written.unwrap() + to_copy as u8));
     if new_stream_pending.num_bytes_written.unwrap() != new_stream_pending.num_bytes_read {
       self.new_stream_pending = Some(new_stream_pending);
@@ -315,11 +316,13 @@ impl BroCatliState {
       }
       self.last_bytes[usize::from(self.last_bytes_len)] = in_bytes[*in_offset];
       *in_offset += 1;
+      self.last_bytes_len += 1;
       if self.last_bytes_len != 2 {
         if in_bytes.len() == *in_offset {
           return BrotliResult::NeedsMoreInput;
         }
         self.last_bytes[usize::from(self.last_bytes_len)] = in_bytes[*in_offset];
+        self.last_bytes_len += 1;
         *in_offset += 1;
       }
     }
