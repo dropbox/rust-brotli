@@ -263,7 +263,7 @@ impl BroCatli {
     let to_copy = core::cmp::min(out_bytes.len() - *out_offset,
                                  usize::from(new_stream_pending.num_bytes_read - new_stream_pending.num_bytes_written.unwrap()));
     out_bytes.split_at_mut(*out_offset).1.split_at_mut(to_copy).0.clone_from_slice(
-      &new_stream_pending.bytes_so_far[usize::from(new_stream_pending.num_bytes_written.unwrap())..usize::from(new_stream_pending.num_bytes_read)]);
+      &new_stream_pending.bytes_so_far.split_at(usize::from(new_stream_pending.num_bytes_written.unwrap())).1.split_at(to_copy).0);
     *out_offset += to_copy;
     new_stream_pending.num_bytes_written = Some((new_stream_pending.num_bytes_written.unwrap() + to_copy as u8));
     if new_stream_pending.num_bytes_written.unwrap() != new_stream_pending.num_bytes_read {
@@ -285,7 +285,7 @@ impl BroCatli {
           {
             let dst = &mut new_stream_pending.bytes_so_far[usize::from(new_stream_pending.num_bytes_read)..];
             let to_copy = core::cmp::min(dst.len(), in_bytes.len() - *in_offset);
-            dst.clone_from_slice(in_bytes.split_at(*in_offset).1.split_at(to_copy).0);
+            dst[..to_copy].clone_from_slice(in_bytes.split_at(*in_offset).1.split_at(to_copy).0);
             *in_offset += to_copy;
             new_stream_pending.num_bytes_read += to_copy as u8;
           }
@@ -311,6 +311,9 @@ impl BroCatli {
     }
     assert!(self.new_stream_pending.is_none());// this should have been handled above
     if self.last_bytes_len != 2 {
+      if out_bytes.len() == *out_offset{
+        return BrotliResult::NeedsMoreOutput;
+      }
       if in_bytes.len() == *in_offset {
         return BrotliResult::NeedsMoreInput;
       }
@@ -318,6 +321,9 @@ impl BroCatli {
       *in_offset += 1;
       self.last_bytes_len += 1;
       if self.last_bytes_len != 2 {
+        if out_bytes.len() == *out_offset{
+          return BrotliResult::NeedsMoreOutput;
+        }
         if in_bytes.len() == *in_offset {
           return BrotliResult::NeedsMoreInput;
         }
@@ -326,11 +332,11 @@ impl BroCatli {
         *in_offset += 1;
       }
     }
-    if in_bytes.len() == *in_offset{
-      return BrotliResult::NeedsMoreInput;
-    }
     if out_bytes.len() == *out_offset{
       return BrotliResult::NeedsMoreOutput;
+    }
+    if in_bytes.len() == *in_offset{
+      return BrotliResult::NeedsMoreInput;
     }
     let mut to_copy = core::cmp::min(out_bytes.len() - *out_offset,
                                      in_bytes.len() - *in_offset);
@@ -341,24 +347,25 @@ impl BroCatli {
       self.last_bytes[1] = in_bytes[*in_offset];
       *in_offset += 1;
       *out_offset += 1;
-      if out_bytes.len() < in_bytes.len(){
+      if *out_offset == out_bytes.len() {
         return BrotliResult::NeedsMoreOutput;
-      } else {
-        return BrotliResult::NeedsMoreInput;
       }
+      return BrotliResult::NeedsMoreInput;
     }
     out_bytes.split_at_mut(*out_offset).1.split_at_mut(2).0.clone_from_slice(&self.last_bytes[..]);
     *out_offset += 2;
-    let (new_in_offset, last_two) = in_bytes.split_at(in_bytes.len()-2);
+    let (new_in_offset, last_two) = in_bytes.split_at(*in_offset).1.split_at(to_copy).0.split_at(to_copy-2);
     self.last_bytes.clone_from_slice(last_two);
+    *in_offset += 2; // add this after the clone since we grab the last 2 bytes, not the first
     to_copy -= 2;
-    out_bytes.split_at_mut(*out_offset).1.split_at_mut(to_copy).0.clone_from_slice(
-      new_in_offset.split_at(*in_offset).1.split_at(to_copy).0);
-    if out_bytes.len() < in_bytes.len(){
+      out_bytes.split_at_mut(*out_offset).1.split_at_mut(to_copy).0.clone_from_slice(
+          new_in_offset);
+    *out_offset += to_copy;
+    *in_offset += to_copy;
+    if *out_offset == out_bytes.len() {
       return BrotliResult::NeedsMoreOutput;
-    } else {
-      return BrotliResult::NeedsMoreInput;
     }
+    return BrotliResult::NeedsMoreInput;
   }
    pub fn finish(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
        while self.last_bytes_len != 0 {
