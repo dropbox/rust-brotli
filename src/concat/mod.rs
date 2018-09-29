@@ -60,9 +60,9 @@ fn parse_window_size(bytes_so_far:&[u8]) -> Result<(u8, usize), ()> {  // return
 
 fn detect_varlen_offset(bytes_so_far:&[u8]) -> Result<(usize), ()> {  // returns offfset in bits
   let (_, mut offset) = parse_window_size(bytes_so_far)?;
-  let mut bytes = 0;
+  let mut bytes = 0u64;
   for (index, item) in bytes_so_far.iter().enumerate() {
-    bytes |= *item << (index * 8);
+    bytes |= u64::from(*item) << (index * 8);
   }
   bytes >>= offset;
   offset += 1;
@@ -85,11 +85,11 @@ fn detect_varlen_offset(bytes_so_far:&[u8]) -> Result<(usize), ()> {  // returns
     offset += 1;
     let mskipbytes = bytes & 3;
     offset += 3;
-    offset += usize::from(mskipbytes) * 8; // next item is byte aligned
+    offset += usize::from(mskipbytes as usize) * 8; // next item is byte aligned
     return Ok(offset);
   }
   mnibbles += 4;
-  offset += usize::from(mnibbles) * 4;
+  offset += usize::from(mnibbles as usize) * 4;
   bytes >>= mnibbles * 4;
   offset += 1;
   if (bytes & 1) == 0 { // not UNCOMPRESSED
@@ -185,7 +185,7 @@ impl BroCatli {
       if index < 2 { // if the bit is too low, return failure, since both bits could not possibly have been set
         return BrotliResult::ResultFailure
       }
-      if (last_bytes >> (index - 2)) != 3 { // last two bits need to be set for the final metablock
+      if (last_bytes >> (index - 1)) != 3 { // last two bits need to be set for the final metablock
         return BrotliResult::ResultFailure
       }
       index -= 2; // discard the final two bits
@@ -195,9 +195,10 @@ impl BroCatli {
       if index >= 8 { // if both bits and one useful bit were in the second block, then write that
         out_bytes[*out_offset] = self.last_bytes[0];
         self.last_bytes[0] = self.last_bytes[1];
+        *out_offset += 1;
         index -= 8;
       }
-      self.last_byte_bit_offset = index;
+      self.last_byte_bit_offset = index + 1;
       assert!(index < 8);
       self.last_byte_sanitized = true;
     }
@@ -235,15 +236,15 @@ impl BroCatli {
         };
         let mut bytes_so_far = 0u64;
         for index in 0..usize::from(new_stream_pending.num_bytes_read) {
-          bytes_so_far |= u64::from(new_stream_pending.bytes_so_far[index] << (index * 8));
+          bytes_so_far |= u64::from(new_stream_pending.bytes_so_far[index]) << (index * 8);
         }
         bytes_so_far >>= window_offset; // mask out the window size
         bytes_so_far &= (1u64 << (varlen_offset - window_offset)) - 1;
         let var_len_bytes = ((usize::from(varlen_offset - window_offset) + 7) / 8);
         for byte_index in 0..var_len_bytes {
-          let cur_byte = (bytes_so_far >> (byte_index *8)) as u8;
-          realigned_header[byte_index] |= (cur_byte & ((1 << (8 - self.last_byte_bit_offset)) - 1)) << self.last_byte_bit_offset;
-          realigned_header[byte_index + 1] = cur_byte >> (8 - self.last_byte_bit_offset);
+          let cur_byte = (bytes_so_far >> (byte_index *8));
+          realigned_header[byte_index] |= ((cur_byte & ((1 << (8 - self.last_byte_bit_offset)) - 1)) << self.last_byte_bit_offset) as u8;
+          realigned_header[byte_index + 1] = (cur_byte >> (8 - self.last_byte_bit_offset)) as u8;
         }
         let whole_byte_destination = var_len_bytes + (self.last_byte_bit_offset != 0) as usize;
         let whole_byte_source = (varlen_offset + 7) / 8;
@@ -253,7 +254,8 @@ impl BroCatli {
         }
         out_bytes[*out_offset] = realigned_header[0];
         *out_offset += 1;
-        new_stream_pending.num_bytes_read = (whole_byte_destination + num_whole_bytes_to_copy) as u8;
+        // subtract one since that has just been written out and we're only copying realigned_header[1..]
+        new_stream_pending.num_bytes_read = (whole_byte_destination + num_whole_bytes_to_copy) as u8 - 1;
         new_stream_pending.num_bytes_written = Some(0);
         new_stream_pending.bytes_so_far.clone_from_slice(&realigned_header[1..]);
       }
