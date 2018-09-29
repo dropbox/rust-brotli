@@ -102,7 +102,7 @@ fn main() {
                             },
                             BrotliResult::NeedsMoreOutput => {
                                 match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
-                                    Err(why) => panic!("couldn't write to {:?}\n{:}", ostream, why),
+                                    Err(why) => panic!("couldn't write: {:}", why),
                                     Ok(count) => {assert_eq!(count, ooffset);},
                                 }
                                 ooffset = 0;
