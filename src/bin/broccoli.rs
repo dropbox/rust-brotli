@@ -8,7 +8,7 @@ use std::fs::File;
 use brotli::BrotliResult;
 use brotli::concat::BroCatli;
 fn usage() {
-    eprintln!("Usage: [-w<window_size>] filename0 filename1 filename2...")
+    writeln!(&mut ::std::io::stderr(), "Usage: [-w<window_size>] filename0 filename1 filename2...").unwrap();
 }
 fn read_no_interrupt<R:Read>(r: &mut R, buf: &mut [u8]) -> Result<usize, io::Error> {
     loop {
