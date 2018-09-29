@@ -178,7 +178,7 @@ impl BroCatli {
       let mut index = max - 1;
       for i in 0..max {
         index = max - 1 - i;
-        if ((1<<index) & last_bytes) == 0 {
+        if ((1<<index) & last_bytes) != 0 {
           break; // find the highest set bit
         }
       }
