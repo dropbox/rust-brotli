@@ -59,7 +59,10 @@ fn parse_window_size(bytes_so_far:&[u8]) -> Result<(u8, usize), ()> {  // return
 }
 
 fn detect_varlen_offset(bytes_so_far:&[u8]) -> Result<(usize), ()> {  // returns offfset in bits
-  let (_, mut offset) = parse_window_size(bytes_so_far)?;
+  let (_, mut offset) = match parse_window_size(bytes_so_far) {
+    Ok(x) => x,
+    Err(_) => return Err(()),
+  };
   let mut bytes = 0u64;
   for (index, item) in bytes_so_far.iter().enumerate() {
     bytes |= u64::from(*item) << (index * 8);
