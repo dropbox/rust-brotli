@@ -880,6 +880,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
                input_slice);
 }
 
+
 fn expand_test_data(size: usize) -> Vec<u8> {
     let mut ret = vec![0u8; size];
     let original_data = include_bytes!("../../testdata/random_then_unicode");

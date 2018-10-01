@@ -9,6 +9,7 @@ use super::hash_to_binary_tree::ZopfliNode;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
                     BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
+use super::backward_references::BrotliEncoderParams;
 use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use super::interface;
@@ -147,6 +148,12 @@ impl<R: Read> CompressorReader<R> {
                                                                                    alloc_ht,
                                                                                    alloc_zn,
                                                            ), q, lgwin))
+  }
+
+  pub fn with_params(r: R, buffer_size: usize, params: &BrotliEncoderParams) -> Self {
+    let mut reader = Self::new(r, buffer_size, params.quality as u32, params.lgwin as u32);
+    (reader.0).0.state.params = params.clone();
+    reader
   }
 
   pub fn get_ref(&self) -> &R {

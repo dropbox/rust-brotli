@@ -65,8 +65,14 @@ impl Default for HistogramCommand {
   }
 }
 //#[derive(Clone)] // #derive is broken for arrays > 32
+
+#[cfg(not(feature="disallow_large_window_size"))]
+const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS: usize = 544;
+#[cfg(feature="disallow_large_window_size")]
+const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS: usize = 520;
+
 pub struct HistogramDistance {
-  pub data_: [u32; 520],
+  pub data_: [u32; BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS],
   pub total_count_: usize,
   pub bit_cost_: super::util::floatX,
 }
@@ -82,7 +88,7 @@ impl Clone for HistogramDistance {
 impl Default for HistogramDistance {
   fn default() -> HistogramDistance {
     return HistogramDistance {
-             data_: [0; 520],
+             data_: [0; BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS],
              total_count_: 0,
              bit_cost_: 3.402e+38 as super::util::floatX,
            };

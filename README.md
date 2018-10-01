@@ -43,6 +43,24 @@ let mut writer = brotli::Compressor::new(&mut io::stdout(), 4096 /* buffer size 
                                          quality as u32, lg_window_size as u32);
 ```
 
+There are also methods to build Compressor Readers or Writers using the with_params static function
+
+eg:
+```rust
+let params = BrotliEncoderParams::default();
+// modify params to fit the application needs
+let mut writer = brotli::Compressor::with_params(&mut io::stdout(), 4096 /* buffer size */,
+                                         params);
+```
+or for the reader
+```rust
+let params = BrotliEncoderParams::default();
+// modify params to fit the application needs
+let mut writer = brotli::CompressorReader::with_params(&mut io::stdin(), 4096 /* buffer size */,
+                                                       params);
+```
+
+
 ### With the Stream Copy abstraction
 
 ```rust
