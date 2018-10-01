@@ -1,5 +1,5 @@
 #![cfg_attr(feature="benchmark", feature(test))]
-mod integration_tests;
+pub mod integration_tests;
 mod tests;
 mod util;
 
@@ -9,6 +9,7 @@ extern crate core;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib;
+
 use brotli::CustomRead;
 use core::ops;
 use brotli::enc::cluster::HistogramPair;
@@ -19,6 +20,8 @@ use brotli::enc::command::Command;
 use brotli::enc::entropy_encode::HuffmanTree;
 use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use brotli::enc::{s16, v8};
+
+mod test_broccoli;
 
 pub struct Rebox<T> {
   b: Box<[T]>,

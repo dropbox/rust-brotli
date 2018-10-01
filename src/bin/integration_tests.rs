@@ -29,12 +29,12 @@ extern crate test;
 use self::test::Bencher;
 
 
-struct Buffer {
+pub struct Buffer {
   data: Vec<u8>,
   read_offset: usize,
 }
 
-struct UnlimitedBuffer {
+pub struct UnlimitedBuffer {
   data: Vec<u8>,
   read_offset: usize,
 }
@@ -837,6 +837,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
     let mut params = super::brotli::enc::BrotliEncoderInitParams();
     params.quality = quality;
     params.q9_5 = q9_5;
+    params.large_window= true;
     let mut input = UnlimitedBuffer::new(&input_slice[..]);
     let mut compressed_array = vec![0;input_slice.len() * 100/99];
     let mut rt_array = vec![0;input_slice.len() + 1];
@@ -906,6 +907,20 @@ fn test_1024k() {
                      true,
                      &mut Passthrough{},
                      2,
+                     false);
+}
+
+static UKKONOOA: &'static[u8]  = include_bytes!("../../testdata/ukkonooa");
+#[test]
+fn test_ukkonooa() {
+    let td = UKKONOOA;
+    benchmark_helper(&td[..],
+                     65536,
+                     65536,
+                     true,
+                     true,
+                     &mut Passthrough{},
+                     11,
                      false);
 }
 
