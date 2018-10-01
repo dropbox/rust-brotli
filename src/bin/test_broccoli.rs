@@ -71,7 +71,7 @@ fn test_concat() {
     params5.quality = 0;
     params5.lgwin = 10;
     params5.magic_number = true;
-    params0.lgwin = 30;
+    params0.lgwin = 26;
     params0.large_window = true;
     
     let mut options = [
@@ -85,7 +85,6 @@ fn test_concat() {
     for option in options.iter_mut() {
         let mut ufiles = [
             UnlimitedBuffer::new(&[]),
-/*            UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
@@ -93,7 +92,8 @@ fn test_concat() {
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
-            UnlimitedBuffer::new(&[]),*/
+            UnlimitedBuffer::new(&[]),
+            UnlimitedBuffer::new(&[]),
         ];
         let mut first = true;
         for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
@@ -105,7 +105,25 @@ fn test_concat() {
             }
             super::compress(src, dst, 4096, option).unwrap();
         }
+        concat(&mut files[..], &mut ufiles[..], None);
     }
-            
-        
+    let mut ufiles = [
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+    ];
+    for (index, (src, dst)) in files.iter_mut().zip(ufiles.iter_mut()).enumerate() {
+          options[index % options.len()].catable = true;
+          options[index % options.len()].appendable = false;
+          super::compress(src, dst, 4096, &options[index % options.len()]).unwrap();
+    }
+    concat(&mut files[..], &mut ufiles[..], None);
+    concat(&mut files[..], &mut ufiles[..], Some(28));
 }
