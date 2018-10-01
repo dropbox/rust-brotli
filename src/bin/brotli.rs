@@ -114,10 +114,10 @@ use std::path::Path;
 
 
 
-struct IoWriterWrapper<'a, OutputType: Write + 'a>(&'a mut OutputType);
+pub struct IoWriterWrapper<'a, OutputType: Write + 'a>(&'a mut OutputType);
 
 
-struct IoReaderWrapper<'a, OutputType: Read + 'a>(&'a mut OutputType);
+pub struct IoReaderWrapper<'a, OutputType: Read + 'a>(&'a mut OutputType);
 
 impl<'a, OutputType: Write> brotli::CustomWrite<io::Error> for IoWriterWrapper<'a, OutputType> {
   fn flush(self: &mut Self) -> Result<(), io::Error> {

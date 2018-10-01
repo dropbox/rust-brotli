@@ -124,7 +124,7 @@ fn main() {
         match bro_cat_li.finish(&mut obuffer[..], &mut ooffset) {
             BrotliResult::NeedsMoreOutput => {
                 match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
-                    Err(why) => panic!("couldn't write to {:?}\n{:}", ostream, why),
+                    Err(why) => panic!("couldn't write: {:}", why),
                     Ok(count) => {assert_eq!(count, ooffset);},
                 }
                 ooffset = 0;
@@ -135,7 +135,7 @@ fn main() {
             BrotliResult::ResultSuccess => {
                 if ooffset != 0 {
                     match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
-                        Err(why) => panic!("couldn't write to {:?}\n{:}", ostream, why),
+                        Err(why) => panic!("couldn't write: {:}", why),
                         Ok(count) => {assert_eq!(count, ooffset);},
                     }
                 }

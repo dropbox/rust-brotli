@@ -219,6 +219,9 @@ impl UnlimitedBuffer {
   pub fn reset_read(&mut self) {
       self.read_offset = 0;
   }
+  pub fn data(&self) -> &[u8] {
+    &self.data[..]
+  }
 }
 impl io::Read for Buffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {

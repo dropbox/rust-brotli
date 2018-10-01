@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 extern crate core;
 extern crate brotli_decompressor;
+use brotli_decompressor::{CustomRead, CustomWrite};
 use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
 use super::brotli::enc::BrotliEncoderParams;
@@ -20,10 +21,97 @@ static RANDOM10K: &'static [u8] = include_bytes!("../../testdata/random_org_10k.
 static RANDOMTHENUNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
 static QUICKFOX: &'static [u8] = include_bytes!("../../testdata/quickfox_repeated");
 static EMPTY: &'static [u8] = &[];
+
 fn concat(files:&mut [UnlimitedBuffer],
           brotli_files:&mut [UnlimitedBuffer],
-          window_override:Option<u8>) {
-    
+          window_override:Option<u8>,
+          bs: usize) {
+  let mut obuffer = vec![0u8; bs];
+  let mut ibuffer = vec![0u8; bs];
+  let mut ooffset = 0usize;
+  let mut ioffset = 0usize;
+  let mut uboutput = UnlimitedBuffer::new(&[]);
+  let mut output = super::IoWriterWrapper(&mut uboutput);
+  let mut bro_cat_li = match window_override {
+    Some(ws) => BroCatli::new_with_window_size(ws),
+    None => BroCatli::new(),
+  };
+  for (index, brotli) in brotli_files.iter_mut().enumerate() {
+    bro_cat_li.new_brotli_file();
+    let mut input = super::IoReaderWrapper(brotli);
+    loop {
+      ioffset = 0;
+      match input.read(&mut ibuffer[..]) {
+        Err(e) => panic!(e),
+        Ok(cur_read) => {
+          if cur_read == 0 {
+            break;
+          }
+          loop {
+            match bro_cat_li.stream(&ibuffer[..cur_read], &mut ioffset,
+                                    &mut obuffer[..], &mut ooffset) {
+              BrotliResult::ResultFailure => {
+                panic!(index);
+              },
+              BrotliResult::NeedsMoreOutput => {
+                match output.write(&obuffer[..ooffset]) {
+                  Err(why) => panic!("couldn't write: {:}", why),
+                  Ok(count) => {assert_eq!(count, ooffset);},
+                }
+                ooffset = 0;
+              },
+              BrotliResult::NeedsMoreInput => {
+                break;
+              },
+              BrotliResult::ResultSuccess => {
+                panic!("Unexpected state: Success when streaming before finish");
+              }
+            }
+            
+          }
+        }
+      }
+    }
+    loop {
+        match bro_cat_li.finish(&mut obuffer[..], &mut ooffset) {
+            BrotliResult::NeedsMoreOutput => {
+                match output.write(&obuffer[..ooffset]) {
+                    Err(why) => panic!("couldn't write\n{:}", why),
+                    Ok(count) => {assert_eq!(count, ooffset);},
+                }
+                ooffset = 0;
+            },
+            BrotliResult::NeedsMoreInput => {
+                panic!("Unexpected EOF");
+            },
+            BrotliResult::ResultSuccess => {
+                if ooffset != 0 {
+                    match output.write(&obuffer[..ooffset]) {
+                        Err(why) => panic!("couldn't write\n{:}", why),
+                        Ok(count) => {assert_eq!(count, ooffset);},
+                    }
+                }
+                break;
+            }
+            BrotliResult::ResultFailure => {
+                panic!("Failed to terminate concatenation")
+            }
+        }
+    }
+  }
+}
+
+fn concat_many_subsets(files:&mut [UnlimitedBuffer],
+                       brotli_files:&mut [UnlimitedBuffer],
+                       window_override:Option<u8>) {
+  let test_plans:[(usize,usize);4] = [(brotli_files.len(), 4096 * 1024), (4, 1), (3, 3),  (2, 4096)];
+  for (plan, bs) in test_plans.iter() {
+    for index in 0..(brotli_files.len() - (plan - 1)) {
+      let file_subset = &mut files[index..(index+plan)];
+      let brotli_subset = &mut brotli_files[index..(index+plan)];
+      concat(file_subset, brotli_subset, window_override, *bs);
+    }
+  }
 }
 
 #[cfg(debug_assertions)]
@@ -97,7 +185,7 @@ fn test_concat() {
         ];
         let mut first = true;
         for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
-            if first {
+            if first && false {
                 option.appendable = true;
             } else {
                 option.appendable = false;
@@ -105,7 +193,7 @@ fn test_concat() {
             }
             super::compress(src, dst, 4096, option).unwrap();
         }
-        concat(&mut files[..], &mut ufiles[..], None);
+        concat_many_subsets(&mut files[..], &mut ufiles[..], None);
     }
     let mut ufiles = [
       UnlimitedBuffer::new(&[]),
@@ -124,6 +212,6 @@ fn test_concat() {
           options[index % options.len()].appendable = false;
           super::compress(src, dst, 4096, &options[index % options.len()]).unwrap();
     }
-    concat(&mut files[..], &mut ufiles[..], None);
-    concat(&mut files[..], &mut ufiles[..], Some(28));
+    concat_many_subsets(&mut files[..], &mut ufiles[..], None);
+    concat_many_subsets(&mut files[..], &mut ufiles[..], Some(28));
 }
