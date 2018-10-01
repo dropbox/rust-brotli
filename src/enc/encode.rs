@@ -618,12 +618,28 @@ fn brotli_max_int(a: i32, b: i32) -> i32 {
   if a > b { a } else { b }
 }
 
+#[cfg(not(feature="disallow_large_window_size"))]
+fn check_large_window_ok() -> bool {
+  true
+}
+#[cfg(feature="disallow_large_window_size")]
+fn check_large_window_ok() -> bool {
+  false
+}
+
+
 fn SanitizeParams(params: &mut BrotliEncoderParams) {
   (*params).quality = brotli_min_int(11i32, brotli_max_int(0i32, (*params).quality));
   if (*params).lgwin < 10i32 {
     (*params).lgwin = 10i32;
   } else if (*params).lgwin > 24i32 {
-    (*params).lgwin = 24i32;
+    if params.large_window && check_large_window_ok() {
+      if (*params).lgwin > 30i32 {
+        (*params).lgwin = 30i32;
+      }
+    } else {
+      (*params).lgwin = 24i32;
+    }
   }
 }
 
