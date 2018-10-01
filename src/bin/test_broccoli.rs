@@ -185,13 +185,14 @@ fn test_concat() {
         ];
         let mut first = true;
         for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
-            if first && false {
+            if first {
                 option.appendable = true;
             } else {
                 option.appendable = false;
                 option.catable = true;
             }
             super::compress(src, dst, 4096, option).unwrap();
+            first = false;
         }
         concat_many_subsets(&mut files[..], &mut ufiles[..], None);
     }
