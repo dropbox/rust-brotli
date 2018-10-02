@@ -25,6 +25,11 @@ impl NewStreamData {
     }
 }
 
+#[no_mangle]
+fn report_concat_fail() -> BrotliResult {
+    BrotliResult::ResultFailure
+}
+
 fn parse_window_size(bytes_so_far:&[u8]) -> Result<(u8, usize), ()> {  // returns window_size and offset in stream in bits
   if bytes_so_far[0] & 1 == 0 {
     return Ok((16, 1));
@@ -186,10 +191,10 @@ impl BroCatli {
         }
       }
       if index < 2 { // if the bit is too low, return failure, since both bits could not possibly have been set
-        return BrotliResult::ResultFailure
+        return report_concat_fail();
       }
       if (last_bytes >> (index - 1)) != 3 { // last two bits need to be set for the final metablock
-        return BrotliResult::ResultFailure
+        return report_concat_fail();
       }
       index -= 2; // discard the final two bits
       last_bytes &= (1 << (index + 1)) - 1; // mask them out
@@ -215,7 +220,7 @@ impl BroCatli {
       ) {
         results
       } else {
-        return BrotliResult::ResultFailure;
+        return report_concat_fail();
       };
       if self.window_size == 0 { // parse window size and just copy everything
         self.window_size = window_size;
@@ -225,7 +230,7 @@ impl BroCatli {
         *out_offset += 1;
       } else {
         if window_size > self.window_size {
-          return BrotliResult::ResultFailure;
+          return report_concat_fail();
         }
         let mut realigned_header:[u8;NUM_STREAM_HEADER_BYTES + 1] = [self.last_bytes[0],
                                                                     0,0,0,0,0,
@@ -235,7 +240,7 @@ impl BroCatli {
         ) {
           voffset
         } else {
-          return BrotliResult::ResultFailure;
+          return report_concat_fail();
         };
         let mut bytes_so_far = 0u64;
         for index in 0..usize::from(new_stream_pending.num_bytes_read) {

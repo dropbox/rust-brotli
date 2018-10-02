@@ -1,6 +1,7 @@
 #![cfg(test)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
+use std::fs::File;
 extern crate core;
 extern crate brotli_decompressor;
 use brotli_decompressor::{CustomRead, CustomWrite};
@@ -38,21 +39,29 @@ fn concat(files:&mut [UnlimitedBuffer],
       None => BroCatli::new(),
     };
     for (index, brotli) in brotli_files.iter_mut().enumerate() {
-      bro_cat_li.new_brotli_file();
-      let mut input = super::IoReaderWrapper(brotli);
-      loop {
-        ioffset = 0;
-        match input.read(&mut ibuffer[..]) {
-          Err(e) => panic!(e),
-          Ok(cur_read) => {
-            if cur_read == 0 {
-              break;
-            }
+        {
+            let dfn = index.to_string();
+            
+            let mut debug_file = File::create("/tmp/".to_owned() + &dfn).unwrap();
+            debug_file.write_all(brotli.data());
+        }
+
+        bro_cat_li.new_brotli_file();
+        {
+            let mut input = super::IoReaderWrapper(brotli);
             loop {
-              match bro_cat_li.stream(&ibuffer[..cur_read], &mut ioffset,
-                                      &mut obuffer[..], &mut ooffset) {
-                BrotliResult::ResultFailure => {
-                  panic!(index);
+                ioffset = 0;
+                match input.read(&mut ibuffer[..]) {
+                    Err(e) => panic!(e),
+                    Ok(cur_read) => {
+                        if cur_read == 0 {
+                            break;
+                        }
+                        loop {
+                            match bro_cat_li.stream(&ibuffer[..cur_read], &mut ioffset,
+                                                    &mut obuffer[..], &mut ooffset) {
+                                BrotliResult::ResultFailure => {
+                                    panic!(index);
                 },
                 BrotliResult::NeedsMoreOutput => {
                   match output.write(&obuffer[..ooffset]) {
@@ -72,6 +81,8 @@ fn concat(files:&mut [UnlimitedBuffer],
           }
         }
       }
+        }
+      brotli.reset_read();
     }
     loop {
       match bro_cat_li.finish(&mut obuffer[..], &mut ooffset) {
@@ -100,7 +111,11 @@ fn concat(files:&mut [UnlimitedBuffer],
       }
     }
   }
-  let mut rt = UnlimitedBuffer::new(&[]);
+    let mut rt = UnlimitedBuffer::new(&[]);
+    {
+        let mut debug_file = File::create("/tmp/concatted".to_owned() + &files.len().to_string()+&".br".to_owned()).unwrap();
+        debug_file.write_all(uboutput.data());
+    }
   match super::decompress(&mut uboutput, &mut rt, 65536) {
     Ok(_) => {},
     Err(e) => panic!("Error {:?}", e),
@@ -177,15 +192,15 @@ fn test_append_then_cat_works() {
   concat(&mut files[..], &mut ufiles[..], None, 2);
 }
 
-//#[test]
+#[test]
 fn test_concat() {
     let mut files = [
       /*  UnlimitedBuffer::new(ALICE),
-      UnlimitedBuffer::new(RANDOM_THEN_UNICODE),
+      UnlimitedBuffer::new(RANDOM_THEN_UNICODE),*/
       
         UnlimitedBuffer::new(UKKONOOA),
-        UnlimitedBuffer::new(ASYOULIKE),*/
-        UnlimitedBuffer::new(BACKWARD65536),
+        //UnlimitedBuffer::new(ASYOULIKE),
+        //UnlimitedBuffer::new(BACKWARD65536),
         UnlimitedBuffer::new(DICTWORD),/*
         UnlimitedBuffer::new(RANDOM10K),
         UnlimitedBuffer::new(RANDOMTHENUNICODE),
@@ -247,12 +262,14 @@ fn test_concat() {
                 option.catable = true;
             }
             super::compress(src, dst, 4096, option).unwrap();
+            src.reset_read();
             first = false;
         }
         concat_many_subsets(&mut files[..], &mut ufiles[..], None);
     }
     let mut ufiles = [
       UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),/*
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
@@ -260,13 +277,14 @@ fn test_concat() {
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),*/
     ];
+    let options_len = options.len();
     for (index, (src, dst)) in files.iter_mut().zip(ufiles.iter_mut()).enumerate() {
-          options[index % options.len()].catable = true;
-          options[index % options.len()].appendable = false;
-          super::compress(src, dst, 4096, &options[index % options.len()]).unwrap();
+      options[index % options_len].catable = true;
+      options[index % options_len].appendable = false;
+      super::compress(src, dst, 4096, &options[index % options_len]).unwrap();
+      src.reset_read();
     }
     concat_many_subsets(&mut files[..], &mut ufiles[..], None);
     concat_many_subsets(&mut files[..], &mut ufiles[..], Some(28));

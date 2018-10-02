@@ -3438,7 +3438,7 @@ pub fn BrotliEncoderCompressStream<Alloc: BrotliAlloc,
      BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING as (i32) && (*available_in != 0usize) {
     return 0i32;
   }
-  if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
+  if ((*s).params.quality == 0i32 || (*s).params.quality == 1i32) && !s.params.catable { // this part of the code does not support concatability
     return BrotliEncoderCompressStreamFast(s,
                                            op,
                                            available_in,
