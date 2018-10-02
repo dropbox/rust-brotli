@@ -2781,7 +2781,10 @@ pub fn BrotliWriteMetadataMetaBlock(params: &BrotliEncoderParams, storage_ix: &m
     BrotliWriteBits(2u8, 3u64, storage_ix, storage); // MNIBBLES = 0 (pattern 1,1)
     BrotliWriteBits(1u8, 0u64, storage_ix, storage); // reserved
     BrotliWriteBits(2u8, 1u64, storage_ix, storage); // num bytes for length of magic number header
-    BrotliWriteBits(8u8, 11u64, storage_ix, storage); // 1 byte of data: writing 12 for the magic number header
+    let log_size_hint_bits = 64 - (params.size_hint as u64).leading_zeros();
+    let size_hint_bytes = (log_size_hint_bits as u64 + 7) >> 3;
+    
+    BrotliWriteBits(8u8, 3 + size_hint_bytes, storage_ix, storage); // 1 byte of data: writing 12 for the magic number header
     JumpToByteBoundary(storage_ix, storage);
     let magic_number = if params.catable {
         [0xe1, 0x97, 0x81]
@@ -2800,7 +2803,7 @@ pub fn BrotliWriteMetadataMetaBlock(params: &BrotliEncoderParams, storage_ix: &m
                         ((params.size_hint >> 48) & 0xff) as u8,
                         ((params.size_hint >> 56) & 0xff) as u8,
     ];
-    for magic in header.iter() {
+    for magic in header[..4 + size_hint_bytes as usize].iter() {
         BrotliWriteBits(8u8, u64::from(*magic), storage_ix, storage);
     }
 }
