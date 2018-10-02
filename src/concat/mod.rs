@@ -91,8 +91,8 @@ fn detect_varlen_offset(bytes_so_far:&[u8]) -> Result<(usize), ()> {  // returns
     }
     bytes >>= 1;
     offset += 1;
-    let mskipbytes = bytes & 3;
-    offset += 3;
+    let mskipbytes = bytes & ((1 << 2) - 1);
+    offset += 2;
     offset += usize::from(mskipbytes as usize) * 8; // next item is byte aligned
     return Ok(offset);
   }

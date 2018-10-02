@@ -200,7 +200,7 @@ fn test_concat() {
       
         UnlimitedBuffer::new(UKKONOOA),
         //UnlimitedBuffer::new(ASYOULIKE),
-        //UnlimitedBuffer::new(BACKWARD65536),
+        UnlimitedBuffer::new(BACKWARD65536),
         UnlimitedBuffer::new(DICTWORD),/*
         UnlimitedBuffer::new(RANDOM10K),
         UnlimitedBuffer::new(RANDOMTHENUNICODE),
@@ -246,8 +246,8 @@ fn test_concat() {
         let mut ufiles = [
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
-         /*   UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
+            /*UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
@@ -271,8 +271,8 @@ fn test_concat() {
     }
     let mut ufiles = [
       UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),/*
       UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),/*
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
@@ -292,6 +292,6 @@ fn test_concat() {
       super::compress(src, dst, 4096, &options[core::cmp::min(index, options_len - 1)]).unwrap();
       src.reset_read();
     }
-    //concat_many_subsets(&mut files[..], &mut ufiles[..], None);
-    //concat_many_subsets(&mut files[..], &mut ufiles[..], Some(28));
+    concat_many_subsets(&mut files[..], &mut ufiles[..], None);
+    concat_many_subsets(&mut files[..], &mut ufiles[..], Some(24)); // FIXME: make this 28
 }
