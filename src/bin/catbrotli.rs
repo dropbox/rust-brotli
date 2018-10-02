@@ -5,8 +5,8 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::fs::File;
-use brotli::BrotliResult;
-use brotli::concat::BroCatli;
+
+use brotli::concat::{BroCatli, BroCatliResult};
 fn usage() {
     writeln!(&mut ::std::io::stderr(), "Usage: [-w<window_size>] filename0 filename1 filename2...").unwrap();
 }
@@ -97,22 +97,22 @@ fn main() {
                     loop {
                         match bro_cat_li.stream(&ibuffer[..cur_read], &mut ioffset,
                                                 &mut obuffer[..], &mut ooffset) {
-                            BrotliResult::ResultFailure => {
-                                panic!("Failed to concatenate files on ".to_string() + &filename);
-                            },
-                            BrotliResult::NeedsMoreOutput => {
+                            BroCatliResult::NeedsMoreOutput => {
                                 match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
                                     Err(why) => panic!("couldn't write: {:}", why),
                                     Ok(count) => {assert_eq!(count, ooffset);},
                                 }
                                 ooffset = 0;
                             },
-                            BrotliResult::NeedsMoreInput => {
+                            BroCatliResult::NeedsMoreInput => {
                                 break;
                             },
-                            BrotliResult::ResultSuccess => {
+                            BroCatliResult::Success => {
                                 panic!("Unexpected state: Success when streaming before finish");
                             }
+                            failure => {
+                                panic!("Failed to concatenate files on {:} {:?}", filename, failure);
+                            },
                         }
                         
                     }
@@ -122,17 +122,17 @@ fn main() {
     }
     loop {
         match bro_cat_li.finish(&mut obuffer[..], &mut ooffset) {
-            BrotliResult::NeedsMoreOutput => {
+            BroCatliResult::NeedsMoreOutput => {
                 match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
                     Err(why) => panic!("couldn't write: {:}", why),
                     Ok(count) => {assert_eq!(count, ooffset);},
                 }
                 ooffset = 0;
             },
-            BrotliResult::NeedsMoreInput => {
+            BroCatliResult::NeedsMoreInput => {
                 panic!("Unexpected EOF");
             },
-            BrotliResult::ResultSuccess => {
+            BroCatliResult::Success => {
                 if ooffset != 0 {
                     match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
                         Err(why) => panic!("couldn't write: {:}", why),
@@ -141,8 +141,8 @@ fn main() {
                 }
                 break;
             }
-            BrotliResult::ResultFailure => {
-                panic!("Failed to terminate concatenation")
+            failure => {
+                panic!(failure)
             }
         }
     }

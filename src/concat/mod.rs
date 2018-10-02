@@ -1,5 +1,16 @@
 use core;
-use BrotliResult;
+
+#[repr(u8)]
+#[derive(Debug,Clone,Copy)]
+pub enum BroCatliResult {
+  Success = 0,
+  NeedsMoreInput = 1,
+  NeedsMoreOutput = 2,
+  BrotliFileNotCraftedForAppend = 124,
+  InvalidWindowSize = 125,
+  WindowSizeLargerThanPreviousFile = 126,
+  BrotliFileNotCraftedForConcatenation = 127,
+}
 
 const NUM_STREAM_HEADER_BYTES: usize = 5;
 
@@ -23,12 +34,6 @@ impl NewStreamData {
         }
         self.num_bytes_read == 5
     }
-}
-
-#[allow(private_no_mangle_fns)]
-#[no_mangle]
-fn report_concat_fail() -> BrotliResult {
-    BrotliResult::ResultFailure
 }
 
 fn parse_window_size(bytes_so_far:&[u8]) -> Result<(u8, usize), ()> {  // returns window_size and offset in stream in bits
@@ -175,11 +180,11 @@ impl BroCatli {
   pub fn new_brotli_file(&mut self) {
     self.new_stream_pending = Some(NewStreamData::new());
   }
-  fn flush_previous_stream(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
+  fn flush_previous_stream(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BroCatliResult {
     if !self.last_byte_sanitized { // if the previous stream hasn't had the last metablock (bit 1,1) sanitized
       if self.last_bytes_len == 0 { // first stream or otherwise sanitized
         self.last_byte_sanitized = true;
-        return BrotliResult::ResultSuccess;
+        return BroCatliResult::Success;
       }
       // create a 16 bit integer with the last 2 bytes of data
       let mut last_bytes = self.last_bytes[0] as u16 + ((self.last_bytes[1] as u16) << 8);
@@ -192,10 +197,10 @@ impl BroCatli {
         }
       }
       if index < 2 { // if the bit is too low, return failure, since both bits could not possibly have been set
-        return report_concat_fail();
+        return BroCatliResult::BrotliFileNotCraftedForAppend;
       }
       if (last_bytes >> (index - 1)) != 3 { // last two bits need to be set for the final metablock
-        return report_concat_fail();
+        return BroCatliResult::BrotliFileNotCraftedForAppend;
       }
       index -= 2; // discard the final two bits
       last_bytes &= (1 << (index + 1)) - 1; // mask them out
@@ -212,17 +217,17 @@ impl BroCatli {
       assert!(index < 8);
       self.last_byte_sanitized = true;
     }
-    BrotliResult::ResultSuccess
+    BroCatliResult::Success
   }
 
-  fn shift_and_check_new_stream_header(&mut self, mut new_stream_pending: NewStreamData, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
+  fn shift_and_check_new_stream_header(&mut self, mut new_stream_pending: NewStreamData, out_bytes: &mut [u8], out_offset: &mut usize) -> BroCatliResult {
     if new_stream_pending.num_bytes_written.is_none() {
       let (window_size, window_offset) = if let Ok(results) = parse_window_size(
         &new_stream_pending.bytes_so_far[..usize::from(new_stream_pending.num_bytes_read)],
       ) {
         results
       } else {
-        return report_concat_fail();
+        return BroCatliResult::InvalidWindowSize;
       };
       if self.window_size == 0 { // parse window size and just copy everything
         self.window_size = window_size;
@@ -232,7 +237,7 @@ impl BroCatli {
         *out_offset += 1;
       } else {
         if window_size > self.window_size {
-          return report_concat_fail();
+          return BroCatliResult::WindowSizeLargerThanPreviousFile;
         }
         let mut realigned_header:[u8;NUM_STREAM_HEADER_BYTES + 1] = [self.last_bytes[0],
                                                                     0,0,0,0,0,
@@ -242,7 +247,7 @@ impl BroCatli {
         ) {
           voffset
         } else {
-          return report_concat_fail();
+          return BroCatliResult::BrotliFileNotCraftedForConcatenation;
         };
         let mut bytes_so_far = 0u64;
         for index in 0..usize::from(new_stream_pending.num_bytes_read) {
@@ -280,7 +285,7 @@ impl BroCatli {
     new_stream_pending.num_bytes_written = Some((new_stream_pending.num_bytes_written.unwrap() + to_copy as u8));
     if new_stream_pending.num_bytes_written.unwrap() != new_stream_pending.num_bytes_read {
       self.new_stream_pending = Some(new_stream_pending);
-      return BrotliResult::NeedsMoreOutput;
+      return BroCatliResult::NeedsMoreOutput;
     }
     self.new_stream_pending = None;
     self.last_byte_sanitized = false;
@@ -291,12 +296,12 @@ impl BroCatli {
     *out_offset -= 1;
     self.last_bytes[0] = out_bytes[*out_offset];
     self.last_bytes_len = 1;
-    BrotliResult::ResultSuccess
+    BroCatliResult::Success
   }
-  pub fn stream(&mut self, in_bytes: &[u8], in_offset: &mut usize, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
+  pub fn stream(&mut self, in_bytes: &[u8], in_offset: &mut usize, out_bytes: &mut [u8], out_offset: &mut usize) -> BroCatliResult {
     if let Some(mut new_stream_pending) = self.new_stream_pending.clone() {
       let flush_result = self.flush_previous_stream(out_bytes, out_offset);
-      if let BrotliResult::ResultSuccess = flush_result {
+      if let BroCatliResult::Success = flush_result {
         if usize::from(new_stream_pending.num_bytes_read) < new_stream_pending.bytes_so_far.len() {
           {
             let dst = &mut new_stream_pending.bytes_so_far[usize::from(new_stream_pending.num_bytes_read)..];
@@ -308,13 +313,13 @@ impl BroCatli {
           self.new_stream_pending = Some(new_stream_pending); // write back changes
         }
         if !new_stream_pending.sufficient() {
-          return BrotliResult::NeedsMoreInput;
+          return BroCatliResult::NeedsMoreInput;
         }
         if out_bytes.len() == *out_offset {
-          return BrotliResult::NeedsMoreOutput;
+          return BroCatliResult::NeedsMoreOutput;
         }
         let shift_result = self.shift_and_check_new_stream_header(new_stream_pending, out_bytes, out_offset);
-        if let BrotliResult::ResultSuccess = shift_result {
+        if let BroCatliResult::Success = shift_result {
         } else {
           return shift_result;
         }
@@ -322,26 +327,26 @@ impl BroCatli {
         return flush_result;
       }
       if *out_offset == out_bytes.len() {
-        return BrotliResult::NeedsMoreOutput; // need to be able to write at least one byte of data to make progress
+        return BroCatliResult::NeedsMoreOutput; // need to be able to write at least one byte of data to make progress
       }
     }
     assert!(self.new_stream_pending.is_none());// this should have been handled above
     if self.last_bytes_len != 2 {
       if out_bytes.len() == *out_offset{
-        return BrotliResult::NeedsMoreOutput;
+        return BroCatliResult::NeedsMoreOutput;
       }
       if in_bytes.len() == *in_offset {
-        return BrotliResult::NeedsMoreInput;
+        return BroCatliResult::NeedsMoreInput;
       }
       self.last_bytes[usize::from(self.last_bytes_len)] = in_bytes[*in_offset];
       *in_offset += 1;
       self.last_bytes_len += 1;
       if self.last_bytes_len != 2 {
         if out_bytes.len() == *out_offset{
-          return BrotliResult::NeedsMoreOutput;
+          return BroCatliResult::NeedsMoreOutput;
         }
         if in_bytes.len() == *in_offset {
-          return BrotliResult::NeedsMoreInput;
+          return BroCatliResult::NeedsMoreInput;
         }
         self.last_bytes[usize::from(self.last_bytes_len)] = in_bytes[*in_offset];
         self.last_bytes_len += 1;
@@ -349,10 +354,10 @@ impl BroCatli {
       }
     }
     if out_bytes.len() == *out_offset{
-      return BrotliResult::NeedsMoreOutput;
+      return BroCatliResult::NeedsMoreOutput;
     }
     if in_bytes.len() == *in_offset{
-      return BrotliResult::NeedsMoreInput;
+      return BroCatliResult::NeedsMoreInput;
     }
     let mut to_copy = core::cmp::min(out_bytes.len() - *out_offset,
                                      in_bytes.len() - *in_offset);
@@ -364,9 +369,9 @@ impl BroCatli {
       *in_offset += 1;
       *out_offset += 1;
       if *out_offset == out_bytes.len() {
-        return BrotliResult::NeedsMoreOutput;
+        return BroCatliResult::NeedsMoreOutput;
       }
-      return BrotliResult::NeedsMoreInput;
+      return BroCatliResult::NeedsMoreInput;
     }
     out_bytes.split_at_mut(*out_offset).1.split_at_mut(2).0.clone_from_slice(&self.last_bytes[..]);
     *out_offset += 2;
@@ -379,9 +384,9 @@ impl BroCatli {
     *out_offset += to_copy;
     *in_offset += to_copy;
     if *out_offset == out_bytes.len() {
-      return BrotliResult::NeedsMoreOutput;
+      return BroCatliResult::NeedsMoreOutput;
     }
-    return BrotliResult::NeedsMoreInput;
+    return BroCatliResult::NeedsMoreInput;
   }
   pub fn append_eof_metablock_to_last_bytes(&mut self) {
     assert!(self.last_byte_sanitized);
@@ -397,20 +402,21 @@ impl BroCatli {
       self.last_bytes_len += 1;
     }
   }
-  pub fn finish(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
+  pub fn finish(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BroCatliResult {
        if self.last_byte_sanitized && self.last_bytes_len != 0 {
            self.append_eof_metablock_to_last_bytes();
        }
        while self.last_bytes_len != 0 {
            if *out_offset == out_bytes.len() {
-               return BrotliResult::NeedsMoreOutput;
+
+             return BroCatliResult::NeedsMoreOutput;
            }
            out_bytes[*out_offset] = self.last_bytes[0];
            *out_offset += 1;
            self.last_bytes_len -= 1;
            self.last_bytes[0] = self.last_bytes[1];
        }
-       BrotliResult::ResultSuccess
+       BroCatliResult::Success
    }
 }
 
