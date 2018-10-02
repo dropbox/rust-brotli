@@ -25,6 +25,7 @@ impl NewStreamData {
     }
 }
 
+#[allow(private_no_mangle_fns)]
 #[no_mangle]
 fn report_concat_fail() -> BrotliResult {
     BrotliResult::ResultFailure

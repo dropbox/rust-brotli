@@ -2817,6 +2817,9 @@ fn EncodeData<Alloc: BrotliAlloc,
       (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
         ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
       (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);
+      (*s).next_out_ = NextOut::DynamicStorage(0);
+      catable_header_size = storage_ix >> 3;
+      *out_size = catable_header_size;
   }
   if !s.params.catable {
     s.is_first_mb = false;

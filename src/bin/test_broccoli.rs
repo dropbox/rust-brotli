@@ -205,7 +205,7 @@ fn test_append_then_cat_works() {
 #[test]
 fn test_concat() {
     let mut files = [
-//        UnlimitedBuffer::new(ALICE),      
+        UnlimitedBuffer::new(ALICE),      
         UnlimitedBuffer::new(UKKONOOA),
         UnlimitedBuffer::new(ASYOULIKE),
         UnlimitedBuffer::new(BACKWARD65536),
@@ -240,8 +240,8 @@ fn test_concat() {
     params5.quality = 0;
     params5.lgwin = 10;
     params5.magic_number = true;
-    params0.lgwin = 23;
-    //params0.large_window = true; (FIXME: turn this challenge back on)
+    params0.lgwin = 26;
+    params0.large_window = true;
     
     let mut options = [
         params0,
@@ -251,7 +251,7 @@ fn test_concat() {
         params4,
         params5,
         ];
-    for option in options.iter_mut() {
+    for option in options.iter_mut().skip(3) {
         let mut ufiles = [
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
@@ -276,6 +276,7 @@ fn test_concat() {
             first = false;
         }
         concat_many_subsets(&mut files[..], &mut ufiles[..], None);
+        return;
     }
     let mut ufiles = [
       UnlimitedBuffer::new(&[]),
@@ -300,5 +301,5 @@ fn test_concat() {
       src.reset_read();
     }
     concat_many_subsets(&mut files[..], &mut ufiles[..], None);
-    concat_many_subsets(&mut files[..], &mut ufiles[..], Some(24)); // FIXME: make this 28
+    concat_many_subsets(&mut files[..], &mut ufiles[..], Some(28)); // FIXME: make this 28
 }
