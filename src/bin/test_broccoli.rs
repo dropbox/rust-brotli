@@ -334,14 +334,14 @@ fn test_empty_then_cat_works() {
 fn test_concat() {
     let mut files = [
         UnlimitedBuffer::new(ALICE),      
+        UnlimitedBuffer::new(RANDOMTHENUNICODE),
         UnlimitedBuffer::new(UKKONOOA),
         UnlimitedBuffer::new(ASYOULIKE),
         UnlimitedBuffer::new(BACKWARD65536),
+        UnlimitedBuffer::new(EMPTY),
         UnlimitedBuffer::new(DICTWORD),
         UnlimitedBuffer::new(RANDOM10K),
-        UnlimitedBuffer::new(RANDOMTHENUNICODE),
-        UnlimitedBuffer::new(QUICKFOX),/*
-        UnlimitedBuffer::new(EMPTY),*/
+        UnlimitedBuffer::new(QUICKFOX),
     ];
     let mut params0 = BrotliEncoderParams::default();
     light_debug_test(&mut params0);
@@ -387,9 +387,8 @@ fn test_concat() {
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
-            UnlimitedBuffer::new(&[]),/*
             UnlimitedBuffer::new(&[]),
-            UnlimitedBuffer::new(&[]),*/
+            UnlimitedBuffer::new(&[]),
         ];
         let mut first = true;
         for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
@@ -413,9 +412,8 @@ fn test_concat() {
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),/*
       UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),*/
+      UnlimitedBuffer::new(&[]),
     ];
     let options_len = options.len();
     for (index, (src, dst)) in files.iter_mut().zip(ufiles.iter_mut()).enumerate() {

@@ -1,4 +1,7 @@
 #![cfg_attr(feature="benchmark", feature(test))]
+
+mod test_broccoli;
+
 pub mod integration_tests;
 mod tests;
 mod util;
@@ -21,7 +24,6 @@ use brotli::enc::entropy_encode::HuffmanTree;
 use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use brotli::enc::{s16, v8};
 
-mod test_broccoli;
 
 pub struct Rebox<T> {
   b: Box<[T]>,
