@@ -6,6 +6,7 @@ import hashlib
 import traceback
 
 def get_goal():
+    return 2
     ret = insecure_random.randrange(1,16)
     if ret == 15:
         ret = insecure_random.randrange(15,64)
@@ -101,7 +102,11 @@ def main():
     prefix="/tmp/cat-" + os.urandom(16).encode('hex')
     for root, dirnames, filenames in os.walk(start):
         for filename in filenames:
-            work.append(os.path.join(root,filename))
+            try:
+                if file_size(os.path.join(root,filename)):
+                    work.append(os.path.join(root,filename))
+            except Exception:
+                continue
             if len(work) >= goal:
                 goal = get_goal()
                 process(work, brotli, catbrotli, prefix)

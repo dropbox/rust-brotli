@@ -196,14 +196,14 @@ impl BroCatli {
           break; // find the highest set bit
         }
       }
-      if index < 2 { // if the bit is too low, return failure, since both bits could not possibly have been set
+      if index == 0 { // if the bit is too low, return failure, since both bits could not possibly have been set
         return BroCatliResult::BrotliFileNotCraftedForAppend;
       }
       if (last_bytes >> (index - 1)) != 3 { // last two bits need to be set for the final metablock
         return BroCatliResult::BrotliFileNotCraftedForAppend;
       }
-      index -= 2; // discard the final two bits
-      last_bytes &= (1 << (index + 1)) - 1; // mask them out
+      index -= 1; // discard the final two bits
+      last_bytes &= (1 << index) - 1; // mask them out
       self.last_bytes[0] = last_bytes as u8 & 0xff; // reset the last_bytes pair
       self.last_bytes[1] = (last_bytes >> 8) as u8 & 0xff;
       if index >= 8 { // if both bits and one useful bit were in the second block, then write that
@@ -213,7 +213,7 @@ impl BroCatli {
         index -= 8;
         self.last_bytes_len -= 1;
       }
-      self.last_byte_bit_offset = index + 1;
+      self.last_byte_bit_offset = index;
       assert!(index < 8);
       self.last_byte_sanitized = true;
     }
