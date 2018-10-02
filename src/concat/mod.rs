@@ -206,6 +206,7 @@ impl BroCatli {
         self.last_bytes[0] = self.last_bytes[1];
         *out_offset += 1;
         index -= 8;
+        self.last_bytes_len -= 1;
       }
       self.last_byte_bit_offset = index + 1;
       assert!(index < 8);
@@ -378,7 +379,24 @@ impl BroCatli {
     }
     return BrotliResult::NeedsMoreInput;
   }
-   pub fn finish(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
+  pub fn append_eof_metablock_to_last_bytes(&mut self) {
+    assert!(self.last_byte_sanitized);
+    let mut last_bytes = self.last_bytes[0] as u16 | ((self.last_bytes[1] as u16) << 8);
+    let bit_end = (self.last_bytes_len - 1) * 8 + self.last_byte_bit_offset;
+    last_bytes |= 3 << bit_end;
+    self.last_bytes[0] = last_bytes as u8 & 0xff;
+    self.last_bytes[1] = (last_bytes >> 8) as u8 & 0xff;
+    self.last_byte_sanitized = false;
+    self.last_byte_bit_offset += 2;
+    if self.last_byte_bit_offset >= 8 {
+      self.last_byte_bit_offset -= 8;
+      self.last_bytes_len += 1;
+    }
+  }
+  pub fn finish(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {
+       if self.last_byte_sanitized && self.last_bytes_len != 0 {
+           self.append_eof_metablock_to_last_bytes();
+       }
        while self.last_bytes_len != 0 {
            if *out_offset == out_bytes.len() {
                return BrotliResult::NeedsMoreOutput;

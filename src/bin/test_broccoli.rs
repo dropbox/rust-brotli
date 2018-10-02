@@ -182,6 +182,27 @@ fn test_appendonly_twice_fails() {
 }
 
 #[test]
+fn test_append_then_empty_works() {
+  let mut files = [
+    UnlimitedBuffer::new(UKKONOOA),
+    UnlimitedBuffer::new(&[]),
+  ];
+  let mut ufiles = [
+    UnlimitedBuffer::new(&[]),
+    UnlimitedBuffer::new(&[]),
+  ];
+  let mut first = true;
+  for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
+    let mut params0 = BrotliEncoderParams::default();
+    params0.appendable = first;
+    params0.catable = !first;
+    super::compress(src, dst, 4096, &params0).unwrap();
+    first = false;
+  }
+  concat(&mut files[..], &mut ufiles[..], None, 2);
+}
+
+#[test]
 fn test_append_then_cat_works() {
   let mut files = [
     UnlimitedBuffer::new(UKKONOOA),
