@@ -152,6 +152,16 @@ fn light_debug_test(params: &mut BrotliEncoderParams) {
 fn light_debug_test(params: &mut BrotliEncoderParams) {
 }
 
+#[cfg(debug_assertions)]
+fn medium_debug_test(params: &mut BrotliEncoderParams) {
+    params.quality = 9;
+    params.q9_5 = false;
+}
+
+#[cfg(not(debug_assertions))]
+fn medium_debug_test(params: &mut BrotliEncoderParams) {
+}
+
 #[test]
 #[should_panic]
 fn test_appendonly_twice_fails() {
@@ -195,16 +205,14 @@ fn test_append_then_cat_works() {
 #[test]
 fn test_concat() {
     let mut files = [
-      /*  UnlimitedBuffer::new(ALICE),
-      UnlimitedBuffer::new(RANDOM_THEN_UNICODE),*/
-      
+//        UnlimitedBuffer::new(ALICE),      
         UnlimitedBuffer::new(UKKONOOA),
-        //UnlimitedBuffer::new(ASYOULIKE),
+        UnlimitedBuffer::new(ASYOULIKE),
         UnlimitedBuffer::new(BACKWARD65536),
-        UnlimitedBuffer::new(DICTWORD),/*
+        UnlimitedBuffer::new(DICTWORD),
         UnlimitedBuffer::new(RANDOM10K),
         UnlimitedBuffer::new(RANDOMTHENUNICODE),
-        UnlimitedBuffer::new(QUICKFOX),
+        UnlimitedBuffer::new(QUICKFOX),/*
         UnlimitedBuffer::new(EMPTY),*/
     ];
     let mut params0 = BrotliEncoderParams::default();
@@ -214,15 +222,16 @@ fn test_concat() {
     params1.q9_5 = true;
     params1.lgwin=22;
     params1.magic_number = true;
+    medium_debug_test(&mut params1);
     let mut params2 = params0.clone();
-    params2.quality = 9;
+    params2.quality = if params1.q9_5 || params1.quality > 9 {9} else {8};
     params2.lgwin=19;
     let mut params3 = params0.clone();
-    params3.quality = 9;
+    params3.quality = 8;
     params3.lgwin = 16;
     params3.magic_number = true;
     let mut params4 = params0.clone();
-    params4.quality = 8;
+    params4.quality = 7;
     params4.lgwin = 14;
     let mut params4 = params0.clone();
     params4.quality = 1;
@@ -247,11 +256,10 @@ fn test_concat() {
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
-            /*UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),
-            UnlimitedBuffer::new(&[]),
+            UnlimitedBuffer::new(&[]),/*
             UnlimitedBuffer::new(&[]),
             UnlimitedBuffer::new(&[]),*/
         ];
@@ -272,12 +280,11 @@ fn test_concat() {
     let mut ufiles = [
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
+      UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),/*
-      UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),
-      UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),
       UnlimitedBuffer::new(&[]),*/
     ];
