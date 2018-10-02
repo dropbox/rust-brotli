@@ -6,7 +6,6 @@ import hashlib
 import traceback
 
 def get_goal():
-    return 2
     ret = insecure_random.randrange(1,16)
     if ret == 15:
         ret = insecure_random.randrange(15,64)
