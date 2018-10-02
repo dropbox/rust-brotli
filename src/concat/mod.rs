@@ -287,6 +287,10 @@ impl BroCatli {
     self.last_byte_bit_offset = 0;
     self.last_bytes_len = 0;
     self.last_bytes = [0,0];
+    //now unwrite from the stream, since the last byte may need to be adjusted to be EOF
+    *out_offset -= 1;
+    self.last_bytes[0] = out_bytes[*out_offset];
+    self.last_bytes_len = 1;
     BrotliResult::ResultSuccess
   }
   pub fn stream(&mut self, in_bytes: &[u8], in_offset: &mut usize, out_bytes: &mut [u8], out_offset: &mut usize) -> BrotliResult {

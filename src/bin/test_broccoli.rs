@@ -224,6 +224,113 @@ fn test_append_then_cat_works() {
 }
 
 #[test]
+fn test_one_byte_works() {
+  let mut files = [
+    UnlimitedBuffer::new(UKKONOOA),
+    UnlimitedBuffer::new(&[8]),
+  ];
+  let mut ufiles = [
+    UnlimitedBuffer::new(&[]),
+    UnlimitedBuffer::new(&[]),
+  ];
+  let mut first = true;
+  for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
+    let mut params0 = BrotliEncoderParams::default();
+    params0.appendable = first;
+    params0.catable = !first;
+    super::compress(src, dst, 4096, &params0).unwrap();
+    first = false;
+  }
+  concat(&mut files[..], &mut ufiles[..], None, 2);
+}
+
+#[test]
+fn test_one_byte_before_works() {
+  let mut files = [
+    UnlimitedBuffer::new(&[8]),
+    UnlimitedBuffer::new(UKKONOOA),
+  ];
+  let mut ufiles = [
+    UnlimitedBuffer::new(&[]),
+    UnlimitedBuffer::new(&[]),
+  ];
+  let mut first = true;
+  for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
+    let mut params0 = BrotliEncoderParams::default();
+    params0.appendable = first;
+    params0.catable = !first;
+    super::compress(src, dst, 4096, &params0).unwrap();
+    first = false;
+  }
+  concat(&mut files[..], &mut ufiles[..], None, 2);
+}
+
+#[test]
+fn test_two_byte_works() {
+  let mut files = [
+    UnlimitedBuffer::new(UKKONOOA),
+    UnlimitedBuffer::new(&[8, 9]),
+  ];
+  let mut ufiles = [
+    UnlimitedBuffer::new(&[]),
+    UnlimitedBuffer::new(&[]),
+  ];
+  let mut first = true;
+  for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
+    let mut params0 = BrotliEncoderParams::default();
+    params0.appendable = first;
+    params0.catable = !first;
+    super::compress(src, dst, 4096, &params0).unwrap();
+    first = false;
+  }
+  concat(&mut files[..], &mut ufiles[..], None, 2);
+}
+
+#[test]
+fn test_two_byte_before_works() {
+  let mut files = [
+    UnlimitedBuffer::new(&[8, 9]),
+    UnlimitedBuffer::new(UKKONOOA),
+  ];
+  let mut ufiles = [
+    UnlimitedBuffer::new(&[]),
+    UnlimitedBuffer::new(&[]),
+  ];
+  let mut first = true;
+  for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
+    let mut params0 = BrotliEncoderParams::default();
+    params0.appendable = first;
+    params0.catable = !first;
+    super::compress(src, dst, 4096, &params0).unwrap();
+    first = false;
+  }
+  concat(&mut files[..], &mut ufiles[..], None, 2);
+}
+
+
+
+#[test]
+fn test_empty_then_cat_works() {
+  let mut files = [
+    UnlimitedBuffer::new(&[]),
+    UnlimitedBuffer::new(QUICKFOX),
+  ];
+  let mut ufiles = [
+    UnlimitedBuffer::new(&[]),
+    UnlimitedBuffer::new(&[]),
+  ];
+  let mut first = true;
+  for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
+    let mut params0 = BrotliEncoderParams::default();
+    params0.appendable = first;
+    params0.catable = !first;
+    super::compress(src, dst, 4096, &params0).unwrap();
+    first = false;
+  }
+  concat(&mut files[..], &mut ufiles[..], None, 2);
+}
+
+#[test]
 fn test_concat() {
     let mut files = [
         UnlimitedBuffer::new(ALICE),      
