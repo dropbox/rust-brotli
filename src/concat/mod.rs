@@ -254,7 +254,7 @@ impl BroCatli {
           realigned_header[byte_index] |= ((cur_byte & ((1 << (8 - self.last_byte_bit_offset)) - 1)) << self.last_byte_bit_offset) as u8;
           realigned_header[byte_index + 1] = (cur_byte >> (8 - self.last_byte_bit_offset)) as u8;
         }
-        let whole_byte_destination = var_len_bytes + (self.last_byte_bit_offset != 0) as usize;
+        let whole_byte_destination = ((usize::from(self.last_byte_bit_offset) + varlen_offset - window_offset) + 7) / 8;
         let whole_byte_source = (varlen_offset + 7) / 8;
         let num_whole_bytes_to_copy = usize::from(new_stream_pending.num_bytes_read) - whole_byte_source;
         for aligned_index in 0..num_whole_bytes_to_copy {
