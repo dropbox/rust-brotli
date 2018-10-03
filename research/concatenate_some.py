@@ -44,7 +44,13 @@ def process(work, brotli, cat, prefix):
     print 'processing',work,'at',quality,append
     for index, filename in enumerate(work):
         magic = insecure_random.randrange(0,2) == 0
-        args = [brotli, "-c", quality]
+        buffer_size = insecure_random.randrange(1,18)
+        if buffer_size == 17:
+            buffer_size = 65536
+        elif buffer_size > 3:
+            buffer_size *= 1024
+        bs = "-bs" + str(buffer_size)
+        args = [brotli, "-c", bs, quality]
         if magic:
             args.append("-magic")
         frivolous_procs.append(subprocess.Popen(args + [filename, prefix + quality+"-" + str(index)+".compressed"]))
@@ -58,9 +64,15 @@ def process(work, brotli, cat, prefix):
     for index, proc in enumerate(procs):
         ret = proc.wait()
         if ret:
-            print 'failure at ' + work[index],quality,append
+            print 'failure at ' + work[index],quality,append, bs
         assert not ret
-    args = [cat]
+    buffer_size = insecure_random.randrange(1,18)
+    if buffer_size == 17:
+        buffer_size = 65536
+    elif buffer_size > 3:
+        buffer_size *= 1024
+    bs = "-bs" + str(buffer_size)
+    args = [cat, bs]
     for index, filename in enumerate(work):
         args.append(prefix + quality+"-" + str(index)+".br")
     stdout, _stderr = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()
@@ -73,7 +85,7 @@ def process(work, brotli, cat, prefix):
     assert not ret
     rtsum = shasum([prefix])
     if rtsum != fullsum:
-        print 'failure at ',work,quality,appends
+        print 'failure at ',work,quality,append
     assert rtsum == fullsum
     print 'ok',rtsum.encode('hex')
     for (index,proc) in enumerate(frivolous_procs):
