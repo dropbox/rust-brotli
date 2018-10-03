@@ -2835,7 +2835,7 @@ fn EncodeData<Alloc: BrotliAlloc,
     // nothing to do here, move along
   } else if !s.params.catable {
     s.is_first_mb = IsFirst::BothCatableBytesWritten;
-  } else {
+  } else if bytes != 0 {
     assert!(s.last_processed_pos_ < 2);
     let num_bytes_to_write_uncompressed:usize = core::cmp::min(2, bytes as usize);
     {
