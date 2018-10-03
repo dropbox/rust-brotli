@@ -399,6 +399,7 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
 }
 
 fn main() {
+  let mut buffer_size = 65536;
   let mut do_compress = false;
   let mut params = brotli::enc::BrotliEncoderInitParams();
   params.quality = 11; // default
@@ -528,6 +529,10 @@ fn main() {
           params.lgwin = argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap();
           continue;
       }
+      if argument.starts_with("-bs") && !double_dash {
+          buffer_size = argument.trim_matches('-').trim_matches('b').trim_matches('s').trim_matches('=').parse::<usize>().unwrap();
+          continue;
+      }
       if argument.starts_with("-l") && !double_dash {
           params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
           continue;
@@ -623,12 +628,12 @@ fn main() {
         };
         for i in 0..num_benchmarks {
           if do_compress {
-            match compress(&mut input, &mut output, 65536, &params) {
+            match compress(&mut input, &mut output, buffer_size, &params) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
           } else {
-            match decompress(&mut input, &mut output, 65536) {
+            match decompress(&mut input, &mut output, buffer_size) {
               Ok(_) => {}
               Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
             }
@@ -642,12 +647,12 @@ fn main() {
       } else {
         assert_eq!(num_benchmarks, 1);
         if do_compress {
-          match compress(&mut input, &mut io::stdout(), 65536, &params) {
+          match compress(&mut input, &mut io::stdout(), buffer_size, &params) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
           }
         } else {
-          match decompress(&mut input, &mut io::stdout(), 65536) {
+          match decompress(&mut input, &mut io::stdout(), buffer_size) {
             Ok(_) => {}
             Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
           }
@@ -657,12 +662,12 @@ fn main() {
    } else {
       assert_eq!(num_benchmarks, 1);
       if do_compress {
-        match compress(&mut io::stdin(), &mut io::stdout(), 65536, &params) {
+        match compress(&mut io::stdin(), &mut io::stdout(), buffer_size, &params) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),
         }
       } else {
-        match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
+        match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size) {
           Ok(_) => return,
           Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
         }
@@ -670,7 +675,7 @@ fn main() {
     }
   } else {
     assert_eq!(num_benchmarks, 1);
-    match decompress(&mut io::stdin(), &mut io::stdout(), 65536) {
+    match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size) {
       Ok(_) => return,
       Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
     }

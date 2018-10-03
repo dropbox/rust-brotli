@@ -173,6 +173,14 @@ fn IsNextOutNull(next_out :&NextOut) -> bool {
     }
 }
 
+
+pub enum IsFirst {
+  NothingWritten,
+  HeaderWritten,
+  FirstCatableByteWritten,
+  BothCatableBytesWritten,
+}
+
 pub struct BrotliEncoderStateStruct<Alloc: BrotliAlloc>
 {
   pub params: BrotliEncoderParams,
@@ -212,7 +220,7 @@ pub struct BrotliEncoderStateStruct<Alloc: BrotliAlloc>
   pub stream_state_: BrotliEncoderStreamState,
   pub is_last_block_emitted_: bool,
   pub is_initialized_: bool,
-  pub is_first_mb: bool,
+  pub is_first_mb: IsFirst,
   pub literal_scratch_space: <HistogramLiteral as CostAccessors>::i32vec,
   pub command_scratch_space: <HistogramCommand as CostAccessors>::i32vec,
   pub distance_scratch_space: <HistogramDistance as CostAccessors>::i32vec,
@@ -498,7 +506,7 @@ pub fn BrotliEncoderCreateInstance<Alloc: BrotliAlloc>
     next_out_: NextOut::None,
     available_out_: 0usize,
     total_out_: 0u64,
-    is_first_mb: true,
+    is_first_mb: IsFirst::NothingWritten,
     stream_state_: BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING,
     is_last_block_emitted_: false,
     is_initialized_: false,
@@ -2811,8 +2819,8 @@ fn EncodeData<Alloc: BrotliAlloc,
     (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
   }
   let mut catable_header_size = 0;
-  if s.is_first_mb && s.params.magic_number {
-      // this could be written more than once if this function is called with 0 or 1 byte of data. that's ok
+  if let IsFirst::NothingWritten = s.is_first_mb {
+    if s.params.magic_number {
       BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, (*s).storage_.slice_mut());
       (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
         ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
@@ -2820,10 +2828,15 @@ fn EncodeData<Alloc: BrotliAlloc,
       (*s).next_out_ = NextOut::DynamicStorage(0);
       catable_header_size = storage_ix >> 3;
       *out_size = catable_header_size;
+      s.is_first_mb = IsFirst::HeaderWritten;
+    }
   }
-  if !s.params.catable {
-    s.is_first_mb = false;
-  } else if bytes != 0 && (bytes <= 2 || s.is_first_mb) {
+  if let IsFirst::BothCatableBytesWritten = s.is_first_mb {
+    // nothing to do here, move along
+  } else if !s.params.catable {
+    s.is_first_mb = IsFirst::BothCatableBytesWritten;
+  } else {
+    assert!(s.last_processed_pos_ < 2);
     let num_bytes_to_write_uncompressed:usize = core::cmp::min(2, bytes as usize);
     {
       let data = &mut (*s).ringbuffer_.data_mo.slice_mut ()[((*s).ringbuffer_.buffer_index as (usize))..];
@@ -2853,7 +2866,13 @@ fn EncodeData<Alloc: BrotliAlloc,
     bytes -= num_bytes_to_write_uncompressed as u32;
     (*s).last_processed_pos_ += num_bytes_to_write_uncompressed as u64;
     if num_bytes_to_write_uncompressed >= 2 {
-      s.is_first_mb = false;
+      s.is_first_mb = IsFirst::BothCatableBytesWritten;
+    } else if num_bytes_to_write_uncompressed == 1 {
+      if let IsFirst::FirstCatableByteWritten = s.is_first_mb {
+        s.is_first_mb = IsFirst::BothCatableBytesWritten;
+      } else {
+        s.is_first_mb = IsFirst::FirstCatableByteWritten;
+      }
     }
     catable_header_size = storage_ix >> 3;
     (*s).next_out_ = NextOut::DynamicStorage(0);
