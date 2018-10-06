@@ -8,6 +8,7 @@ use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionH
                                  H9_BUCKET_BITS, H9_BLOCK_SIZE, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 use alloc::Allocator;
+pub use super::parameters::BrotliEncoderParameter;
 use super::combined_alloc::BrotliAlloc;
 use super::interface;
 use super::bit_cost::{BitsEntropy, ShannonEntropy};
@@ -76,36 +77,7 @@ static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
-#[derive(PartialEq, Eq, Copy, Clone)]
-#[repr(i32)]
-pub enum BrotliEncoderParameter {
-  BROTLI_PARAM_MODE = 0,
-  BROTLI_PARAM_QUALITY = 1,
-  BROTLI_PARAM_LGWIN = 2,
-  BROTLI_PARAM_LGBLOCK = 3,
-  BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING = 4,
-    BROTLI_PARAM_SIZE_HINT = 5,
-    BROTLI_PARAM_LARGE_WINDOW = 6,
-  BROTLI_PARAM_Q9_5 = 150,
-  BROTLI_METABLOCK_CALLBACK = 151,
-  BROTLI_PARAM_STRIDE_DETECTION_QUALITY = 152,
-  BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY = 153,
-  BROTLI_PARAM_LITERAL_BYTE_SCORE = 154,
-  BROTLI_PARAM_CDF_ADAPTATION_DETECTION = 155,
-  BROTLI_PARAM_PRIOR_BITMASK_DETECTION = 156,
-  BROTLI_PARAM_SPEED = 157,
-  BROTLI_PARAM_SPEED_MAX = 158,
-  BROTLI_PARAM_CM_SPEED = 159,
-  BROTLI_PARAM_CM_SPEED_MAX = 160,
-  BROTLI_PARAM_SPEED_LOW = 161,
-  BROTLI_PARAM_SPEED_LOW_MAX = 162,
-  BROTLI_PARAM_CM_SPEED_LOW = 164,
-  BROTLI_PARAM_CM_SPEED_LOW_MAX = 165,
-  BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH = 166,
-  BROTLI_PARAM_CATABLE = 167,
-  BROTLI_PARAM_APPENDABLE = 168,
-  BROTLI_PARAM_MAGIC_NUMBER = 169,
-}
+
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
   pub size_: u32,
@@ -3589,7 +3561,7 @@ pub fn BrotliEncoderTakeOutput<'a, Alloc:BrotliAlloc>(s: &'a mut BrotliEncoderSt
 
 
 pub fn BrotliEncoderVersion() -> u32 {
-  0x1000000u32
+  0x1000f00u32
 }
 
 

@@ -49,6 +49,7 @@ pub use enc::input_pair::InputPair;
 pub use enc::interface::SliceOffset;
 pub use enc::interface::thaw;
 pub use enc::interface::thaw_pair;
+pub mod ffi;
 // interface
 // pub fn BrotliDecompressStream(mut available_in: &mut usize,
 //                               input_offset: &mut usize,
@@ -60,7 +61,6 @@ pub use enc::interface::thaw_pair;
 //                               mut s: &mut BrotliState<AllocU8, AllocU32, AllocHC>);
 
 pub use brotli_decompressor::{BrotliDecompressStream, BrotliResult};
-
 #[cfg(not(feature="no-stdlib"))]
 pub use enc::{BrotliCompress, BrotliCompressCustomAlloc};
 pub use enc::{BrotliCompressCustomIo};

@@ -54,6 +54,7 @@ pub type s8 = compat::Compat32x8;
 
 mod test;
 mod weights;
+mod parameters;
 pub use self::util::floatX;
 pub use self::pdf::PDF;
 pub use self::hash_to_binary_tree::ZopfliNode;
