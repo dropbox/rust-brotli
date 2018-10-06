@@ -140,3 +140,33 @@ This interface is the same interface that the C brotli decompressor uses
 
 Also feel free to use custom allocators that invoke Box directly.
 This example illustrates a mechanism to avoid subsequent syscalls after the initial allocation
+
+## Using the C interface
+
+rust-brotli is a drop-in replacement for the official http://github.com/google/brotli/ C
+implementation. That means you can use it from any place that supports that library.
+To build rust-brotli in this manner enter the c subdirectory and run make there
+
+cd c && make
+
+this should build c/target/release/libbrotli.so and should build the vanilla
+command line tool in C for compressing and decompressing any brotli file.
+
+the libbrotli.so in c/target/release should be able to replace any other libbrotli.so
+file, but with all the advantages of using safe rust (except in the FFI bindings)
+
+The code also allows a wider range of options, including forcing the prediction mode
+(eg UTF8 vs signed vs MSB vs LSB) and changing the weight of the literal cost from 540
+ to other values.
+
+Additionally the CATABLE and APPENDABLE options are exposed and allow concatenation of files
+created in this manner.
+
+Specifically CATABLE files can be concatenated in any order using the catbrotli tool
+and APPENDABLE files can be the first file in a sequence of catable files...
+eg you can combine
+appendable.br catable1.br catable2.br catable3.br
+
+or simply
+catable0.br catable1.br catable2.br catable3.br
+

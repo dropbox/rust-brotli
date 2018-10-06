@@ -64,3 +64,37 @@ pub unsafe extern fn BrotliDecoderFreeUsize(state_ptr: *mut ffi::BrotliDecoderSt
 pub unsafe extern fn BrotliDecoderDestroyInstance(state_ptr: *mut ffi::BrotliDecoderState) {
   ffi::BrotliDecoderDestroyInstance(state_ptr)
 }
+
+pub extern fn BrotliDecoderVersion() -> u32 {
+  ffi::BrotliDecoderVersion()
+}
+
+#[no_mangle]
+pub extern fn BrotliDecoderErrorString(c: ffi::BrotliDecoderErrorCode) -> *const u8 {
+  ffi::BrotliDecoderErrorString(c)
+}
+
+#[no_mangle]
+pub unsafe extern fn BrotliDecoderHasMoreOutput(state_ptr: *const ffi::BrotliDecoderState) -> i32 {
+  ffi::BrotliDecoderHasMoreOutput(state_ptr)
+}
+
+#[no_mangle]
+pub unsafe extern fn BrotliDecoderTakeOutput(state_ptr: *mut ffi::BrotliDecoderState, size: *mut usize) -> *const u8 {
+  ffi::BrotliDecoderTakeOutput(state_ptr, size)
+}
+
+
+
+#[no_mangle]
+pub unsafe extern fn BrotliDecoderIsUsed(state_ptr: *const ffi::BrotliDecoderState) -> i32 {
+  ffi::BrotliDecoderIsUsed(state_ptr)
+}
+#[no_mangle]
+pub unsafe extern fn BrotliDecoderIsFinished(state_ptr: *const ffi::BrotliDecoderState) -> i32 {
+  ffi::BrotliDecoderIsFinished(state_ptr)
+}
+#[no_mangle]
+pub unsafe extern fn BrotliDecoderGetErrorCode(state_ptr: *const ffi::BrotliDecoderState) -> ffi::BrotliDecoderErrorCode {
+  ffi::BrotliDecoderGetErrorCode(state_ptr)
+}
