@@ -1,0 +1,34 @@
+[package]
+name = "brotli"
+version = "2.5.1"
+authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
+description = "A brotli compressor and decompressor that with an interface avoiding the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. The default build also includes a stdlib allocator and stream interface. Disable this with --features=no-stdlib. All included code is safe."
+license = "BSD-3-Clause/MIT"
+documentation = "https://github.com/dropbox/rust-brotli/blob/master/README.md"
+homepage = "https://github.com/dropbox/rust-brotli"
+repository = "https://github.com/dropbox/rust-brotli"
+keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
+readme = "README.md"
+autobins = false
+
+[lib]
+path="../src/lib.rs"
+crate-type=["cdylib", "rlib"]
+
+[profile.release]
+lto=true
+
+[dependencies]
+"alloc-no-stdlib" = "~1.3"
+"brotli-decompressor" = {version="~1.4", path="../../rust-decompressor"}
+
+"packed_simd" = {version="0.3", optional=true}
+
+[features]
+seccomp = ["brotli-decompressor/seccomp"]
+no-stdlib = ["alloc-no-stdlib/no-stdlib", "brotli-decompressor/no-stdlib"]
+external-literal-probability = []
+disable-timer = ["brotli-decompressor/disable-timer"]
+benchmark = ["brotli-decompressor/benchmark"]
+vector_scratch_space = []
+simd = ["packed_simd/into_bits"]
