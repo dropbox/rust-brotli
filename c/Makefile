@@ -1,7 +1,7 @@
 
-decompressor: decompressor_d decompressor.c target/release/libbrotli.so
+decompressor: decompressor_d decompressor.c target/release/libbrotli.so catbrotli
 	gcc -O3 -o decompressor -g decompressor.c -I. -Ltarget/release -lbrotli -Wl,-rpath=target/release
-decompressor_d: decompressor.c target/debug/libbrotli.so brotli_tool
+decompressor_d: decompressor.c target/debug/libbrotli.so brotli_tool catbrotli_d
 	cargo build && gcc -o decompressor_d -g decompressor.c -I. -Ltarget/debug -lbrotli -Wl,-rpath=target/debug
 
 brotli_tool: brotli_tool_d decompressor.c target/release/libbrotli.so 
@@ -10,9 +10,17 @@ brotli_tool_d: decompressor.c target/debug/libbrotli.so
 	cargo build && gcc -o brotli_tool_d -g brotli.c -I. -Ltarget/debug -lbrotli -Wl,-rpath=target/debug
 
 
+catbrotli: catbrotli_d decompressor.c catbrotli.c target/release/libbrotli.so 
+	gcc -O3 -o catbrotli -g catbrotli.c -I. -Ltarget/release -lbrotli -Wl,-rpath=target/release
+catbrotli_d: catbrotli.c decompressor.c target/debug/libbrotli.so 
+	cargo build && gcc -o catbrotli_d -g catbrotli.c -I. -Ltarget/debug -lbrotli -Wl,-rpath=target/debug
+
+
+
+
 target/release/libbrotli.so:
 	cargo build --release
 target/debug/libbrotli.so:
 	cargo build
 clean:
-	cargo clean && rm -f decompressor decompressor_d brotli_tool brotli_tool_d
+	cargo clean && rm -f catbrotli catbrotli_d decompressor decompressor_d brotli_tool brotli_tool_d

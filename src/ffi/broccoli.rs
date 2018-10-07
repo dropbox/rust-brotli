@@ -77,7 +77,7 @@ pub unsafe extern fn BroccoliConcatStream(
 }
 
 #[no_mangle]
-pub unsafe extern fn BroccoliFinish(
+pub unsafe extern fn BroccoliConcatFinish(
   state: *mut BroccoliState,
   available_out: *mut usize,
   output_buf_ptr: *mut*mut u8) -> BroCatliResult {
