@@ -20,7 +20,7 @@ lto=true
 
 [dependencies]
 "alloc-no-stdlib" = "~1.3"
-"brotli-decompressor" = {version="~1.4", path="../../rust-decompressor"}
+"brotli-decompressor" = "~1.4"
 
 "packed_simd" = {version="0.3", optional=true}
 
