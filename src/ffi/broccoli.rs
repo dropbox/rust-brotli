@@ -8,13 +8,25 @@ pub use concat::BroCatliResult;
 pub type BroccoliResult = BroCatliResult;
 // a tool to concatenate brotli files together
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 #[no_mangle]
 pub struct BroccoliState {
     more_data: *mut c_void,
-    current_data: [u8;248],
+    current_data: [u8;120],
 }
+
+impl Clone for BroccoliState {
+  fn clone(&self) -> BroccoliState {
+    let mut cd = [0u8; 120];
+    cd.clone_from_slice(&self.current_data[..]);
+    BroccoliState{
+      more_data:self.more_data,
+      current_data:cd,
+    }
+  }
+}
+
+impl Copy for BroccoliState{}
 
 impl Default for BroccoliState {
     fn default() -> BroccoliState {
@@ -23,7 +35,7 @@ impl Default for BroccoliState {
 }
 impl From<BroCatli> for BroccoliState {
     fn from(data: BroCatli) -> BroccoliState {
-        let mut buffer = [0u8; 248];
+        let mut buffer = [0u8; 120];
         data.serialize_to_buffer(&mut buffer[..]).unwrap();
         BroccoliState{
             more_data: core::ptr::null_mut(),
