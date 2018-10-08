@@ -211,10 +211,10 @@ pub fn BrotliCompressCustomIoCustomDict<ErrType,
   assert!(input_buffer.len() != 0);
   assert!(output_buffer.len() != 0);
   let mut s_orig = BrotliEncoderCreateInstance(alloc);
+  s_orig.params = params.clone();
   if dict.len() != 0 {
     BrotliEncoderSetCustomDictionary(&mut s_orig, dict.len(), dict);
   }
-  s_orig.params = params.clone();
   let mut next_in_offset: usize = 0;  
   let mut next_out_offset: usize = 0;
   let mut total_out = Some(0usize);
