@@ -29,6 +29,14 @@ pub struct Rebox<T> {
   b: Box<[T]>,
 }
 
+impl<T> From<Vec<T>> for Rebox<T> {
+  fn from(data: Vec<T>) -> Self {
+    Rebox::<T> {
+      b:data.into_boxed_slice(),
+    }
+  }
+}
+
 impl<T> core::default::Default for Rebox<T> {
   fn default() -> Self {
     let v: Vec<T> = Vec::new();
@@ -187,7 +195,8 @@ impl<InputType: Read> brotli::CustomRead<io::Error> for IntoIoReader<InputType> 
 #[cfg(not(feature="seccomp"))]
 pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                          w: &mut OutputType,
-                                         buffer_size: usize)
+                                         buffer_size: usize,
+                                         custom_dictionary:Rebox<u8>)
                                          -> Result<(), io::Error>
   where InputType: Read,
         OutputType: Write
@@ -195,16 +204,18 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
   let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
   let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
   let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
-  brotli::BrotliDecompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
-                                   &mut IoWriterWrapper::<OutputType>(w),
-                                   input_buffer.slice_mut(),
-                                   output_buffer.slice_mut(),
-                                   alloc_u8,
-                                   HeapAllocator::<u32> { default_value: 0 },
-                                   HeapAllocator::<HuffmanCode> {
-                                     default_value: HuffmanCode::default(),
-                                   },
-                                   Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
+  brotli::BrotliDecompressCustomIoCustomDict(
+    &mut IoReaderWrapper::<InputType>(r),
+    &mut IoWriterWrapper::<OutputType>(w),
+    input_buffer.slice_mut(),
+    output_buffer.slice_mut(),
+    alloc_u8,
+    HeapAllocator::<u32> { default_value: 0 },
+    HeapAllocator::<HuffmanCode> {
+      default_value: HuffmanCode::default(),
+    },
+    custom_dictionary,
+    Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 #[cfg(feature="seccomp")]
 extern "C" {
@@ -224,12 +235,18 @@ declare_stack_allocator_struct!(CallocAllocatedFreelist, 8192, calloc);
 #[cfg(feature="seccomp")]
 pub fn decompress<InputType, OutputType>(r: &mut InputType,
                                          mut w: &mut OutputType,
-                                         buffer_size: usize)
+                                         buffer_size: usize,
+                                         mut custom_dictionary:Rebox<u8>)
                                          -> Result<(), io::Error>
   where InputType: Read,
         OutputType: Write
 {
+  if custom_dictionary.len() {
+    return Err(io::Error::new(ErrorKind::InvalidData,
+                              "Not allowed to have a custom_dictionary with SECCOMP"))
 
+  }
+  core::mem::drop(custom_dictionary);
   let mut u8_buffer =
     unsafe { define_allocator_memory_pool!(4, u8, [0; 1024 * 1024 * 200], calloc) };
   let mut u32_buffer = unsafe { define_allocator_memory_pool!(4, u32, [0; 16384], calloc) };
@@ -261,7 +278,8 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
 pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        w: &mut OutputType,
                                        buffer_size: usize,
-                                       params:&brotli::enc::BrotliEncoderParams) -> Result<usize, io::Error>
+                                       params:&brotli::enc::BrotliEncoderParams,
+                                       custom_dictionary: &[u8]) -> Result<usize, io::Error>
     where InputType: Read,
           OutputType: Write {
     let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
@@ -303,7 +321,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     if params.log_meta_block {
         println_stderr!("window {} 0 0 0", params.lgwin);
     }
-    brotli::BrotliCompressCustomIo(&mut IoReaderWrapper::<InputType>(r),
+    brotli::BrotliCompressCustomIoCustomDict(&mut IoReaderWrapper::<InputType>(r),
                                    &mut IoWriterWrapper::<OutputType>(w),
                                    &mut input_buffer.slice_mut(),
                                    &mut output_buffer.slice_mut(),
@@ -342,7 +360,8 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                            default_value:ZopfliNode::default(),
                                        },
                                    ),
-                                   &mut log,
+                                                   &mut log,
+                                                   custom_dictionary,
                                    Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 
@@ -398,10 +417,22 @@ fn writeln_time<OutputType: Write>(strm: &mut OutputType,
   writeln!(strm, "{:} {:} {:}.{:09}", v0, data, v1, v2)
 }
 
+
+fn read_custom_dictionary(filename :&str) -> Vec<u8> {
+  let mut dict = match File::open(&Path::new(&filename)) {
+    Err(why) => panic!("couldn't open custom dictionary {:}\n{:}", filename, why),
+    Ok(file) => file,
+  };
+  let mut ret = Vec::<u8>::new();
+  dict.read_to_end(&mut ret).unwrap();
+  ret
+}
+
 fn main() {
   let mut buffer_size = 65536;
   let mut do_compress = false;
   let mut params = brotli::enc::BrotliEncoderInitParams();
+  let mut custom_dictionary = Vec::<u8>::new();
   params.quality = 11; // default
   let mut filenames = [std::string::String::new(), std::string::String::new()];
   let mut num_benchmarks = 1;
@@ -419,6 +450,7 @@ fn main() {
       }
       if (argument == "-catable" || argument == "--catable") && !double_dash {
           params.catable = true;
+          params.appendable = true;
           continue;
       }
       if (argument == "-appendable" || argument == "--appendable") && !double_dash {
@@ -427,6 +459,12 @@ fn main() {
       }
       if (argument.starts_with("-magic") || argument.starts_with("--magic")) && !double_dash {
           params.magic_number = true;
+          continue;
+      }
+      if argument.starts_with("-customdictionary=") && !double_dash {
+          for item in argument.splitn(2, |c| c== '=').skip(1) {
+            custom_dictionary = read_custom_dictionary(item);
+          }
           continue;
       }
       if argument == "--dump-dictionary" && !double_dash {
@@ -628,12 +666,16 @@ fn main() {
         };
         for i in 0..num_benchmarks {
           if do_compress {
-            match compress(&mut input, &mut output, buffer_size, &params) {
+            match compress(&mut input, &mut output, buffer_size, &params, &custom_dictionary[..]) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
           } else {
-            match decompress(&mut input, &mut output, buffer_size) {
+            let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+            if num_benchmarks > 0 {
+              custom_dictionary = dict.clone();
+            }
+            match decompress(&mut input, &mut output, buffer_size, dict.into()) {
               Ok(_) => {}
               Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
             }
@@ -647,12 +689,12 @@ fn main() {
       } else {
         assert_eq!(num_benchmarks, 1);
         if do_compress {
-          match compress(&mut input, &mut io::stdout(), buffer_size, &params) {
+          match compress(&mut input, &mut io::stdout(), buffer_size, &params, &custom_dictionary[..]) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
           }
         } else {
-          match decompress(&mut input, &mut io::stdout(), buffer_size) {
+          match decompress(&mut input, &mut io::stdout(), buffer_size, custom_dictionary.into()) {
             Ok(_) => {}
             Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
           }
@@ -662,12 +704,12 @@ fn main() {
    } else {
       assert_eq!(num_benchmarks, 1);
       if do_compress {
-        match compress(&mut io::stdin(), &mut io::stdout(), buffer_size, &params) {
+        match compress(&mut io::stdin(), &mut io::stdout(), buffer_size, &params, &custom_dictionary[..]) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),
         }
       } else {
-        match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size) {
+        match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
           Ok(_) => return,
           Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
         }
@@ -675,7 +717,7 @@ fn main() {
     }
   } else {
     assert_eq!(num_benchmarks, 1);
-    match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size) {
+    match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
       Ok(_) => return,
       Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
     }

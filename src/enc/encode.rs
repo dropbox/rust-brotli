@@ -197,6 +197,7 @@ pub struct BrotliEncoderStateStruct<Alloc: BrotliAlloc>
   pub command_scratch_space: <HistogramCommand as CostAccessors>::i32vec,
   pub distance_scratch_space: <HistogramDistance as CostAccessors>::i32vec,
   pub recoder_state: RecoderState,
+  custom_dictionary: bool,
 }
 
 
@@ -500,6 +501,7 @@ pub fn BrotliEncoderCreateInstance<Alloc: BrotliAlloc>
     command_scratch_space: HistogramCommand::make_nnz_storage(),
     distance_scratch_space: HistogramDistance::make_nnz_storage(),
     recoder_state: RecoderState::new(),
+    custom_dictionary: false,
   }
 }
 
@@ -1444,9 +1446,12 @@ pub fn BrotliEncoderSetCustomDictionary<Alloc: BrotliAlloc>
   if EnsureInitialized(s) == 0 {
     return;
   }
-  if dict_size == 0usize || (*s).params.quality == 0i32 || (*s).params.quality == 1i32 || s.params.catable {
+  if dict_size == 0usize || (*s).params.quality == 0i32 || (*s).params.quality == 1i32 || size <= 1 {
+    (*s).params.catable = true; // don't risk a too-short dictionary
+    (*s).params.appendable = true; // don't risk a too-short dictionary
     return;
   }
+  s.custom_dictionary = true;
   if size > max_dict_size {
     dict = &dict[(size.wrapping_sub(max_dict_size) as (usize))..];
     dict_size = max_dict_size;
@@ -2807,7 +2812,7 @@ fn EncodeData<Alloc: BrotliAlloc,
     // nothing to do here, move along
   } else if !s.params.catable {
     s.is_first_mb = IsFirst::BothCatableBytesWritten;
-  } else if bytes != 0 {
+  } else if bytes != 0 && !s.custom_dictionary {
     assert!(s.last_processed_pos_ < 2);
     let num_bytes_to_write_uncompressed:usize = core::cmp::min(2, bytes as usize);
     {

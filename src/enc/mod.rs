@@ -62,6 +62,7 @@ pub use self::backward_references::BrotliEncoderParams;
 pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                    BrotliEncoderOperation,
+                   BrotliEncoderSetCustomDictionary,
                    BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use self::cluster::{HistogramPair};
 pub use self::interface::StaticCommand;
@@ -185,9 +186,34 @@ pub fn BrotliCompressCustomIo<ErrType,
   where InputType: CustomRead<ErrType>,
         OutputType: CustomWrite<ErrType>
 {
+  BrotliCompressCustomIoCustomDict(r,w,input_buffer,output_buffer, params, alloc, metablock_callback, &[], unexpected_eof_error_constant)
+}
+pub fn BrotliCompressCustomIoCustomDict<ErrType,
+                              InputType,
+                              OutputType,
+                              Alloc: BrotliAlloc,
+                              MetablockCallback: FnMut(&mut interface::PredictionModeContextMap<InputReferenceMut>,
+                                                       &mut [interface::StaticCommand],
+                                                       interface::InputPair, &mut Alloc)>
+  (r: &mut InputType,
+   w: &mut OutputType,
+   input_buffer: &mut [u8],
+   output_buffer: &mut [u8],
+   params: &BrotliEncoderParams,
+   alloc: Alloc,
+   metablock_callback: &mut MetablockCallback,
+   dict: &[u8],
+   unexpected_eof_error_constant: ErrType)
+   -> Result<usize, ErrType>
+  where InputType: CustomRead<ErrType>,
+        OutputType: CustomWrite<ErrType>
+{
   assert!(input_buffer.len() != 0);
   assert!(output_buffer.len() != 0);
   let mut s_orig = BrotliEncoderCreateInstance(alloc);
+  if dict.len() != 0 {
+    BrotliEncoderSetCustomDictionary(&mut s_orig, dict.len(), dict);
+  }
   s_orig.params = params.clone();
   let mut next_in_offset: usize = 0;  
   let mut next_out_offset: usize = 0;

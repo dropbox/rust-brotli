@@ -63,7 +63,7 @@ pub mod ffi;
 pub use brotli_decompressor::{BrotliDecompressStream, BrotliResult};
 #[cfg(not(feature="no-stdlib"))]
 pub use enc::{BrotliCompress, BrotliCompressCustomAlloc};
-pub use enc::{BrotliCompressCustomIo};
+pub use enc::{BrotliCompressCustomIo, BrotliCompressCustomIoCustomDict};
 
 #[cfg(not(feature="no-stdlib"))]
 pub use enc::reader::{CompressorReader};
@@ -84,7 +84,7 @@ pub use brotli_decompressor::BrotliDecompress;
 pub use brotli_decompressor::BrotliDecompressCustomAlloc;
 
 pub use brotli_decompressor::BrotliDecompressCustomIo;
-
+pub use brotli_decompressor::BrotliDecompressCustomIoCustomDict;
 
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::copy_from_to;
