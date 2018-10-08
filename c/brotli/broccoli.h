@@ -16,22 +16,22 @@ enum BroccoliResult {
 };
 
 
-BroccoliState BroccoliCreateInstance();
+struct BroccoliState BroccoliCreateInstance();
 
-BroccoliState BroccoliCreateInstanceWithWindowSize(unsigned char window_size);
+struct BroccoliState BroccoliCreateInstanceWithWindowSize(unsigned char window_size);
 
-void BroccoliDestroyInstance(BroccoliState state);
+void BroccoliDestroyInstance(struct BroccoliState state);
 
-void BroccoliNewBrotliFile(BroccoliState *state);
+void BroccoliNewBrotliFile(struct BroccoliState *state);
 
-BroccoliResult BroccoliConcatStream(
-    BroccoliState *state,
+enum BroccoliResult BroccoliConcatStream(
+    struct BroccoliState *state,
     size_t *available_in,
     const unsigned char **input_buf_ptr,
     size_t *available_out,
     unsigned char **output_buf_ptr);
 
-BroccoliResult BroccoliFinish(BroccoliState * state,
+enum BroccoliResult BroccoliConcatFinish(struct BroccoliState * state,
                               size_t *available_out,
                               unsigned char**output_buf);
 #endif

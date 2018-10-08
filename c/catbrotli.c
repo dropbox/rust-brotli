@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 #include "brotli/broccoli.h"
 
 void usage() {
@@ -7,27 +10,27 @@ void usage() {
 }
 
 
-fn main(int argc, char**argv) {
+int main(int argc, char**argv) {
     unsigned char window_size = 0;
     unsigned char has_window_size = 0;
     unsigned char double_dash = 0;
     size_t buffer_size = 4096;
     if (argc == 1) {
         usage();
-        return;
+        return 1;
     }
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-help") == 0 && !double_dash) {
             usage();
-            return;
+            return 1;
         }
         if (strcmp(argv[i], "--help") == 0 && !double_dash) {
             usage();
-            return;
+            return 1;
         }
         if (strcmp(argv[i], "-h") == 0 && !double_dash) {
             usage();
-            return;
+            return 1;
         }
         if (strncmp(argv[i], "-w", 2) == 0 && !double_dash) {
             has_window_size = 1;
@@ -48,7 +51,7 @@ fn main(int argc, char**argv) {
             --argc;
             continue;
         }
-        if (strcmp(argument, "--") == 0) {
+        if (strcmp(argv[i], "--") == 0) {
             double_dash = 1;
             for (int j = i; j + 1 < argc; ++j) {
                 argv[j] = argv[j+1];
@@ -63,7 +66,7 @@ fn main(int argc, char**argv) {
     unsigned char * obuffer = (unsigned char*)malloc(buffer_size);
     unsigned char* obuffer_ptr = obuffer;
     size_t avail_out = buffer_size;
-    BroccoliState state;
+    struct BroccoliState state;
     if (has_window_size) {
         state = BroccoliCreateInstanceWithWindowSize(window_size);
     } else {
@@ -75,22 +78,22 @@ fn main(int argc, char**argv) {
         if (!input_file) {
             fprintf(stderr, "Could not open %s\n", argv[i]);
             usage();
-            return;
+            return 1;
         }
         while(1) {
             size_t cur_read = fread(ibuffer, 1, buffer_size, input_file);
-            unsigned char *ibuffer_ptr = ibuffer;
+            const unsigned char *ibuffer_ptr = ibuffer;
             size_t avail_in = cur_read;
-            ioffset = 0;
             if (cur_read == 0) {
                 break;
             }
             while(1) {
-                BroccoliResult res = BroccoliConcatStream(
-                    &ibuffer_ptr,
+                enum BroccoliResult res = BroccoliConcatStream(
+                    &state,
                     &avail_in,
-                    &obuffer_ptr,
-                    &avail_out);
+                    &ibuffer_ptr,
+                    &avail_out,
+                    &obuffer_ptr);
                 if (res == BroccoliSuccess) {
                     abort();
                 }
@@ -108,16 +111,17 @@ fn main(int argc, char**argv) {
         }
     }
     while(1) {
-        BroccoliResult res = BroccoliConcatFinish(
-                    &obuffer_ptr,
-                    &avail_out);
+        enum BroccoliResult res = BroccoliConcatFinish(
+            &state,
+            &avail_out,
+            &obuffer_ptr);
         if (res == BroccoliNeedsMoreOutput) {
             fwrite(obuffer, 1, (obuffer_ptr - obuffer), stdout);
             obuffer_ptr = obuffer;
             avail_out = buffer_size;
             continue;
         }
-        if (res == BroccoliNeedsMoreIntput) {
+        if (res == BroccoliNeedsMoreInput) {
             abort();
         }
         if (res == BroccoliSuccess) {
@@ -126,4 +130,5 @@ fn main(int argc, char**argv) {
         }
         abort(); //failure
     }
+    return 0;
 }

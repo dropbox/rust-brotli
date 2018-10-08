@@ -49,6 +49,7 @@ pub extern fn BroccoliCreateInstanceWithWindowSize(window_size: u8) -> BroccoliS
 pub extern fn BroccoliDestroyInstance(_state: BroccoliState) {
 }
 
+#[no_mangle]
 pub unsafe extern fn BroccoliNewBrotliFile(state: *mut BroccoliState) {
     let mut bro_catli: BroCatli = (*state).into();
     bro_catli.new_brotli_file();
