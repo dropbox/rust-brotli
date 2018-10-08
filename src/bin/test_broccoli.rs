@@ -17,7 +17,7 @@ static RANDOM10K: &'static [u8] = include_bytes!("../../testdata/random_org_10k.
 static RANDOMTHENUNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
 static QUICKFOX: &'static [u8] = include_bytes!("../../testdata/quickfox_repeated");
 static EMPTY: &'static [u8] = &[];
-
+use super::Rebox;
 fn concat(files:&mut [UnlimitedBuffer],
           brotli_files:&mut [UnlimitedBuffer],
           window_override:Option<u8>,
@@ -100,7 +100,7 @@ fn concat(files:&mut [UnlimitedBuffer],
     }
   }
   let mut rt = UnlimitedBuffer::new(&[]);
-  match super::decompress(&mut uboutput, &mut rt, 65536) {
+  match super::decompress(&mut uboutput, &mut rt, 65536, Rebox::default()) {
     Ok(_) => {},
     Err(e) => panic!("Error {:?}", e),
   }
@@ -160,7 +160,7 @@ fn test_appendonly_twice_fails() {
   for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = true;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
 }
@@ -180,7 +180,7 @@ fn test_append_then_empty_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
     first = false;
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
@@ -201,7 +201,7 @@ fn test_append_then_cat_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
     first = false;
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
@@ -222,7 +222,7 @@ fn test_one_byte_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
     first = false;
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
@@ -243,7 +243,7 @@ fn test_one_byte_before_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
     first = false;
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
@@ -264,7 +264,7 @@ fn test_two_byte_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
     first = false;
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
@@ -285,7 +285,7 @@ fn test_two_byte_before_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
     first = false;
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
@@ -308,7 +308,7 @@ fn test_empty_then_cat_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
-    super::compress(src, dst, 4096, &params0).unwrap();
+    super::compress(src, dst, 4096, &params0, &[]).unwrap();
     first = false;
   }
   concat(&mut files[..], &mut ufiles[..], None, 2);
@@ -382,7 +382,7 @@ fn test_concat() {
                 option.appendable = false;
                 option.catable = true;
             }
-            super::compress(src, dst, 4096, option).unwrap();
+            super::compress(src, dst, 4096, option, &[]).unwrap();
             src.reset_read();
             first = false;
         }
@@ -407,7 +407,7 @@ fn test_concat() {
         2, options[core::cmp::min(index, options_len - 1)].quality);
       // ^^^ there's an artificial limitation of using 18 as the minimum window size for quality 0,1
       // since this test depends on different window sizes for each stream, exclude q={0,1}  
-      super::compress(src, dst, 4096, &options[core::cmp::min(index, options_len - 1)]).unwrap();
+      super::compress(src, dst, 4096, &options[core::cmp::min(index, options_len - 1)], &[]).unwrap();
       src.reset_read();
     }
     concat_many_subsets(&mut files[..], &mut ufiles[..], None);

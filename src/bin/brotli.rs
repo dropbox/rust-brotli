@@ -241,7 +241,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
   where InputType: Read,
         OutputType: Write
 {
-  if custom_dictionary.len() {
+  if custom_dictionary.len() != 0 {
     return Err(io::Error::new(ErrorKind::InvalidData,
                               "Not allowed to have a custom_dictionary with SECCOMP"))
 

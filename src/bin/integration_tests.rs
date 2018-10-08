@@ -8,6 +8,7 @@ use super::HeapAllocator;
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
+use super::Rebox;
 #[cfg(not(feature="no-stdlib"))]
 use super::brotli::{CompressorReader, CompressorWriter};
 #[cfg(not(feature="no-stdlib"))]
@@ -287,12 +288,12 @@ fn test_roundtrip_64x() {
   let mut params = super::brotli::enc::BrotliEncoderInitParams();
   params.quality = q;
   params.lgwin = lgwin;
-  match super::compress(&mut input, &mut compressed, 65536, &params) {
+  match super::compress(&mut input, &mut compressed, 65536, &params, &[]) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
-  match super::decompress(&mut compressed_in, &mut output, 65536) {
+  match super::decompress(&mut compressed_in, &mut output, 65536, Rebox::default()) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -312,12 +313,12 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32, q9_5: bool) -> usize {
   let mut input = UnlimitedBuffer::new(&in_buf);
   let mut compressed = UnlimitedBuffer::new(&[]);
   let mut output = UnlimitedBuffer::new(&[]);
-  match super::compress(&mut input, &mut compressed, 4096, &params) {
+  match super::compress(&mut input, &mut compressed, 4096, &params, &[]) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
   let mut compressed_in = UnlimitedBuffer::new(&compressed.data[..]);
-  match super::decompress(&mut compressed_in, &mut output, 4096) {
+  match super::decompress(&mut compressed_in, &mut output, 4096, Rebox::default()) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -668,7 +669,7 @@ fn test_10x_10y() {
   let mut input = Buffer::new(&in_buf);
   let mut output = Buffer::new(&[]);
   output.read_offset = 20;
-  match super::decompress(&mut input, &mut output, 65536) {
+  match super::decompress(&mut input, &mut output, 65536, Rebox::default()) {
     Ok(_) => {}
     Err(e) => panic!("Error {:?}", e),
   }
@@ -731,7 +732,7 @@ fn assert_decompressed_input_matches_output(input_slice: &[u8],
   let mut output = Buffer::new(&[]);
   output.read_offset = output_slice.len();
   if input_buffer_size == output_buffer_size {
-    match super::decompress(&mut input, &mut output, input_buffer_size) {
+    match super::decompress(&mut input, &mut output, input_buffer_size, Rebox::default()) {
       Ok(_) => {}
       Err(e) => panic!("Error {:?}", e),
     }
@@ -847,7 +848,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
     let mut compressed = LimitedBuffer::new(&mut compressed_array[..]);
     let mut rt = LimitedBuffer::new(&mut rt_array[..]);
     if !bench_compress {
-        match super::compress(&mut input, &mut compressed, compress_buffer_size, &params) {
+        match super::compress(&mut input, &mut compressed, compress_buffer_size, &params, &[]) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
         }
@@ -856,7 +857,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
         input.reset_read();
         if bench_compress {
             compressed.reset();
-            match super::compress(&mut input, &mut compressed, compress_buffer_size, &params) {
+            match super::compress(&mut input, &mut compressed, compress_buffer_size, &params, &[]) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
@@ -864,7 +865,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
         if bench_decompress {
             compressed.reset_read();
             rt.reset();
-            match super::decompress(&mut compressed, &mut rt, decompress_buffer_size) {
+            match super::decompress(&mut compressed, &mut rt, decompress_buffer_size, Rebox::default()) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
@@ -873,7 +874,7 @@ fn benchmark_helper<Run: Runner>(input_slice: &[u8],
     if !bench_decompress {
         compressed.reset_read();
         rt.reset();
-        match super::decompress(&mut compressed, &mut rt, decompress_buffer_size) {
+        match super::decompress(&mut compressed, &mut rt, decompress_buffer_size, Rebox::default()) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
         }
