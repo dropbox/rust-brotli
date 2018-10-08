@@ -125,6 +125,15 @@ pub unsafe extern fn BrotliEncoderHasMoreOutput(
   ::enc::encode::BrotliEncoderHasMoreOutput(&mut (*state_ptr).compressor)
 }
 
+pub unsafe extern fn BrotliEncoderSetCustomDictionary(
+  state_ptr: &mut BrotliEncoderState,
+  size: usize,
+  dict: *const u8,
+) {
+  let dict_slice = slice::from_raw_parts(dict, size);
+  ::enc::encode::BrotliEncoderSetCustomDictionary(&mut (*state_ptr).compressor, size, dict_slice)
+}
+
 #[no_mangle]
 pub unsafe extern fn BrotliEncoderTakeOutput(
   state_ptr: *mut BrotliEncoderState,

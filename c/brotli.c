@@ -86,6 +86,8 @@ typedef struct {
   /* Parameters */
   int quality;
   int lgwin;
+  BROTLI_BOOL catable;
+  BROTLI_BOOL magic_number;
   BROTLI_BOOL force_overwrite;
   BROTLI_BOOL junk_source;
   BROTLI_BOOL copy_stat;
@@ -407,6 +409,10 @@ static Command ParseParams(Context* params) {
         }
         output_set = BROTLI_TRUE;
         params->write_to_stdout = BROTLI_TRUE;
+      } else if (strcmp("catable", arg) == 0) {
+        params->catable = BROTLI_TRUE;
+      } else if (strcmp("magic", arg) == 0) {
+        params->magic_number = BROTLI_TRUE;
       } else if (strcmp("test", arg) == 0) {
         if (command_set) {
           fprintf(stderr, "command already set when parsing --test\n");
@@ -933,6 +939,14 @@ static BROTLI_BOOL CompressFiles(Context* context) {
     }
     BrotliEncoderSetParameter(s,
         BROTLI_PARAM_QUALITY, (uint32_t)context->quality);
+    if (context->catable) {
+    BrotliEncoderSetParameter(s,
+        BROTLI_PARAM_CATABLE, (uint32_t)context->catable);
+    }
+    if (context->magic_number) {
+    BrotliEncoderSetParameter(s,
+        BROTLI_PARAM_MAGIC_NUMBER, (uint32_t)context->magic_number);
+    }
     if (context->lgwin > 0) {
       /* Specified by user. */
       /* Do not enable "large-window" extension, if not required. */
@@ -982,6 +996,8 @@ int main(int argc, char** argv) {
 
   context.quality = 11;
   context.lgwin = -1;
+  context.catable = BROTLI_FALSE;
+  context.magic_number = BROTLI_FALSE;
   context.force_overwrite = BROTLI_FALSE;
   context.junk_source = BROTLI_FALSE;
   context.copy_stat = BROTLI_TRUE;

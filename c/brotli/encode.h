@@ -436,6 +436,11 @@ BROTLI_ENC_API const uint8_t* BrotliEncoderTakeOutput(
     BrotliEncoderState* state, size_t* size);
 
 
+BROTLI_ENC_API void BrotliEncoderSetCustomDictionary(
+  BrotliEncoderState* state,
+  size_t size,
+  const uint8_t *dict);
+    
 /**
  * Gets an encoder library version.
  *
