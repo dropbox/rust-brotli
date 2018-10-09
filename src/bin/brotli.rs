@@ -1,7 +1,7 @@
 #![cfg_attr(feature="benchmark", feature(test))]
 
 mod test_broccoli;
-
+mod test_custom_dict;
 pub mod integration_tests;
 mod tests;
 mod util;
