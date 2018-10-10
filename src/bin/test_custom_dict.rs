@@ -3,7 +3,6 @@
 #![allow(dead_code)]
 extern crate core;
 extern crate brotli_decompressor;
-use brotli_decompressor::{CustomRead, CustomWrite};
 use super::brotli::enc::BrotliEncoderParams;
 use super::brotli::concat::{BroCatli, BroCatliResult};
 use std::io::{Read, Write};
@@ -26,7 +25,9 @@ fn test_custom_dict() {
     vec.extend(dict);
     super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
     assert_eq!(rt.data(), raw.data());
-    assert_eq!(br.data().len(), 43629);
+    if br.data().len() != 43654 {
+        assert_eq!(br.data().len(), 43629);
+    }
 }
 
 #[test]
@@ -174,7 +175,10 @@ fn test_custom_dict_for_multithreading() {
     output.reset_read();
     super::decompress(&mut output, &mut rt, 4096, Rebox::default()).unwrap();
     assert_eq!(rt.data(), ALICE);
-    assert_eq!(output.data().len(), 48564); // as opposed to 46487 with standard settings
+    // no-stdlib mode has some approximations that make it 4 bytes bigger
+    if output.data().len() != 48568 {
+       assert_eq!(output.data().len(), 48564); // as opposed to 46487 with standard settings
+    }
 }
 
 
