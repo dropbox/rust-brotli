@@ -81,7 +81,7 @@ impl<T> Owned<T> {
 
 
 
-fn CompressMulti<Alloc:BrotliAlloc+Send+'static, SliceW: SliceWrapper<u8>, Spawner:Spawnable<CompressionThreadResult<Alloc>>> (
+pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static, SliceW: SliceWrapper<u8>, Spawner:Spawnable<CompressionThreadResult<Alloc>>> (
   params:&BrotliEncoderParams,
   input: &mut Owned<SliceW>,
   output: &mut [u8],

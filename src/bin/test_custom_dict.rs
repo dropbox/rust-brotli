@@ -90,7 +90,7 @@ fn test_custom_dict_for_multithreading() {
         UnlimitedBuffer::new(&[]),
     ];
     let dicts = [
-        &[],
+        &ALICE[..0],
         &ALICE[..ALICE.len()/3],
         &ALICE[..2*ALICE.len()/3],
     ];
