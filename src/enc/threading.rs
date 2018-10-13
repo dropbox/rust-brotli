@@ -3,10 +3,12 @@ use core::marker::PhantomData;
 use core::mem;
 use super::BrotliAlloc;
 use super::encode::{
-    BrotliEncoderOperation,
-    BrotliEncoderCreateInstance,
-    BrotliEncoderDestroyInstance,
-    BrotliEncoderCompressStream,
+  BrotliEncoderOperation,
+  BrotliEncoderCreateInstance,
+  BrotliEncoderSetCustomDictionary,
+  BrotliEncoderDestroyInstance,
+  BrotliEncoderMaxCompressedSize,
+  BrotliEncoderCompressStream,
 };
 use core::ops::Range;
 use super::backward_references::BrotliEncoderParams;
@@ -83,24 +85,29 @@ impl<T> Owned<T> {
   }
 }
 
-pub trait OwnedRetriever<SliceW: SliceWrapper<u8>+Send+'static> {
-  fn view(&self) -> &[u8];
-  fn unwrap(self) -> SliceW;
+pub trait OwnedRetriever<U:Send+'static> {
+  fn view(&self) -> &U;
+  fn unwrap(self) -> U;
 }
 
-pub trait BatchSpawnable<T:Send+'static, Alloc:BrotliAlloc+Send+'static, SliceW:SliceWrapper<u8>+Send+'static>
+pub trait BatchSpawnable<T:Send+'static,
+                         Alloc:BrotliAlloc+Send+'static,
+                         U:Send+'static>
   where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static
 {
   type JoinHandle: Joinable<T, Alloc>;
-  type FinalJoinHandle: OwnedRetriever<SliceW>;
-  // this function takes in a SendAlloc per thread and converts them all into JoinHandle
+  type FinalJoinHandle: OwnedRetriever<U>;
+  // this function takes in an input slice
+  // a SendAlloc per thread and converts them all into JoinHandle
   // the input is borrowed until the joins complete
   // owned is set to borrowed
   // the final join handle is a r/w lock which will return the SliceW to the owner
   // the FinalJoinHandle is only to be called when each individual JoinHandle has been examined
-  fn batch_spawn<F: FnOnce(usize, &SliceW, Alloc) -> T>(
+  // the function is called with the thread_index, the num_threads, a reference to the slice under a read lock,
+  // and an allocator from the alloc_per_thread
+  fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T>(
     &mut self,
-    input: &mut Owned<SliceW>,
+    input: &mut Owned<U>,
     alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
     f: F,
   ) -> Self::FinalJoinHandle;
@@ -111,7 +118,7 @@ pub trait BatchSpawnable<T:Send+'static, Alloc:BrotliAlloc+Send+'static, SliceW:
 pub fn CompressMultiSlice<Alloc:BrotliAlloc+Send+'static,
                           Spawner:BatchSpawnable<CompressionThreadResult<Alloc>,
                                                  Alloc,
-                                                 <Alloc as Allocator<u8>>::AllocatedMemory>> (
+                                                 (<Alloc as Allocator<u8>>::AllocatedMemory, BrotliEncoderParams)>> (
   params:&BrotliEncoderParams,
   input_slice: &[u8],
   output: &mut [u8],
@@ -137,11 +144,63 @@ fn get_range(thread_index: usize, num_threads: usize, file_size: usize) -> Range
     ((thread_index * file_size) / num_threads)..(((thread_index + 1) * file_size) / num_threads)
 }
 
+fn compress_part<Alloc: BrotliAlloc+Send+'static,
+                 SliceW:SliceWrapper<u8>>(
+  thread_index: usize,
+  num_threads: usize,
+  input_and_params:&(SliceW, BrotliEncoderParams),
+  mut alloc: Alloc,
+) -> CompressionThreadResult<Alloc> where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+  let mut range = get_range(thread_index + 1, num_threads + 1, input_and_params.0.len());
+  let mut mem = <Alloc as Allocator<u8>>::alloc_cell(&mut alloc,
+                                                     BrotliEncoderMaxCompressedSize(range.end - range.start));
+  let mut state = BrotliEncoderCreateInstance(alloc);
+  state.params = input_and_params.1.clone();
+  state.params.catable = true; // make sure we can concatenate this to the other work results
+  state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
+  state.params.magic_number = false; // no reason to pepper this around
+  BrotliEncoderSetCustomDictionary(&mut state, range.start, &input_and_params.0.slice()[..range.start]);
+  assert_eq!(range.start, 0);
+  let mut out_offset = 0usize;
+  let mut compression_result = Err(());
+  let mut available_out = mem.len();
+  loop {
+    let mut next_in_offset = 0usize;
+    let mut available_in = range.end - range.start;
+    let result = BrotliEncoderCompressStream(&mut state,
+                                             BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
+                                             &mut available_in,
+                                             &input_and_params.0.slice()[range.clone()],
+                                             &mut next_in_offset,  
+                                             &mut available_out,
+                                             mem.slice_mut(),
+                                             &mut out_offset,
+                                             &mut None,
+                                             &mut |_a,_b,_c,_d|());
+    let new_range = range.start + next_in_offset..range.end;
+    range = new_range;
+    if result != 0 {
+      compression_result = Ok(out_offset);
+      break;
+    } else if available_out == 0 {
+      compression_result = Err(()); // mark no space??
+      break
+    }
+  }
+  BrotliEncoderDestroyInstance(&mut state);
+  
+  CompressionThreadResult::<Alloc>{
+    compressed:mem,
+    compressed_size:out_offset,
+    alloc:state.m8,
+  }  
+}
+
 pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                      SliceW: SliceWrapper<u8>+Send+'static,
                      Spawner:BatchSpawnable<CompressionThreadResult<Alloc>,
                                             Alloc,
-                                            SliceW>> (
+                                            (SliceW, BrotliEncoderParams)>> (
   params:&BrotliEncoderParams,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
@@ -150,35 +209,30 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
 ) -> Result<usize, ()> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
     let num_threads = alloc_per_thread.len();
     let (mut alloc, alloc_rest) = alloc_per_thread.split_at_mut(1);
-    let mut retrieve_owned_input = thread_spawner.batch_spawn(owned_input, alloc_rest, |_index,_input,mut alloc|{
-        let mem = <Alloc as Allocator<u8>>::alloc_cell(&mut alloc, 0);
-        CompressionThreadResult::<Alloc>{
-            compressed:mem,
-            compressed_size:0,
-            alloc:alloc,
-        }
-    });
+    let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
+    let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
+    let mut retrieve_owned_input = thread_spawner.batch_spawn(&mut owned_input_pair, alloc_rest, compress_part);
     let mut compression_result = Err(());
     let mut available_out = output.len();
     {
-        let input = retrieve_owned_input.view();
+        let input_and_params = retrieve_owned_input.view();
         let mut state = BrotliEncoderCreateInstance(match mem::replace(&mut alloc[0].0,
-                                                                             InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
+                                                                       InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
             InternalSendAlloc::A(a) => a,
             _ => panic!("all public interfaces which create SendAlloc can only specify subtype A")
         });
         state.params = params.clone();
         state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
-        let mut range = get_range(0, num_threads, input.len());
+        let mut range = get_range(0, num_threads, input_and_params.0.len());
         assert_eq!(range.start, 0);
         let mut out_offset = 0usize;
-        while true {
+        loop {
             let mut next_in_offset = 0usize;
             let mut available_in = range.end - range.start;
             let result = BrotliEncoderCompressStream(&mut state,
                                                  BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
                                                  &mut available_in,
-                                                 &input[range.clone()],
+                                                 &input_and_params.0.slice()[range.clone()],
                                                  &mut next_in_offset,  
                                                  &mut available_out,
                                                  output,
@@ -214,7 +268,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         }
         thread.0 = InternalSendAlloc::A(alloc);
     }
-    *owned_input = Owned::new(retrieve_owned_input.unwrap()); // return the input to its rightful owner before returning
+    *owned_input = Owned::new(retrieve_owned_input.unwrap().0); // return the input to its rightful owner before returning
     compression_result
 }
 

@@ -1475,6 +1475,7 @@ pub fn BrotliEncoderSetCustomDictionary<Alloc: BrotliAlloc>
 
 
 pub fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
+  let magic_size = 16usize;
   let num_large_blocks: usize = input_size >> 14i32;
   let tail: usize = input_size.wrapping_sub(num_large_blocks << 24i32);
   let tail_overhead: usize = (if tail > (1i32 << 20i32) as (usize) {
@@ -1488,9 +1489,9 @@ pub fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
     .wrapping_add(1usize);
   let result: usize = input_size.wrapping_add(overhead);
   if input_size == 0usize {
-    return 1usize;
+    return 1usize + magic_size;
   }
-  if result < input_size { 0usize } else { result }
+  if result < input_size { 0usize } else { result + magic_size }
 }
 
 fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
