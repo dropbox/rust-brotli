@@ -137,17 +137,30 @@ impl<T> Owned<T> {
   }
 }
 
-pub trait Derefable<T> : Sized {
-    fn deref(&self) -> &T;
-}
-impl<'a, U> Derefable<U> for &'a U {
-    fn deref(&self) -> &U {
-        return self
+#[cfg(not(feature="no-stdlib"))]
+pub struct ReadGuard<'a, T:Send+'static>(pub std::sync::RwLockReadGuard<'a, T>);
+#[cfg(not(feature="no-stdlib"))]
+impl<'a, T:Send+'static> Deref for ReadGuard<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
     }
 }
 
+#[cfg(feature="no-stdlib")]
+pub struct ReadGuard<'a, T:Send+'static>(pub &'a T);
+#[cfg(feature="no-stdlib")]
+impl<'a, T:Send+'static> Deref for ReadGuard<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+
+
 pub trait OwnedRetriever<U:Send+'static> {
-  fn view(self) -> Result<Derefable<U>, PoisonedThreadError>;
+  fn view(&self) -> Result<ReadGuard<U>, PoisonedThreadError>;
   fn unwrap(self) -> Result<U, PoisonedThreadError>;
 }
 
@@ -298,14 +311,14 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         let mut out_offset = 0usize;
         if let Ok(input_and_params) = input_and_params_thread_result {
           loop {
-            let mut range = get_range(0, num_threads, input_and_params.0.len());
+            let mut range = get_range(0, num_threads, (*input_and_params.0).0.len());
             assert_eq!(range.start, 0);
             let mut next_in_offset = 0usize;
             let mut available_in = range.end - range.start;
             let result = BrotliEncoderCompressStream(&mut state,
                                                  BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
                                                  &mut available_in,
-                                                 &input_and_params.0.slice()[range.clone()],
+                                                 &(*input_and_params.0).0.slice()[range.clone()],
                                                  &mut next_in_offset,  
                                                  &mut available_out,
                                                  first_thread_output,

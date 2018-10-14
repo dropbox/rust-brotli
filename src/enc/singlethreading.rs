@@ -1,5 +1,6 @@
 use core::mem;
-
+#[cfg(not(feature="no-stdlib"))]
+use std;
 use alloc::{SliceWrapper, Allocator};
 use enc::BrotliAlloc;
 use enc::BrotliEncoderParams;
@@ -15,7 +16,7 @@ use enc::threading::{
   InternalOwned,
   PoisonedThreadError,
   BrotliEncoderThreadError,
-  Derefable,
+  ReadGuard,
 };
 
 
@@ -30,18 +31,33 @@ impl<T:Send+'static, U:Send+'static> Joinable<T, U> for SingleThreadedJoinable<T
     self.result
   }
 }
-
-struct LocalRef<'a, U:Send+'static>(&'a U);
-
-impl<'a, U:Send+'static >LocalRef<'a, U> {
-    fn deref(&self) -> &U {
-        self.0
+#[cfg(not(feature="no-stdlib"))]
+pub struct SingleThreadedOwnedRetriever<U:Send+'static>(std::sync::RwLock<U>);
+#[cfg(not(feature="no-stdlib"))]
+impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
+    fn view<'a>(&'a self) -> Result<ReadGuard<'a, U>, PoisonedThreadError> {
+        Ok(ReadGuard(self.0.read().unwrap()))
+    }
+  fn unwrap(self) -> Result<U,PoisonedThreadError> {Ok(self.0.into_inner().unwrap())}
+}
+#[cfg(not(feature="no-stdlib"))]
+impl<U:Send+'static> SingleThreadedOwnedRetriever<U> {
+    fn new(u:U) -> Self {
+        SingleThreadedOwnedRetriever(std::sync::RwLock::new(u))
     }
 }
 
+#[cfg(feature="no-stdlib")]
 pub struct SingleThreadedOwnedRetriever<U:Send+'static>(U);
+#[cfg(feature="no-stdlib")]
+impl<U:Send+'static> SingleThreadedOwnedRetriever<U> {
+    fn new(u:U) -> Self {
+        SingleThreadedOwnedRetriever(u)
+    }
+}
+#[cfg(feature="no-stdlib")]
 impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
-  fn view<'a>(&'a self) -> Result<LocalRef<'a, U>, PoisonedThreadError> {Ok(LocalRef(&self.0))}
+  fn view<'a>(&'a self) -> Result<ReadGuard<'a, U>, PoisonedThreadError> {Ok(ReadGuard(&self.0))}
   fn unwrap(self) -> Result<U,PoisonedThreadError> {Ok(self.0)}
 }
 
@@ -64,7 +80,7 @@ where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
         let ret = f(index, num_threads, input.view(), alloc);
         *work = SendAlloc(InternalSendAlloc::Join(SingleThreadedJoinable{result:Ok(ret)}));
       }
-      SingleThreadedOwnedRetriever::<U>(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap())
+      SingleThreadedOwnedRetriever::<U>::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap())
     }
 }
 
