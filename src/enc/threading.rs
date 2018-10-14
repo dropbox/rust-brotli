@@ -22,8 +22,7 @@ pub trait Joinable<T:Send+'static, U:Send+'static>:Sized {
 
 
 pub struct CompressionThreadResult<Alloc:BrotliAlloc+Send+'static> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
-  compressed: <Alloc as Allocator<u8>>::AllocatedMemory,
-  compressed_size: usize,
+  compressed: Result<(<Alloc as Allocator<u8>>::AllocatedMemory, usize), ()>,
   alloc: Alloc,
 }
 pub enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join: Joinable<T, Alloc>>
@@ -180,7 +179,7 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
   BrotliEncoderSetCustomDictionary(&mut state, range.start, &input_and_params.0.slice()[..range.start]);
   assert_eq!(range.start, 0);
   let mut out_offset = 0usize;
-  let mut compression_result = Err(());
+  let mut compression_result;
   let mut available_out = mem.len();
   loop {
     let mut next_in_offset = 0usize;
@@ -206,12 +205,21 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
     }
   }
   BrotliEncoderDestroyInstance(&mut state);
-  
-  CompressionThreadResult::<Alloc>{
-    compressed:mem,
-    compressed_size:out_offset,
-    alloc:state.m8,
-  }  
+    match compression_result {
+        Ok(size) => {
+            CompressionThreadResult::<Alloc>{
+                compressed:Ok((mem, size)),
+                alloc:state.m8,
+            }
+        },
+        Err(e) => {
+            <Alloc as Allocator<u8>>::free_cell(&mut state.m8, mem);
+            CompressionThreadResult::<Alloc>{
+                compressed:Err(e),
+                alloc:state.m8,
+            }
+        },
+    }
 }
 
 pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
@@ -307,24 +315,31 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
          InternalSendAlloc::A(_) | InternalSendAlloc::SpawningOrJoining(_) => panic!("Thread not properly spawned"),
          InternalSendAlloc::Join(join) => match join.join() {
            Ok(mut result) => {
-             bro_cat_li.new_brotli_file();
-             let mut in_offset = 0usize;
-             let cat_result = bro_cat_li.stream(&result.compressed.slice()[..result.compressed_size],
-                                                &mut in_offset,
-                                                output,
-                                                &mut out_file_size);
-             match cat_result {
-               BroCatliResult::Success | BroCatliResult::NeedsMoreInput  => {
-                 compression_result = Ok(out_file_size);
-               },
-               BroCatliResult::NeedsMoreOutput => {
-                 compression_result = Err(()); // not enough space
+             match result.compressed {
+               Ok(compressed_out) => {
+                 bro_cat_li.new_brotli_file();
+                 let mut in_offset = 0usize;
+                 let cat_result = bro_cat_li.stream(&compressed_out.0.slice()[..compressed_out.1],
+                                                    &mut in_offset,
+                                                    output,
+                                                    &mut out_file_size);
+                 match cat_result {
+                   BroCatliResult::Success | BroCatliResult::NeedsMoreInput  => {
+                     compression_result = Ok(out_file_size);
+                   },
+                   BroCatliResult::NeedsMoreOutput => {
+                     compression_result = Err(()); // not enough space
+                   },
+                   _ => {
+                     compression_result = Err(()); // misc error
+                   },
+                 }
+                 <Alloc as Allocator<u8>>::free_cell(&mut result.alloc, compressed_out.0);
                }
-               _ => {
-                 compression_result = Err(()); // misc error
+               Err(e) => {
+                   compression_result = Err(e);
                }
              }
-             <Alloc as Allocator<u8>>::free_cell(&mut result.alloc, result.compressed);
              alloc = result.alloc;
            },
            Err(allocator) => {
