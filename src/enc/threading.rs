@@ -26,7 +26,7 @@ pub struct CompressionThreadResult<Alloc:BrotliAlloc+Send+'static> where <Alloc 
   compressed_size: usize,
   alloc: Alloc,
 }
-enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join: Joinable<T, Alloc>>
+pub enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join: Joinable<T, Alloc>>
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
   A(Alloc),
   Join(Join),
@@ -34,7 +34,7 @@ enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join: Joi
 }
 pub struct SendAlloc<T:Send+'static,
                      Alloc:BrotliAlloc +Send+'static,
-                     Join:Joinable<T, Alloc>>(InternalSendAlloc<T, Alloc, Join>)
+                     Join:Joinable<T, Alloc>>(pub InternalSendAlloc<T, Alloc, Join>)//FIXME pub
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send;
 
 impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static,Join:Joinable<T, Alloc>> SendAlloc<T, Alloc, Join>
@@ -60,15 +60,22 @@ impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static,Join:Joinable<T, Alloc>> Sen
       InternalSendAlloc::SpawningOrJoining(_) | InternalSendAlloc::Join(_) => panic!("Item permanently borrowed/leaked"),
     }
   }
+  pub fn replace_with_default(&mut self) -> Alloc {
+    match mem::replace(&mut self.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
+      InternalSendAlloc::A(alloc) => {
+        alloc
+      },
+      InternalSendAlloc::SpawningOrJoining(_) | InternalSendAlloc::Join(_) => panic!("Item permanently borrowed/leaked"),
+    }
+  }
 }
-  
 
-enum InternalOwned<T> {
+pub enum InternalOwned<T> { // FIXME pub
   Item(T),
   Borrowed,
 }
 
-pub struct Owned<T>(InternalOwned<T>);
+pub struct Owned<T>(pub InternalOwned<T>); // FIXME pub
 impl<T> Owned<T> {
   pub fn new(data:T) -> Self {
     Owned::<T>(InternalOwned::Item(data))
@@ -82,6 +89,13 @@ impl<T> Owned<T> {
   }
   pub fn unwrap(self) -> T {
     if let InternalOwned::Item(x) = self.0 {
+      x
+    } else {
+      panic!("Item permanently borrowed")
+    }
+  }
+  pub fn view(&self) -> &T {
+    if let InternalOwned::Item(ref x) = self.0 {
       x
     } else {
       panic!("Item permanently borrowed")
