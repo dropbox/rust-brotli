@@ -1,5 +1,4 @@
 use core::mem;
-use core::marker::PhantomData;
 
 use alloc::{SliceWrapper, Allocator};
 use enc::BrotliAlloc;
