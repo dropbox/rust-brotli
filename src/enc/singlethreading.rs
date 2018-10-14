@@ -13,6 +13,7 @@ use enc::threading::{
   OwnedRetriever,
   CompressionThreadResult,
   InternalOwned,
+  BrotliEncoderThreadError,
 };
 
 
@@ -66,7 +67,7 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
                                    Alloc,
                                    <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, Alloc>>::JoinHandle>],
-) -> Result<usize, ()> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
   CompressMulti(params, owned_input, output, alloc_per_thread, SingleThreadedSpawner::default())
 }
                       

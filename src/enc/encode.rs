@@ -1472,7 +1472,9 @@ pub fn BrotliEncoderSetCustomDictionary<Alloc: BrotliAlloc>
                                 dict_size,
                                 dict);
 }
-
+pub fn BrotliEncoderMaxCompressedSizeMulti(input_size: usize, num_threads: usize) -> usize {
+  BrotliEncoderMaxCompressedSize(input_size) + num_threads * 8
+}
 
 pub fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
   let magic_size = 16usize;

@@ -5,9 +5,8 @@ extern crate core;
 extern crate brotli_decompressor;
 use super::{HeapAllocator, new_brotli_heap_alloc};
 use brotli_decompressor::{SliceWrapperMut, SliceWrapper};
-use super::brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti};
+use super::brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, compress_multi};
 use brotli::enc::threading::{SendAlloc,Owned};
-use brotli::enc::singlethreading;
 
 use super::brotli::concat::{BroCatli, BroCatliResult};
 use std::io::{Read, Write};
@@ -49,7 +48,7 @@ fn single_threaded_split_compression_test(num_threads: usize, quality: i32, cata
     if num_threads > alloc_per_thread.len() {
         panic!("Too many threads requested {} > {}", num_threads, alloc_per_thread.len());
     }
-    let res = singlethreading::compress_multi(
+    let res = compress_multi(
         &params,
         &mut Owned::new(SliceRef(input_data)),
         output.slice_mut(),

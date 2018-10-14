@@ -2,6 +2,7 @@
 
 mod test_broccoli;
 mod test_custom_dict;
+mod test_threading;
 pub mod integration_tests;
 mod tests;
 mod util;
@@ -274,7 +275,61 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
       }
   }
 }
-
+pub fn new_brotli_heap_alloc() -> brotli::CombiningAllocator<
+                      HeapAllocator<u8>,
+                      HeapAllocator<u16>,
+                      HeapAllocator<i32>,
+                      HeapAllocator<u32>,
+                      HeapAllocator<u64>,
+                      HeapAllocator<Command>,
+                      HeapAllocator<brotli::enc::floatX>,
+                      HeapAllocator<v8>,
+                      HeapAllocator<s16>,
+                      HeapAllocator<brotli::enc::PDF>,
+                      HeapAllocator<StaticCommand>,
+                      HeapAllocator<HistogramLiteral>,
+                      HeapAllocator<HistogramCommand>,
+                      HeapAllocator<HistogramDistance>,
+                      HeapAllocator<HistogramPair>,
+                      HeapAllocator<ContextType>,
+                      HeapAllocator<HuffmanTree>,
+                      HeapAllocator<ZopfliNode>,
+                  > {
+    brotli::CombiningAllocator::new(
+        HeapAllocator::<u8>{default_value:0},
+        HeapAllocator::<u16>{default_value:0},
+        HeapAllocator::<i32>{default_value:0},
+        HeapAllocator::<u32>{default_value:0},
+        HeapAllocator::<u64>{default_value:0},
+        HeapAllocator::<Command>{default_value:Command::default()},
+        HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
+        HeapAllocator::<v8>{default_value:brotli::enc::v8::default()},
+        HeapAllocator::<s16>{default_value:brotli::enc::s16::default()},
+        HeapAllocator::<brotli::enc::PDF>{default_value:brotli::enc::PDF::default()},
+        HeapAllocator::<StaticCommand>{default_value:StaticCommand::default()},
+        HeapAllocator::<HistogramLiteral>{
+            default_value:HistogramLiteral::default(),
+        },
+        HeapAllocator::<HistogramCommand>{
+            default_value:HistogramCommand::default(),
+        },
+        HeapAllocator::<HistogramDistance>{
+            default_value:HistogramDistance::default(),
+        },
+        HeapAllocator::<HistogramPair>{
+            default_value:HistogramPair::default(),
+        },
+        HeapAllocator::<ContextType>{
+            default_value:ContextType::default(),
+        },
+        HeapAllocator::<HuffmanTree>{
+            default_value:HuffmanTree::default(),
+        },
+        HeapAllocator::<ZopfliNode>{
+            default_value:ZopfliNode::default(),
+        },
+    )
+}
 pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        w: &mut OutputType,
                                        buffer_size: usize,
@@ -326,40 +381,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    &mut input_buffer.slice_mut(),
                                    &mut output_buffer.slice_mut(),
                                    params,
-                                   brotli::CombiningAllocator::new(
-                                       alloc_u8,
-                                       HeapAllocator::<u16>{default_value:0},
-                                       HeapAllocator::<i32>{default_value:0},
-                                       HeapAllocator::<u32>{default_value:0},
-                                       HeapAllocator::<u64>{default_value:0},
-                                       HeapAllocator::<Command>{default_value:Command::default()},
-                                       HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
-                                       HeapAllocator::<v8>{default_value:brotli::enc::v8::default()},
-                                       HeapAllocator::<s16>{default_value:brotli::enc::s16::default()},
-                                       HeapAllocator::<brotli::enc::PDF>{default_value:brotli::enc::PDF::default()},
-                                       HeapAllocator::<StaticCommand>{default_value:StaticCommand::default()},
-                                       HeapAllocator::<HistogramLiteral>{
-                                           default_value:HistogramLiteral::default(),
-                                       },
-                                       HeapAllocator::<HistogramCommand>{
-                                           default_value:HistogramCommand::default(),
-                                       },
-                                       HeapAllocator::<HistogramDistance>{
-                                           default_value:HistogramDistance::default(),
-                                       },
-                                       HeapAllocator::<HistogramPair>{
-                                           default_value:HistogramPair::default(),
-                                       },
-                                       HeapAllocator::<ContextType>{
-                                       default_value:ContextType::default(),
-                                       },
-                                       HeapAllocator::<HuffmanTree>{
-                                           default_value:HuffmanTree::default(),
-                                       },
-                                       HeapAllocator::<ZopfliNode>{
-                                           default_value:ZopfliNode::default(),
-                                       },
-                                   ),
+                                   new_brotli_heap_alloc(),
                                                    &mut log,
                                                    custom_dictionary,
                                    Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))

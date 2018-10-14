@@ -61,7 +61,12 @@ pub use self::util::floatX;
 pub use self::pdf::PDF;
 pub use self::hash_to_binary_tree::ZopfliNode;
 pub use self::backward_references::BrotliEncoderParams;
-pub use self::encode::{BrotliEncoderInitParams, BrotliEncoderSetParameter};
+pub use self::encode::{
+    BrotliEncoderInitParams,
+    BrotliEncoderSetParameter,
+    BrotliEncoderMaxCompressedSizeMulti,
+    BrotliEncoderMaxCompressedSize,
+};
 use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                    BrotliEncoderOperation,
                    BrotliEncoderSetCustomDictionary,
@@ -87,6 +92,14 @@ pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, 
 #[cfg(not(feature="no-stdlib"))]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
+pub use self::threading::{SendAlloc,
+                          Owned,
+                          BrotliEncoderThreadError,};
+
+#[cfg(not(feature="no-stdlib"))]
+pub use self::singlethreading::compress_multi;
+#[cfg(feature="no-stdlib")]
+pub use self::singlethreading::compress_multi;
 
 
 #[cfg(not(any(feature="no-stdlib")))]
