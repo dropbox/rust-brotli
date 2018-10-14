@@ -54,8 +54,9 @@ fn single_threaded_split_compression_test(num_threads: usize, quality: i32, cata
         output.slice_mut(),
         &mut alloc_per_thread[..num_threads],
     );
-    assert_eq!(res.unwrap(), expected_size);
-    let mut compressed_version = UnlimitedBuffer::new(&output.slice()[..res.unwrap()]);
+    let observed_size = res.unwrap();
+    assert_eq!(observed_size, expected_size);
+    let mut compressed_version = UnlimitedBuffer::new(&output.slice()[..observed_size]);
     let mut rt = UnlimitedBuffer::new(&[]);
     match super::decompress(&mut compressed_version, &mut rt, 65536, Rebox::default()) {
         Ok(_) => {}

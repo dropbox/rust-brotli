@@ -39,6 +39,7 @@ pub use self::combined_alloc::{CombiningAllocator, BrotliAlloc};
 mod compat;
 pub mod threading;
 pub mod singlethreading;
+pub mod multithreading;
 #[cfg(feature="simd")]
 use packed_simd::{i16x16, f32x8, i32x8};
 #[cfg(feature="simd")]

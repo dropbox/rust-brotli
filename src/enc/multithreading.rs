@@ -1,5 +1,9 @@
+#![cfg(not(feature="no-stdlib"))]
 use core::mem;
-
+use core::marker::PhantomData;
+use std::thread::{
+    JoinHandle,
+};
 use alloc::{SliceWrapper, Allocator};
 use enc::BrotliAlloc;
 use enc::BrotliEncoderParams;
@@ -13,37 +17,42 @@ use enc::threading::{
   OwnedRetriever,
   CompressionThreadResult,
   InternalOwned,
-  PoisonedThreadError,
   BrotliEncoderThreadError,
-  Derefable,
+    AnyBoxConstructor,
+    PoisonedThreadError,
 };
 
+use std::sync::RwLock;
 
 
+pub struct MultiThreadedJoinable<T:Send+'static, U:Send+'static>(JoinHandle<T>, PhantomData<U>);
 
-
-pub struct SingleThreadedJoinable<T:Send+'static, U:Send+'static> {
-  result:Result<T, U>,
-}
-impl<T:Send+'static, U:Send+'static> Joinable<T, U> for SingleThreadedJoinable<T, U> {
+impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MultiThreadedJoinable<T, U> {
   fn join(self) -> Result<T, U> {
-    self.result
+      match self.0.join() {
+          Ok(t) => Ok(t),
+          Err(e) => Err(<U as AnyBoxConstructor>::new(e)),
+      }
+  }
+}
+/*
+pub struct MultiThreadedOwnedRetriever<U:Send+'static>(RwLock<U>);
+
+impl<U:Send+'static+Default> OwnedRetriever<U> for MultiThreadedOwnedRetriever<U> {
+  fn view(&self) -> Result<&U, PoisonedThreadError> {
+      match self.0.read() {
+          Ok(u) => Ok(u),
+          Err(_) => PoisonedThreadError::default(),
+      }
+  }
+  fn unwrap(self) -> Result<U, PoisonedThreadError> {
+      match self.0.into_inner() {
+          Ok(u) => Ok(u),
+          Err(_) => PoisonedThreadError::default(),
+      }
   }
 }
 
-struct LocalRef<'a, U:Send+'static>(&'a U);
-
-impl<'a, U:Send+'static >LocalRef<'a, U> {
-    fn deref(&self) -> &U {
-        self.0
-    }
-}
-
-pub struct SingleThreadedOwnedRetriever<U:Send+'static>(U);
-impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
-  fn view<'a>(&'a self) -> Result<LocalRef<'a, U>, PoisonedThreadError> {Ok(LocalRef(&self.0))}
-  fn unwrap(self) -> Result<U,PoisonedThreadError> {Ok(self.0)}
-}
 
 #[derive(Default)]
 pub struct SingleThreadedSpawner{}
@@ -80,4 +89,4 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
   CompressMulti(params, owned_input, output, alloc_per_thread, SingleThreadedSpawner::default())
 }
-                      
+*/                      

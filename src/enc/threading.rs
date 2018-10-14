@@ -1,6 +1,10 @@
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core::marker::PhantomData;
+use core::ops::Deref;
 use core::mem;
+use core::any;
+#[cfg(not(feature="no-stdlib"))]
+use std;
 use super::BrotliAlloc;
 use super::encode::{
   BrotliEncoderOperation,
@@ -16,16 +20,38 @@ use concat::{
 };
 use core::ops::Range;
 use super::backward_references::BrotliEncoderParams;
+pub type PoisonedThreadError = ();
+
+#[cfg(not(feature="no-stdlib"))]
+pub type LowLevelThreadError = std::boxed::Box<any::Any + Send + 'static>;
+#[cfg(feature="no-stdlib")]
+pub type LowLevelThreadError = ();
+
+
+pub trait AnyBoxConstructor {
+    fn new(data:LowLevelThreadError) -> Self;
+}
+
 pub trait Joinable<T:Send+'static, U:Send+'static>:Sized {
   fn join(self) -> Result<T, U>;
 }
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum BrotliEncoderThreadError {
     InsufficientOutputSpace,
     ConcatenationDidNotProcessFullFile,
     ConcatenationError(BroCatliResult),
     ConcatenationFinalizationError(BroCatliResult),
+    OtherThreadPanic,
+    ThreadExecError(LowLevelThreadError),
 }
+
+impl AnyBoxConstructor for BrotliEncoderThreadError {
+    fn new(data:LowLevelThreadError) -> Self {
+        BrotliEncoderThreadError::ThreadExecError(data)
+    }
+}
+
+
 pub struct CompressedFileChunk<Alloc:BrotliAlloc+Send+'static> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
     data_backing:<Alloc as Allocator<u8>>::AllocatedMemory,
     data_size: usize,
@@ -111,9 +137,18 @@ impl<T> Owned<T> {
   }
 }
 
+pub trait Derefable<T> : Sized {
+    fn deref(&self) -> &T;
+}
+impl<'a, U> Derefable<U> for &'a U {
+    fn deref(&self) -> &U {
+        return self
+    }
+}
+
 pub trait OwnedRetriever<U:Send+'static> {
-  fn view(&self) -> &U;
-  fn unwrap(self) -> U;
+  fn view(self) -> Result<Derefable<U>, PoisonedThreadError>;
+  fn unwrap(self) -> Result<U, PoisonedThreadError>;
 }
 
 pub trait BatchSpawnable<T:Send+'static,
@@ -252,7 +287,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     let mut available_out = first_thread_output_max_len;
     {
         let first_thread_output = &mut output[output_len - first_thread_output_max_len..];
-        let input_and_params = retrieve_owned_input.view();
+        let input_and_params_thread_result = retrieve_owned_input.view();
         let mut state = BrotliEncoderCreateInstance(match mem::replace(&mut alloc[0].0,
                                                                        InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
             InternalSendAlloc::A(a) => a,
@@ -260,10 +295,11 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         });
         state.params = params.clone();
         state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
-        let mut range = get_range(0, num_threads, input_and_params.0.len());
-        assert_eq!(range.start, 0);
         let mut out_offset = 0usize;
-        loop {
+        if let Ok(input_and_params) = input_and_params_thread_result {
+          loop {
+            let mut range = get_range(0, num_threads, input_and_params.0.len());
+            assert_eq!(range.start, 0);
             let mut next_in_offset = 0usize;
             let mut available_in = range.end - range.start;
             let result = BrotliEncoderCompressStream(&mut state,
@@ -285,6 +321,9 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                 compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace); // mark no space??
                 break
             }
+          }
+        } else {
+            compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic); // lock got poisoned
         }
         BrotliEncoderDestroyInstance(&mut state);
         alloc[0].0 = InternalSendAlloc::A(state.m8);
@@ -366,8 +405,14 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
        }
      }
    }
-  
-  *owned_input = Owned::new(retrieve_owned_input.unwrap().0); // return the input to its rightful owner before returning
+
+  if let Ok(retrieved_owned_input) = retrieve_owned_input.unwrap() {
+      *owned_input = Owned::new(retrieved_owned_input.0); // return the input to its rightful owner before returning
+  } else {
+      if let Ok(_) = compression_result {
+          compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic);
+      }
+  }
   compression_result
 }
 
