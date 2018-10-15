@@ -81,7 +81,7 @@ where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
       let locked_input = std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap()));
       for (index, work) in alloc_per_thread.iter_mut().enumerate() {
         let alloc = work.replace_with_default();
-        let ret = spawn_work(index, num_threads, locked_input.clone(), alloc, f.clone());
+        let ret = spawn_work(index, num_threads, locked_input.clone(), alloc, f);
         *work = SendAlloc(InternalSendAlloc::Join(MultiThreadedJoinable(ret, PhantomData::default())));
       }
       locked_input
