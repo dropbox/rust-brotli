@@ -164,9 +164,30 @@ pub trait OwnedRetriever<U:Send+'static> {
   fn unwrap(self) -> Result<U, PoisonedThreadError>;
 }
 
+#[cfg(not(feature="no-stdlib"))]
+impl<U:Send+'static> OwnedRetriever<U> for std::sync::Arc<std::sync::RwLock<U>> {
+  fn view(&self) -> Result<ReadGuard<U>, PoisonedThreadError> {
+      match self.read() {
+          Ok(u) => Ok(ReadGuard::<U>(u)),
+          Err(_) => Err(PoisonedThreadError::default()),
+      }
+  }
+  fn unwrap(self) -> Result<U, PoisonedThreadError> {
+    match std::sync::Arc::try_unwrap(self) {
+      Ok(rwlock) => match rwlock.into_inner() {
+        Ok(u) => Ok(u),
+        Err(_) => Err(PoisonedThreadError::default()),
+      },
+      Err(_) => Err(PoisonedThreadError::default()),
+    }
+  }
+}
+
+
+
 pub trait BatchSpawnable<T:Send+'static,
                          Alloc:BrotliAlloc+Send+'static,
-                         U:Send+'static>
+                         U:Send+'static+Sync>
   where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static
 {
   type JoinHandle: Joinable<T, Alloc>;
@@ -198,7 +219,7 @@ pub fn CompressMultiSlice<Alloc:BrotliAlloc+Send+'static,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, Alloc, Spawner::JoinHandle>],
   thread_spawner: Spawner,
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send+Sync {
   let input = if let InternalSendAlloc::A(ref mut alloc) = alloc_per_thread[0].0 {
     let mut input = <Alloc as Allocator<u8>>::alloc_cell(alloc, input_slice.len());
     input.slice_mut().clone_from_slice(input_slice);
@@ -279,7 +300,7 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
 }
 
 pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
-                     SliceW: SliceWrapper<u8>+Send+'static,
+                     SliceW: SliceWrapper<u8>+Send+'static+Sync,
                      Spawner:BatchSpawnable<CompressionThreadResult<Alloc>,
                                             Alloc,
                                             (SliceW, BrotliEncoderParams)>> (
@@ -310,8 +331,8 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
         let mut out_offset = 0usize;
         if let Ok(input_and_params) = input_and_params_thread_result {
+          let mut range = get_range(0, num_threads, (*input_and_params.0).0.len());
           loop {
-            let mut range = get_range(0, num_threads, (*input_and_params.0).0.len());
             assert_eq!(range.start, 0);
             let mut next_in_offset = 0usize;
             let mut available_in = range.end - range.start;

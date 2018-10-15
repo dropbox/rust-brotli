@@ -1,5 +1,6 @@
 #![cfg(not(feature="no-stdlib"))]
 use core::mem;
+use std;
 use core::marker::PhantomData;
 use std::thread::{
     JoinHandle,
@@ -18,8 +19,9 @@ use enc::threading::{
   CompressionThreadResult,
   InternalOwned,
   BrotliEncoderThreadError,
-    AnyBoxConstructor,
-    PoisonedThreadError,
+  AnyBoxConstructor,
+  PoisonedThreadError,
+  ReadGuard,
 };
 
 use std::sync::RwLock;
@@ -35,32 +37,43 @@ impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MultiT
       }
   }
 }
-/*
-pub struct MultiThreadedOwnedRetriever<U:Send+'static>(RwLock<U>);
+pub struct MultiThreadedOwnedRetriever<U:Send+'static>(std::sync::Arc<RwLock<U>>);
 
-impl<U:Send+'static+Default> OwnedRetriever<U> for MultiThreadedOwnedRetriever<U> {
-  fn view(&self) -> Result<&U, PoisonedThreadError> {
+impl<U:Send+'static> OwnedRetriever<U> for MultiThreadedOwnedRetriever<U> {
+  fn view(&self) -> Result<ReadGuard<U>, PoisonedThreadError> {
       match self.0.read() {
-          Ok(u) => Ok(u),
-          Err(_) => PoisonedThreadError::default(),
+          Ok(u) => Ok(ReadGuard::<U>(u)),
+          Err(_) => Err(PoisonedThreadError::default()),
       }
   }
   fn unwrap(self) -> Result<U, PoisonedThreadError> {
-      match self.0.into_inner() {
-          Ok(u) => Ok(u),
-          Err(_) => PoisonedThreadError::default(),
-      }
+    match std::sync::Arc::try_unwrap(self.0) {
+      Ok(rwlock) => match rwlock.into_inner() {
+        Ok(u) => Ok(u),
+        Err(_) => Err(PoisonedThreadError::default()),
+      },
+      Err(_) => Err(PoisonedThreadError::default()),
+    }
   }
 }
 
 
 #[derive(Default)]
-pub struct SingleThreadedSpawner{}
+pub struct MultiThreadedSpawner{}
+fn thread_adapter<T:Send+'static, F: Fn(usize, usize, &U, Alloc) -> T+Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+Sync+'static>(index: usize, num_threads: usize, locked_input:std::sync::Arc<RwLock<U>>, alloc:Alloc, f:F) -> T {
+  f(index, num_threads, &*locked_input.view().unwrap(), alloc)
+}
 
-impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static> BatchSpawnable<T, Alloc, U> for SingleThreadedSpawner
+
+fn spawn_work<T:Send+'static, F: Fn(usize, usize, &U, Alloc) -> T+Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+Sync+'static>(index: usize, num_threads: usize, locked_input:std::sync::Arc<RwLock<U>>, alloc:Alloc, f:F) -> std::thread::JoinHandle<T>
 where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
-  type JoinHandle = SingleThreadedJoinable<T, Alloc>;
-  type FinalJoinHandle = SingleThreadedOwnedRetriever<U>;
+  std::thread::spawn(move || thread_adapter(index, num_threads, locked_input, alloc, f))
+}
+/*
+impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static> BatchSpawnable<T, Alloc, U> for MultiThreadedSpawner
+where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+  type JoinHandle = MultiThreadedJoinable<T, Alloc>;
+  type FinalJoinHandle = MultiThreadedOwnedRetriever<U>;
     fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T>(
     &mut self,
     input: &mut Owned<U>,
@@ -68,15 +81,17 @@ where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
     f: F,
     ) -> Self::FinalJoinHandle {
       let num_threads = alloc_per_thread.len();
+      let locked_input = MultiThreadedOwnedRetriever::<U>(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap());
       for (index, work) in alloc_per_thread.iter_mut().enumerate() {
         let alloc = work.replace_with_default();
-        let ret = f(index, num_threads, input.view(), alloc);
-        *work = SendAlloc(InternalSendAlloc::Join(SingleThreadedJoinable{result:Ok(ret)}));
+        let ret = spawn_work(index, num_threads, locked_input, alloc);
+        *work = SendAlloc(InternalSendAlloc::Join(MultiThreadedJoinable{result:Ok(ret)}));
       }
-      SingleThreadedOwnedRetriever::<U>(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap())
+      locked_input
     }
 }
-
+*/
+/*
 
 pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
                       SliceW: SliceWrapper<u8>+Send+'static> (
@@ -85,8 +100,8 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
                                    Alloc,
-                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, Alloc>>::JoinHandle>],
+                                   <MultiThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, SliceW>>::JoinHandle>],
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
-  CompressMulti(params, owned_input, output, alloc_per_thread, SingleThreadedSpawner::default())
+  CompressMulti(params, owned_input, output, alloc_per_thread, MultiThreadedSpawner::default())
 }
 */                      

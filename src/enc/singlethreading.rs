@@ -64,7 +64,7 @@ impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
 #[derive(Default)]
 pub struct SingleThreadedSpawner{}
 
-impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static> BatchSpawnable<T, Alloc, U> for SingleThreadedSpawner
+impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static+Sync> BatchSpawnable<T, Alloc, U> for SingleThreadedSpawner
 where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
   type JoinHandle = SingleThreadedJoinable<T, Alloc>;
   type FinalJoinHandle = SingleThreadedOwnedRetriever<U>;
@@ -86,13 +86,13 @@ where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
 
 
 pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
-                      SliceW: SliceWrapper<u8>+Send+'static> (
+                      SliceW: SliceWrapper<u8>+Send+'static+Sync> (
   params:&BrotliEncoderParams,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
                                    Alloc,
-                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, Alloc>>::JoinHandle>],
+                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, SliceW>>::JoinHandle>],
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
   CompressMulti(params, owned_input, output, alloc_per_thread, SingleThreadedSpawner::default())
 }
