@@ -98,7 +98,7 @@ pub use self::threading::{SendAlloc,
                           BrotliEncoderThreadError,};
 
 #[cfg(not(feature="no-stdlib"))]
-pub use self::singlethreading::compress_multi;
+pub use self::multithreading::compress_multi;
 #[cfg(feature="no-stdlib")]
 pub use self::singlethreading::compress_multi;
 

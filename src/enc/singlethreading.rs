@@ -66,9 +66,9 @@ pub struct SingleThreadedSpawner{}
 
 impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static+Sync> BatchSpawnable<T, Alloc, U> for SingleThreadedSpawner
 where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
-  type JoinHandle = SingleThreadedJoinable<T, Alloc>;
+  type JoinHandle = SingleThreadedJoinable<T, BrotliEncoderThreadError>;
   type FinalJoinHandle = SingleThreadedOwnedRetriever<U>;
-    fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T>(
+    fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T+Send+'static+Copy>(
     &mut self,
     input: &mut Owned<U>,
     alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],

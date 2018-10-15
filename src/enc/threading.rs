@@ -60,7 +60,7 @@ pub struct CompressionThreadResult<Alloc:BrotliAlloc+Send+'static> where <Alloc 
   compressed: Result<CompressedFileChunk<Alloc>, BrotliEncoderThreadError>,
   alloc: Alloc,
 }
-pub enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join: Joinable<T, Alloc>>
+pub enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join: Joinable<T, BrotliEncoderThreadError>>
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
   A(Alloc),
   Join(Join),
@@ -68,10 +68,10 @@ pub enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join:
 }
 pub struct SendAlloc<T:Send+'static,
                      Alloc:BrotliAlloc +Send+'static,
-                     Join:Joinable<T, Alloc>>(pub InternalSendAlloc<T, Alloc, Join>)//FIXME pub
+                     Join:Joinable<T, BrotliEncoderThreadError>>(pub InternalSendAlloc<T, Alloc, Join>)//FIXME pub
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send;
 
-impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static,Join:Joinable<T, Alloc>> SendAlloc<T, Alloc, Join>
+impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static,Join:Joinable<T, BrotliEncoderThreadError>> SendAlloc<T, Alloc, Join>
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
   pub fn new(alloc: Alloc) -> Self {
     SendAlloc::<T, Alloc, Join>(InternalSendAlloc::A(alloc))
@@ -190,7 +190,7 @@ pub trait BatchSpawnable<T:Send+'static,
                          U:Send+'static+Sync>
   where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static
 {
-  type JoinHandle: Joinable<T, Alloc>;
+  type JoinHandle: Joinable<T, BrotliEncoderThreadError>;
   type FinalJoinHandle: OwnedRetriever<U>;
   // this function takes in an input slice
   // a SendAlloc per thread and converts them all into JoinHandle
@@ -200,7 +200,7 @@ pub trait BatchSpawnable<T:Send+'static,
   // the FinalJoinHandle is only to be called when each individual JoinHandle has been examined
   // the function is called with the thread_index, the num_threads, a reference to the slice under a read lock,
   // and an allocator from the alloc_per_thread
-  fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T>(
+  fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T+Send+'static+Copy>(
     &mut self,
     input: &mut Owned<U>,
     alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
@@ -392,7 +392,6 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     }
     if let Ok(mut out_file_size) = compression_result {
      for thread in alloc_rest.iter_mut() {
-       let alloc;
        match mem::replace(&mut thread.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
          InternalSendAlloc::A(_) | InternalSendAlloc::SpawningOrJoining(_) => panic!("Thread not properly spawned"),
          InternalSendAlloc::Join(join) => match join.join() {
@@ -422,15 +421,13 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                    compression_result = Err(e);
                }
              }
-             alloc = result.alloc;
+             thread.0 = InternalSendAlloc::A(result.alloc);
            },
-           Err(allocator) => {
-             alloc = allocator;
-             compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace);
+           Err(err) => {
+             compression_result = Err(err);
            },
          },
        }
-       thread.0 = InternalSendAlloc::A(alloc);
      }
      if alloc_rest.len() != 0 {
        match bro_cat_li.finish(output, &mut out_file_size) {
