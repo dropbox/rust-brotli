@@ -3,13 +3,11 @@
 #![allow(dead_code)]
 extern crate core;
 extern crate brotli_decompressor;
-use super::{HeapAllocator, new_brotli_heap_alloc};
+use super::new_brotli_heap_alloc;
 use brotli_decompressor::{SliceWrapperMut, SliceWrapper};
 use super::brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, compress_multi};
 use brotli::enc::threading::{SendAlloc,Owned};
 
-use super::brotli::concat::{BroCatli, BroCatliResult};
-use std::io::{Read, Write};
 use super::integration_tests::UnlimitedBuffer;
 static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
 static ALICE: &'static[u8]  = include_bytes!("../../testdata/alice29.txt");

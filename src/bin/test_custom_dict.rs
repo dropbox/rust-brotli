@@ -19,7 +19,7 @@ fn test_custom_dict() {
     let mut br = UnlimitedBuffer::new(&[]);
     let mut rt = UnlimitedBuffer::new(&[]);
     let dict = &ALICE[12515..23411];
-    super::compress(&mut raw, &mut br, 4096, &params, dict).unwrap();
+    super::compress(&mut raw, &mut br, 4096, &params, dict, 1).unwrap();
     raw.reset_read();
     let mut vec = Vec::<u8>::new();
     vec.extend(dict);
@@ -38,7 +38,7 @@ fn test_custom_wrong_dict_fails() {
     let mut br = UnlimitedBuffer::new(&[]);
     let mut rt = UnlimitedBuffer::new(&[]);
     let dict = &ALICE[12515..19515];
-    super::compress(&mut raw, &mut br, 4096, &params, dict).unwrap();
+    super::compress(&mut raw, &mut br, 4096, &params, dict, 1).unwrap();
     raw.reset_read();
     let mut vec = Vec::<u8>::new();
     vec.extend(&dict[1..]); // slightly offset dictionary to be wrong, and ensure the dict was being used above
@@ -59,7 +59,7 @@ fn test_custom_wrong_dict_fails_but_doesnt_disrupt_compression_strategy() {
     let mut br = UnlimitedBuffer::new(&[]);
     let mut rt = UnlimitedBuffer::new(&[]);
     let dict = &ALICE[12515..19515];
-    super::compress(&mut raw, &mut br, 4096, &params, dict).unwrap();
+    super::compress(&mut raw, &mut br, 4096, &params, dict, 1).unwrap();
     raw.reset_read();
     let mut vec = Vec::<u8>::new();
     vec.extend(&dict[1..]); // slightly offset dictionary to be wrong, and ensure the dict was being used above
@@ -95,7 +95,7 @@ fn test_custom_dict_for_multithreading() {
         &ALICE[..2*ALICE.len()/3],
     ];
     for (raw, (br, (rt, dict))) in raws.iter_mut().zip(brs.iter_mut().zip(rts.iter_mut().zip(dicts.iter()))) {
-        super::compress(raw, br, 4096, &params, dict).unwrap();
+        super::compress(raw, br, 4096, &params, dict, 1).unwrap();
         raw.reset_read();
         let mut vec = Vec::<u8>::new();
         vec.extend(*dict);

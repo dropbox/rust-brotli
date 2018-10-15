@@ -24,7 +24,7 @@ use brotli::enc::command::Command;
 use brotli::enc::entropy_encode::HuffmanTree;
 use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use brotli::enc::{s16, v8};
-
+const MAX_THREADS: usize = 16;
 
 pub struct Rebox<T> {
   b: Box<[T]>,
@@ -330,13 +330,25 @@ pub fn new_brotli_heap_alloc() -> brotli::CombiningAllocator<
         },
     )
 }
+pub fn compress_multi<InputType, OutputType>(r: &mut InputType,
+                                       w: &mut OutputType,
+                                       params:&brotli::enc::BrotliEncoderParams,
+                                       num_threads: usize) -> Result<usize, io::Error> {
+    Err(io::Error::new(ErrorKind::InvalidData,
+                       "Unimplemented multithreaded compression"))
+}
+
 pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        w: &mut OutputType,
                                        buffer_size: usize,
                                        params:&brotli::enc::BrotliEncoderParams,
-                                       custom_dictionary: &[u8]) -> Result<usize, io::Error>
+                                       custom_dictionary: &[u8],
+                                       num_threads: usize) -> Result<usize, io::Error>
     where InputType: Read,
           OutputType: Write {
+    if num_threads > 1 && custom_dictionary.len() ==0 && !params.log_meta_block {
+        return compress_multi(r, w, params, num_threads);
+    }
     let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
     let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
     let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
@@ -459,6 +471,7 @@ fn main() {
   let mut filenames = [std::string::String::new(), std::string::String::new()];
   let mut num_benchmarks = 1;
   let mut double_dash = false;
+  let mut num_threads = 1;
   if env::args_os().len() > 1 {
     let mut first = true;
     for argument in env::args() {
@@ -581,6 +594,14 @@ fn main() {
         params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
         continue;
       }
+      if argument.starts_with("-j") && !double_dash {
+        num_threads = core::cmp::min(
+          core::cmp::max(
+            1,
+            argument.trim_matches('-').trim_matches('j').parse::<i32>().unwrap() as usize),
+          MAX_THREADS);
+        continue;
+      }
       if argument.starts_with("-bytescore=") && !double_dash {
         params.hasher.literal_byte_score = argument.trim_matches('-').trim_matches('b').trim_matches('y').trim_matches('t').trim_matches('e').trim_matches('s').trim_matches('c').trim_matches('o').trim_matches('r').trim_matches('e').trim_matches('=').parse::<i32>().unwrap();
         continue;
@@ -688,7 +709,7 @@ fn main() {
         };
         for i in 0..num_benchmarks {
           if do_compress {
-            match compress(&mut input, &mut output, buffer_size, &params, &custom_dictionary[..]) {
+            match compress(&mut input, &mut output, buffer_size, &params, &custom_dictionary[..], num_threads) {
                 Ok(_) => {}
                 Err(e) => panic!("Error {:?}", e),
             }
@@ -711,7 +732,7 @@ fn main() {
       } else {
         assert_eq!(num_benchmarks, 1);
         if do_compress {
-          match compress(&mut input, &mut io::stdout(), buffer_size, &params, &custom_dictionary[..]) {
+          match compress(&mut input, &mut io::stdout(), buffer_size, &params, &custom_dictionary[..], num_threads) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
           }
@@ -726,7 +747,7 @@ fn main() {
    } else {
       assert_eq!(num_benchmarks, 1);
       if do_compress {
-        match compress(&mut io::stdin(), &mut io::stdout(), buffer_size, &params, &custom_dictionary[..]) {
+        match compress(&mut io::stdin(), &mut io::stdout(), buffer_size, &params, &custom_dictionary[..], num_threads) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),
         }
