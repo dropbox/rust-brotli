@@ -18,18 +18,10 @@ use brotli::enc::threading::{SendAlloc,Owned};
 
 use brotli::CustomRead;
 use core::ops;
-use brotli::enc::cluster::HistogramPair;
-use brotli::enc::ZopfliNode;
-use brotli::enc::StaticCommand;
 use brotli::enc::backward_references::BrotliEncoderMode;
-use brotli::enc::command::Command;
-use brotli::enc::entropy_encode::HuffmanTree;
-use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
-use brotli::enc::{s16, v8};
 #[allow(unused_imports)]
 use alloc_no_stdlib::{SliceWrapper, SliceWrapperMut, StackAllocator, AllocatedStackMemory,
                       Allocator, bzero};
-use brotli_decompressor::HuffmanCode;
 
 use std::env;
 
@@ -120,10 +112,6 @@ type HeapBrotliAlloc = brotli::CombiningAllocator<
                       HeapAllocator<ZopfliNode>,
                   >;
 */
-struct SliceRef<'a> (&'a [u8]);
-impl<'a> SliceWrapper<u8> for SliceRef<'a> {
-    fn slice(&self) -> &[u8] { self.0 }
-}
 
 macro_rules! println_stderr(
     ($($val:tt)*) => { {

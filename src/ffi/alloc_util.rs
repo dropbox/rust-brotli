@@ -1,7 +1,7 @@
-use alloc::Allocator;
+use alloc::{Allocator,SliceWrapper,SliceWrapperMut};
+
 use ::enc::BrotliAlloc;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
-
 
 
 
@@ -16,18 +16,37 @@ impl BrotliSubclassableAllocator {
     BrotliSubclassableAllocator(s)
   }
 }
+
+#[derive(Default)]
+pub struct SendableMemoryBlock<T:Clone+Default>(<SubclassableAllocator as Allocator<T>>::AllocatedMemory);
+impl<T:Clone+Default> SliceWrapperMut<T> for SendableMemoryBlock<T> {
+  fn slice_mut(&mut self) -> &mut [T] {
+    self.0.slice_mut()
+  }
+}
+impl<T:Clone+Default> SliceWrapper<T> for SendableMemoryBlock<T> {
+  fn slice(&self) -> &[T] {
+    self.0.slice()
+  }
+}
 impl<T:Clone+Default> Allocator<T> for BrotliSubclassableAllocator {
-  type AllocatedMemory = <SubclassableAllocator as Allocator<T>>::AllocatedMemory;
+  type AllocatedMemory = SendableMemoryBlock<T>;
   fn alloc_cell(&mut self, s:usize) -> Self::AllocatedMemory {
-    self.0.alloc_cell(s)
+    SendableMemoryBlock(self.0.alloc_cell(s))
   }
   fn free_cell(&mut self, data:Self::AllocatedMemory) {
-    self.0.free_cell(data)
+    self.0.free_cell(data.0)
   }
 }
 
 
 impl BrotliAlloc for BrotliSubclassableAllocator {
 }
+#[cfg(not(feature="safe"))]
+unsafe impl Send for BrotliSubclassableAllocator{}
+
+
+#[cfg(not(feature="safe"))]
+unsafe impl<T:Clone+Default> Send for SendableMemoryBlock<T>{}
 
 

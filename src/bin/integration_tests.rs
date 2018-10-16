@@ -13,7 +13,6 @@ use super::Rebox;
 use super::brotli::{CompressorReader, CompressorWriter};
 #[cfg(not(feature="no-stdlib"))]
 use super::brotli_decompressor::{Decompressor, DecompressorWriter};
-use super::brotli_decompressor::HuffmanCode;
 use core::cmp;
 use std::io;
 #[cfg(not(feature="no-stdlib"))]
