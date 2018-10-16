@@ -124,9 +124,9 @@ fn decompress_internal<InputType, OutputType, Run: Runner>(r: &mut InputType,
   runner.iter(&mut || {
     range += 1;
     let mut brotli_state =
-      BrotliState::new(HeapAllocator::<u8> { default_value: 0 },
-                       HeapAllocator::<u32> { default_value: 0 },
-                       HeapAllocator::<HuffmanCode> { default_value: HuffmanCode::default() });
+      BrotliState::new(HeapAllocator::default(),
+                       HeapAllocator::default(),
+                       HeapAllocator::default());
     let mut input = brotli_state.alloc_u8.alloc_cell(input_buffer_limit);
     let mut output = brotli_state.alloc_u8.alloc_cell(output_buffer_limit);
     let mut available_out: usize = output.slice().len();
@@ -509,13 +509,13 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
 fn simple_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
     let mut xinput = UnlimitedBuffer::new(&in_buf);
     let xenc;
-        let mut buf = HeapAllocator::<u8> { default_value: 0 }.alloc_cell(1024);
+        let mut buf = HeapAllocator::default().alloc_cell(1024);
     xenc = SimpleReader::new(xinput, buf, 1, 16);
     return;
         
   let original_buf = in_buf;
     let mut cmp = [0u8; 259];
-    let mut buf = HeapAllocator::<u8> { default_value: 0 }.alloc_cell(1024);
+    let mut buf = HeapAllocator::default().alloc_cell(1024);
   let mut input = UnlimitedBuffer::new(&in_buf);
   {
       let renc = SimpleReader::new(&mut input, buf, q, lgwin).unwrap();

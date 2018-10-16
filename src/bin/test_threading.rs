@@ -13,10 +13,6 @@ static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("../../testdata/rand
 static ALICE: &'static[u8]  = include_bytes!("../../testdata/alice29.txt");
 use super::Rebox;
 
-struct SliceRef<'a> (&'a [u8]);
-impl<'a> SliceWrapper<u8> for SliceRef<'a> {
-    fn slice(&self) -> &[u8] { self.0 }
-}
 
 fn single_threaded_split_compression_test(num_threads: usize, quality: i32, catable: bool, expected_size: usize) {
     let mut params = BrotliEncoderParams::default();
@@ -48,7 +44,7 @@ fn single_threaded_split_compression_test(num_threads: usize, quality: i32, cata
     }
     let res = compress_multi(
         &params,
-        &mut Owned::new(SliceRef(input_data)),
+        &mut Owned::new(super::SliceRef(input_data)),
         output.slice_mut(),
         &mut alloc_per_thread[..num_threads],
     );

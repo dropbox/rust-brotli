@@ -13,6 +13,8 @@ extern crate core;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib;
+use brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti};
+use brotli::enc::threading::{SendAlloc,Owned};
 
 use brotli::CustomRead;
 use core::ops;
@@ -24,6 +26,16 @@ use brotli::enc::command::Command;
 use brotli::enc::entropy_encode::HuffmanTree;
 use brotli::enc::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use brotli::enc::{s16, v8};
+#[allow(unused_imports)]
+use alloc_no_stdlib::{SliceWrapper, SliceWrapperMut, StackAllocator, AllocatedStackMemory,
+                      Allocator, bzero};
+use brotli_decompressor::HuffmanCode;
+
+use std::env;
+
+use std::fs::File;
+use std::io::{self, Error, ErrorKind, Read, Write, Seek, SeekFrom};
+
 const MAX_THREADS: usize = 16;
 
 pub struct Rebox<T> {
@@ -70,47 +82,48 @@ impl<T> alloc_no_stdlib::SliceWrapperMut<T> for Rebox<T> {
     &mut *self.b
   }
 }
-
-pub struct HeapAllocator<T: core::clone::Clone> {
-  pub default_value: T,
+#[derive(Clone, Copy, Default)]
+pub struct HeapAllocator {
 }
 
-//#[cfg(not(feature="unsafe"))]
-impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
+
+
+impl<T: core::clone::Clone+Default> alloc_no_stdlib::Allocator<T> for HeapAllocator {
   type AllocatedMemory = Rebox<T>;
-  fn alloc_cell(self: &mut HeapAllocator<T>, len: usize) -> Rebox<T> {
-    let v: Vec<T> = vec![self.default_value.clone();len];
+  fn alloc_cell(self: &mut HeapAllocator, len: usize) -> Rebox<T> {
+    let v: Vec<T> = vec![T::default();len];
     let b = v.into_boxed_slice();
     Rebox::<T> { b: b }
   }
-  fn free_cell(self: &mut HeapAllocator<T>, _data: Rebox<T>) {}
+  fn free_cell(self: &mut HeapAllocator, _data: Rebox<T>) {}
 }
-/* FAILS test: compressor must fail to initialize data first
-#[cfg(feature="unsafe")]
-impl<T: core::clone::Clone> alloc_no_stdlib::Allocator<T> for HeapAllocator<T> {
-  type AllocatedMemory = Rebox<T>;
-  fn alloc_cell(self: &mut HeapAllocator<T>, len: usize) -> Rebox<T> {
-    let mut v: Vec<T> = Vec::with_capacity(len);
-    unsafe {
-      v.set_len(len);
-    }
-    let b = v.into_boxed_slice();
-    Rebox::<T> { b: b }
-  }
-  fn free_cell(self: &mut HeapAllocator<T>, _data: Rebox<T>) {}
-}
+
+/*
+type HeapBrotliAlloc = brotli::CombiningAllocator<
+                      HeapAllocator<u8>,
+                      HeapAllocator<u16>,
+                      HeapAllocator<i32>,
+                      HeapAllocator<u32>,
+                      HeapAllocator<u64>,
+                      HeapAllocator<Command>,
+                      HeapAllocator<brotli::enc::floatX>,
+                      HeapAllocator<v8>,
+                      HeapAllocator<s16>,
+                      HeapAllocator<brotli::enc::PDF>,
+                      HeapAllocator<StaticCommand>,
+                      HeapAllocator<HistogramLiteral>,
+                      HeapAllocator<HistogramCommand>,
+                      HeapAllocator<HistogramDistance>,
+                      HeapAllocator<HistogramPair>,
+                      HeapAllocator<ContextType>,
+                      HeapAllocator<HuffmanTree>,
+                      HeapAllocator<ZopfliNode>,
+                  >;
 */
-
-#[allow(unused_imports)]
-use alloc_no_stdlib::{SliceWrapper, SliceWrapperMut, StackAllocator, AllocatedStackMemory,
-                      Allocator, bzero};
-use brotli_decompressor::HuffmanCode;
-
-use std::env;
-
-use std::fs::File;
-
-use std::io::{self, Error, ErrorKind, Read, Write, Seek, SeekFrom};
+struct SliceRef<'a> (&'a [u8]);
+impl<'a> SliceWrapper<u8> for SliceRef<'a> {
+    fn slice(&self) -> &[u8] { self.0 }
+}
 
 macro_rules! println_stderr(
     ($($val:tt)*) => { {
@@ -202,7 +215,7 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
   where InputType: Read,
         OutputType: Write
 {
-  let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
+  let mut alloc_u8 = HeapAllocator::default();
   let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
   let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
   brotli::BrotliDecompressCustomIoCustomDict(
@@ -211,10 +224,8 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
     input_buffer.slice_mut(),
     output_buffer.slice_mut(),
     alloc_u8,
-    HeapAllocator::<u32> { default_value: 0 },
-    HeapAllocator::<HuffmanCode> {
-      default_value: HuffmanCode::default(),
-    },
+    HeapAllocator::default(),
+    HeapAllocator::default(),
     custom_dictionary,
     Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
@@ -275,67 +286,59 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
       }
   }
 }
-pub fn new_brotli_heap_alloc() -> brotli::CombiningAllocator<
-                      HeapAllocator<u8>,
-                      HeapAllocator<u16>,
-                      HeapAllocator<i32>,
-                      HeapAllocator<u32>,
-                      HeapAllocator<u64>,
-                      HeapAllocator<Command>,
-                      HeapAllocator<brotli::enc::floatX>,
-                      HeapAllocator<v8>,
-                      HeapAllocator<s16>,
-                      HeapAllocator<brotli::enc::PDF>,
-                      HeapAllocator<StaticCommand>,
-                      HeapAllocator<HistogramLiteral>,
-                      HeapAllocator<HistogramCommand>,
-                      HeapAllocator<HistogramDistance>,
-                      HeapAllocator<HistogramPair>,
-                      HeapAllocator<ContextType>,
-                      HeapAllocator<HuffmanTree>,
-                      HeapAllocator<ZopfliNode>,
-                  > {
-    brotli::CombiningAllocator::new(
-        HeapAllocator::<u8>{default_value:0},
-        HeapAllocator::<u16>{default_value:0},
-        HeapAllocator::<i32>{default_value:0},
-        HeapAllocator::<u32>{default_value:0},
-        HeapAllocator::<u64>{default_value:0},
-        HeapAllocator::<Command>{default_value:Command::default()},
-        HeapAllocator::<brotli::enc::floatX>{default_value:0.0 as brotli::enc::floatX},
-        HeapAllocator::<v8>{default_value:brotli::enc::v8::default()},
-        HeapAllocator::<s16>{default_value:brotli::enc::s16::default()},
-        HeapAllocator::<brotli::enc::PDF>{default_value:brotli::enc::PDF::default()},
-        HeapAllocator::<StaticCommand>{default_value:StaticCommand::default()},
-        HeapAllocator::<HistogramLiteral>{
-            default_value:HistogramLiteral::default(),
-        },
-        HeapAllocator::<HistogramCommand>{
-            default_value:HistogramCommand::default(),
-        },
-        HeapAllocator::<HistogramDistance>{
-            default_value:HistogramDistance::default(),
-        },
-        HeapAllocator::<HistogramPair>{
-            default_value:HistogramPair::default(),
-        },
-        HeapAllocator::<ContextType>{
-            default_value:ContextType::default(),
-        },
-        HeapAllocator::<HuffmanTree>{
-            default_value:HuffmanTree::default(),
-        },
-        HeapAllocator::<ZopfliNode>{
-            default_value:ZopfliNode::default(),
-        },
-    )
+pub fn new_brotli_heap_alloc() -> HeapAllocator {
+    HeapAllocator::default()
 }
-pub fn compress_multi<InputType, OutputType>(r: &mut InputType,
-                                       w: &mut OutputType,
-                                       params:&brotli::enc::BrotliEncoderParams,
-                                       num_threads: usize) -> Result<usize, io::Error> {
-    Err(io::Error::new(ErrorKind::InvalidData,
-                       "Unimplemented multithreaded compression"))
+impl brotli::enc::BrotliAlloc for HeapAllocator {
+}
+pub fn compress_multi<InputType:Read,
+                      OutputType:Write>(r: &mut InputType,
+                                        w: &mut OutputType,
+                                        params:&BrotliEncoderParams,
+                                        mut num_threads: usize) -> Result<usize, io::Error> {
+    let mut input = Vec::<u8>::new();
+    if let Err(err) = r.read_to_end(&mut input) {
+        return Err(err);
+    }
+    let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input.len(), num_threads)]);
+    let mut alloc_array = [
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+    ];
+    if num_threads > alloc_array.len() {
+        num_threads = alloc_array.len();
+    }
+    let res = brotli::enc::compress_multi(
+        params,
+        &mut Owned::new(Rebox::from(input)),
+        output.slice_mut(),
+        &mut alloc_array[..num_threads],
+    );
+    match res {
+        Ok(size) => {
+            if let Err(err) = w.write_all(&output.slice()[..size]) {
+                Err(err)
+            } else {
+                Ok(size)
+            }
+        },
+        Err(err) => Err(io::Error::new(ErrorKind::Other,
+                                   format!("{:?}", err))),
+    }
 }
 
 pub fn compress<InputType, OutputType>(r: &mut InputType,
@@ -349,32 +352,13 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     if num_threads > 1 && custom_dictionary.len() ==0 && !params.log_meta_block {
         return compress_multi(r, w, params, num_threads);
     }
-    let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
+    let mut alloc_u8 = HeapAllocator::default();
     let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
     let mut output_buffer = alloc_u8.alloc_cell(buffer_size);
     let mut log = |pm:&mut brotli::interface::PredictionModeContextMap<brotli::InputReferenceMut>,
                    data:&mut [brotli::interface::Command<brotli::SliceOffset>],
                    mb:brotli::InputPair,
-                  _mfv: &mut brotli::CombiningAllocator<
-                      HeapAllocator<u8>,
-                      HeapAllocator<u16>,
-                      HeapAllocator<i32>,
-                      HeapAllocator<u32>,
-                      HeapAllocator<u64>,
-                      HeapAllocator<Command>,
-                      HeapAllocator<brotli::enc::floatX>,
-                      HeapAllocator<v8>,
-                      HeapAllocator<s16>,
-                      HeapAllocator<brotli::enc::PDF>,
-                      HeapAllocator<StaticCommand>,
-                      HeapAllocator<HistogramLiteral>,
-                      HeapAllocator<HistogramCommand>,
-                      HeapAllocator<HistogramDistance>,
-                      HeapAllocator<HistogramPair>,
-                      HeapAllocator<ContextType>,
-                      HeapAllocator<HuffmanTree>,
-                      HeapAllocator<ZopfliNode>,
-                  >| {
+                  _mfv: &mut HeapAllocator| {
         let tmp = brotli::interface::Command::PredictionMode(
             brotli::interface::PredictionModeContextMap::<brotli::InputReference>{
                 literal_context_map:brotli::InputReference::from(&pm.literal_context_map),
@@ -404,23 +388,23 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
 pub struct BrotliDecompressor<R: Read>(brotli::DecompressorCustomIo<io::Error,
                                                                     IntoIoReader<R>,
                                                                     Rebox<u8>,
-                                                                    HeapAllocator<u8>,
-                                                                    HeapAllocator<u32>,
-                                                                    HeapAllocator<HuffmanCode>>);
+                                                                    HeapAllocator,
+                                                                    HeapAllocator,
+                                                                    HeapAllocator>);
 
 
 
 impl<R: Read> BrotliDecompressor<R> {
   pub fn new(r: R, buffer_size: usize) -> Self {
-    let mut alloc_u8 = HeapAllocator::<u8> { default_value: 0 };
+    let mut alloc_u8 = HeapAllocator::default();
     let buffer = alloc_u8.alloc_cell(buffer_size);
-    let alloc_u32 = HeapAllocator::<u32> { default_value: 0 };
-    let alloc_hc = HeapAllocator::<HuffmanCode> { default_value: HuffmanCode::default() };
+    let alloc_u32 = HeapAllocator::default();
+    let alloc_hc = HeapAllocator::default();
     BrotliDecompressor::<R>(
           brotli::DecompressorCustomIo::<Error,
                                  IntoIoReader<R>,
                                  Rebox<u8>,
-                                 HeapAllocator<u8>, HeapAllocator<u32>, HeapAllocator<HuffmanCode> >
+                                 HeapAllocator, HeapAllocator, HeapAllocator>
                                  ::new(IntoIoReader::<R>(r),
                                                          buffer,
                                                          alloc_u8, alloc_u32, alloc_hc,
