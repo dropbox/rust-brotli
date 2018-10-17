@@ -208,17 +208,46 @@ pub trait BatchSpawnable<T:Send+'static,
   ) -> Self::FinalJoinHandle;
 }
 
-
+pub trait BatchSpawnableLite<T:Send+'static,
+                         Alloc:BrotliAlloc+Send+'static,
+                         U:Send+'static+Sync>
+  where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static
+{
+  type JoinHandle: Joinable<T, BrotliEncoderThreadError>;
+  type FinalJoinHandle: OwnedRetriever<U>;
+  fn batch_spawn(
+    &mut self,
+    input: &mut Owned<U>,
+    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    f: fn(usize, usize, &U, Alloc) -> T,
+  ) -> Self::FinalJoinHandle;
+}
+/*
+impl<T:Send+'static,
+     Alloc:BrotliAlloc+Send+'static,
+     U:Send+'static+Sync>
+     BatchSpawnableLite<T, Alloc, U> for BatchSpawnable<T, Alloc, U> {
+  type JoinHandle = <Self as BatchSpawnable<T, Alloc, U>>::JoinHandle;
+  type FinalJoinHandle = <Self as BatchSpawnable<T, Alloc, U>>::FinalJoinHandle;
+  fn batch_spawn(
+    &mut self,
+    input: &mut Owned<U>,
+    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    f: fn(usize, usize, &U, Alloc) -> T,
+  ) -> Self::FinalJoinHandle {
+   <Self as BatchSpawnable<T, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
+  }
+}*/
 
 pub fn CompressMultiSlice<Alloc:BrotliAlloc+Send+'static,
-                          Spawner:BatchSpawnable<CompressionThreadResult<Alloc>,
+                          Spawner:BatchSpawnableLite<CompressionThreadResult<Alloc>,
                                                  Alloc,
                                                  (<Alloc as Allocator<u8>>::AllocatedMemory, BrotliEncoderParams)>> (
   params:&BrotliEncoderParams,
   input_slice: &[u8],
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, Alloc, Spawner::JoinHandle>],
-  thread_spawner: Spawner,
+  thread_spawner: &mut Spawner,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send+Sync {
   let input = if let InternalSendAlloc::A(ref mut alloc) = alloc_per_thread[0].0 {
     let mut input = <Alloc as Allocator<u8>>::alloc_cell(alloc, input_slice.len());
@@ -228,7 +257,7 @@ pub fn CompressMultiSlice<Alloc:BrotliAlloc+Send+'static,
     <Alloc as Allocator<u8>>::AllocatedMemory::default()
   };
   let mut owned_input = Owned::new(input);
-  let ret = CompressMulti(params, &mut owned_input, output, alloc_per_thread,thread_spawner);
+  let ret = CompressMulti(params, &mut owned_input, output, alloc_per_thread, thread_spawner);
   if let InternalSendAlloc::A(ref mut alloc) = alloc_per_thread[0].0 {
     <Alloc as Allocator<u8>>::free_cell(alloc, owned_input.unwrap());
   }
@@ -301,14 +330,14 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
 
 pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                      SliceW: SliceWrapper<u8>+Send+'static+Sync,
-                     Spawner:BatchSpawnable<CompressionThreadResult<Alloc>,
+                     Spawner:BatchSpawnableLite<CompressionThreadResult<Alloc>,
                                             Alloc,
                                             (SliceW, BrotliEncoderParams)>> (
   params:&BrotliEncoderParams,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, Alloc, Spawner::JoinHandle>],
-  mut thread_spawner: Spawner,
+  thread_spawner: &mut Spawner,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
     let num_threads = alloc_per_thread.len();
     let (alloc, alloc_rest) = alloc_per_thread.split_at_mut(1);

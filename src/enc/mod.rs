@@ -40,6 +40,8 @@ mod compat;
 pub mod threading;
 pub mod singlethreading;
 pub mod multithreading;
+pub mod fixed_queue;
+pub mod worker_pool;
 #[cfg(feature="simd")]
 use packed_simd::{i16x16, f32x8, i32x8};
 #[cfg(feature="simd")]

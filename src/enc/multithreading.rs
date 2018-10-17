@@ -13,6 +13,7 @@ use enc::threading::{
   SendAlloc,
   InternalSendAlloc,
   BatchSpawnable,
+  BatchSpawnableLite,
   Joinable,
   Owned,
   OwnedRetriever,
@@ -23,6 +24,8 @@ use enc::threading::{
   PoisonedThreadError,
   ReadGuard,
 };
+
+// in-place thread create
 
 use std::sync::RwLock;
 
@@ -87,6 +90,22 @@ where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
       locked_input
     }
 }
+impl<T:Send+'static,
+     Alloc:BrotliAlloc+Send+'static,
+     U:Send+'static+Sync>
+  BatchSpawnableLite<T, Alloc, U> for MultiThreadedSpawner
+  where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+  type JoinHandle = <MultiThreadedSpawner as BatchSpawnable<T, Alloc, U>>::JoinHandle;
+  type FinalJoinHandle = <MultiThreadedSpawner as BatchSpawnable<T, Alloc, U>>::FinalJoinHandle;
+  fn batch_spawn(
+    &mut self,
+    input: &mut Owned<U>,
+    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    f: fn(usize, usize, &U, Alloc) -> T,
+  ) -> Self::FinalJoinHandle {
+   <Self as BatchSpawnable<T, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
+  }
+}
 
 pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
                       SliceW: SliceWrapper<u8>+Send+'static+Sync> (
@@ -97,5 +116,6 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
                                    Alloc,
                                    <MultiThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, SliceW>>::JoinHandle>],
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
-  CompressMulti(params, owned_input, output, alloc_per_thread, MultiThreadedSpawner::default())
+  CompressMulti(params, owned_input, output, alloc_per_thread, &mut MultiThreadedSpawner::default())
 }
+
