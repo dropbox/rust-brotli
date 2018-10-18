@@ -81,7 +81,7 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
       make_send_alloc!(alloc_func, free_func, alloc_opaque[14%desired_num_threads]),
       make_send_alloc!(alloc_func, free_func, alloc_opaque[15%desired_num_threads]),
     ];
-    let res = enc::compress_multi(
+    let res = enc::compress_multi_no_threadpool(
         &params,
         &mut Owned::new(SliceRef(slice::from_raw_parts(input, input_size))),
         slice::from_raw_parts_mut(encoded, *encoded_size),
