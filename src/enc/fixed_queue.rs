@@ -41,9 +41,29 @@ impl<T:Sized> FixedQueue<T> {
     if self.size == 0 {
       return None;
     }
-    let ret = core::mem::replace(&mut self.data[self.start], None);
+    let ret = core::mem::replace(&mut self.data[self.start%self.data.len()], None);
     self.start += 1;
     self.size -= 1;
     ret
+  }
+  pub fn how_much_free_space(&self) -> usize {
+    self.data.len() - self.size
+  }
+  pub fn remove<F:Fn(&Option<T>) ->bool>(&mut self,f:F) -> Option<T> {
+    if self.size == 0 {
+      return None;
+    }
+    for index in 0..self.size {
+      if f(&self.data[(self.start + index)%self.data.len()]) {
+        let ret = core::mem::replace(&mut self.data[(self.start + index)%self.data.len()], None);
+        let replace = core::mem::replace(&mut self.data[self.start%self.data.len()], None);
+        let is_none = core::mem::replace(&mut self.data[(self.start + index)%self.data.len()], replace);
+        assert!(is_none.is_none());
+        self.start += 1;
+        self.size -= 1;
+        return ret
+      }
+    }
+    None
   }
 }

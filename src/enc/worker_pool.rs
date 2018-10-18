@@ -1,10 +1,7 @@
 #![cfg(not(feature="no-stdlib"))]
 use core::mem;
 use std;
-use core::marker::PhantomData;
-use std::thread::{
-  JoinHandle,
-};
+
 use std::sync:: {
   Arc,
   Mutex,
@@ -20,13 +17,9 @@ use enc::threading::{
   BatchSpawnableLite,
   Joinable,
   Owned,
-  OwnedRetriever,
   CompressionThreadResult,
   InternalOwned,
   BrotliEncoderThreadError,
-  AnyBoxConstructor,
-  PoisonedThreadError,
-  ReadGuard,
 };
 use enc::fixed_queue::{MAX_THREADS, FixedQueue};
 // in-place thread create
@@ -92,10 +85,17 @@ impl <T:Send+'static,
       Alloc:BrotliAlloc+Send+'static,
       U:Send+'static+Sync> Drop for WorkerPool<T, Alloc, U> {
   fn drop(&mut self) {
-    let &(ref lock, ref cvar) = &*self.queue.0;
-    let mut local_queue = lock.lock().unwrap();
-    local_queue.immediate_shutdown = true;
-    cvar.notify_all();
+    {
+      let &(ref lock, ref cvar) = &*self.queue.0;
+      let mut local_queue = lock.lock().unwrap();
+      local_queue.immediate_shutdown = true;
+      cvar.notify_all();
+    }
+    for thread_handle in self.join.iter_mut() {
+      if let Some(th) = mem::replace(thread_handle, None) {
+        th.join().unwrap();
+      }
+    }
   }
 }
 impl <T:Send+'static,
@@ -118,7 +118,7 @@ impl <T:Send+'static,
           if local_queue.shutdown{
             break;
           } else {
-            cvar.wait(local_queue);
+            let _ = cvar.wait(local_queue); // unlock immediately, unfortunately
             continue;
           }
         };
@@ -140,20 +140,20 @@ impl <T:Send+'static,
       }
     }
   }
-  fn push_job(&mut self, job:JobRequest<T, Alloc, U>) {
+  fn _push_job(&mut self, job:JobRequest<T, Alloc, U>) {
+    let &(ref lock, ref cvar) = &*self.queue.0;
+    let mut local_queue = lock.lock().unwrap();
       loop {
-        let &(ref lock, ref cvar) = &*self.queue.0;
-        let mut local_queue = lock.lock().unwrap();
         if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size() < MAX_THREADS {
           local_queue.jobs.push(job).unwrap();
           cvar.notify_all();
           break;
         }
-        cvar.wait(local_queue);
+        local_queue = cvar.wait(local_queue).unwrap();
       }    
     
   }
-  fn try_push_job(&mut self, job:JobRequest<T, Alloc, U>)->Result<(),JobRequest<T, Alloc, U>> {
+  fn _try_push_job(&mut self, job:JobRequest<T, Alloc, U>)->Result<(),JobRequest<T, Alloc, U>> {
     let &(ref lock, ref cvar) = &*self.queue.0;
     let mut local_queue = lock.lock().unwrap();
     if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size() < MAX_THREADS {
@@ -210,39 +210,15 @@ pub struct WorkerJoinable<T:Send+'static,
 }
 impl<T:Send+'static,
      Alloc:BrotliAlloc+Send+'static,
-     U:Send+'static+Sync,
-     V:Send+'static> Joinable<T, V> for WorkerJoinable<T, Alloc, U> {
-  fn join(self) -> Result<T, V> {
+     U:Send+'static+Sync> Joinable<T, BrotliEncoderThreadError> for WorkerJoinable<T, Alloc, U> {
+  fn join(self) -> Result<T, BrotliEncoderThreadError> {
+    let &(ref lock, ref cvar) = &*self.queue.0;
+    let mut local_queue = lock.lock().unwrap();
     loop {
-      let &(ref lock, ref cvar) = &*self.queue.0;
-      let mut local_queue = lock.lock().unwrap();
-      let mut temp_queue = FixedQueue::<JobReply<T>>::new();
-      loop { // search for the work id
-        if let Some(data) = local_queue.results.pop() {
-          if data.work_id == self.work_id {
-            loop { // repopulate the results from the temp queue
-              if let Some(temp_data) = temp_queue.pop() {
-                local_queue.results.push(temp_data).unwrap()
-              } else {
-                break;
-              }
-            }
-            return Ok(data.result);
-          } else {
-            temp_queue.push(data).unwrap();
-          }
-        } else {
-          break;
-        }
-      }
-      loop { // not found: repopulate the results from the temp queue
-        if let Some(temp_data) = temp_queue.pop() {
-          local_queue.results.push(temp_data).unwrap()
-        } else {
-          break;
-        }
-      }
-      cvar.wait(local_queue);
+      match local_queue.results.remove(|data|if let Some(item) = data { item.work_id == self.work_id} else {false}) {
+        Some(matched) => return Ok(matched.result),
+        None => local_queue = cvar.wait(local_queue).unwrap(),
+      };
     }
   }
 }
@@ -264,25 +240,27 @@ impl<T:Send+'static,
     let num_threads = alloc_per_thread.len();
     assert!(num_threads <= MAX_THREADS);
     let locked_input = std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap()));
-    for (index, work) in alloc_per_thread.iter_mut().enumerate() {
-      loop {
-        let &(ref lock, ref cvar) = &*self.queue.0;
-        let mut local_queue = lock.lock().unwrap();
-        let work_id = local_queue.cur_work_id;
-        local_queue.cur_work_id += 1;
-        if let Ok(_) = local_queue.jobs.push(JobRequest{
-          func:f,
-          index: index,
-          thread_size: num_threads,
-          data: locked_input.clone(),
-          alloc:work.replace_with_default(),
-          work_id:work_id,
-        }) {
+    let &(ref lock, ref cvar) = &*self.queue.0;
+    let mut local_queue = lock.lock().unwrap();
+    loop {
+      if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size() <= MAX_THREADS {
+        for (index, work) in alloc_per_thread.iter_mut().enumerate() {
+          let work_id = local_queue.cur_work_id;
+          local_queue.cur_work_id += 1;
+          local_queue.jobs.push(JobRequest{
+            func:f,
+            index: index,
+            thread_size: num_threads,
+            data: locked_input.clone(),
+            alloc:work.replace_with_default(),
+            work_id:work_id,
+          }).unwrap();
           *work = SendAlloc(InternalSendAlloc::Join(WorkerJoinable{queue:GuardedQueue(self.queue.0.clone()), work_id:work_id}));
-          cvar.notify_all();
-          break;
         }
-        cvar.wait(local_queue); // hope room frees up
+        cvar.notify_all();
+        break;
+      } else{
+        local_queue = cvar.wait(local_queue).unwrap(); // hope room frees up
       }
     }
     locked_input
@@ -290,7 +268,7 @@ impl<T:Send+'static,
 }
 
 
-pub fn compress_work_pool<Alloc:BrotliAlloc+Send+'static,
+pub fn compress_worker_pool<Alloc:BrotliAlloc+Send+'static,
                       SliceW: SliceWrapper<u8>+Send+'static+Sync> (
   params:&BrotliEncoderParams,
   owned_input: &mut Owned<SliceW>,

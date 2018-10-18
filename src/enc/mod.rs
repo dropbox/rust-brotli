@@ -97,10 +97,30 @@ pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
 pub use self::threading::{SendAlloc,
                           Owned,
-                          BrotliEncoderThreadError,};
+                          BrotliEncoderThreadError,
+                          BatchSpawnableLite,
+                          CompressionThreadResult,
+};
 
 #[cfg(not(feature="no-stdlib"))]
-pub use self::multithreading::compress_multi;
+pub use self::worker_pool::{
+  compress_worker_pool,
+  WorkerPool,
+};
+#[cfg(not(feature="no-stdlib"))]
+pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
+                      SliceW: SliceWrapper<u8>+Send+'static+Sync> (
+  params:&BrotliEncoderParams,
+  owned_input: &mut Owned<SliceW>,
+  output: &mut [u8],
+  alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
+                                   Alloc,
+                                   <WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)> as BatchSpawnableLite<CompressionThreadResult<Alloc>,Alloc, (SliceW, BrotliEncoderParams)>>::JoinHandle>],
+  ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+  let mut work_pool = self::worker_pool::new_work_pool(alloc_per_thread.len());
+  compress_worker_pool(params, owned_input,output, alloc_per_thread,&mut work_pool)
+}
+
 #[cfg(feature="no-stdlib")]
 pub use self::singlethreading::compress_multi;
 
