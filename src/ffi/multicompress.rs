@@ -161,7 +161,7 @@ pub unsafe extern fn BrotliEncoderDestroyWorkPool(work_pool_ptr: *mut BrotliEnco
   if let Some(_) = (*work_pool_ptr).custom_allocator.alloc_func {
     if let Some(free_fn) = (*work_pool_ptr).custom_allocator.free_func {
       {
-        work_pool_ptr.drop_in_place();
+        let _to_be_dropped = core::ptr::read(work_pool_ptr);
       }
       let _to_free = core::ptr::read(work_pool_ptr);
       let ptr = core::mem::transmute::<*mut BrotliEncoderWorkPool, *mut c_void>(work_pool_ptr);

@@ -41,7 +41,8 @@ impl<T:Sized> FixedQueue<T> {
     if self.size == 0 {
       return None;
     }
-    let ret = core::mem::replace(&mut self.data[self.start%self.data.len()], None);
+    let index = self.start%self.data.len();
+    let ret = core::mem::replace(&mut self.data[index], None);
     self.start += 1;
     self.size -= 1;
     ret
@@ -55,9 +56,11 @@ impl<T:Sized> FixedQueue<T> {
     }
     for index in 0..self.size {
       if f(&self.data[(self.start + index)%self.data.len()]) {
-        let ret = core::mem::replace(&mut self.data[(self.start + index)%self.data.len()], None);
-        let replace = core::mem::replace(&mut self.data[self.start%self.data.len()], None);
-        let is_none = core::mem::replace(&mut self.data[(self.start + index)%self.data.len()], replace);
+        let start_index = self.start%self.data.len();
+        let target_index = (self.start + index)%self.data.len();
+        let ret = core::mem::replace(&mut self.data[target_index], None);
+        let replace = core::mem::replace(&mut self.data[start_index], None);
+        let is_none = core::mem::replace(&mut self.data[target_index], replace);
         assert!(is_none.is_none());
         self.start += 1;
         self.size -= 1;

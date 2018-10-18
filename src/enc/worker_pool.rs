@@ -221,7 +221,7 @@ impl<T:Send+'static,
     let &(ref lock, ref cvar) = &*self.queue.0;
     let mut local_queue = lock.lock().unwrap();
     loop {
-      match local_queue.results.remove(|data|if let Some(item) = data { item.work_id == self.work_id} else {false}) {
+      match local_queue.results.remove(|data:&Option<JobReply<T>>|if let Some(ref item) = *data { item.work_id == self.work_id} else {false}) {
         Some(matched) => return Ok(matched.result),
         None => local_queue = cvar.wait(local_queue).unwrap(),
       };
