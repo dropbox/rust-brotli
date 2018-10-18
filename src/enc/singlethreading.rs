@@ -4,6 +4,7 @@ use std;
 use alloc::{SliceWrapper, Allocator};
 use enc::BrotliAlloc;
 use enc::BrotliEncoderParams;
+use core::marker::PhantomData;
 use enc::threading::{
   CompressMulti,
   SendAlloc,
@@ -114,4 +115,29 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
   CompressMulti(params, owned_input, output, alloc_per_thread, &mut SingleThreadedSpawner::default())
 }
-                      
+
+pub struct WorkerPool<A,B,C> {
+  a: PhantomData<A>,
+  b: PhantomData<B>,
+  c: PhantomData<C>,
+}
+pub fn new_work_pool<A,B, C>(_num_threads: usize) -> WorkerPool<A, B, C>{
+  WorkerPool::<A,B,C>{
+    a:PhantomData::default(),
+    b:PhantomData::default(),
+    c:PhantomData::default(),
+  }
+}
+
+pub fn compress_worker_pool<Alloc:BrotliAlloc+Send+'static,
+                      SliceW: SliceWrapper<u8>+Send+'static+Sync> (
+  params:&BrotliEncoderParams,
+  owned_input: &mut Owned<SliceW>,
+  output: &mut [u8],
+  alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
+                                   Alloc,
+                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, SliceW>>::JoinHandle>],
+  _worker_pool:&mut WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>,
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+  compress_multi(params, owned_input, output, alloc_per_thread)
+}

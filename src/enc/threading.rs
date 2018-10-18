@@ -469,7 +469,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
   if let Ok(retrieved_owned_input) = retrieve_owned_input.unwrap() {
       *owned_input = Owned::new(retrieved_owned_input.0); // return the input to its rightful owner before returning
   } else {
-      if let Ok(_) = compression_result {
+    if let Ok(_) = compression_result {
           compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic);
       }
   }

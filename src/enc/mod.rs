@@ -101,10 +101,16 @@ pub use self::threading::{SendAlloc,
                           BatchSpawnableLite,
                           CompressionThreadResult,
 };
-
 #[cfg(not(feature="no-stdlib"))]
 pub use self::worker_pool::{
   compress_worker_pool,
+  new_work_pool,
+  WorkerPool,
+};
+#[cfg(feature="no-stdlib")]
+pub use self::singlethreading::{
+  compress_worker_pool,
+  new_work_pool,
   WorkerPool,
 };
 #[cfg(not(feature="no-stdlib"))]
@@ -117,12 +123,16 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
                                    Alloc,
                                    <WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)> as BatchSpawnableLite<CompressionThreadResult<Alloc>,Alloc, (SliceW, BrotliEncoderParams)>>::JoinHandle>],
   ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
-  let mut work_pool = self::worker_pool::new_work_pool(alloc_per_thread.len());
+  let mut work_pool = self::worker_pool::new_work_pool(alloc_per_thread.len() - 1);
   compress_worker_pool(params, owned_input,output, alloc_per_thread,&mut work_pool)
 }
 
 #[cfg(feature="no-stdlib")]
 pub use self::singlethreading::compress_multi;
+#[cfg(feature="no-stdlib")]
+pub use self::singlethreading::compress_multi as compress_multi_no_threadpool;
+#[cfg(not(feature="no-stdlib"))]
+pub use self::multithreading::compress_multi as compress_multi_no_threadpool;
 
 
 #[cfg(not(any(feature="no-stdlib")))]

@@ -103,34 +103,40 @@ impl <T:Send+'static,
       U:Send+'static+Sync> WorkerPool<T, Alloc, U> {
   fn do_work(queue:Arc<(Mutex<WorkQueue<T, Alloc, U>>, Condvar)>) {
     loop {
-      let possible_job;
-      {
-        let &(ref lock, ref cvar) = &*queue;
-        let mut local_queue = lock.lock().unwrap();
-        if local_queue.immediate_shutdown {
-          break;
-        }
-        possible_job = if let Some(res) = local_queue.jobs.pop() {
-          cvar.notify_all();
-          local_queue.num_in_progress += 1;
-          res
-        } else {
-          if local_queue.shutdown{
+      let ret;
+      { // need to drop possible job before the final lock is taken,
+        // so refcount of possible_job Arc is 0 by the time the job is delivered
+        // to the caller. We basically need a barrier (the lock) to happen
+        // after the destructor that decrefs possible_job
+        let possible_job;
+        {
+          let &(ref lock, ref cvar) = &*queue;
+          let mut local_queue = lock.lock().unwrap();
+          if local_queue.immediate_shutdown {
             break;
-          } else {
-            let _ = cvar.wait(local_queue); // unlock immediately, unfortunately
-            continue;
           }
+          possible_job = if let Some(res) = local_queue.jobs.pop() {
+            cvar.notify_all();
+            local_queue.num_in_progress += 1;
+            res
+          } else {
+            if local_queue.shutdown{
+              break;
+            } else {
+              let _ = cvar.wait(local_queue); // unlock immediately, unfortunately
+              continue;
+            }
+          };
+        }
+        ret = if let Ok(job_data) = possible_job.data.read() {
+          JobReply{
+            result: (possible_job.func)(possible_job.index, possible_job.thread_size, &*job_data, possible_job.alloc),
+            work_id:possible_job.work_id,
+          }
+        } else{
+          break; // poisoned lock
         };
       }
-      let ret = if let Ok(job_data) = possible_job.data.read() {
-        JobReply{
-          result: (possible_job.func)(possible_job.index, possible_job.thread_size, &*job_data, possible_job.alloc),
-          work_id:possible_job.work_id,
-        }
-      } else{
-        break; // poisoned lock
-      };
       {
         let &(ref lock, ref cvar) = &*queue;
         let mut local_queue = lock.lock().unwrap();
