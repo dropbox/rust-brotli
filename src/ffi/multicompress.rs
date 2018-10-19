@@ -32,6 +32,11 @@ macro_rules! make_send_alloc {
   )
 }
 #[no_mangle]
+pub extern fn BrotliEncoderMaxCompressedSizeMulti(input_size: usize, num_threads: usize) -> usize {
+  ::enc::encode::BrotliEncoderMaxCompressedSizeMulti(input_size, num_threads)
+}
+
+#[no_mangle]
 pub unsafe extern fn BrotliEncoderCompressMulti(
   num_params: usize,
   param_keys: *const BrotliEncoderParameter,
@@ -118,7 +123,7 @@ fn brotli_new_work_pool_without_custom_alloc(to_box: BrotliEncoderWorkPool) -> *
         brotli_decompressor::ffi::alloc_util::Box::<BrotliEncoderWorkPool>::new(to_box))
 }
 #[no_mangle]
-pub unsafe extern fn BrotliEncoderMakeWorkPool(
+pub unsafe extern fn BrotliEncoderCreateWorkPool(
   num_threads: usize,
   alloc_func: brotli_alloc_func,
   free_func: brotli_free_func,
@@ -160,9 +165,6 @@ unsafe fn free_work_pool_no_custom_alloc(_work_pool: *mut BrotliEncoderWorkPool)
 pub unsafe extern fn BrotliEncoderDestroyWorkPool(work_pool_ptr: *mut BrotliEncoderWorkPool) {
   if let Some(_) = (*work_pool_ptr).custom_allocator.alloc_func {
     if let Some(free_fn) = (*work_pool_ptr).custom_allocator.free_func {
-      {
-        let _to_be_dropped = core::ptr::read(work_pool_ptr);
-      }
       let _to_free = core::ptr::read(work_pool_ptr);
       let ptr = core::mem::transmute::<*mut BrotliEncoderWorkPool, *mut c_void>(work_pool_ptr);
       free_fn((*work_pool_ptr).custom_allocator.opaque, ptr);

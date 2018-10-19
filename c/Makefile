@@ -1,4 +1,7 @@
-
+multiexample: multiexample_d decompressor multiexample.c vec_u8.h arg.h custom_alloc.h
+	gcc -O3 -o multiexample -g multiexample.c -I. -Ltarget/release -lbrotli -Wl,-rpath=target/release
+multiexample_d: decompressor multiexample.c vec_u8.h arg.h custom_alloc.h
+	gcc -o multiexample_d -g multiexample.c -I. target/debug/libbrotli.[sd]?*
 decompressor: decompressor_d decompressor.c target/release/libbrotli.so catbrotli
 	gcc -O3 -o decompressor -g decompressor.c -I. -Ltarget/release -lbrotli -Wl,-rpath=target/release
 decompressor_d: decompressor.c target/debug/libbrotli.so brotli_tool catbrotli_d
@@ -23,4 +26,4 @@ target/release/libbrotli.so:
 target/debug/libbrotli.so:
 	cargo build
 clean:
-	cargo clean && rm -f catbrotli catbrotli_d decompressor decompressor_d brotli_tool brotli_tool_d
+	cargo clean && rm -f multiexample multiexample_d catbrotli catbrotli_d decompressor decompressor_d brotli_tool brotli_tool_d
