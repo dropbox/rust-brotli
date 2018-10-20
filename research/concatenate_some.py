@@ -29,6 +29,9 @@ catable_stats = 0
 def process(work, brotli, cat, prefix):
     global uncatable_stats
     global catable_stats
+    work = [filename for filename in work if filename.find(".jpg") != -1 or filename.find(".avi") != -1 or filename.find(".mp4") != -1 or filename.find(".mov") != -1 or insecure_random.randrange(1,17) == 16]
+    if len(work) == 0:
+        return
     try:
         fullsum = shasum(work)
     except Exception:
@@ -43,6 +46,9 @@ def process(work, brotli, cat, prefix):
     procs = []
     print 'processing',work,'at',quality,append
     for index, filename in enumerate(work):
+        thread_count = insecure_random.randrange(1,17)
+        if quality > 8 and thread_count == 1:
+            thread_count = 2
         magic = insecure_random.randrange(0,2) == 0
         buffer_size = insecure_random.randrange(1,18)
         if buffer_size == 17:
@@ -58,6 +64,7 @@ def process(work, brotli, cat, prefix):
             args.append("-appendable")
         else:
             args.append("-catable")
+        args.append('-j' + str(thread_count))
         args.append(filename)
         args.append(prefix + quality+"-" + str(index)+".br")
         procs.append(subprocess.Popen(args))
