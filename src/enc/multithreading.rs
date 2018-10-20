@@ -22,7 +22,6 @@ use enc::threading::{
   BrotliEncoderThreadError,
   AnyBoxConstructor,
   PoisonedThreadError,
-  ReadGuard,
 };
 
 // in-place thread create
@@ -43,9 +42,9 @@ impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MultiT
 pub struct MultiThreadedOwnedRetriever<U:Send+'static>(RwLock<U>);
 
 impl<U:Send+'static> OwnedRetriever<U> for MultiThreadedOwnedRetriever<U> {
-  fn view(&self) -> Result<ReadGuard<U>, PoisonedThreadError> {
+  fn view<T, F:FnOnce(&U)->T>(&self, mut f:F) -> Result<T, PoisonedThreadError> {
       match self.0.read() {
-          Ok(u) => Ok(ReadGuard::<U>(u)),
+          Ok(u) => Ok(f(&*u)),
           Err(_) => Err(PoisonedThreadError::default()),
       }
   }
@@ -65,8 +64,10 @@ pub struct MultiThreadedSpawner{}
 fn spawn_work<T:Send+'static, F: Fn(usize, usize, &U, Alloc) -> T+Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static+Sync>(index: usize, num_threads: usize, locked_input:std::sync::Arc<RwLock<U>>, alloc:Alloc, f:F) -> std::thread::JoinHandle<T>
 where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
   std::thread::spawn(move || {
-    let guard = locked_input.view().unwrap();
-    f(index, num_threads, &*guard, alloc)
+      let t:T = locked_input.view(move |guard:&U|->T {
+          f(index, num_threads, guard, alloc)
+      }).unwrap();
+      t
   })
 }
 

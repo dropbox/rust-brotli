@@ -1,6 +1,5 @@
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core::marker::PhantomData;
-use core::ops::Deref;
 use core::mem;
 use core::any;
 #[cfg(not(feature="no-stdlib"))]
@@ -137,38 +136,18 @@ impl<T> Owned<T> {
   }
 }
 
-#[cfg(not(feature="no-stdlib"))]
-pub struct ReadGuard<'a, T:Send+'static>(pub std::sync::RwLockReadGuard<'a, T>);
-#[cfg(not(feature="no-stdlib"))]
-impl<'a, T:Send+'static> Deref for ReadGuard<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        self.0.deref()
-    }
-}
-
-#[cfg(feature="no-stdlib")]
-pub struct ReadGuard<'a, T:Send+'static>(pub &'a T);
-#[cfg(feature="no-stdlib")]
-impl<'a, T:Send+'static> Deref for ReadGuard<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
 
 
 pub trait OwnedRetriever<U:Send+'static> {
-  fn view(&self) -> Result<ReadGuard<U>, PoisonedThreadError>;
+  fn view<T, F:FnOnce(&U)-> T>(&self, f:F) -> Result<T, PoisonedThreadError>;
   fn unwrap(self) -> Result<U, PoisonedThreadError>;
 }
 
 #[cfg(not(feature="no-stdlib"))]
 impl<U:Send+'static> OwnedRetriever<U> for std::sync::Arc<std::sync::RwLock<U>> {
-  fn view(&self) -> Result<ReadGuard<U>, PoisonedThreadError> {
+  fn view<T, F:FnOnce(&U)-> T>(&self, mut f:F) -> Result<T, PoisonedThreadError> {
       match self.read() {
-          Ok(u) => Ok(ReadGuard::<U>(u)),
+          Ok(ref u) => Ok(f(u)),
           Err(_) => Err(PoisonedThreadError::default()),
       }
   }
@@ -344,53 +323,59 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
     let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
     let retrieve_owned_input = thread_spawner.batch_spawn(&mut owned_input_pair, alloc_rest, compress_part);
-    let mut compression_result;
     let output_len = output.len();
     let first_thread_output_max_len = if alloc_rest.len() != 0 { output_len / 2 } else {output.len()};
+    let mut compression_result;
     let mut available_out = first_thread_output_max_len;
     {
         let first_thread_output = &mut output[output_len - first_thread_output_max_len..];
-        let input_and_params_thread_result = retrieve_owned_input.view();
-        let mut state = BrotliEncoderCreateInstance(match mem::replace(&mut alloc[0].0,
-                                                                       InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
+        compression_result = match retrieve_owned_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> Result<usize,BrotliEncoderThreadError> {
+            let compression_result_inner;
+            let mut state = BrotliEncoderCreateInstance(match mem::replace(&mut alloc[0].0,
+                                                                           InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
             InternalSendAlloc::A(a) => a,
-            _ => panic!("all public interfaces which create SendAlloc can only specify subtype A")
-        });
-        state.params = params.clone();
-        state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
-        let mut out_offset = 0usize;
-        if let Ok(input_and_params) = input_and_params_thread_result {
-          let mut range = get_range(0, num_threads, (*input_and_params.0).0.len());
-          loop {
-            assert_eq!(range.start, 0);
-            let mut next_in_offset = 0usize;
-            let mut available_in = range.end - range.start;
-            let result = BrotliEncoderCompressStream(&mut state,
-                                                 BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
-                                                 &mut available_in,
-                                                 &(*input_and_params.0).0.slice()[range.clone()],
-                                                 &mut next_in_offset,  
-                                                 &mut available_out,
-                                                 first_thread_output,
-                                                 &mut out_offset,
-                                                 &mut None,
-                                                 &mut |_a,_b,_c,_d|());
-            let new_range = range.start + next_in_offset..range.end;
-            range = new_range;
-            if result != 0 {
-                compression_result = Ok(out_offset);
-                break;
-            } else if available_out == 0 {
-                compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace); // mark no space??
-                break
+                _ => panic!("all public interfaces which create SendAlloc can only specify subtype A")
+            });
+            state.params = params.clone();
+            state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
+            let mut out_offset = 0usize;
+
+            let mut range = get_range(0, num_threads, (input_and_params.0).len());
+            loop {
+                assert_eq!(range.start, 0);
+                let mut next_in_offset = 0usize;
+                let mut available_in = range.end - range.start;
+                let result = BrotliEncoderCompressStream(&mut state,
+                                                         BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
+                                                         &mut available_in,
+                                                         &(input_and_params.0).slice()[range.clone()],//fixme *
+                                                         &mut next_in_offset,
+                                                         &mut available_out,
+                                                         first_thread_output,
+                                                         &mut out_offset,
+                                                         &mut None,
+                                                         &mut |_a,_b,_c,_d|());
+                let new_range = range.start + next_in_offset..range.end;
+                range = new_range;
+                if result != 0 {
+                    compression_result_inner = Ok(out_offset);
+                    break;
+                } else if available_out == 0 {
+                    compression_result_inner = Err(BrotliEncoderThreadError::InsufficientOutputSpace); // mark no space??
+                    break
+                }
             }
-          }
-        } else {
-            compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic); // lock got poisoned
+            BrotliEncoderDestroyInstance(&mut state);
+            alloc[0].0 = InternalSendAlloc::A(state.m8);
+            compression_result_inner
+        }) {
+            Ok(res) => {
+                res
+            },
+            Err(_) =>
+                Err(BrotliEncoderThreadError::OtherThreadPanic), // lock got poisoned
         }
-        BrotliEncoderDestroyInstance(&mut state);
-        alloc[0].0 = InternalSendAlloc::A(state.m8);
-    }
+    };
     let mut bro_cat_li = BroCatli::new();
     if alloc_rest.len() != 0 {
       if let Ok(first_file_size) = compression_result {

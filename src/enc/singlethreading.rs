@@ -18,7 +18,6 @@ use enc::threading::{
   InternalOwned,
   PoisonedThreadError,
   BrotliEncoderThreadError,
-  ReadGuard,
 };
 
 
@@ -37,9 +36,9 @@ impl<T:Send+'static, U:Send+'static> Joinable<T, U> for SingleThreadedJoinable<T
 pub struct SingleThreadedOwnedRetriever<U:Send+'static>(std::sync::RwLock<U>);
 #[cfg(not(feature="no-stdlib"))]
 impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
-    fn view<'a>(&'a self) -> Result<ReadGuard<'a, U>, PoisonedThreadError> {
-        Ok(ReadGuard(self.0.read().unwrap()))
-    }
+  fn view<T, F:FnOnce(&U)-> T>(&self, mut f:F) -> Result<T, PoisonedThreadError> {
+    Ok(f(&*self.0.read().unwrap()))
+  }
   fn unwrap(self) -> Result<U,PoisonedThreadError> {Ok(self.0.into_inner().unwrap())}
 }
 #[cfg(not(feature="no-stdlib"))]
@@ -59,7 +58,9 @@ impl<U:Send+'static> SingleThreadedOwnedRetriever<U> {
 }
 #[cfg(feature="no-stdlib")]
 impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
-  fn view<'a>(&'a self) -> Result<ReadGuard<'a, U>, PoisonedThreadError> {Ok(ReadGuard(&self.0))}
+  fn view<T, F:FnOnce(&U)->T>(&self, f:F) -> Result<T, PoisonedThreadError> {
+    Ok(f(&self.0))
+  }
   fn unwrap(self) -> Result<U,PoisonedThreadError> {Ok(self.0)}
 }
 

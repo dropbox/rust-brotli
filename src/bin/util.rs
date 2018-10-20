@@ -1,3 +1,9 @@
+use core::mem;
+use std;
+use core::marker::PhantomData;
+use std::thread::{
+    JoinHandle,
+};
 
 use brotli::dictionary::{kBrotliDictionary, kBrotliDictionarySizeBitsByLength,
                          kBrotliDictionaryOffsetsByLength};
@@ -5,7 +11,21 @@ use brotli::transform::{TransformDictionaryWord};
 use brotli::interface;
 use std::collections::BTreeMap;
 use std::fmt;
-use alloc_no_stdlib::SliceWrapper;
+use alloc_no_stdlib::{SliceWrapper, Allocator};
+use brotli::enc::BrotliAlloc;
+use brotli::enc::threading::{
+  SendAlloc,
+  InternalSendAlloc,
+  BatchSpawnable,
+  BatchSpawnableLite,
+  Joinable,
+  Owned,
+  OwnedRetriever,
+  InternalOwned,
+  BrotliEncoderThreadError,
+  AnyBoxConstructor,
+  PoisonedThreadError,
+};
 
 struct HexSlice<'a>(&'a [u8]);
 
@@ -148,3 +168,105 @@ pub fn write_one<T:SliceWrapper<u8>>(cmd: &interface::Command<T>) {
         },
     }
 }
+
+
+
+// in-place thread create
+
+use std::sync::RwLock;
+
+
+pub struct MTJoinable<T:Send+'static, U:Send+'static>(JoinHandle<T>, PhantomData<U>);
+#[cfg(feature="no-stdlib")]
+impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MTJoinable<T, U> {
+  fn join(self) -> Result<T, U> {
+      match self.0.join() {
+          Ok(t) => Ok(t),
+          Err(_e) => Err(<U as AnyBoxConstructor>::new(())),
+      }
+  }
+}
+#[cfg(not(feature="no-stdlib"))]
+impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MTJoinable<T, U> {
+  fn join(self) -> Result<T, U> {
+      match self.0.join() {
+          Ok(t) => Ok(t),
+          Err(e) => Err(<U as AnyBoxConstructor>::new(e)),
+      }
+  }
+}
+pub struct MTOwnedRetriever<U:Send+'static>(std::sync::Arc<RwLock<U>>);
+impl<U:Send+'static> Clone for MTOwnedRetriever<U> {
+    fn clone(&self) -> Self {
+        MTOwnedRetriever(self.0.clone())
+    }
+}
+impl<U:Send+'static> OwnedRetriever<U> for MTOwnedRetriever<U> {
+  fn view<T, F:FnOnce(&U)-> T>(&self, f:F) -> Result<T, PoisonedThreadError> {
+      match self.0.read() {
+          Ok(u) => Ok(f(&*u)),
+          Err(_) => Err(PoisonedThreadError::default()),
+      }
+  }
+  fn unwrap(self) -> Result<U, PoisonedThreadError> {
+    match std::sync::Arc::try_unwrap(self.0) {
+      Ok(rwlock) => match rwlock.into_inner() {
+        Ok(u) => Ok(u),
+        Err(_) => Err(PoisonedThreadError::default()),
+      },
+      Err(_) => Err(PoisonedThreadError::default()),
+    }
+  }
+}
+
+
+#[derive(Default)]
+pub struct MTSpawner{}
+
+
+fn spawn_work<T:Send+'static, F: Fn(usize, usize, &U, Alloc) -> T+Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static+Sync>(index: usize, num_threads: usize, locked_input:MTOwnedRetriever<U>, alloc:Alloc, f:F) -> std::thread::JoinHandle<T>
+where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+  std::thread::spawn(move || {
+      locked_input.view(move |guard:&U|->T {
+          f(index, num_threads, guard, alloc)
+      }).unwrap()
+  })
+}
+
+impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static+Sync> BatchSpawnable<T, Alloc, U> for MTSpawner
+where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+  type JoinHandle = MTJoinable<T, BrotliEncoderThreadError>;
+  type FinalJoinHandle = MTOwnedRetriever<U>;
+    fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T+Send+'static+Copy>(
+    &mut self,
+    input: &mut Owned<U>,
+    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    f: F,
+    ) -> Self::FinalJoinHandle {
+      let num_threads = alloc_per_thread.len();
+      let locked_input = MTOwnedRetriever(std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap())));
+      for (index, work) in alloc_per_thread.iter_mut().enumerate() {
+        let alloc = work.replace_with_default();
+        let ret = spawn_work(index, num_threads, locked_input.clone(), alloc, f);
+        *work = SendAlloc(InternalSendAlloc::Join(MTJoinable(ret, PhantomData::default())));
+      }
+      locked_input
+    }
+}
+impl<T:Send+'static,
+     Alloc:BrotliAlloc+Send+'static,
+     U:Send+'static+Sync>
+  BatchSpawnableLite<T, Alloc, U> for MTSpawner
+  where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+  type JoinHandle = <MTSpawner as BatchSpawnable<T, Alloc, U>>::JoinHandle;
+  type FinalJoinHandle = <MTSpawner as BatchSpawnable<T, Alloc, U>>::FinalJoinHandle;
+  fn batch_spawn(
+    &mut self,
+    input: &mut Owned<U>,
+    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    f: fn(usize, usize, &U, Alloc) -> T,
+  ) -> Self::FinalJoinHandle {
+   <Self as BatchSpawnable<T, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
+  }
+}
+

@@ -14,7 +14,7 @@ extern crate core;
 #[macro_use]
 extern crate alloc_no_stdlib;
 use brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, WorkerPool, compress_worker_pool, new_work_pool};
-use brotli::enc::threading::{SendAlloc,Owned, CompressionThreadResult};
+use brotli::enc::threading::{SendAlloc,Owned, CompressionThreadResult, CompressMulti, BrotliEncoderThreadError};
 
 use brotli::CustomRead;
 use core::ops;
@@ -279,6 +279,35 @@ pub fn new_brotli_heap_alloc() -> HeapAllocator {
 }
 impl brotli::enc::BrotliAlloc for HeapAllocator {
 }
+pub fn compress_multi_nostd(
+  input: Vec<u8>,
+  output: &mut [u8],
+  params:&BrotliEncoderParams,
+  mut num_threads: usize,
+) -> Result<usize, BrotliEncoderThreadError> {
+      let mut alloc_array = [
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default()),
+      ];
+      if num_threads > alloc_array.len() {
+        num_threads = alloc_array.len();
+      }
+      CompressMulti(params, &mut Owned::new(Rebox::from(input)), output, &mut alloc_array[..num_threads], &mut util::MTSpawner::default())
+}
 pub fn compress_multi<InputType:Read,
                       OutputType:Write>(
   r: &mut InputType,
@@ -289,13 +318,13 @@ pub fn compress_multi<InputType:Read,
                              HeapAllocator,
                              (Rebox<u8>, BrotliEncoderParams)>>,
 ) -> Result<usize, io::Error> {
-    let mut input = Vec::<u8>::new();
-    if let Err(err) = r.read_to_end(&mut input) {
-        return Err(err);
-    }
+  let mut input: Vec<u8> = Vec::<u8>::new();
+  if let Err(err) = r.read_to_end(&mut input) {
+    return Err(err);
+  }
   let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input.len(), num_threads)]);
   let res = if let Some(worker_pool) = work_pool {
-    let mut alloc_array = [
+      let mut alloc_array = [
         SendAlloc::new(HeapAllocator::default()),
         SendAlloc::new(HeapAllocator::default()),
         SendAlloc::new(HeapAllocator::default()),
@@ -312,45 +341,19 @@ pub fn compress_multi<InputType:Read,
         SendAlloc::new(HeapAllocator::default()),
         SendAlloc::new(HeapAllocator::default()),
         SendAlloc::new(HeapAllocator::default()),
-    ];
-    if num_threads > alloc_array.len() {
+      ];
+      if num_threads > alloc_array.len() {
         num_threads = alloc_array.len();
-    }
-    compress_worker_pool(
-      params,
-      &mut Owned::new(Rebox::from(input)),
-      output.slice_mut(),
-      &mut alloc_array[..num_threads],
-      worker_pool,
-    )
+      }
+      compress_worker_pool(
+        params,
+        &mut Owned::new(Rebox::from(input)),
+        output.slice_mut(),
+        &mut alloc_array[..num_threads],
+        worker_pool,
+      )
   } else {
-    let mut alloc_array = [
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-    ];
-    if num_threads > alloc_array.len() {
-        num_threads = alloc_array.len();
-    }
-    brotli::enc::compress_multi_no_threadpool(
-      params,
-      &mut Owned::new(Rebox::from(input)),
-      output.slice_mut(),
-      &mut alloc_array[..num_threads],
-    )
+      compress_multi_nostd(input, output.slice_mut(), params, num_threads)  
   };
   
   match res {
@@ -471,12 +474,21 @@ fn read_custom_dictionary(filename :&str) -> Vec<u8> {
   ret
 }
 
+#[cfg(not(feature="no_stdib"))]
+fn has_stdlib() -> bool {
+    true
+}
+#[cfg(feature="no_stdib")]
+fn has_stdlib() -> bool {
+    false
+}
+
 fn main() {
   let mut buffer_size = 65536;
   let mut do_compress = false;
   let mut params = brotli::enc::BrotliEncoderInitParams();
   let mut custom_dictionary = Vec::<u8>::new();
-  let mut use_work_pool = true;
+  let mut use_work_pool = has_stdlib();
   params.quality = 11; // default
   let mut filenames = [std::string::String::new(), std::string::String::new()];
   let mut num_benchmarks = 1;
