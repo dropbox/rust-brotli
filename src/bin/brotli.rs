@@ -378,7 +378,11 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     where InputType: Read,
           OutputType: Write {
     if num_threads > 1 && custom_dictionary.len() ==0 && !params.log_meta_block {
+      if has_stdlib() {
         return compress_multi(r, w, params, num_threads, Some(&mut new_work_pool(num_threads - 1)));
+      } else {
+        return compress_multi(r, w, params, num_threads, None);
+      }
     }
     let mut alloc_u8 = HeapAllocator::default();
     let mut input_buffer = alloc_u8.alloc_cell(buffer_size);
@@ -474,11 +478,11 @@ fn read_custom_dictionary(filename :&str) -> Vec<u8> {
   ret
 }
 
-#[cfg(not(feature="no_stdib"))]
+#[cfg(not(feature="no-stdlib"))]
 fn has_stdlib() -> bool {
     true
 }
-#[cfg(feature="no_stdib")]
+#[cfg(feature="no-stdlib")]
 fn has_stdlib() -> bool {
     false
 }
