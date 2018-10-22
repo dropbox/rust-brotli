@@ -42,7 +42,7 @@ impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MultiT
 pub struct MultiThreadedOwnedRetriever<U:Send+'static>(RwLock<U>);
 
 impl<U:Send+'static> OwnedRetriever<U> for MultiThreadedOwnedRetriever<U> {
-  fn view<T, F:FnOnce(&U)->T>(&self, mut f:F) -> Result<T, PoisonedThreadError> {
+  fn view<T, F:FnOnce(&U)->T>(&self, f:F) -> Result<T, PoisonedThreadError> {
       match self.0.read() {
           Ok(u) => Ok(f(&*u)),
           Err(_) => Err(PoisonedThreadError::default()),

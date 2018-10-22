@@ -50,3 +50,17 @@ unsafe impl Send for BrotliSubclassableAllocator{}
 unsafe impl<T:Clone+Default> Send for SendableMemoryBlock<T>{}
 
 
+
+#[cfg(feature="no-stdlib")]
+#[cfg(feature="no-stdlib-ffi-binding")]
+#[panic_handler]
+extern fn panic_impl(_: &::core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
+#[cfg(feature="no-stdlib")]
+#[cfg(feature="no-stdlib-ffi-binding")]
+#[lang = "eh_personality"]
+extern "C" fn eh_personality() {
+}
+

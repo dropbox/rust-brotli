@@ -145,7 +145,7 @@ pub trait OwnedRetriever<U:Send+'static> {
 
 #[cfg(not(feature="no-stdlib"))]
 impl<U:Send+'static> OwnedRetriever<U> for std::sync::Arc<std::sync::RwLock<U>> {
-  fn view<T, F:FnOnce(&U)-> T>(&self, mut f:F) -> Result<T, PoisonedThreadError> {
+  fn view<T, F:FnOnce(&U)-> T>(&self, f:F) -> Result<T, PoisonedThreadError> {
       match self.read() {
           Ok(ref u) => Ok(f(u)),
           Err(_) => Err(PoisonedThreadError::default()),
