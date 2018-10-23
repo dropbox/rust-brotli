@@ -27,6 +27,7 @@ def file_size(filename):
 uncatable_stats = 0
 catable_stats = 0
 def process(work, brotli, cat, prefix):
+    sys.stdout.flush()
     global uncatable_stats
     global catable_stats
     work = [filename for filename in work if filename.find(".jpg") != -1 or filename.find(".avi") != -1 or filename.find(".mp4") != -1 or filename.find(".mov") != -1 or insecure_random.randrange(1,17) == 16]

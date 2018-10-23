@@ -23,13 +23,31 @@ const unsigned char example[]=
 #define MAX_ARGS 1024
 #define BUF_SIZE 65536
 int32_t compress(const unsigned char *data, size_t len, struct VecU8 *ret_buffer,
-                      int argc, char** argv) {
+                 int argc, char** argv, int quality_override) {
     unsigned char buf[BUF_SIZE];
-    BrotliEncoderParameter param_keys[MAX_ARGS];
-    uint32_t param_values[MAX_ARGS];
+    BrotliEncoderParameter param_keys[MAX_ARGS + 2];
+    uint32_t param_values[MAX_ARGS + 2];
     void * opaque_per_thread[MAX_THREADS];
     size_t num_threads = 1;
     size_t num_params = set_options(param_keys, param_values, argc > MAX_ARGS ? MAX_ARGS : argc, argv, len, &num_threads);
+    if (quality_override != 0) {
+        if (quality_override < 3) {
+            quality_override += 9;
+            param_keys[num_params] = BROTLI_PARAM_Q9_5;
+            param_values[num_params] = 1;
+            num_params += 1;
+        }
+        param_keys[num_params] = BROTLI_PARAM_QUALITY;
+        param_values[num_params] = quality_override;
+        num_params += 1;
+        num_threads = quality_override;
+        if (num_threads > 16) {
+            num_threads = 16;
+        }
+        if (num_threads < 1) {
+            num_threads = 1;
+        }
+    }
     BrotliEncoderWorkPool *work_pool = BrotliEncoderCreateWorkPool(num_threads != 0 ? num_threads - 1 : 0, custom_malloc, custom_free, custom_alloc_opaque);
     size_t out_len = BrotliEncoderMaxCompressedSizeMulti(len, num_threads);
     int32_t ret;
@@ -58,13 +76,31 @@ int32_t compress(const unsigned char *data, size_t len, struct VecU8 *ret_buffer
 }
 
 int32_t compress_immediate_thread_spawn(const unsigned char *data, size_t len, struct VecU8 *ret_buffer,
-                                        int argc, char** argv) {
+                                        int argc, char** argv, int quality_override) {
     unsigned char buf[BUF_SIZE];
-    BrotliEncoderParameter param_keys[MAX_ARGS];
-    uint32_t param_values[MAX_ARGS];
+    BrotliEncoderParameter param_keys[MAX_ARGS + 2];
+    uint32_t param_values[MAX_ARGS + 2];
     void * opaque_per_thread[MAX_THREADS];
     size_t num_threads = 1;
     size_t num_params = set_options(param_keys, param_values, argc > MAX_ARGS ? MAX_ARGS : argc, argv, len, &num_threads);
+    if (quality_override != 0) {
+        if (quality_override < 3) {
+            quality_override += 9;
+            param_keys[num_params] = BROTLI_PARAM_Q9_5;
+            param_values[num_params] = 1;
+            num_params += 1;
+        }
+        param_keys[num_params] = BROTLI_PARAM_QUALITY;
+        param_values[num_params] = quality_override;
+        num_params += 1;
+        num_threads = quality_override;
+        if (num_threads > 16) {
+            num_threads = 16;
+        }
+        if (num_threads < 1) {
+            num_threads = 1;
+        }
+    }
     size_t out_len = BrotliEncoderMaxCompressedSizeMulti(len, num_threads);
     int32_t ret;
     {
@@ -124,6 +160,7 @@ int main(int argc, char**argv) {
     const unsigned char* data = example;
     size_t len = sizeof(example);
     unsigned char* to_free = NULL;
+    int i;
     if (find_first_arg(argc, argv)) {
         FILE * fp = fopen(find_first_arg(argc, argv), "rb");
         if (fp != NULL) {
@@ -140,15 +177,15 @@ int main(int argc, char**argv) {
             (void)fclose(fp);
         }
     }
-    {
+    for (i= 1; i<= 11; i+= 1){
         struct VecU8 brotli_file = new_vec_u8();
         struct VecU8 rt_file = new_vec_u8();
         BrotliDecoderResult dres;
         int32_t res;
         if (getenv("NO_WORK_POOL")) {
-            res = compress_immediate_thread_spawn(data, len, &brotli_file, argc, argv);
+            res = compress_immediate_thread_spawn(data, len, &brotli_file, argc, argv, i);
         } else {
-            res = compress(data, len, &brotli_file, argc, argv);
+            res = compress(data, len, &brotli_file, argc, argv, i);
         }
         if (res != 1) {
             fprintf(stderr, "Failed to compress code:%d\n", (int) res);
