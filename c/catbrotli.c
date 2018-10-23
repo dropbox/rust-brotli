@@ -71,7 +71,6 @@ int main(int argc, char**argv) {
     unsigned char* obuffer_ptr = obuffer;
     size_t avail_out = buffer_size;
     struct BroccoliState state;
-    int i;
     if (has_window_size) {
         state = BroccoliCreateInstanceWithWindowSize(window_size);
     } else {
