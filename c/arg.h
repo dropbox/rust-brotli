@@ -1,5 +1,13 @@
-char * find_first_arg(int argc, char**argv) {
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+char * find_first_arg(int argc, char**argv, long long int *truncation_location) {
     int i;
+    for (i = 1; i < argc; ++i) {
+        if (strstr(argv[i], "-trunc=") == argv[i]) {
+            *truncation_location = strtoll(argv[i] + 7, NULL, 10);
+        }
+    }
     for (i = 1; i < argc; ++i) {
         if (argv[i][0] != '-') {
             return argv[i];
@@ -41,6 +49,16 @@ size_t set_options(BrotliEncoderParameter *out_encoder_param_keys,
         }
         if (strstr(argv[i], "-j") == argv[i]) {
             *out_num_threads = atoi(argv[i] + 2);
+        }
+        if (strstr(argv[i], "-timeout=") == argv[i]) {
+            static int has_been_set = 0;
+            int deadline = atoi(argv[i] + 9);
+#ifndef _WIN32
+            if (!has_been_set) {
+                (void)alarm(deadline);
+                has_been_set = 1;
+            }
+#endif
         }
         if (strstr(argv[i], "-m") == argv[i]) {
             out_encoder_param_keys[ret] = BROTLI_PARAM_MAGIC_NUMBER;

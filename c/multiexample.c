@@ -161,13 +161,17 @@ int main(int argc, char**argv) {
     size_t len = sizeof(example);
     unsigned char* to_free = NULL;
     int i;
-    if (find_first_arg(argc, argv)) {
-        FILE * fp = fopen(find_first_arg(argc, argv), "rb");
+    long long int truncation_location = 0;
+    if (find_first_arg(argc, argv, &truncation_location)) {
+        FILE * fp = fopen(find_first_arg(argc, argv, &truncation_location), "rb");
         if (fp != NULL) {
             size_t ret;
             (void)fseek(fp, 0, SEEK_END);
             len = ftell(fp);
             (void)fseek(fp, 0, SEEK_SET);
+            if (truncation_location && len > truncation_location)  {
+                len = truncation_location;
+            }
             to_free = malloc(len);
             ret = fread(to_free, 1, len, fp);
             if  (ret == 0) {
