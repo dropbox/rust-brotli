@@ -15,11 +15,12 @@ int main(int argc, char**argv) {
     unsigned char has_window_size = 0;
     unsigned char double_dash = 0;
     size_t buffer_size = 4096;
+    int i;
     if (argc == 1) {
         usage();
         return 1;
     }
-    for (int i = 1; i < argc; ++i) {
+    for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-help") == 0 && !double_dash) {
             usage();
             return 1;
@@ -33,9 +34,10 @@ int main(int argc, char**argv) {
             return 1;
         }
         if (strncmp(argv[i], "-w", 2) == 0 && !double_dash) {
+            int j;
             has_window_size = 1;
             window_size = atoi(argv[i] + 2);
-            for (int j = i; j + 1 < argc; ++j) {
+            for (j = i; j + 1 < argc; ++j) {
                 argv[j] = argv[j+1];
             }
             --i;
@@ -43,8 +45,9 @@ int main(int argc, char**argv) {
             continue;
         }
         if (strncmp(argv[i], "-bs", 3) == 0 && !double_dash) {
+            int j;
             buffer_size = atoi(argv[i] + 3);
-            for (int j = i; j + 1 < argc; ++j) {
+            for (j = i; j + 1 < argc; ++j) {
                 argv[j] = argv[j+1];
             }
             --i;
@@ -52,8 +55,9 @@ int main(int argc, char**argv) {
             continue;
         }
         if (strcmp(argv[i], "--") == 0) {
+            int j;
             double_dash = 1;
-            for (int j = i; j + 1 < argc; ++j) {
+            for (j = i; j + 1 < argc; ++j) {
                 argv[j] = argv[j+1];
             }
             --i;
@@ -67,12 +71,13 @@ int main(int argc, char**argv) {
     unsigned char* obuffer_ptr = obuffer;
     size_t avail_out = buffer_size;
     struct BroccoliState state;
+    int i;
     if (has_window_size) {
         state = BroccoliCreateInstanceWithWindowSize(window_size);
     } else {
         state = BroccoliCreateInstance();
     }
-    for (int i = 1; i < argc; ++i) {
+    for (i = 1; i < argc; ++i) {
         BroccoliNewBrotliFile(&state);
         FILE * input_file = fopen(argv[i], "rb");
         if (!input_file) {
