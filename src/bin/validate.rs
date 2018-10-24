@@ -1,10 +1,12 @@
-use super::BrotliEncoderParams;
 use std::io::{self, Error, ErrorKind, Read, Write};
 use super::{Rebox, HeapAllocator, IoWriterWrapper};
 use brotli::{DecompressorWriterCustomIo, CustomWrite};
 use alloc_no_stdlib::{Allocator, SliceWrapper};
-
-
+use brotli::enc::BrotliEncoderParams;
+#[cfg(feature="validation")]
+use sha2::{Sha256, Digest};
+#[cfg(feature="validation")]
+type Checksum = Sha256;
 
 struct Tee<OutputA:Write, OutputB:Write>(OutputA, OutputB);
 impl <OutputA:Write, OutputB:Write> Write for Tee<OutputA, OutputB> {
@@ -26,7 +28,7 @@ impl <OutputA:Write, OutputB:Write> Write for Tee<OutputA, OutputB> {
                         Err(e) => match e.kind() {
                             ErrorKind::Interrupted => continue,
                             _ => return Err(e),
-                        }
+                        },
                         Ok(e) => return Ok(e),
                     }
                 }
@@ -53,24 +55,69 @@ impl<'a, OutputType:Write> Write for DecompressAndValidate<'a, OutputType> {
     }
 }
 
+#[cfg(not(feature="validation"))]
 fn make_sha_writer() -> io::Sink {
     io::sink()
 }
-
+#[cfg(not(feature="validation"))]
 fn make_sha_reader<InputType:Read>(r:&mut InputType) -> &mut InputType {
     r
 }
 
-fn sha_ok<InputType:Read>(_writer: io::Sink, _reader: &mut InputType) -> bool {
+#[cfg(not(feature="validation"))]
+fn sha_ok<InputType:Read>(_writer: &mut io::Sink, _reader: &mut InputType) -> bool {
     false
 }
 
-struct ShaReader<InputType:Read> {
-    reader:InputType,
+#[cfg(feature="validation")]
+struct ShaReader<'a, InputType:Read> {
+    reader:&'a mut InputType,
+    checksum:Checksum,
+}
+#[cfg(feature="validation")]
+impl<'a, InputType:Read> Read for ShaReader<'a, InputType> {
+    fn read(&mut self, data: &mut [u8]) -> Result<usize, io::Error> {
+        match self.reader.read(data) {
+            Err(e) => Err(e),
+            Ok(size) => {
+                self.checksum.input(&data[..size]);
+                Ok(size)
+            },
+        }
+    }
+}
+#[cfg(feature="validation")]
+fn make_sha_reader<InputType:Read>(r:&mut InputType) -> ShaReader<InputType> {
+    ShaReader{
+        reader:r,
+        checksum:Checksum::default(),
+    }
 }
 
-
-
+#[cfg(feature="validation")]
+fn sha_ok<InputType:Read>(writer: &mut ShaWriter, reader: &mut ShaReader<InputType>) -> bool {
+    core::mem::replace(&mut writer.0,
+                       Checksum::default()).result() == core::mem::replace(&mut reader.checksum,
+                                                                           Checksum::default()).result()
+}
+#[cfg(feature="validation")]
+#[derive(Default)]
+struct ShaWriter(Checksum);
+#[cfg(feature="validation")]
+impl Write for ShaWriter {
+    fn write(&mut self, data:&[u8]) -> Result<usize, io::Error> {
+        self.0.input(data);
+        Ok(data.len())
+    }
+    fn flush(&mut self) -> Result<(), io::Error> {
+        Ok(())
+    }
+}
+#[cfg(feature="validation")]
+fn make_sha_writer() -> ShaWriter {
+    ShaWriter::default()
+}
+    
 pub fn compress_validate<InputType:Read, OutputType: Write>(r: &mut InputType,
                                                             w: &mut OutputType,
                                                             buffer_size: usize,
@@ -99,11 +146,11 @@ pub fn compress_validate<InputType:Read, OutputType: Write>(r: &mut InputType,
             Error::new(ErrorKind::InvalidData,
                        "Invalid Data")));
         let mut overarching_writer = Tee(validate_writer, w);
-        ret = super::compress(sha_reader, &mut overarching_writer, buffer_size, params, &dict[..], num_threads);
+        ret = super::compress(&mut sha_reader, &mut overarching_writer, buffer_size, params, &dict[..], num_threads);
     }
     match ret {
         Ok(_ret) => {
-            if sha_ok(sha_writer, sha_reader) {
+            if sha_ok(&mut sha_writer, &mut sha_reader) {
                 return Ok(());
             } else {
                 return Err(Error::new(ErrorKind::InvalidData, "Validation failed"));
