@@ -118,9 +118,9 @@ fn make_sha_writer() -> ShaWriter {
     ShaWriter::default()
 }
 #[cfg(feature="validation")]
-const VALIDATION_FAILED: &str = "Validation failed";
+const VALIDATION_FAILED: &'static str = "Validation failed";
 #[cfg(not(feature="validation"))]
-const VALIDATION_FAILED: &str = "Validation module not enabled: build with cargo build --features=validation";
+const VALIDATION_FAILED: &'static str = "Validation module not enabled: build with cargo build --features=validation";
 
 pub fn compress_validate<InputType:Read, OutputType: Write>(r: &mut InputType,
                                                             w: &mut OutputType,

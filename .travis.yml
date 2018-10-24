@@ -14,6 +14,7 @@ script:
   - cargo test
   - cargo test --features=no-stdlib
   - cargo test --release
+  - cargo build --features=validation
 
 matrix:
   exclude:
