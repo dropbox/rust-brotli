@@ -10,6 +10,8 @@ mod util;
 extern crate brotli;
 extern crate brotli_decompressor;
 extern crate core;
+#[cfg(feature="validation")]
+extern crate sha2;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib;
@@ -22,7 +24,7 @@ use brotli::enc::backward_references::BrotliEncoderMode;
 #[allow(unused_imports)]
 use alloc_no_stdlib::{SliceWrapper, SliceWrapperMut, StackAllocator, AllocatedStackMemory,
                       Allocator, bzero};
-
+mod validate;
 use std::env;
 
 use std::fs::File;
@@ -490,6 +492,7 @@ fn has_stdlib() -> bool {
 fn main() {
   let mut buffer_size = 65536;
   let mut do_compress = false;
+  let mut do_validate = false;
   let mut params = brotli::enc::BrotliEncoderInitParams();
   let mut custom_dictionary = Vec::<u8>::new();
   let mut use_work_pool = has_stdlib();
@@ -641,6 +644,10 @@ fn main() {
           params.lgwin = argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap();
           continue;
       }
+      if (argument == "-validate" || argument == "--validate") && !double_dash {
+          do_validate = true;
+          continue;
+      }
       if argument.starts_with("-bs") && !double_dash {
           buffer_size = argument.trim_matches('-').trim_matches('b').trim_matches('s').trim_matches('=').parse::<usize>().unwrap();
           continue;
@@ -738,13 +745,22 @@ fn main() {
           Err(why) => panic!("couldn't open file for writing: {:}\n{:}", filenames[1], why),
           Ok(file) => file,
         };
-        let mut worker_pool = if num_threads != 1 && do_compress && use_work_pool {
+        let mut worker_pool = if num_threads != 1 && do_compress && use_work_pool && !do_validate {
           Some(new_work_pool(num_threads - 1))
         } else {
           None
         };
         for i in 0..num_benchmarks {
-          if do_compress {
+          if do_validate { 
+            let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+            if num_benchmarks > 0 {
+              custom_dictionary = dict.clone();
+            }
+            match validate::compress_validate(&mut input, &mut output, buffer_size, &params, dict.into(), num_threads) {
+              Ok(_) => {}
+              Err(e) => panic!("Error {:?}", e),
+            }
+          } else if do_compress {
             if let Some(ref mut work_pool) = worker_pool {
               match compress_multi(&mut input, &mut output, &params, num_threads, Some(work_pool)) {
                 Ok(_) => {}
@@ -781,7 +797,19 @@ fn main() {
         drop(output);
       } else {
         assert_eq!(num_benchmarks, 1);
-        if do_compress {
+        if do_validate {
+          if do_compress {
+            match validate::compress_validate(&mut input, &mut io::stdout(), buffer_size, &params, custom_dictionary.into(), num_threads) {
+              Ok(_) => {}
+              Err(e) => panic!("Error {:?}", e),
+            }
+          } else {
+            match validate::compress_validate(&mut input, &mut io::sink(), buffer_size, &params, custom_dictionary.into(), num_threads) {
+              Ok(_) => {}
+              Err(e) => panic!("Error {:?}", e),
+            }
+          }
+        } else if do_compress {
           match compress(&mut input, &mut io::stdout(), buffer_size, &params, &custom_dictionary[..], num_threads) {
             Ok(_) => {}
             Err(e) => panic!("Error {:?}", e),
@@ -795,8 +823,20 @@ fn main() {
       }
       drop(input);
    } else {
-      assert_eq!(num_benchmarks, 1);
-      if do_compress {
+     assert_eq!(num_benchmarks, 1);
+     if do_validate {
+        if do_compress {
+            match validate::compress_validate(&mut io::stdin(), &mut io::stdout(), buffer_size, &params, custom_dictionary.into(), num_threads) {
+                Ok(_) => {}
+                Err(e) => panic!("Error {:?}", e),
+            }
+        } else {
+            match validate::compress_validate(&mut io::stdin(), &mut io::sink(), buffer_size, &params, custom_dictionary.into(), num_threads) {
+                Ok(_) => {}
+                Err(e) => panic!("Error {:?}", e),
+            }
+        }
+      } else if do_compress {
         match compress(&mut io::stdin(), &mut io::stdout(), buffer_size, &params, &custom_dictionary[..], num_threads) {
           Ok(_) => return,
           Err(e) => panic!("Error {:?}", e),

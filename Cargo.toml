@@ -27,8 +27,10 @@ lto=true
 "brotli-decompressor" = {version="~1.5"}
 
 "packed_simd" = {version="0.3", optional=true}
+"sha2" = {version="~0.8", optional=true}
 
 [features]
+validation=["sha2"]
 seccomp = ["brotli-decompressor/seccomp"]
 no-stdlib = ["alloc-no-stdlib/no-stdlib", "brotli-decompressor/no-stdlib"]
 external-literal-probability = []
