@@ -117,7 +117,11 @@ impl Write for ShaWriter {
 fn make_sha_writer() -> ShaWriter {
     ShaWriter::default()
 }
-    
+#[cfg(feature="validation")]
+const VALIDATION_FAILED: &str = "Validation failed";
+#[cfg(not(feature="validation"))]
+const VALIDATION_FAILED: &str = "Validation module not enabled: build with cargo build --features=validation";
+
 pub fn compress_validate<InputType:Read, OutputType: Write>(r: &mut InputType,
                                                             w: &mut OutputType,
                                                             buffer_size: usize,
@@ -153,7 +157,7 @@ pub fn compress_validate<InputType:Read, OutputType: Write>(r: &mut InputType,
             if sha_ok(&mut sha_writer, &mut sha_reader) {
                 return Ok(());
             } else {
-                return Err(Error::new(ErrorKind::InvalidData, "Validation failed"));
+                return Err(Error::new(ErrorKind::InvalidData, VALIDATION_FAILED));
             }
         },
         Err(e) => Err(e),
