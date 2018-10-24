@@ -1,3 +1,5 @@
+#[cfg(feature="validation")]
+use core;
 use std::io::{self, Error, ErrorKind, Read, Write};
 use super::{Rebox, HeapAllocator, IoWriterWrapper};
 use brotli::{DecompressorWriterCustomIo, CustomWrite};
@@ -70,12 +72,12 @@ fn sha_ok<InputType:Read>(_writer: &mut io::Sink, _reader: &mut InputType) -> bo
 }
 
 #[cfg(feature="validation")]
-struct ShaReader<'a, InputType:Read> {
+struct ShaReader<'a, InputType:Read+'a> {
     reader:&'a mut InputType,
     checksum:Checksum,
 }
 #[cfg(feature="validation")]
-impl<'a, InputType:Read> Read for ShaReader<'a, InputType> {
+impl<'a, InputType:Read+'a> Read for ShaReader<'a, InputType> {
     fn read(&mut self, data: &mut [u8]) -> Result<usize, io::Error> {
         match self.reader.read(data) {
             Err(e) => Err(e),
