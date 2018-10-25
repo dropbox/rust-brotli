@@ -14,7 +14,7 @@ script:
   - cargo test
   - cargo test --features=no-stdlib
   - cargo test --release
-  - rustc --version | grep 1[.][89][.] || rustc --version | grep -v 1[.]2[789][.]0 | grep 1[.][12][0-9][.]||cargo build --features=validation
+  - rustc --version | grep 1[.][89][.] || rustc --version | grep -v 1[.]2[789][.] | grep 1[.][12][0-9][.]||cargo build --features=validation
 
 matrix:
   exclude:
