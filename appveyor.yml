@@ -1,4 +1,6 @@
 environment:
+  RUST_VERSION: stable
+  CRATE_NAME: brotli
   matrix:
   - TARGET: x86_64-pc-windows-gnu
     BITS: 64
@@ -21,6 +23,26 @@ build: false
 test_script:
   - cargo build --verbose --release --features=validation
   - cargo test --verbose
+before_deploy:
+  - cargo build --verbose --release --features=validation
+  - ps: ci\before_deploy.ps1
+
+deploy:
+  artifact: /.*\.zip/
+  auth_token:
+    secure: jKP3OCU0ukoMKenkxB/lhG9/tOXppd8ZWxCm9dS1VLzbkUoIUKt3+18pG3S54VdL
+  descriprion: 'windows rust-brotli build'
+  on:
+     RUST_VERSION: stable
+     appveyor_repo_tag: true
+  provider: GitHub
+
+cache:
+  - C:\Users\appveyor\.cargo\registry
+  - target
+
 branches:
   only:
+    # Release tags
+    - /^v\d+\.\d+\.\d+.*$/
     - master

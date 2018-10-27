@@ -2793,15 +2793,16 @@ pub fn BrotliWriteMetadataMetaBlock(params: &BrotliEncoderParams, storage_ix: &m
     } else {
         [0xe1, 0x97, 0x80]
     };
+    let size_hint_64 = params.size_hint as u64;
     let header = [magic_number[0], magic_number[1], magic_number[2], VERSION,
-                        (params.size_hint & 0xff) as u8,
-                        ((params.size_hint >> 8) & 0xff) as u8,
-                        ((params.size_hint >> 16) & 0xff) as u8,
-                        ((params.size_hint >> 24) & 0xff) as u8,
-                        ((params.size_hint >> 32) & 0xff) as u8,
-                        ((params.size_hint >> 40) & 0xff) as u8,
-                        ((params.size_hint >> 48) & 0xff) as u8,
-                        ((params.size_hint >> 56) & 0xff) as u8,
+                        (size_hint_64 & 0xff) as u8,
+                        ((size_hint_64 >> 8) & 0xff) as u8,
+                        ((size_hint_64 >> 16) & 0xff) as u8,
+                        ((size_hint_64 >> 24) & 0xff) as u8,
+                        ((size_hint_64 >> 32) & 0xff) as u8,
+                        ((size_hint_64 >> 40) & 0xff) as u8,
+                        ((size_hint_64 >> 48) & 0xff) as u8,
+                        ((size_hint_64 >> 56) & 0xff) as u8,
     ];
     for magic in header[..4 + size_hint_bytes as usize].iter() {
         BrotliWriteBits(8u8, u64::from(*magic), storage_ix, storage);
