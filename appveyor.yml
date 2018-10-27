@@ -34,7 +34,6 @@ deploy:
   descriprion: 'windows rust-brotli build'
   on:
      RUST_VERSION: stable
-     appveyor_repo_tag: true
   provider: GitHub
 
 cache:
