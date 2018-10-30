@@ -15,7 +15,8 @@ use super::cluster::HistogramPair;
 
 use super::entropy_encode::HuffmanTree;
 use super::hash_to_binary_tree::ZopfliNode;
-
+#[cfg(feature="std")]
+use alloc_stdlib::StandardAlloc;
 /*
 struct CombiningAllocator<T1, T2, AllocT1:Allocator<T1>, AllocT2:Allocator<T2>>(AllocT1, AllocT2);
 
@@ -37,6 +38,9 @@ impl <T1, T2, AllocT1:Allocator<T1>, AllocT2:Allocator<T2>> Allocator<T2> for Co
 
 pub trait BrotliAlloc:Allocator<u8> + Allocator<u16> + Allocator<i32> + Allocator<u32> + Allocator<u64> + Allocator<Command> + Allocator<super::util::floatX> + Allocator<v8> + Allocator<s16> + Allocator<PDF> + Allocator<StaticCommand> + Allocator<HistogramLiteral> + Allocator<HistogramCommand> + Allocator<HistogramDistance> + Allocator<HistogramPair> + Allocator<ContextType> + Allocator<HuffmanTree> + Allocator<ZopfliNode>{
 }
+
+#[cfg(feature="std")]
+impl BrotliAlloc for StandardAlloc{}
 
 pub struct CombiningAllocator<AllocU8:Allocator<u8>,
                           AllocU16:Allocator<u16>,

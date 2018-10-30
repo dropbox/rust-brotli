@@ -175,7 +175,7 @@ fn test_custom_dict_for_multithreading() {
     output.reset_read();
     super::decompress(&mut output, &mut rt, 4096, Rebox::default()).unwrap();
     assert_eq!(rt.data(), ALICE);
-    // no-stdlib mode has some approximations that make it 4 bytes bigger
+    // without setting std flag: approximation make it 4 bytes bigger
     if output.data().len() != 48568 {
        assert_eq!(output.data().len(), 48564); // as opposed to 46487 with standard settings
     }

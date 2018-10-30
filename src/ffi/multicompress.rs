@@ -112,12 +112,12 @@ pub struct BrotliEncoderWorkPool {
                              (SliceRef<'static>, BrotliEncoderParams)>,
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 fn brotli_new_work_pool_without_custom_alloc(_to_box: BrotliEncoderWorkPool) -> *mut BrotliEncoderWorkPool{
-    panic!("Must supply allocators if calling divans when compiled with features=no-stdlib");
+    panic!("Must supply allocators if calling divans when compiled without features=std");
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 fn brotli_new_work_pool_without_custom_alloc(to_box: BrotliEncoderWorkPool) -> *mut BrotliEncoderWorkPool{
     brotli_decompressor::ffi::alloc_util::Box::<BrotliEncoderWorkPool>::into_raw(
         brotli_decompressor::ffi::alloc_util::Box::<BrotliEncoderWorkPool>::new(to_box))
@@ -151,12 +151,12 @@ pub unsafe extern fn BrotliEncoderCreateWorkPool(
     brotli_new_work_pool_without_custom_alloc(to_box)
   }
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 unsafe fn free_work_pool_no_custom_alloc(_work_pool: *mut BrotliEncoderWorkPool) {
     let _state = brotli_decompressor::ffi::alloc_util::Box::from_raw(_work_pool);
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 unsafe fn free_work_pool_no_custom_alloc(_work_pool: *mut BrotliEncoderWorkPool) {
     unreachable!();
 }

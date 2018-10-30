@@ -9,13 +9,13 @@ use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::brotli::BrotliResult;
 use super::brotli::BrotliState;
 use super::Rebox;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use super::brotli::{CompressorReader, CompressorWriter};
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use super::brotli_decompressor::{Decompressor, DecompressorWriter};
 use core::cmp;
 use std::io;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std::io::{Read, Write};
 use std::time::Duration;
 #[cfg(not(feature="disable-timer"))]
@@ -385,36 +385,36 @@ fn test_random_then_unicode_8() {
 fn test_random_then_unicode_9() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22, false);
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 const random_then_unicode_compressed_size_9_5 : usize = 136542;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 const random_then_unicode_compressed_size_9_5x : usize = 136045;
 
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 const alice_compressed_size_10 : usize = 47490;
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 const alice_compressed_size_11 : usize = 46496;
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[cfg(not(feature="float64"))]
 const alice_compressed_size_10 : usize = 47477;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[cfg(not(feature="float64"))]
 const alice_compressed_size_11 : usize = 46487;
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[cfg(feature="float64")]
 const alice_compressed_size_10 : usize = 47515;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[cfg(feature="float64")]
 const alice_compressed_size_11 : usize = 46510;
 
 
 
-#[cfg(feature="no-stdlib")] // approx log
+#[cfg(not(feature="std"))] // approx log
 const random_then_unicode_compressed_size_9_5 : usize = 136699;
-#[cfg(feature="no-stdlib")] // approx log
+#[cfg(not(feature="std"))] // approx log
 const random_then_unicode_compressed_size_9_5x : usize = 136095;
 
 #[test]
@@ -456,7 +456,7 @@ fn test_roundtrip_as_you_lik() {
   total_roundtrip_helper(include_bytes!("../../testdata/asyoulik.txt"));
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
   let original_buf = in_buf;
   let mut cmp = [0u8; 259];
@@ -504,7 +504,7 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
 
 /*
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 fn simple_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
     let mut xinput = UnlimitedBuffer::new(&in_buf);
     let xenc;
@@ -551,41 +551,41 @@ fn simple_reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
   assert!(compressed_size < original_buf.len() * pct_ratio / 100);
 }
 */
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_reader_64x() {
   reader_helper(include_bytes!("../../testdata/64x"), 9, 20);
 }
 /*
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_simple_64x() {
     bogus_reader_helper(include_bytes!("../../testdata/64x"), 9, 20);
 }*/
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_reader_as_you_lik() {
   reader_helper(include_bytes!("../../testdata/asyoulik.txt"), 9, 20);
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_reader_quickfox_repeated() {
   reader_helper(include_bytes!("../../testdata/quickfox_repeated"), 9, 20);
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_reader_random_then_unicode() {
   reader_helper(include_bytes!("../../testdata/random_then_unicode"), 9, 20);
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_reader_alice() {
   reader_helper(include_bytes!("../../testdata/alice29.txt"), 9, 22);
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32, do_flush: bool) {
   let original_buf = in_buf;
   let mut output = UnlimitedBuffer::new(&[]);
@@ -634,28 +634,28 @@ fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32, do_flus
   assert!(compressed.data.len() < original_buf.len() * pct_ratio / 100);
   }
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_writer_as_you_lik() {
   writer_helper(include_bytes!("../../testdata/asyoulik.txt"), 17, 9, 20, false);
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_writer_64x() {
   writer_helper(include_bytes!("../../testdata/64x"), 17, 9, 20, false);
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_writer_quickfox_repeated() {
   writer_helper(include_bytes!("../../testdata/quickfox_repeated"), 251, 9, 20, false);
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_writer_random_then_unicode() {
   writer_helper(include_bytes!("../../testdata/random_then_unicode"), 277, 9, 20, false);
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[test]
 fn test_writer_alice() {
   writer_helper(include_bytes!("../../testdata/alice29.txt"), 299, 9, 22, true);

@@ -2,7 +2,7 @@ use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core::marker::PhantomData;
 use core::mem;
 use core::any;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std;
 use super::BrotliAlloc;
 use super::encode::{
@@ -21,9 +21,9 @@ use core::ops::Range;
 use super::backward_references::BrotliEncoderParams;
 pub type PoisonedThreadError = ();
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub type LowLevelThreadError = std::boxed::Box<any::Any + Send + 'static>;
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 pub type LowLevelThreadError = ();
 
 
@@ -143,7 +143,7 @@ pub trait OwnedRetriever<U:Send+'static> {
   fn unwrap(self) -> Result<U, PoisonedThreadError>;
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<U:Send+'static> OwnedRetriever<U> for std::sync::Arc<std::sync::RwLock<U>> {
   fn view<T, F:FnOnce(&U)-> T>(&self, f:F) -> Result<T, PoisonedThreadError> {
       match self.read() {

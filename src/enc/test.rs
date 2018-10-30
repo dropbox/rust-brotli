@@ -389,12 +389,12 @@ fn test_roundtrip_empty() {
 /*
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 struct Buffer {
   data: Vec<u8>,
   read_offset: usize,
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl Buffer {
   pub fn new(buf: &[u8]) -> Buffer {
     let mut ret = Buffer {
@@ -405,7 +405,7 @@ impl Buffer {
     return ret;
   }
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl io::Read for Buffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
     let bytes_to_read = ::core::cmp::min(buf.len(), self.data.len() - self.read_offset);
@@ -417,7 +417,7 @@ impl io::Read for Buffer {
     return Ok(bytes_to_read);
   }
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl io::Write for Buffer {
   fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
     self.data.extend(buf);

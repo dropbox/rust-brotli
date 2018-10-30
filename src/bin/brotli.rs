@@ -17,7 +17,8 @@ extern crate sha2;
 extern crate alloc_no_stdlib;
 use brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, WorkerPool, compress_worker_pool, new_work_pool};
 use brotli::enc::threading::{SendAlloc,Owned, CompressionThreadResult, CompressMulti, BrotliEncoderThreadError};
-
+#[allow(unused_imports)]
+use brotli::HuffmanCode;
 use brotli::CustomRead;
 use core::ops;
 use brotli::enc::backward_references::BrotliEncoderMode;
@@ -236,9 +237,9 @@ declare_stack_allocator_struct!(CallocAllocatedFreelist, 8192, calloc);
 
 #[cfg(feature="seccomp")]
 pub fn decompress<InputType, OutputType>(r: &mut InputType,
-                                         mut w: &mut OutputType,
+                                         w: &mut OutputType,
                                          buffer_size: usize,
-                                         mut custom_dictionary:Rebox<u8>)
+                                         custom_dictionary:Rebox<u8>)
                                          -> Result<(), io::Error>
   where InputType: Read,
         OutputType: Write
@@ -249,10 +250,10 @@ pub fn decompress<InputType, OutputType>(r: &mut InputType,
 
   }
   core::mem::drop(custom_dictionary);
-  let mut u8_buffer =
+  let u8_buffer =
     unsafe { define_allocator_memory_pool!(4, u8, [0; 1024 * 1024 * 200], calloc) };
-  let mut u32_buffer = unsafe { define_allocator_memory_pool!(4, u32, [0; 16384], calloc) };
-  let mut hc_buffer =
+  let u32_buffer = unsafe { define_allocator_memory_pool!(4, u32, [0; 16384], calloc) };
+  let hc_buffer =
     unsafe { define_allocator_memory_pool!(4, HuffmanCode, [0; 1024 * 1024 * 16], calloc) };
   let mut alloc_u8 = CallocAllocatedFreelist::<u8>::new_allocator(u8_buffer.data, bzero);
   let alloc_u32 = CallocAllocatedFreelist::<u32>::new_allocator(u32_buffer.data, bzero);
@@ -417,7 +418,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
 }
 
-// This decompressor is defined unconditionally on whether no-stdlib is defined
+// This decompressor is defined unconditionally on whether std is defined
 // so we can exercise the code in any case
 pub struct BrotliDecompressor<R: Read>(brotli::DecompressorCustomIo<io::Error,
                                                                     IntoIoReader<R>,
@@ -480,11 +481,11 @@ fn read_custom_dictionary(filename :&str) -> Vec<u8> {
   ret
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 fn has_stdlib() -> bool {
     true
 }
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 fn has_stdlib() -> bool {
     false
 }

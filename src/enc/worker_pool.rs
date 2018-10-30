@@ -1,4 +1,4 @@
-#![cfg(not(feature="no-stdlib"))]
+#![cfg(feature="std")]
 use core::mem;
 use std;
 

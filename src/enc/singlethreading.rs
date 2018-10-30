@@ -1,5 +1,5 @@
 use core::mem;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std;
 use alloc::{SliceWrapper, Allocator};
 use enc::BrotliAlloc;
@@ -32,31 +32,31 @@ impl<T:Send+'static, U:Send+'static> Joinable<T, U> for SingleThreadedJoinable<T
     self.result
   }
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub struct SingleThreadedOwnedRetriever<U:Send+'static>(std::sync::RwLock<U>);
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
   fn view<T, F:FnOnce(&U)-> T>(&self, f:F) -> Result<T, PoisonedThreadError> {
     Ok(f(&*self.0.read().unwrap()))
   }
   fn unwrap(self) -> Result<U,PoisonedThreadError> {Ok(self.0.into_inner().unwrap())}
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<U:Send+'static> SingleThreadedOwnedRetriever<U> {
     fn new(u:U) -> Self {
         SingleThreadedOwnedRetriever(std::sync::RwLock::new(u))
     }
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 pub struct SingleThreadedOwnedRetriever<U:Send+'static>(U);
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 impl<U:Send+'static> SingleThreadedOwnedRetriever<U> {
     fn new(u:U) -> Self {
         SingleThreadedOwnedRetriever(u)
     }
 }
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
   fn view<T, F:FnOnce(&U)->T>(&self, f:F) -> Result<T, PoisonedThreadError> {
     Ok(f(&self.0))

@@ -1,4 +1,4 @@
-#![cfg_attr(feature="no-stdlib", allow(unused_imports))]
+#![cfg_attr(not(feature="std"), allow(unused_imports))]
 #[macro_use]
 pub mod vectorization;
 pub mod input_pair;
@@ -74,25 +74,21 @@ use self::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                    BrotliEncoderOperation,
                    BrotliEncoderSetCustomDictionary,
                    BrotliEncoderCompressStream, BrotliEncoderIsFinished};
-use self::cluster::{HistogramPair};
 pub use self::interface::StaticCommand;
-use self::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
-use self::command::{Command};
-use self::entropy_encode::{HuffmanTree};
 use brotli_decompressor::{CustomRead, CustomWrite};
 pub use self::vectorization::{v256,v256i, Mem256f};
 pub use interface::{InputReference,InputPair, InputReferenceMut};
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std::io::{Read,Write, Error, ErrorKind};
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std::io;
-#[cfg(not(feature="no-stdlib"))]
-pub use alloc::HeapAlloc;
+#[cfg(feature="std")]
+pub use alloc_stdlib::StandardAlloc;
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
 pub use self::threading::{SendAlloc,
@@ -101,19 +97,19 @@ pub use self::threading::{SendAlloc,
                           BatchSpawnableLite,
                           CompressionThreadResult,
 };
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub use self::worker_pool::{
   compress_worker_pool,
   new_work_pool,
   WorkerPool,
 };
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 pub use self::singlethreading::{
   compress_worker_pool,
   new_work_pool,
   WorkerPool,
 };
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
                       SliceW: SliceWrapper<u8>+Send+'static+Sync> (
   params:&BrotliEncoderParams,
@@ -127,15 +123,15 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
   compress_worker_pool(params, owned_input,output, alloc_per_thread,&mut work_pool)
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 pub use self::singlethreading::compress_multi;
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 pub use self::singlethreading::compress_multi as compress_multi_no_threadpool;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub use self::multithreading::compress_multi as compress_multi_no_threadpool;
 
 
-#[cfg(not(any(feature="no-stdlib")))]
+#[cfg(feature="std")]
 pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                                              w: &mut OutputType,
                                              params: &BrotliEncoderParams)
@@ -150,45 +146,11 @@ pub fn BrotliCompress<InputType, OutputType>(r: &mut InputType,
                             &mut input_buffer[..],
                             &mut output_buffer[..],
                             params,
-                            CombiningAllocator::new(
-                                HeapAlloc::<u8> { default_value: 0 },
-                                HeapAlloc::<u16> { default_value: 0 },
-                                HeapAlloc::<i32> { default_value: 0 },
-                                HeapAlloc::<u32> { default_value: 0 },
-                                HeapAlloc::<u64> { default_value: 0 },
-                                HeapAlloc::<Command> {
-                                    default_value: Command::default(),
-                                },
-                                HeapAlloc::<floatX> { default_value: 0.0 as floatX },
-                                HeapAlloc::<v8> { default_value: v8::default() },
-                                HeapAlloc::<s16> { default_value: s16::default() },
-                                HeapAlloc::<PDF> { default_value: PDF::default() },
-                                HeapAlloc::<StaticCommand> { default_value: StaticCommand::default() },
-                                HeapAlloc::<HistogramLiteral>{
-                                    default_value: HistogramLiteral::default(),
-                                },
-                                HeapAlloc::<HistogramCommand>{
-                                    default_value: HistogramCommand::default(),
-                                },
-                                HeapAlloc::<HistogramDistance>{
-                                    default_value: HistogramDistance::default(),
-                                },
-                                HeapAlloc::<HistogramPair>{
-                                    default_value: HistogramPair::default(),
-                                },
-                                HeapAlloc::<ContextType>{
-                                    default_value: ContextType::default(),
-                                },
-                                HeapAlloc::<HuffmanTree>{
-                                    default_value: HuffmanTree::default(),
-                                },
-                                HeapAlloc::<ZopfliNode>{
-                                    default_value: ZopfliNode::default(),
-                                },
-                            ))
+                            StandardAlloc::default(),
+                           ) 
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub fn BrotliCompressCustomAlloc<InputType,
                                  OutputType,
                                  Alloc: BrotliAlloc>

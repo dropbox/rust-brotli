@@ -1,34 +1,25 @@
-#![cfg_attr(feature="no-stdlib", allow(unused_imports))]
-use super::cluster::HistogramPair;
-use super::command::Command;
-
-use enc::PDF;
-use enc::StaticCommand;
-use super::hash_to_binary_tree::ZopfliNode;
+#![cfg_attr(not(feature="std"), allow(unused_imports))]
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
                     BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use super::backward_references::BrotliEncoderParams;
-use super::entropy_encode::HuffmanTree;
-use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use brotli_decompressor::CustomWrite;
 use super::interface;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub use brotli_decompressor::{IntoIoWriter, IoWriterWrapper};
-use super::combined_alloc::{CombiningAllocator, BrotliAlloc};
+use super::combined_alloc::BrotliAlloc;
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-#[cfg(not(feature="no-stdlib"))]
-pub use alloc::HeapAlloc;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
+pub use alloc_stdlib::StandardAlloc;
+#[cfg(feature="std")]
 use std::io;
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std::io::{Write, Error, ErrorKind};
-use enc::{s16, v8};
 
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub struct CompressorWriterCustomAlloc<W: Write,
                                        BufferType : SliceWrapperMut<u8>,
                                        Alloc: BrotliAlloc> (
@@ -38,7 +29,7 @@ pub struct CompressorWriterCustomAlloc<W: Write,
                              Alloc>);
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<W: Write,
      BufferType : SliceWrapperMut<u8>,
      Alloc: BrotliAlloc>
@@ -67,7 +58,7 @@ impl<W: Write,
     }
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<W: Write,
      BufferType: SliceWrapperMut<u8>,
      Alloc: BrotliAlloc>
@@ -82,73 +73,21 @@ impl<W: Write,
 }
 
 
-#[cfg(not(any(feature="no-stdlib")))]
+#[cfg(feature="std")]
 pub struct CompressorWriter<W: Write>(CompressorWriterCustomAlloc<W,
-                                     <HeapAlloc<u8>
+                                     <StandardAlloc
                                       as Allocator<u8>>::AllocatedMemory,
-                                     CombiningAllocator<HeapAlloc<u8>,
-                                                        HeapAlloc<u16>,
-                                                        HeapAlloc<i32>,
-                                                        HeapAlloc<u32>,
-                                                        HeapAlloc<u64>,
-                                                        HeapAlloc<Command>,
-                                                        HeapAlloc<super::util::floatX>,
-                                                        HeapAlloc<v8>,
-                                                        HeapAlloc<s16>,
-                                                        HeapAlloc<PDF>,
-                                                        HeapAlloc<StaticCommand>,
-                                                        HeapAlloc<HistogramLiteral>,
-                                                        HeapAlloc<HistogramCommand>,
-                                                        HeapAlloc<HistogramDistance>,
-                                                        HeapAlloc<HistogramPair>,
-                                                        HeapAlloc<ContextType>,
-                                                        HeapAlloc<HuffmanTree>,
-                                                        HeapAlloc<ZopfliNode>>>);
+                                     StandardAlloc>);
 
 
-#[cfg(not(any(feature="no-stdlib")))]
+#[cfg(feature="std")]
 impl<W: Write> CompressorWriter<W> {
   pub fn new(w: W, buffer_size: usize, q: u32, lgwin: u32) -> Self {
-    let mut alloc_u8 = HeapAlloc::<u8> { default_value: 0 };
-    let buffer = alloc_u8.alloc_cell(if buffer_size == 0 { 4096} else {buffer_size});
-    let alloc_u16 = HeapAlloc::<u16> { default_value: 0 };
-    let alloc_i32 = HeapAlloc::<i32> { default_value: 0 };
-    let alloc_u32 = HeapAlloc::<u32> { default_value: 0 };
-    let alloc_u64 = HeapAlloc::<u64> { default_value: 0 };
-    let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };
-    let alloc_f64 = HeapAlloc::<super::util::floatX> { default_value: 0.0 as super::util::floatX };
-    let alloc_f8 = HeapAlloc::<v8> {default_value: v8::default() };
-    let alloc_16x16 = HeapAlloc::<s16> {default_value: s16::default() };
-    let alloc_pdf = HeapAlloc::<PDF> { default_value: PDF::default() };
-    let alloc_sc = HeapAlloc::<StaticCommand> { default_value: StaticCommand::default() };
-    let alloc_hl = HeapAlloc::<HistogramLiteral> { default_value: HistogramLiteral::default() };
-    let alloc_hc = HeapAlloc::<HistogramCommand> { default_value: HistogramCommand::default() };
-    let alloc_hd = HeapAlloc::<HistogramDistance> { default_value: HistogramDistance::default() };
-    let alloc_hp = HeapAlloc::<HistogramPair> { default_value: HistogramPair::default() };
-    let alloc_ct = HeapAlloc::<ContextType> { default_value: ContextType::default() };
-    let alloc_ht = HeapAlloc::<HuffmanTree> { default_value: HuffmanTree::default() };
-    let alloc_zn = HeapAlloc::<ZopfliNode> { default_value: ZopfliNode::default() };
+    let mut alloc = StandardAlloc::default();
+    let buffer = <StandardAlloc as Allocator<u8>>::alloc_cell(&mut alloc, if buffer_size == 0 { 4096} else {buffer_size});
     CompressorWriter::<W>(CompressorWriterCustomAlloc::new(w,
                                                            buffer,
-                                                           CombiningAllocator::new(alloc_u8,
-                                                                                   alloc_u16,
-                                                                                   alloc_i32,
-                                                                                   alloc_u32,
-                                                                                   alloc_u64,
-                                                                                   alloc_c,
-                                                                                   alloc_f64,
-                                                                                   alloc_f8,
-                                                                                   alloc_16x16,
-                                                                                   alloc_pdf,
-                                                                                   alloc_sc,
-                                                                                   alloc_hl,
-                                                                                   alloc_hc,
-                                                                                   alloc_hd,
-                                                                                   alloc_hp,
-                                                                                   alloc_ct,
-                                                                                   alloc_ht,
-                                                                                   alloc_zn,
-                                                           ),
+                                                           alloc,
                                                            q,
                                                            lgwin))
   }
@@ -166,7 +105,7 @@ impl<W: Write> CompressorWriter<W> {
 
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<W: Write> Write for CompressorWriter<W> {
   fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
     self.0.write(buf)

@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_macros)]
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std::io::Write;
 use VERSION;
 use super::{v8, s16};
@@ -199,11 +199,11 @@ impl<'a, Alloc: BrotliAlloc> interface::CommandProcessor<'a> for CommandQueue<'a
 }
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 fn warn_on_missing_free() {
     let _err = ::std::io::stderr().write(b"Need to free entropy_tally_scratch before dropping CommandQueue\n");
 }
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 fn warn_on_missing_free() {
      // no way to warn in this case
 }

@@ -37,22 +37,22 @@ pub struct BrotliEncoderState {
   pub compressor: BrotliEncoderStateStruct<BrotliSubclassableAllocator>,
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 fn brotli_new_compressor_without_custom_alloc(_to_box: BrotliEncoderState) -> *mut BrotliEncoderState{
-    panic!("Must supply allocators if calling divans when compiled with features=no-stdlib");
+    panic!("Must supply allocators if calling divans when compiled without features=std");
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 fn brotli_new_compressor_without_custom_alloc(to_box: BrotliEncoderState) -> *mut BrotliEncoderState{
     alloc_util::Box::<BrotliEncoderState>::into_raw(
         alloc_util::Box::<BrotliEncoderState>::new(to_box))
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 unsafe fn free_compressor_no_custom_alloc(state_ptr: *mut BrotliEncoderState) {
     let _state = alloc_util::Box::from_raw(state_ptr);
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 unsafe fn free_compressor_no_custom_alloc(_state_ptr: *mut BrotliEncoderState) {
     unreachable!();
 }

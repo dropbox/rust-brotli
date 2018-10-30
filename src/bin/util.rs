@@ -177,7 +177,7 @@ use std::sync::RwLock;
 
 
 pub struct MTJoinable<T:Send+'static, U:Send+'static>(JoinHandle<T>, PhantomData<U>);
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MTJoinable<T, U> {
   fn join(self) -> Result<T, U> {
       match self.0.join() {
@@ -186,7 +186,7 @@ impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MTJoin
       }
   }
 }
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<T:Send+'static, U:Send+'static+AnyBoxConstructor> Joinable<T, U> for MTJoinable<T, U> {
   fn join(self) -> Result<T, U> {
       match self.0.join() {

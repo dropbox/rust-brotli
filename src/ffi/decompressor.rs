@@ -19,7 +19,7 @@ pub unsafe extern fn CBrotliDecoderSetParameter(state_ptr: *mut ffi::BrotliDecod
     ffi::BrotliDecoderSetParameter(state_ptr,  selector, value)
 } 
      
-#[cfg(not(feature="no-stdlib"))] // this requires a default allocator
+#[cfg(feature="std")] // this requires a default allocator
 pub unsafe extern fn CBrotliDecoderDecompress(
   encoded_size: usize,
   encoded_buffer: *const u8,

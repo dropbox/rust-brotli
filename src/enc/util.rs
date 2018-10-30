@@ -291,7 +291,7 @@ pub fn FastLog2u16(v: u16) -> floatX {
     log64k[v as usize]
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[inline(always)]
 pub fn FastLog2(v: u64) -> floatX {
     if v < 256 {
@@ -300,7 +300,7 @@ pub fn FastLog2(v: u64) -> floatX {
     (v as f32).log2() as floatX
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 #[inline(always)]
 pub fn FastLog2(v: u64) -> floatX {
   if v < 256 {
@@ -309,7 +309,7 @@ pub fn FastLog2(v: u64) -> floatX {
   FastLog2u64(v)
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[inline(always)]
 pub fn FastLog2f64(v: u64) -> f64 {
     if v < 256 {
@@ -318,7 +318,7 @@ pub fn FastLog2f64(v: u64) -> f64 {
     (v as f64).log2()
 }
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 #[inline(always)]
 pub fn FastLog2f64(v: u64) -> f64 {
     FastLog2(v) as f64
@@ -345,14 +345,14 @@ pub fn xFastLog2u16(v: u16) -> floatX {
   offset as floatX + kLog2Table[(v >> offset) as u8 as usize] as (floatX)
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 #[inline(always)]
 pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
   return (2 as super::util::floatX).powf(v);
 }
 
 
-#[cfg(feature="no-stdlib")]
+#[cfg(not(feature="std"))]
 #[inline(always)]
 pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
    assert!(v >= 0 as super::util::floatX);

@@ -1,36 +1,28 @@
-#![cfg_attr(feature="no-stdlib", allow(unused_imports))]
+#![cfg_attr(not(feature="std"), allow(unused_imports))]
 
-use super::cluster::HistogramPair;
-use enc::PDF;
-use enc::StaticCommand;
-use super::command::Command;
-use super::combined_alloc::{CombiningAllocator, BrotliAlloc};
-use super::hash_to_binary_tree::ZopfliNode;
+use super::combined_alloc::BrotliAlloc;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
                     BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use super::backward_references::BrotliEncoderParams;
-use super::entropy_encode::HuffmanTree;
-use super::histogram::{ContextType, HistogramLiteral, HistogramCommand, HistogramDistance};
 use super::interface;
 use brotli_decompressor::CustomRead;
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-#[cfg(not(feature="no-stdlib"))]
-pub use alloc::HeapAlloc;
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
+pub use alloc_stdlib::StandardAlloc;
+#[cfg(feature="std")]
 use std::io;
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 use std::io::{Read, Error, ErrorKind};
-use enc::{s16, v8};
 
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 pub struct CompressorReaderCustomAlloc<R: Read,
                                        BufferType : SliceWrapperMut<u8>,
                                        Alloc: BrotliAlloc> (
@@ -40,7 +32,7 @@ pub struct CompressorReaderCustomAlloc<R: Read,
                              Alloc>);
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<R: Read,
      BufferType : SliceWrapperMut<u8>,
      Alloc: BrotliAlloc>
@@ -69,7 +61,7 @@ impl<R: Read,
     }
 }
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<R: Read,
      BufferType: SliceWrapperMut<u8>,
      Alloc: BrotliAlloc>
@@ -80,74 +72,23 @@ impl<R: Read,
     }
 }
 
-
-#[cfg(not(any(feature="no-stdlib")))]
+#[cfg(feature="std")]
 pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
-                                     <HeapAlloc<u8>
-                                      as Allocator<u8>>::AllocatedMemory,
-                                     CombiningAllocator<HeapAlloc<u8>,
-                                                        HeapAlloc<u16>,
-                                                        HeapAlloc<i32>,
-                                                        HeapAlloc<u32>,
-                                                        HeapAlloc<u64>,
-                                                        HeapAlloc<Command>,
-                                                        HeapAlloc<super::util::floatX>,
-                                                        HeapAlloc<v8>,
-                                                        HeapAlloc<s16>,
-                                                        HeapAlloc<PDF>,
-                                                        HeapAlloc<StaticCommand>,
-                                                        HeapAlloc<HistogramLiteral>,
-                                                        HeapAlloc<HistogramCommand>,
-                                                        HeapAlloc<HistogramDistance>,
-                                                        HeapAlloc<HistogramPair>,
-                                                        HeapAlloc<ContextType>,
-                                                        HeapAlloc<HuffmanTree>,
-                                                        HeapAlloc<ZopfliNode>>>);
+                                     <StandardAlloc as Allocator<u8>>::AllocatedMemory,
+                                     StandardAlloc>);
 
 
-#[cfg(not(any(feature="no-stdlib")))]
+#[cfg(feature="std")]
 impl<R: Read> CompressorReader<R> {
   pub fn new(r: R, buffer_size: usize, q: u32, lgwin: u32) -> Self {
-    let mut alloc_u8 = HeapAlloc::<u8> { default_value: 0 };
-    let buffer = alloc_u8.alloc_cell(if buffer_size == 0 {4096} else {buffer_size});
-    let alloc_u16 = HeapAlloc::<u16> { default_value: 0 };
-    let alloc_i32 = HeapAlloc::<i32> { default_value: 0 };
-    let alloc_u32 = HeapAlloc::<u32> { default_value: 0 };
-    let alloc_u64 = HeapAlloc::<u64> { default_value: 0 };
-    let alloc_c = HeapAlloc::<Command> { default_value: Command::default() };
-    let alloc_f64 = HeapAlloc::<super::util::floatX> { default_value: 0.0 as super::util::floatX };
-    let alloc_f8 = HeapAlloc::<v8> { default_value: v8::default() };
-    let alloc_s16 = HeapAlloc::<s16> { default_value: s16::default() };
-    let alloc_pdf = HeapAlloc::<PDF> { default_value: PDF::default() };
-    let alloc_sc = HeapAlloc::<StaticCommand> { default_value: StaticCommand::default() };
-    let alloc_hl = HeapAlloc::<HistogramLiteral> { default_value: HistogramLiteral::default() };
-    let alloc_hc = HeapAlloc::<HistogramCommand> { default_value: HistogramCommand::default() };
-    let alloc_hd = HeapAlloc::<HistogramDistance> { default_value: HistogramDistance::default() };
-    let alloc_hp = HeapAlloc::<HistogramPair> { default_value: HistogramPair::default() };
-    let alloc_ct = HeapAlloc::<ContextType> { default_value: ContextType::default() };
-    let alloc_ht = HeapAlloc::<HuffmanTree> { default_value: HuffmanTree::default() };
-    let alloc_zn = HeapAlloc::<ZopfliNode> { default_value: ZopfliNode::default() };
+    let mut alloc = StandardAlloc::default();
+    let buffer = <StandardAlloc as Allocator<u8>>::alloc_cell(&mut alloc,
+                                                              if buffer_size == 0 { 4096} else {buffer_size});
     CompressorReader::<R>(CompressorReaderCustomAlloc::new(r,
                                                            buffer,
-                                                           CombiningAllocator::new(alloc_u8,
-                                                                                   alloc_u16,
-                                                                                   alloc_i32,
-                                                                                   alloc_u32,
-                                                                                   alloc_u64,
-                                                                                   alloc_c,
-                                                                                   alloc_f64,
-                                                                                   alloc_f8,
-                                                                                   alloc_s16,
-                                                                                   alloc_pdf,
-                                                                                   alloc_sc,
-                                                                                   alloc_hl,
-                                                                                   alloc_hc,
-                                                                                   alloc_hd,
-                                                                                   alloc_hp,
-                                                                                   alloc_ct,
-                                                                                   alloc_ht,
-                                                                                   alloc_zn,
-                                                           ), q, lgwin))
+                                                           alloc,
+                                                           q,
+                                                           lgwin))
   }
 
   pub fn with_params(r: R, buffer_size: usize, params: &BrotliEncoderParams) -> Self {
@@ -163,7 +104,7 @@ impl<R: Read> CompressorReader<R> {
 
 
 
-#[cfg(not(feature="no-stdlib"))]
+#[cfg(feature="std")]
 impl<R: Read> Read for CompressorReader<R> {
   fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
     self.0.read(buf)
