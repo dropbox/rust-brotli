@@ -21,11 +21,10 @@ install:
   - cargo -V
 build: false
 test_script:
+  - cargo test --verbose
   - set RUSTFLAGS=-C panic=abort
   - set CARGO_PROFILE_RELEASE=panic=abort
   - cargo build --verbose --release --features=validation
-  - set RUSTFLAGS=-C panic=unwind
-  - cargo test --verbose
 before_deploy:
   - set CARGO_PROFILE_RELEASE=panic=abort
   - set RUSTFLAGS=-C panic=abort
