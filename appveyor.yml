@@ -14,9 +14,8 @@ environment:
     BITS: 32
 install:
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
-  - rustup-init.exe -y --default-host %TARGET%
+  - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
-  - rustup default nightly
   - if defined MSYS2 set PATH=C:\msys64\mingw%BITS%\bin;%PATH%
   - rustc -V
   - cargo -V
