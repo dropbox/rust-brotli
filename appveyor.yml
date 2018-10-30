@@ -21,12 +21,14 @@ install:
   - cargo -V
 build: false
 test_script:
+  - set RUSTFLAGS="-C panic=abort"
   - set CARGO_PROFILE_RELEASE=panic=abort
   - cargo build --verbose --release --features=validation
   - set CARGO_PROFILE_DEBUG=panic=abort
   - cargo test --verbose
 before_deploy:
   - set CARGO_PROFILE_RELEASE=panic=abort
+  - set RUSTFLAGS="-C panic=abort"
   - cargo build --verbose --release --features=validation
   - ps: ci\before_deploy.ps1
 
