@@ -1,5 +1,5 @@
 environment:
-  RUST_VERSION: stable
+  RUST_VERSION: nightly
   CRATE_NAME: brotli
   matrix:
   - TARGET: x86_64-pc-windows-gnu
@@ -23,13 +23,13 @@ build: false
 test_script:
   - set RUSTFLAGS=-C panic=abort
   - set CARGO_PROFILE_RELEASE=panic=abort
-  - cargo build --verbose --release --features=validation
+  - cargo build --verbose --release --features=validation -Z config-profile
   - set CARGO_PROFILE_DEBUG=panic=abort
-  - cargo test --verbose
+  - cargo test --verbose -Z config-profile
 before_deploy:
   - set CARGO_PROFILE_RELEASE=panic=abort
   - set RUSTFLAGS=-C panic=abort
-  - cargo build --verbose --release --features=validation
+  - cargo build --verbose --release --features=validation -Z config-profile
   - ps: ci\before_deploy.ps1
 
 deploy:
