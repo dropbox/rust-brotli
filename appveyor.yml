@@ -21,10 +21,13 @@ install:
   - cargo -V
 build: false
 test_script:
-  - CARGO_PROFILE_RELEASE=panic=abort cargo build --verbose --release --features=validation
-  - CARGO_PROFILE_DEBUG=panic=abort cargo test --verbose
+  - set CARGO_PROFILE_RELEASE=panic=abort
+  - cargo build --verbose --release --features=validation
+  - set CARGO_PROFILE_DEBUG=panic=abort
+  - cargo test --verbose
 before_deploy:
-  - CARGO_PROFILE_RELEASE=panic=abort cargo build --verbose --release --features=validation
+  - set CARGO_PROFILE_RELEASE=panic=abort
+  - cargo build --verbose --release --features=validation
   - ps: ci\before_deploy.ps1
 
 deploy:
