@@ -16,6 +16,7 @@ install:
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - rustup default nightly
   - if defined MSYS2 set PATH=C:\msys64\mingw%BITS%\bin;%PATH%
   - rustc -V
   - cargo -V
@@ -38,7 +39,7 @@ deploy:
     secure: jKP3OCU0ukoMKenkxB/lhG9/tOXppd8ZWxCm9dS1VLzbkUoIUKt3+18pG3S54VdL
   descriprion: 'windows rust-brotli build'
   on:
-     RUST_VERSION: stable
+     RUST_VERSION: nightly
   provider: GitHub
 
 cache:
