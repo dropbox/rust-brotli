@@ -1,5 +1,5 @@
 environment:
-  RUST_VERSION: nightly
+  RUST_VERSION: stable
   CRATE_NAME: brotli
   matrix:
   - TARGET: x86_64-pc-windows-gnu
@@ -23,13 +23,13 @@ build: false
 test_script:
   - set RUSTFLAGS=-C panic=abort
   - set CARGO_PROFILE_RELEASE=panic=abort
-  - cargo build --verbose --release --features=validation -Z config-profile
-  - set CARGO_PROFILE_DEBUG=panic=abort
-  - cargo test --verbose -Z config-profile
+  - cargo build --verbose --release --features=validation
+  - set RUSTFLAGS=-C panic=unwind
+  - cargo test --verbose
 before_deploy:
   - set CARGO_PROFILE_RELEASE=panic=abort
   - set RUSTFLAGS=-C panic=abort
-  - cargo build --verbose --release --features=validation -Z config-profile
+  - cargo build --verbose --release --features=validation
   - ps: ci\before_deploy.ps1
 
 deploy:
@@ -38,7 +38,7 @@ deploy:
     secure: jKP3OCU0ukoMKenkxB/lhG9/tOXppd8ZWxCm9dS1VLzbkUoIUKt3+18pG3S54VdL
   descriprion: 'windows rust-brotli build'
   on:
-     RUST_VERSION: nightly
+     RUST_VERSION: stable
   provider: GitHub
 
 cache:
