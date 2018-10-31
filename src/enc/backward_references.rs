@@ -37,7 +37,6 @@ pub enum BrotliEncoderMode {
   BROTLI_FORCE_SIGNED_PRIOR = 6,
 }
 
-
 #[derive(Clone,Copy, Debug)]
 pub struct BrotliHasherParams {
   // type of hasher to use (default: type 6, but others have tradeoffs of speed/memory)
@@ -1177,14 +1176,14 @@ fn unopt_ctzll(mut val: usize) -> u8 {
 fn BackwardReferenceScoreUsingLastDistance(copy_length: usize, h9_opts: H9Opts) -> u64 {
   ((h9_opts.literal_byte_score as u64) >> 2)
     .wrapping_mul(copy_length as u64)
-    .wrapping_add((30u64 * 8u64).wrapping_mul(::core::mem::size_of::<usize>() as u64))
+    .wrapping_add((30u64 * 8u64).wrapping_mul(::core::mem::size_of::<u64>() as u64))
     .wrapping_add(15u64)
 }
 
 
 fn BackwardReferenceScore(copy_length: usize, backward_reference_offset: usize, h9_opts: H9Opts) -> u64 {
   (30u64 * 8u64)
-    .wrapping_mul(::core::mem::size_of::<usize>() as u64)
+    .wrapping_mul(::core::mem::size_of::<u64>() as u64)
     .wrapping_add(((h9_opts.literal_byte_score as usize) >> 2).wrapping_mul(copy_length) as u64)
     .wrapping_sub((30u64).wrapping_mul(Log2FloorNonZero(backward_reference_offset as u64) as u64))
 }
@@ -1480,7 +1479,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: Option<&BrotliDictionary>
   let random_heuristics_window_size: usize = LiteralSpreeLengthForSparseSearch(params);
   let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
   let kMinScore: u64 = (30u64 * 8)
-    .wrapping_mul(::core::mem::size_of::<usize>() as u64)
+    .wrapping_mul(::core::mem::size_of::<u64>() as u64)
     .wrapping_add(100u64);
   hasher.PrepareDistanceCache(dist_cache);
   while position.wrapping_add(hasher.HashTypeLength()) < pos_end {

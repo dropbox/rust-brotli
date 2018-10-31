@@ -424,7 +424,7 @@ fn test_random_then_unicode_9_5() {
 }
 
 #[test]
-fn test_random_then_unicode_9_5x() {
+fn test_random_then_unicode_9x5() {
     let c_size = roundtrip_helper(RANDOM_THEN_UNICODE, 11, 22, true);
     assert_eq!(c_size, random_then_unicode_compressed_size_9_5x);
 }
