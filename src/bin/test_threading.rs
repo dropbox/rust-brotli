@@ -25,6 +25,7 @@ fn multi_threaded_split_compression_test(num_threads: usize, quality: i32, catab
     params.magic_number = true;
     if catable {
         params.catable = true;
+        params.use_dictionary = false;
     }
     let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(RANDOM_THEN_UNICODE.len(), num_threads)]);
     let mut alloc_per_thread = [
@@ -94,6 +95,7 @@ fn thread_spawn_per_job_split_compression_test(num_threads: usize, quality: i32,
     params.magic_number = true;
     if catable {
         params.catable = true;
+        params.use_dictionary = false;
     }
     let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(RANDOM_THEN_UNICODE.len(), num_threads)]);
     let mut alloc_per_thread = [

@@ -515,6 +515,7 @@ fn main() {
       }
       if (argument == "-catable" || argument == "--catable") && !double_dash {
           params.catable = true;
+          params.use_dictionary = false;
           params.appendable = true;
           continue;
       }

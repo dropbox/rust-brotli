@@ -324,6 +324,7 @@ value: u32) -> i32 {
     if !params.appendable {
       params.appendable = value != 0;
     }
+    params.use_dictionary = (value == 0);
     return 1i32;
   }
   if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_APPENDABLE as (i32) {
@@ -392,6 +393,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            prior_bitmask_detection: 0,
            literal_adaptation: [(0,0);4],
            catable: false,
+           use_dictionary: true,
            appendable: false,
            magic_number: false,
            hasher: BrotliHasherParams {
@@ -613,7 +615,7 @@ fn SanitizeParams(params: &mut BrotliEncoderParams) {
     }
   }
   if params.catable {
-    params.appendable = true;
+      params.appendable = true;
   }
 }
 

@@ -89,6 +89,8 @@ pub struct BrotliEncoderParams {
   pub avoid_distance_prefix_search: bool,
   // construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
   pub catable: bool,
+  // can use the dictionary (default yes unless catable is set)
+  pub use_dictionary: bool,
   // construct brotli in such a way that another concatable brotli file may be appended
   pub appendable: bool,
   // include a magic number and version number and size_hint at the beginning
@@ -1644,7 +1646,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
       &mut UnionHasher::H10(ref mut hasher) => {
           if params.quality >= 11 {
               super::backward_references_hq::BrotliCreateHqZopfliBackwardReferences(
-                  alloc, if params.catable {None} else {Some(dictionary)},
+                  alloc, if params.use_dictionary {Some(dictionary)} else {None},
                   num_bytes,
                   position,
                   ringbuffer,
@@ -1659,7 +1661,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
           } else {
               super::backward_references_hq::BrotliCreateZopfliBackwardReferences(
                   alloc,
-                  if params.catable {None} else {Some(dictionary)},
+                  if params.use_dictionary {Some(dictionary)} else {None},
                   num_bytes,
                   position,
                   ringbuffer,
@@ -1674,7 +1676,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
           }
     }
     &mut UnionHasher::H2(ref mut hasher) => {
-      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1689,7 +1691,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H3(ref mut hasher) => {
-      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1704,7 +1706,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H4(ref mut hasher) => {
-      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1719,7 +1721,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H5(ref mut hasher) => {
-      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1734,7 +1736,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H6(ref mut hasher) => {
-      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1749,7 +1751,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H9(ref mut hasher) => {
-      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,
@@ -1764,7 +1766,7 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H54(ref mut hasher) => {
-      CreateBackwardReferences(if params.catable {None} else {Some(dictionary)},
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
                                position,

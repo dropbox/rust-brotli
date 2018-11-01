@@ -2786,7 +2786,7 @@ pub fn BrotliWriteMetadataMetaBlock(params: &BrotliEncoderParams, storage_ix: &m
     
     BrotliWriteBits(8u8, 3 + size_hint_bytes, storage_ix, storage); // 1 byte of data: writing 12 for the magic number header
     JumpToByteBoundary(storage_ix, storage);
-    let magic_number = if params.catable {
+    let magic_number = if params.catable && !params.use_dictionary {
         [0xe1, 0x97, 0x81]
     } else if params.appendable {
         [0xe1, 0x97, 0x82]

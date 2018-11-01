@@ -497,7 +497,7 @@ fn FindAllMatchesH10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+
                max_length,
                &mut dict_matches[..],
         ) != 0 {
-            assert_eq!(params.catable, false);
+            assert_eq!(params.use_dictionary, true);
             let maxlen
                 : usize
                 = brotli_min_size_t(37usize,max_length);

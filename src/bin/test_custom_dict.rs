@@ -102,6 +102,7 @@ fn test_custom_dict_for_multithreading() {
         super::decompress(br, rt, 4096, Rebox::from(vec)).unwrap();
         assert_eq!(rt.data(), raw.data());
         params.catable = true;
+        params.use_dictionary = false;
     }
     let mut bro_cat_li = BroCatli::new();
     let mut output = UnlimitedBuffer::new(&[]);

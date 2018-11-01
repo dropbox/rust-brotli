@@ -180,6 +180,7 @@ fn test_append_then_empty_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
+    params0.use_dictionary = first;
     super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
     first = false;
   }
@@ -201,6 +202,7 @@ fn test_append_then_cat_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
+    params0.use_dictionary = first;
     super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
     first = false;
   }
@@ -222,6 +224,7 @@ fn test_one_byte_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
+    params0.use_dictionary = first;
     super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
     first = false;
   }
@@ -243,6 +246,7 @@ fn test_one_byte_before_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
+    params0.use_dictionary = first;
     super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
     first = false;
   }
@@ -264,6 +268,7 @@ fn test_two_byte_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
+    params0.use_dictionary = first;
     super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
     first = false;
   }
@@ -285,6 +290,7 @@ fn test_two_byte_before_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
+    params0.use_dictionary = first;
     super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
     first = false;
   }
@@ -308,6 +314,7 @@ fn test_empty_then_cat_works() {
     let mut params0 = BrotliEncoderParams::default();
     params0.appendable = first;
     params0.catable = !first;
+    params0.use_dictionary = first;
     super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
     first = false;
   }
@@ -381,6 +388,7 @@ fn test_concat() {
             } else {
                 option.appendable = false;
                 option.catable = true;
+                option.use_dictionary = false;
             }
             super::compress(src, dst, 4096, option, &[], 1).unwrap();
             src.reset_read();
@@ -402,6 +410,7 @@ fn test_concat() {
     let options_len = options.len();
     for (index, (src, dst)) in files.iter_mut().zip(ufiles.iter_mut()).enumerate() {
       options[core::cmp::min(index, options_len - 1)].catable = true;
+      options[core::cmp::min(index, options_len - 1)].use_dictionary = false;
       options[core::cmp::min(index, options_len - 1)].appendable = false;
       options[core::cmp::min(index, options_len - 1)].quality = core::cmp::max(
         2, options[core::cmp::min(index, options_len - 1)].quality);
