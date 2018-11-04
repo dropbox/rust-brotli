@@ -98,3 +98,7 @@ pub unsafe extern fn CBrotliDecoderIsFinished(state_ptr: *const ffi::BrotliDecod
 pub unsafe extern fn CBrotliDecoderGetErrorCode(state_ptr: *const ffi::BrotliDecoderState) -> ffi::BrotliDecoderErrorCode {
   ffi::BrotliDecoderGetErrorCode(state_ptr)
 }
+#[no_mangle]
+pub unsafe extern fn CBrotliDecoderGetErrorString(state_ptr: *const ffi::BrotliDecoderState) -> *const u8 {
+  ffi::BrotliDecoderGetErrorString(state_ptr)
+}

@@ -42,7 +42,7 @@ def process(work, brotli, cat, prefix):
     quality = "-q" + str(insecure_random.randrange(2,12 if len(work) < 8 else 10))
     if insecure_random.randrange(0,16) == 0:
         quality = '-q9.5'
-    append = insecure_random.randrange(0,8) == 0
+    append = insecure_random.randrange(0,2) == 0
     frivolous_procs = []
     procs = []
     print 'processing',work,'at',quality,append

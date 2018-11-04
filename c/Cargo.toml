@@ -20,7 +20,7 @@ lto=true
 
 [dependencies]
 "alloc-no-stdlib" = {version="2.0"}
-"brotli-decompressor" = {version="~2.0"}
+"brotli-decompressor" = {version="> 2.0.2, < 2.1.0"}
 "alloc-stdlib" = {version="~0.2", optional=true}
 "packed_simd" = {version="0.3", optional=true}
 "sha2" = {version="~0.8", optional=true}
