@@ -49,6 +49,9 @@ int32_t compress(const unsigned char *data, size_t len, struct VecU8 *ret_buffer
         }
     }
     BrotliEncoderWorkPool *work_pool = BrotliEncoderCreateWorkPool(num_threads != 0 ? num_threads - 1 : 0, custom_malloc, custom_free, custom_alloc_opaque);
+    if (!work_pool) {
+      return 0;
+    }
     size_t out_len = BrotliEncoderMaxCompressedSizeMulti(len, num_threads);
     int32_t ret;
     {

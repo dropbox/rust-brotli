@@ -3,7 +3,6 @@ rust:
   - nightly
   - stable
   - 1.12.0
-  - 1.8.0
 
 os:
   - linux
@@ -16,7 +15,3 @@ script:
   - cargo test --no-default-features --features=std --release
   - rustc --version | grep 1[.][89][.] || rustc --version | grep -v 1[.]2[789][.] | grep 1[.][12][0-9][.]||cargo build --features=validation
 
-matrix:
-  exclude:
-    - rust: 1.8.0
-      os: osx

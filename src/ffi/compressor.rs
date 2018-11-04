@@ -1,5 +1,10 @@
 #![cfg(not(feature="safe"))]
 
+#[cfg(feature="std")]
+use std::{panic,thread, io};
+#[cfg(feature="std")]
+use std::io::Write;
+
 #[no_mangle]
 use core;
 use core::slice;
@@ -58,16 +63,19 @@ unsafe fn free_compressor_no_custom_alloc(_state_ptr: *mut BrotliEncoderState) {
 }
 
 
+
+
 #[no_mangle]
 pub unsafe extern fn BrotliEncoderCreateInstance(
     alloc_func: brotli_alloc_func,
     free_func: brotli_free_func,
     opaque: *mut c_void,
 ) -> *mut BrotliEncoderState {
+  match catch_panic_cstate(|| {
     let allocators = CAllocator {
-        alloc_func:alloc_func,
-        free_func:free_func,
-        opaque:opaque,
+      alloc_func:alloc_func,
+      free_func:free_func,
+      opaque:opaque,
     };
     let to_box = BrotliEncoderState {
       custom_allocator: allocators.clone(),
@@ -77,16 +85,23 @@ pub unsafe extern fn BrotliEncoderCreateInstance(
       ),
     };
     if let Some(alloc) = alloc_func {
-        if free_func.is_none() {
-            panic!("either both alloc and free must exist or neither");
-        }
-       let ptr = alloc(allocators.opaque, core::mem::size_of::<BrotliEncoderState>());
-        let brotli_decoder_state_ptr = core::mem::transmute::<*mut c_void, *mut BrotliEncoderState>(ptr);
-        core::ptr::write(brotli_decoder_state_ptr, to_box);
-        brotli_decoder_state_ptr
+      if free_func.is_none() {
+          panic!("either both alloc and free must exist or neither");
+      }
+     let ptr = alloc(allocators.opaque, core::mem::size_of::<BrotliEncoderState>());
+      let brotli_decoder_state_ptr = core::mem::transmute::<*mut c_void, *mut BrotliEncoderState>(ptr);
+      core::ptr::write(brotli_decoder_state_ptr, to_box);
+      brotli_decoder_state_ptr
     } else {
-        brotli_new_compressor_without_custom_alloc(to_box)
+      brotli_new_compressor_without_custom_alloc(to_box)
     }
+  }) {
+    Ok(ret) => ret,
+    Err(err) => {
+      error_print(err);
+      core::ptr::null_mut()
+    }
+  }
 }
 
 #[no_mangle]
@@ -125,13 +140,19 @@ pub unsafe extern fn BrotliEncoderHasMoreOutput(
   ::enc::encode::BrotliEncoderHasMoreOutput(&mut (*state_ptr).compressor)
 }
 
+#[no_mangle]
 pub unsafe extern fn BrotliEncoderSetCustomDictionary(
-  state_ptr: &mut BrotliEncoderState,
+  state_ptr: *mut BrotliEncoderState,
   size: usize,
   dict: *const u8,
 ) {
-  let dict_slice = slice::from_raw_parts(dict, size);
-  ::enc::encode::BrotliEncoderSetCustomDictionary(&mut (*state_ptr).compressor, size, dict_slice)
+  if let Err(panic_err) = catch_panic(|| {
+      let dict_slice = slice::from_raw_parts(dict, size);
+      ::enc::encode::BrotliEncoderSetCustomDictionary(&mut (*state_ptr).compressor, size, dict_slice);
+      0
+  }) {
+      error_print(panic_err);
+  }
 }
 
 #[no_mangle]
@@ -158,48 +179,56 @@ pub unsafe extern fn BrotliEncoderCompress(
   input_buffer: *const u8,
   encoded_size: *mut usize,
   encoded_buffer: *mut u8) -> i32 {
-  let input_buf = slice::from_raw_parts(input_buffer, input_size);
-  let encoded_buf = slice::from_raw_parts_mut(encoded_buffer, *encoded_size);
-  let allocators = CAllocator {
+  match catch_panic(|| {
+    let input_buf = slice::from_raw_parts(input_buffer, input_size);
+    let encoded_buf = slice::from_raw_parts_mut(encoded_buffer, *encoded_size);
+    let allocators = CAllocator {
         alloc_func:None,
         free_func:None,
         opaque:core::ptr::null_mut(),
-  };
-  let translated_mode = match mode {
-    BrotliEncoderMode::BROTLI_MODE_GENERIC =>
-      ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_GENERIC,
-    BrotliEncoderMode::BROTLI_MODE_TEXT =>
-      ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_TEXT,
-    BrotliEncoderMode::BROTLI_MODE_FONT =>
-      ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_FONT,
-    BrotliEncoderMode::BROTLI_MODE_FORCE_LSB_PRIOR =>
-      ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR,
-    BrotliEncoderMode::BROTLI_MODE_FORCE_MSB_PRIOR =>
-      ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR,
-    BrotliEncoderMode::BROTLI_MODE_FORCE_UTF8_PRIOR =>
-      ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR,
-    BrotliEncoderMode::BROTLI_MODE_FORCE_SIGNED_PRIOR =>
-      ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR,
-  };
-  let mut m8 = BrotliSubclassableAllocator::new(
-    SubclassableAllocator::new(allocators.clone()));
-  let empty_m8 = BrotliSubclassableAllocator::new(
-    SubclassableAllocator::new(allocators.clone()));
+    };
+    let translated_mode = match mode {
+      BrotliEncoderMode::BROTLI_MODE_GENERIC =>
+        ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_GENERIC,
+      BrotliEncoderMode::BROTLI_MODE_TEXT =>
+        ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_TEXT,
+      BrotliEncoderMode::BROTLI_MODE_FONT =>
+        ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_FONT,
+      BrotliEncoderMode::BROTLI_MODE_FORCE_LSB_PRIOR =>
+        ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR,
+      BrotliEncoderMode::BROTLI_MODE_FORCE_MSB_PRIOR =>
+        ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR,
+      BrotliEncoderMode::BROTLI_MODE_FORCE_UTF8_PRIOR =>
+        ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR,
+      BrotliEncoderMode::BROTLI_MODE_FORCE_SIGNED_PRIOR =>
+        ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR,
+    };
+    let mut m8 = BrotliSubclassableAllocator::new(
+      SubclassableAllocator::new(allocators.clone()));
+    let empty_m8 = BrotliSubclassableAllocator::new(
+      SubclassableAllocator::new(allocators.clone()));
   
-  ::enc::encode::BrotliEncoderCompress(
-    empty_m8,
-    &mut m8,
-    quality,
-    lgwin,
-    translated_mode,
-    input_size,
-    input_buf,
-    &mut *encoded_size,
-    encoded_buf,
-    &mut |_a,_b,_c,_d|(),
-    )
-}
+    ::enc::encode::BrotliEncoderCompress(
+      empty_m8,
+      &mut m8,
+      quality,
+      lgwin,
+      translated_mode,
+      input_size,
+      input_buf,
+      &mut *encoded_size,
+      encoded_buf,
+      &mut |_a,_b,_c,_d|(),
+      )
 
+  }) {
+    Ok(ret) => ret,
+    Err(panic_err) => {
+      error_print(panic_err);
+      0
+    },
+  }
+}
 #[no_mangle]
 pub unsafe extern fn BrotliEncoderCompressStream(
   state_ptr: *mut BrotliEncoderState,
@@ -209,42 +238,50 @@ pub unsafe extern fn BrotliEncoderCompressStream(
   available_out: *mut usize,
   output_buf_ptr: *mut*mut u8,
   total_out: *mut usize) -> i32 {
-  let mut input_offset = 0usize;
-  let mut output_offset = 0usize;
-  let result;
-  let translated_op = match op {
-    BrotliEncoderOperation::BROTLI_OPERATION_PROCESS =>
-      ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_PROCESS,
-    BrotliEncoderOperation::BROTLI_OPERATION_FLUSH =>
-      ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FLUSH,
-    BrotliEncoderOperation::BROTLI_OPERATION_FINISH =>
-      ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
-    BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA =>
-      ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA,
-  };
-  {
-    let input_buf = slice::from_raw_parts(*input_buf_ptr, *available_in);
-    let output_buf = slice::from_raw_parts_mut(*output_buf_ptr, *available_out);
-    let mut to = Some(0usize);
-    result = ::enc::encode::BrotliEncoderCompressStream(
-      &mut (*state_ptr).compressor,
-      translated_op,
-      &mut *available_in,
-      input_buf,
-      &mut input_offset,
-      &mut *available_out,
-      output_buf,
-      &mut output_offset,
-      &mut to,
-      &mut |_a,_b,_c,_d|(),
-    );
-    if !total_out.is_null() {
-      *total_out = to.unwrap_or(0);
+  match catch_panic(|| {
+    let mut input_offset = 0usize;
+    let mut output_offset = 0usize;
+    let result;
+    let translated_op = match op {
+      BrotliEncoderOperation::BROTLI_OPERATION_PROCESS =>
+        ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_PROCESS,
+      BrotliEncoderOperation::BROTLI_OPERATION_FLUSH =>
+        ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FLUSH,
+      BrotliEncoderOperation::BROTLI_OPERATION_FINISH =>
+        ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
+      BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA =>
+        ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA,
+    };
+    {
+      let input_buf = slice::from_raw_parts(*input_buf_ptr, *available_in);
+      let output_buf = slice::from_raw_parts_mut(*output_buf_ptr, *available_out);
+      let mut to = Some(0usize);
+      result = ::enc::encode::BrotliEncoderCompressStream(
+        &mut (*state_ptr).compressor,
+        translated_op,
+        &mut *available_in,
+        input_buf,
+        &mut input_offset,
+        &mut *available_out,
+        output_buf,
+        &mut output_offset,
+        &mut to,
+        &mut |_a,_b,_c,_d|(),
+      );
+      if !total_out.is_null() {
+        *total_out = to.unwrap_or(0);
+      }
     }
+    *input_buf_ptr = (*input_buf_ptr).offset(input_offset as isize);
+    *output_buf_ptr = (*output_buf_ptr).offset(output_offset as isize);
+    result
+  }) {
+    Ok(ret) => ret,
+    Err(panic_err) => {
+      error_print(panic_err);
+      0
+    },
   }
-  *input_buf_ptr = (*input_buf_ptr).offset(input_offset as isize);
-  *output_buf_ptr = (*output_buf_ptr).offset(output_offset as isize);
-  result
 }
 
 
@@ -284,3 +321,34 @@ pub unsafe extern fn BrotliEncoderFreeUsize(state_ptr: *mut BrotliEncoderState, 
     }
 }
 
+
+
+#[cfg(all(feature="std", not(feature="pass-through-ffi-panics")))]
+pub fn catch_panic<F:FnOnce()->i32+panic::UnwindSafe>(f: F) -> thread::Result<i32> {
+    panic::catch_unwind(f)
+}
+
+#[cfg(all(feature="std", not(feature="pass-through-ffi-panics")))]
+fn catch_panic_cstate<F:FnOnce()->*mut BrotliEncoderState+panic::UnwindSafe>(f: F) -> thread::Result<*mut BrotliEncoderState> {
+    panic::catch_unwind(f)
+}
+
+#[cfg(all(feature="std", not(feature="pass-through-ffi-panics")))]
+fn error_print<Err:core::fmt::Debug>(err: Err) {
+    let _ign = writeln!(&mut io::stderr(), "Internal Error {:?}", err);
+}
+
+// can't catch panics in a reliable way without std:: configure with panic=abort. These shouldn't happen
+#[cfg(any(not(feature="std"), feature="pass-through-ffi-panics"))]
+pub fn catch_panic<F:FnOnce()->i32>(f: F) -> Result<i32, ()> {
+    Ok(f())
+}
+
+#[cfg(any(not(feature="std"), feature="pass-through-ffi-panics"))]
+fn catch_panic_cstate<F:FnOnce()->*mut BrotliEncoderState>(f: F) -> Result<*mut BrotliEncoderState, ()> {
+    Ok(f())
+}
+
+#[cfg(any(not(feature="std"), feature="pass-through-ffi-panics"))]
+fn error_print<Err>(_err: Err) {
+}
