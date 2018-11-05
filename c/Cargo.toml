@@ -1,8 +1,8 @@
 [package]
-name = "brotli"
+name = "brotli-ffi"
 version = "3.0.0"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
-description = "A brotli compressor and decompressor that with an interface avoiding the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. The default build also includes a stdlib allocator and stream interface. Disable this with --features=no-stdlib. All included code is safe."
+description = "A brotli compressor and decompressor that with an interface exactly matching https://github.com/google/brotli. All included code is safe except the thin exported C-compatible functions."
 license = "BSD-3-Clause/MIT"
 documentation = "https://github.com/dropbox/rust-brotli/blob/master/README.md"
 homepage = "https://github.com/dropbox/rust-brotli"
@@ -20,7 +20,7 @@ lto=true
 
 [dependencies]
 "alloc-no-stdlib" = {version="2.0"}
-"brotli-decompressor" = {version="> 2.0.2, < 2.1.0"}
+"brotli-decompressor" = {version="~2.0"}
 "alloc-stdlib" = {version="~0.2", optional=true}
 "packed_simd" = {version="0.3", optional=true}
 "sha2" = {version="~0.8", optional=true}
