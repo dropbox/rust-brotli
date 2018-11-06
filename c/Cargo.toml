@@ -1,6 +1,6 @@
 [package]
 name = "brotli-ffi"
-version = "3.0.0"
+version = "1.0.0"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
 description = "A brotli compressor and decompressor that with an interface exactly matching https://github.com/google/brotli. All included code is safe except the thin exported C-compatible functions."
 license = "BSD-3-Clause/MIT"
@@ -12,27 +12,21 @@ readme = "README.md"
 autobins = false
 
 [lib]
-path="../src/lib.rs"
+path="src/lib.rs"
 crate-type=["cdylib", "rlib"]
 
 [profile.release]
 lto=true
 
 [dependencies]
-"alloc-no-stdlib" = {version="2.0"}
-"brotli-decompressor" = {version="~2.0"}
-"alloc-stdlib" = {version="~0.2", optional=true}
-"packed_simd" = {version="0.3", optional=true}
-"sha2" = {version="~0.8", optional=true}
+"brotli" = {version="~3.0", default-features=false}
 
 [features]
-validation=["sha2"]
-default=["std", "no-stdlib-ffi-binding"]
-no-stdlib-ffi-binding = []
-seccomp = ["brotli-decompressor/seccomp"]
-std = ["alloc-stdlib", "brotli-decompressor/std"]
-external-literal-probability = []
-disable-timer = ["brotli-decompressor/disable-timer"]
-benchmark = ["brotli-decompressor/benchmark"]
-vector_scratch_space = []
-simd = ["packed_simd/into_bits"]
+validation=["brotli/validation"]
+default=["std"]
+seccomp = ["brotli/seccomp"]
+std = ["brotli/std"]
+disable-timer = ["brotli/disable-timer"]
+benchmark = ["brotli/benchmark"]
+vector_scratch_space = ["brotli/vector_scratch_space"]
+simd = ["brotli/simd"]
