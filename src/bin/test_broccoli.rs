@@ -133,7 +133,7 @@ fn light_debug_test(params: &mut BrotliEncoderParams) {
 }
 
 #[cfg(not(debug_assertions))]
-fn light_debug_test(params: &mut BrotliEncoderParams) {
+fn light_debug_test(_params: &mut BrotliEncoderParams) {
 }
 
 #[cfg(debug_assertions)]
@@ -143,7 +143,7 @@ fn medium_debug_test(params: &mut BrotliEncoderParams) {
 }
 
 #[cfg(not(debug_assertions))]
-fn medium_debug_test(params: &mut BrotliEncoderParams) {
+fn medium_debug_test(_params: &mut BrotliEncoderParams) {
 }
 
 #[test]
