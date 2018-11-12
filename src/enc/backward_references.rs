@@ -1,12 +1,19 @@
 #![allow(dead_code)]
 use super::command::{Command, ComputeDistanceCode, InitCommand};
 use super::dictionary_hash::kStaticDictionaryHash;
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
+use super::static_dict::{
+    BROTLI_UNALIGNED_LOAD32,
+    BROTLI_UNALIGNED_LOAD64,
+    FindMatchLengthWithLimit,
+    BrotliFindAllStaticDictionaryMatches,
+    FromMatch,
+};
 use super::static_dict::BrotliDictionary;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::util::{Log2FloorNonZero, brotli_max_size_t};
 use core;
+use core::cmp;
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -73,12 +80,20 @@ pub enum HowPrepared {
   NEWLY_PREPARED,
 }
 
+#[derive(Clone)]
 pub struct HasherSearchResult {
   pub len: usize,
   pub len_x_code: usize,
   pub distance: usize,
   pub score: usize,
 }
+impl Default for HasherSearchResult {
+    fn default() -> Self {
+        return HasherSearchResult{len: 0, len_x_code: 0, distance: 0, score: 0};
+    }
+}
+
+
 
 pub struct Struct1 {
   pub params: BrotliHasherParams,
@@ -93,6 +108,66 @@ pub trait AnyHasher {
   fn HashTypeLength(&self) -> usize;
   fn StoreLookahead(&self) -> usize;
   fn PrepareDistanceCache(&self, distance_cache: &mut [i32]);
+  fn FindLongestMatchInAll(&mut self,
+                           dictionary: &BrotliDictionary,
+                           dictionary_hash: &[u16],
+                           data: &[u8],
+                           ring_buffer_mask: usize,
+                           distance_cache: &[i32],
+                           cur_ix: usize,
+                           max_length: usize,
+                           max_backward: usize,
+                           mut out: &mut HasherSearchResult)
+                           -> bool {
+    let mut none: HasherSearchResult = HasherSearchResult::default(); 
+    none = (*out).clone();
+    let found_in_one = self.FindLongestMatch(dictionary, dictionary_hash, data, ring_buffer_mask,
+                                             distance_cache, cur_ix, max_length, max_backward, &mut none);
+    let mut found_in_all = false;
+    let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
+    let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+    let mut best_len = 4usize;
+    if found_in_one {
+        best_len = (*out).len;
+    }
+    let minlen: usize = brotli_max_size_t(4usize, best_len);
+    let mut dict_matches = [kInvalidMatch; 38];
+    if found_in_one {
+        *out = none;
+    }
+    if BrotliFindAllStaticDictionaryMatches(dictionary,
+                                            cur_data,
+                                            minlen,
+                                            max_length,
+                                            &mut dict_matches) != 0 {
+    
+        let mlen = cmp::min(max_length + 1, dict_matches.len());
+        for len in (minlen .. mlen) {
+            let match_ = dict_matches[len];
+            if match_ < kInvalidMatch {
+                //HACK(aeyakovenko): not sure why this works for qbf
+                let mut distance = 0usize;
+                let mut len_code = 0usize;
+                FromMatch(match_, &mut distance, &mut len_code);
+                //println!("item {:x} {:x} {:x}", match_, distance, len_code);
+                if distance <= max_backward {
+                    let mut nout: HasherSearchResult = HasherSearchResult::default(); 
+                    let item = match_ as usize;
+                    let matches = TestStaticDictionaryItem(dictionary, item, cur_data, max_length,
+                                                           max_backward, &mut nout);
+                    if (matches != 0) && ((*out).score < nout.score) {
+                        (*out) = nout;
+                        println!("found {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
+                        found_in_all = true;
+                    }
+                }
+            }
+        }
+    }
+    return found_in_all || found_in_one;
+  }
+
+
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
@@ -857,7 +932,6 @@ impl<Specialization: AdvHashSpecialization, AllocU16: alloc::Allocator<u16>, All
       self.Store(data, mask, i);
     }
   }
-
   fn FindLongestMatch(&mut self,
                       dictionary: &BrotliDictionary,
                       dictionary_hash: &[u16],
@@ -1115,6 +1189,10 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
   len = item & 0x1fusize;
   dist = item >> 5i32;
   offset = ((*dictionary).offsets_by_length[len] as (usize)).wrapping_add(len.wrapping_mul(dist));
+  if offset  > dictionary.data.len() {
+      println!("offset is to big {} {}", offset, dictionary.data.len());
+      return 0i32;
+  }
   if len > max_length {
     return 0i32;
   }
@@ -1138,6 +1216,7 @@ fn TestStaticDictionaryItem(dictionary: &BrotliDictionary,
   (*out).len_x_code = len ^ matchlen;
   (*out).distance = backward;
   (*out).score = score;
+  println!("test {:x} {:x} {:x} {:x} {:x}", item, (*out).len, (*out).len_x_code, (*out).distance, (*out).score);
   1i32
 }
 
@@ -1332,17 +1411,15 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
   while position.wrapping_add(hasher.HashTypeLength()) < pos_end {
     let mut max_length: usize = pos_end.wrapping_sub(position);
     let mut max_distance: usize = brotli_min_size_t(position, max_backward_limit);
-    let mut sr = HasherSearchResult {
-      len: 0,
-      len_x_code: 0,
-      distance: 0,
-      score: 0,
-    };
+    let mut sr = HasherSearchResult::default();
     sr.len = 0usize;
     sr.len_x_code = 0usize;
     sr.distance = 0usize;
     sr.score = kMinScore;
-    if hasher.FindLongestMatch(dictionary,
+
+    println!("# CreateBackwardReferences position is {} num_commands {}", position, new_commands_count);
+    if hasher.FindLongestMatchInAll(dictionary,
+    //if hasher.FindLongestMatch(dictionary,
                                dictionary_hash,
                                ringbuffer,
                                ringbuffer_mask,
@@ -1357,12 +1434,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
         'continue7: loop {
           let cost_diff_lazy: usize = 175usize;
           let is_match_found: bool;
-          let mut sr2 = HasherSearchResult {
-            len: 0,
-            len_x_code: 0,
-            distance: 0,
-            score: 0,
-          };
+          let mut sr2 = HasherSearchResult::default();
           sr2.len = if (*params).quality < 5 {
             brotli_min_size_t(sr.len.wrapping_sub(1usize), max_length)
           } else {
@@ -1372,7 +1444,8 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: &BrotliDictionary,
           sr2.distance = 0usize;
           sr2.score = kMinScore;
           max_distance = brotli_min_size_t(position.wrapping_add(1usize), max_backward_limit);
-          is_match_found = hasher.FindLongestMatch(dictionary,
+          is_match_found = hasher.FindLongestMatchInAll(dictionary,
+          //is_match_found = hasher.FindLongestMatch(dictionary,
                                                    dictionary_hash,
                                                    ringbuffer,
                                                    ringbuffer_mask,
