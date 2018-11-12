@@ -2808,6 +2808,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                    &mut (*s).commands_.slice_mut()[((*s).num_commands_ as (usize))..],
                                    &mut (*s).num_commands_,
                                    &mut (*s).num_literals_);
+    //println!("# post backward ref num_commands is {}", (*s).num_commands_);
   }
   {
     let max_length: usize = MaxMetablockSize(&mut (*s).params);
@@ -2820,6 +2821,9 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     } else {
       0i32
     };
+    //println!("# metablock max_length {}", max_length);
+    //println!("# metablock max_literals is {}", max_literals);
+    //println!("# metablock num_commands is {}", (*s).num_commands_);
     let should_flush: i32 = if !!((*s).params.quality < 4i32 &&
                                   ((*s).num_literals_.wrapping_add((*s).num_commands_) >=
                                    0x2fffusize)) {
@@ -2844,6 +2848,8 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
                                _old
                              } as (usize))],
                       (*s).last_insert_len_);
+
+    //println!("# metablock num_commands is {}", (*s).num_commands_);
     (*s).num_literals_ = (*s).num_literals_.wrapping_add((*s).last_insert_len_);
     (*s).last_insert_len_ = 0usize;
   }
@@ -2852,6 +2858,7 @@ fn EncodeData<AllocU8: alloc::Allocator<u8>,
     return 1i32;
   }
   {
+    //println!("# metablock num_commands is {}", (*s).num_commands_);
     let metablock_size: u32 = (*s).input_pos_.wrapping_sub((*s).last_flush_pos_) as (u32);
     GetBrotliStorage(s,
                      (2u32).wrapping_mul(metablock_size).wrapping_add(502u32) as (usize));
