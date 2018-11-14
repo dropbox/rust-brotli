@@ -70,7 +70,7 @@ int main(int argc, char**argv) {
     unsigned char * obuffer = (unsigned char*)malloc(buffer_size);
     unsigned char* obuffer_ptr = obuffer;
     size_t avail_out = buffer_size;
-    struct BroccoliState state;
+    BroccoliState state;
     if (has_window_size) {
         state = BroccoliCreateInstanceWithWindowSize(window_size);
     } else {
@@ -92,7 +92,7 @@ int main(int argc, char**argv) {
                 break;
             }
             while(1) {
-                enum BroccoliResult res = BroccoliConcatStream(
+                BroccoliResult res = BroccoliConcatStream(
                     &state,
                     &avail_in,
                     &ibuffer_ptr,
@@ -115,7 +115,7 @@ int main(int argc, char**argv) {
         }
     }
     while(1) {
-        enum BroccoliResult res = BroccoliConcatFinish(
+        BroccoliResult res = BroccoliConcatFinish(
             &state,
             &avail_out,
             &obuffer_ptr);

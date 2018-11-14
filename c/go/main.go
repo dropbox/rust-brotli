@@ -2,22 +2,36 @@ package main
 
 /*
 #cgo CFLAGS: -I..
-#cgo LDFLAGS: target/debug/libbrotli_ffi.a -lm -ldl
+#cgo LDFLAGS: ../target/release/libbrotli_ffi.a -lm -ldl
 #include <brotli/encode.h>
 #include <brotli/decode.h>
+#include <brotli/broccoli.h>
 #include <brotli/multiencode.h>
 */
 import "C"
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"unsafe"
 )
 
 type CompressionOptions struct {
-	NumThreads int
-	Quality    float32
+	NumThreads                    int
+	Quality                       float32
+	Catable                       bool
+	Appendable                    bool
+	Magic                         bool
+	Mode                          int
+	LgWin                         byte
+	LgBlock                       byte
+	DisableLiteralContextModeling bool
+	SizeHint                      uint32
+	NumDirect                     uint32
+	NumPostfix                    uint32
+	LiteralByteScore              uint32
+	AvoidDistancePrefixSearch     bool
 }
 
 type MultiCompressionReader struct {
@@ -85,10 +99,68 @@ func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
 
 func makeCompressionOptionsStreams(options CompressionOptions,
 ) (*C.BrotliEncoderParameter, *C.uint32_t, C.size_t) {
-	qualityParam := C.BrotliEncoderParameter(C.BROTLI_PARAM_QUALITY)
-	qualityParams := []C.BrotliEncoderParameter{qualityParam}
+	qualityParams := []C.BrotliEncoderParameter{C.BROTLI_PARAM_QUALITY}
 	values := []C.uint32_t{C.uint32_t(options.Quality)}
-	return &qualityParams[0], &values[0], 1
+	if options.Quality > 9 && options.Quality < 10 {
+		values = append(values, 1)
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_Q9_5)
+		if options.Quality <= 9.5 {
+			values[0] = 10 // q9.5
+		} else {
+			values[0] = 11 // q9.6
+		}
+	}
+	if options.Catable {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_CATABLE)
+		values = append(values, 1)
+	}
+	if options.Appendable {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_APPENDABLE)
+		values = append(values, 1)
+	}
+	if options.Magic {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_MAGIC_NUMBER)
+		values = append(values, 1)
+	}
+	if options.Mode != 0 {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_MODE)
+		values = append(values, C.uint32_t(options.Mode))
+	}
+	if options.LgWin != 0 {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_LGWIN)
+		values = append(values, C.uint32_t(options.LgWin))
+	}
+
+	if options.LgBlock != 0 {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_LGBLOCK)
+		values = append(values, C.uint32_t(options.LgBlock))
+	}
+	if options.DisableLiteralContextModeling {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING)
+		values = append(values, 1)
+	}
+	if options.SizeHint != 0 {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_SIZE_HINT)
+		values = append(values, C.uint32_t(options.SizeHint))
+	}
+	if options.NumDirect != 0 {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_NDIRECT)
+		values = append(values, C.uint32_t(options.NumDirect))
+	}
+	if options.NumPostfix != 0 {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_NPOSTFIX)
+		values = append(values, C.uint32_t(options.NumPostfix))
+	}
+	if options.LiteralByteScore != 0 {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_LITERAL_BYTE_SCORE)
+		values = append(values, C.uint32_t(options.LiteralByteScore))
+	}
+	if options.AvoidDistancePrefixSearch {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH)
+		values = append(values, 1)
+	}
+
+	return &qualityParams[0], &values[0], C.size_t(len(qualityParams))
 }
 
 type MultiCompressionWriter struct {
@@ -311,18 +383,154 @@ func (mself *DecompressionWriter) Close() error {
 	return nil
 }
 
+type BroccoliReader struct {
+	upstreams  []io.Reader
+	state      C.BroccoliState
+	buffer     [BufferSize]byte
+	validStart int
+	validEnd   int
+}
+
+func NewBroccoliReaderWithWindowSize(windowSize byte, upstreams ...io.Reader) *BroccoliReader {
+	ret := &BroccoliReader{
+		upstreams: upstreams,
+		state:     C.BroccoliCreateInstanceWithWindowSize(C.uint8_t(windowSize)),
+	}
+	if len(ret.upstreams) != 0 {
+		C.BroccoliNewBrotliFile(&ret.state)
+	}
+	return ret
+}
+
+func NewBroccoliReader(upstreams ...io.Reader) *BroccoliReader {
+	ret := &BroccoliReader{
+		upstreams: upstreams,
+		state:     C.BroccoliCreateInstance(),
+	}
+	if len(ret.upstreams) != 0 {
+		C.BroccoliNewBrotliFile(&ret.state)
+	}
+	return ret
+}
+
+func (mself *BroccoliReader) populateBuffer() error {
+	for mself.validStart == mself.validEnd && len(mself.upstreams) != 0 {
+		var err error
+		mself.validEnd, err = mself.upstreams[0].Read(mself.buffer[:])
+		mself.validStart = 0
+		if err != nil {
+			if err == io.EOF {
+				mself.upstreams = mself.upstreams[1:]
+				if len(mself.upstreams) != 0 {
+					C.BroccoliNewBrotliFile(&mself.state)
+				} else {
+					break
+				}
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func (mself *BroccoliReader) Read(data []byte) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
+	}
+	for {
+		err := mself.populateBuffer()
+		if err != nil {
+			return 0, err
+		}
+		avail_out := C.size_t(len(data))
+		next_out := (*C.uint8_t)(unsafe.Pointer(&data[0]))
+		avail_in := C.size_t(mself.validEnd - mself.validStart)
+		var ret C.BroccoliResult
+		if avail_in != 0 {
+			next_in := (*C.uint8_t)(unsafe.Pointer(&mself.buffer[mself.validStart]))
+			ret = C.BroccoliConcatStream(
+				&mself.state,
+				&avail_in,
+				&next_in,
+				&avail_out,
+				&next_out,
+			)
+		} else {
+			if len(mself.upstreams) != 0 {
+				return 0, errors.New("Invariant Violation: avail upstreams but no bytes to read from")
+			}
+			ret = C.BroccoliConcatFinish(
+				&mself.state,
+				&avail_out,
+				&next_out,
+			)
+		}
+		mself.validStart = mself.validEnd - int(avail_in)
+		if ret != C.BroccoliSuccess && ret != C.BroccoliNeedsMoreInput && ret != C.BroccoliNeedsMoreOutput {
+			err := fmt.Errorf("%v", ret)
+			C.BroccoliDestroyInstance(mself.state)
+			return 0, err
+		}
+		if ret == C.BroccoliSuccess {
+			C.BroccoliDestroyInstance(mself.state)
+			return len(data) - int(avail_out), nil
+		}
+		if ret == C.BroccoliNeedsMoreInput && mself.validStart == mself.validEnd && len(mself.upstreams) == 0 {
+			return len(data) - int(avail_out), io.ErrUnexpectedEOF
+		}
+		if int(avail_out) != len(data) {
+			return len(data) - int(avail_out), nil
+		}
+	}
+}
+
 func main() {
 	decompress := false
+	options := CompressionOptions{
+		NumThreads: 1,
+		Quality:    9.5,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
 	useWriter := false
-	for _, arg := range os.Args {
+	var toCat []string
+	for index, arg := range os.Args {
+		if index == 0 {
+			continue
+		}
 		if arg == "-w" {
 			useWriter = true
 		}
 		if arg == "-d" {
 			decompress = true
 		}
+		if arg == "-cat" {
+			toCat = os.Args[1:index]
+			toCat = append(toCat, os.Args[index+1:]...)
+			break
+		}
 	}
-	if useWriter {
+	if toCat != nil {
+		files := make([]io.Reader, len(toCat))
+		for index, fn := range toCat {
+			var err error
+			files[index], err = os.Open(fn)
+			if err != nil {
+				panic(err)
+			}
+		}
+		_, err := io.Copy(os.Stdout, NewBroccoliReader(files...))
+		if err != nil {
+			panic(err)
+		}
+		for _, file := range files {
+			if readCloser, ok := file.(io.ReadCloser); ok {
+				_ = readCloser.Close()
+			}
+		}
+		return
+	} else if useWriter {
 		var writer io.Writer
 		if decompress {
 			writer = NewDecompressionWriter(
@@ -331,10 +539,7 @@ func main() {
 		} else {
 			writer = NewMultiCompressionWriter(
 				os.Stdout,
-				CompressionOptions{
-					NumThreads: 8,
-					Quality:    11,
-				},
+				options,
 			)
 		}
 		for {
@@ -366,10 +571,7 @@ func main() {
 		} else {
 			reader = NewMultiCompressionReader(
 				os.Stdin,
-				CompressionOptions{
-					NumThreads: 8,
-					Quality:    9.5,
-				},
+				options,
 			)
 		}
 		for {

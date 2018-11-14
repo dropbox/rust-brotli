@@ -1,11 +1,12 @@
 #ifndef BROTLI_BROCCOLI_H
 #define BROTLI_BROCCOLI_H
-struct BroccoliState {
+#include <stdint.h>
+typedef struct BroccoliState_ {
     void *unused;
     unsigned char data[248];
-};
+} BroccoliState;
 
-enum BroccoliResult {
+typedef enum BroccoliResult_ {
   BroccoliSuccess = 0,
   BroccoliNeedsMoreInput = 1,
   BroccoliNeedsMoreOutput = 2,
@@ -13,25 +14,25 @@ enum BroccoliResult {
   BroccoliInvalidWindowSize = 125,
   BroccoliWindowSizeLargerThanPreviousFile = 126,
   BroccoliBrotliFileNotCraftedForConcatenation = 127,
-};
+} BroccoliResult;
 
 
-struct BroccoliState BroccoliCreateInstance();
+BroccoliState BroccoliCreateInstance();
 
-struct BroccoliState BroccoliCreateInstanceWithWindowSize(unsigned char window_size);
+BroccoliState BroccoliCreateInstanceWithWindowSize(uint8_t window_size);
 
-void BroccoliDestroyInstance(struct BroccoliState state);
+void BroccoliDestroyInstance(BroccoliState state);
 
-void BroccoliNewBrotliFile(struct BroccoliState *state);
+void BroccoliNewBrotliFile(BroccoliState *state);
 
-enum BroccoliResult BroccoliConcatStream(
-    struct BroccoliState *state,
+BroccoliResult BroccoliConcatStream(
+    BroccoliState *state,
     size_t *available_in,
-    const unsigned char **input_buf_ptr,
+    const uint8_t **input_buf_ptr,
     size_t *available_out,
-    unsigned char **output_buf_ptr);
+    uint8_t **output_buf_ptr);
 
-enum BroccoliResult BroccoliConcatFinish(struct BroccoliState * state,
+BroccoliResult BroccoliConcatFinish(BroccoliState * state,
                               size_t *available_out,
-                              unsigned char**output_buf);
+                              uint8_t**output_buf);
 #endif
