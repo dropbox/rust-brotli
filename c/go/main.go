@@ -2,11 +2,20 @@ package main
 
 /*
 #cgo CFLAGS: -I..
-#cgo LDFLAGS: ../target/release/libbrotli_ffi.a -lm -ldl
+#cgo LDFLAGS: -L../target/release -l brotli_ffi -lm -ldl
 #include <brotli/encode.h>
 #include <brotli/decode.h>
 #include <brotli/broccoli.h>
 #include <brotli/multiencode.h>
+static BrotliDecoderResult BrDecompressStream(BrotliDecoderState* s,
+                                            size_t *avail_in,
+                                            const uint8_t* in,
+                                            size_t *avail_out,
+                                            uint8_t* out,
+                                            size_t* total_bytes_written) {
+  return BrotliDecoderDecompressStream(
+      s, avail_in, &in, avail_out, &out, NULL);
+}
 */
 import "C"
 import (
@@ -262,18 +271,18 @@ func (mself *DecompressionReader) Read(data []byte) (int, error) {
 			return 0, err
 		}
 		avail_in := C.size_t(mself.validEnd - mself.validStart)
-		next_in := (*C.uint8_t)(unsafe.Pointer(&mself.buffer[0]))
+		next_in := &mself.buffer[0]
 		if avail_in != 0 {
-			next_in = (*C.uint8_t)(unsafe.Pointer(&mself.buffer[mself.validStart]))
+			next_in = &mself.buffer[mself.validStart]
 		}
 		avail_out := C.size_t(len(data))
-		next_out := (*C.uint8_t)(unsafe.Pointer(&data[0]))
-		ret := C.BrotliDecoderDecompressStream(
+		next_out := &data[0]
+		ret := C.BrDecompressStream(
 			mself.state,
 			&avail_in,
-			&next_in,
+			(*C.uint8_t)(next_in),
 			&avail_out,
-			&next_out,
+			(*C.uint8_t)(next_out),
 			nil,
 		)
 		mself.validStart = mself.validEnd - int(avail_in)
@@ -329,13 +338,14 @@ func (mself *DecompressionWriter) Write(data []byte) (int, error) {
 			next_in = (*C.uint8_t)(unsafe.Pointer(&data[last_start]))
 		}
 		avail_out := C.size_t(len(mself.buffer))
-		next_out := (*C.uint8_t)(&mself.buffer[0])
-		ret := C.BrotliDecoderDecompressStream(
+		next_out := &mself.buffer[0]
+		ret := C.BrDecompressStream(
 			mself.state,
 			&avail_in,
-			&next_in,
+			(*C.uint8_t)(next_in),
+
 			&avail_out,
-			&next_out,
+			(*C.uint8_t)(next_out),
 			nil,
 		)
 		to_copy := C.size_t(len(mself.buffer)) - avail_out
