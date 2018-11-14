@@ -473,7 +473,7 @@ func (mself *BroccoliReader) Read(data []byte) (int, error) {
 		}
 		if ret == C.BroccoliSuccess {
 			C.BroccoliDestroyInstance(mself.state)
-			return len(data) - int(avail_out), nil
+			return len(data) - int(avail_out), io.EOF
 		}
 		if ret == C.BroccoliNeedsMoreInput && mself.validStart == mself.validEnd && len(mself.upstreams) == 0 {
 			return len(data) - int(avail_out), io.ErrUnexpectedEOF
