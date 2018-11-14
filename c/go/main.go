@@ -65,6 +65,7 @@ func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
 			C.size_t(mself.options.NumThreads),
 			nil, nil, nil,
 		)
+		mself.output = mself.output[:int(outputLen)]
 		if ret == 0 {
 			return 0, errors.New("Compression failed")
 		}
@@ -144,8 +145,84 @@ func (mself *MultiCompressionWriter) Close() error {
 
 const BufferSize = 16384
 
-func NewMultiDecompressionReader(upstream io.Reader) io.Reader {
-	panic("UNIMPL")
+type DecompressionReader struct {
+	upstream   io.Reader
+	state      *C.BrotliDecoderState
+	buffer     [BufferSize]byte
+	validStart int
+	validEnd   int
+	eof        bool
+}
+
+func NewDecompressionReader(upstream io.Reader) *DecompressionReader {
+	return &DecompressionReader{
+		upstream: upstream,
+		state:    C.BrotliDecoderCreateInstance(nil, nil, nil),
+	}
+}
+
+func (mself *DecompressionReader) populateBuffer() error {
+	for mself.validStart == mself.validEnd && !mself.eof {
+		var err error
+		mself.validEnd, err = mself.upstream.Read(mself.buffer[:])
+		mself.validStart = 0
+		if err != nil {
+			if err == io.EOF {
+				mself.eof = true
+				break
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func (mself *DecompressionReader) Read(data []byte) (int, error) {
+	if mself.state == nil {
+		return 0, io.EOF
+	}
+	if len(data) == 0 {
+		return 0, nil
+	}
+	for {
+		err := mself.populateBuffer()
+		if err != nil {
+			return 0, err
+		}
+		avail_in := C.size_t(mself.validEnd - mself.validStart)
+		next_in := (*C.uint8_t)(unsafe.Pointer(&mself.buffer[0]))
+		if avail_in != 0 {
+			next_in = (*C.uint8_t)(unsafe.Pointer(&mself.buffer[mself.validStart]))
+		}
+		avail_out := C.size_t(len(data))
+		next_out := (*C.uint8_t)(unsafe.Pointer(&data[0]))
+		ret := C.BrotliDecoderDecompressStream(
+			mself.state,
+			&avail_in,
+			&next_in,
+			&avail_out,
+			&next_out,
+			nil,
+		)
+		mself.validStart = mself.validEnd - int(avail_in)
+		if ret == C.BROTLI_DECODER_RESULT_ERROR {
+			err := errors.New(C.GoString(C.BrotliDecoderGetErrorString(mself.state)))
+			C.BrotliDecoderDestroyInstance(mself.state)
+			mself.state = nil
+			return 0, err
+		}
+		if ret == C.BROTLI_DECODER_RESULT_SUCCESS {
+			C.BrotliDecoderDestroyInstance(mself.state)
+			mself.state = nil
+			return len(data) - int(avail_out), io.EOF
+		}
+		if ret == C.BROTLI_DECODER_NEEDS_MORE_INPUT && mself.validStart == mself.validEnd && mself.eof {
+			return len(data) - int(avail_out), io.ErrUnexpectedEOF
+		}
+		if int(avail_out) != len(data) {
+			return len(data) - int(avail_out), nil
+		}
+	}
 }
 
 type DecompressionWriter struct {
@@ -155,7 +232,7 @@ type DecompressionWriter struct {
 	done       bool
 }
 
-func NewMultiDecompressionWriter(downstream io.Writer) *DecompressionWriter {
+func NewDecompressionWriter(downstream io.Writer) *DecompressionWriter {
 	return &DecompressionWriter{
 		downstream: downstream,
 		state:      C.BrotliDecoderCreateInstance(nil, nil, nil),
@@ -166,34 +243,50 @@ func (mself *DecompressionWriter) Write(data []byte) (int, error) {
 	if mself.state == nil {
 		return 0, errors.New("Write on closed DecompressionWriter")
 	}
+	if len(data) == 0 {
+		return 0, nil
+	}
 	avail_in := C.size_t(len(data))
-	for avail_in != 0 {
+	for {
 		if mself.done {
 			return 0, io.ErrShortWrite
 		}
 		last_start := C.size_t(len(data)) - avail_in
-		next_in := &data[last_start]
+		next_in := (*C.uint8_t)(unsafe.Pointer(&mself.buffer[0])) // only if size == 0, in which case it won't be read
+		if avail_in != 0 {
+			next_in = (*C.uint8_t)(unsafe.Pointer(&data[last_start]))
+		}
 		avail_out := C.size_t(len(mself.buffer))
-		next_out := &mself.buffer[0]
+		next_out := (*C.uint8_t)(&mself.buffer[0])
 		ret := C.BrotliDecoderDecompressStream(
 			mself.state,
 			&avail_in,
-			(**C.uint8_t)(unsafe.Pointer(&next_in)),
+			&next_in,
 			&avail_out,
-			(**C.uint8_t)(unsafe.Pointer(&next_out)),
+			&next_out,
 			nil,
 		)
 		to_copy := C.size_t(len(mself.buffer)) - avail_out
 		if to_copy != 0 {
-			mself.downstream.Write(mself.buffer[:to_copy])
+			_, err := mself.downstream.Write(mself.buffer[:to_copy])
+			if err != nil {
+				return int(last_start), err
+			}
 		}
 		if ret == C.BROTLI_DECODER_RESULT_ERROR {
-			return 0, errors.New(C.GoString(C.BrotliDecoderGetErrorString(mself.state)))
+			err := errors.New(C.GoString(C.BrotliDecoderGetErrorString(mself.state)))
+			C.BrotliDecoderDestroyInstance(mself.state)
+			mself.state = nil
+
+			return 0, err
+		}
+		if avail_in == 0 && ret == C.BROTLI_DECODER_NEEDS_MORE_INPUT {
+			break
 		}
 		if ret == C.BROTLI_DECODER_RESULT_SUCCESS {
 			mself.done = true
 			if avail_in != 0 {
-				return 0, io.ErrShortWrite
+				return len(data) - int(avail_in), io.ErrShortWrite
 			}
 			break
 		}
@@ -232,7 +325,7 @@ func main() {
 	if useWriter {
 		var writer io.Writer
 		if decompress {
-			writer = NewMultiDecompressionWriter(
+			writer = NewDecompressionWriter(
 				os.Stdout,
 			)
 		} else {
@@ -267,7 +360,7 @@ func main() {
 	} else {
 		var reader io.Reader
 		if decompress {
-			reader = NewMultiDecompressionReader(
+			reader = NewDecompressionReader(
 				os.Stdin,
 			)
 		} else {
