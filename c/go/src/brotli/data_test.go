@@ -1,8 +1,9 @@
 package brotli
 
 const bufsize = 4096 * 1024
+
 func testData() [bufsize]byte {
- poem := []byte(`Once upon a midnight dreary, while I pondered, weak and weary,
+	poem := []byte(`Once upon a midnight dreary, while I pondered, weak and weary,
 Over many a quaint and curious volume of forgotten lore-
     While I nodded, nearly napping, suddenly there came a tapping,
 As of some one gently rapping, rapping at my chamber door.
@@ -127,14 +128,14 @@ On the pallid bust of Pallas just above my chamber door;
     And the lamp-light o'er him streaming throws his shadow on the floor;
 And my soul from out that shadow that lies floating on the floor
             Shall be lifted-nevermore!`)
-    var ret [bufsize]byte
-    count := 0
-    for index := 0 ; index + len(poem) <= bufsize; index += len(poem) {
-        copy(ret[index:index+len(poem)], poem)
-        for si := 0; si < len(poem); si+=1 {
-           ret[index + si] += byte(count)
-        }
-        count += 1
-    }
-    return ret
+	var ret [bufsize]byte
+	count := 0
+	for index := 0; index+len(poem) <= bufsize; index += len(poem) {
+		copy(ret[index:index+len(poem)], poem)
+		for si := 0; si < len(poem); si += 1 {
+			ret[index+si] += byte(count)
+		}
+		count += 1
+	}
+	return ret
 }

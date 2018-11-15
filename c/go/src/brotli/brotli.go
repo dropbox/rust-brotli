@@ -31,7 +31,7 @@ static BroccoliResult BrConcatFinish(BroccoliState *s,
 */
 import "C"
 import (
-"errors"
+	"errors"
 	"fmt"
 	"io"
 	"unsafe"
@@ -441,7 +441,7 @@ func (mself *BroccoliConcatReader) populateBuffer() error {
 		mself.validStart = 0
 		if err != nil {
 			if err == io.EOF {
-                mself.upstreams[0] = nil
+				mself.upstreams[0] = nil
 				break
 			} else {
 				return err
@@ -451,19 +451,19 @@ func (mself *BroccoliConcatReader) populateBuffer() error {
 	return nil
 }
 func (mself *BroccoliConcatReader) potentiallyPopBuffer() error {
-		if mself.upstreams[0] == nil {
-				mself.upstreams = mself.upstreams[1:]
-				if len(mself.upstreams) != 0 {
-					C.BroccoliNewBrotliFile(&mself.state)
-				}
-       }
+	if mself.upstreams[0] == nil {
+		mself.upstreams = mself.upstreams[1:]
+		if len(mself.upstreams) != 0 {
+			C.BroccoliNewBrotliFile(&mself.state)
+		}
+	}
 	return nil
 }
 func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
-    finishInvoked := false
+	finishInvoked := false
 	for {
 		err := mself.populateBuffer()
 		if err != nil {
@@ -471,10 +471,10 @@ func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
 		}
 		avail_out := C.size_t(len(data))
 		avail_in := C.size_t(mself.validEnd - mself.validStart)
-        if mself.validStart == mself.validEnd {
-          mself.validStart = 0
-          mself.validEnd = 0 // so we don't read off the end of a buffer
-        }
+		if mself.validStart == mself.validEnd {
+			mself.validStart = 0
+			mself.validEnd = 0 // so we don't read off the end of a buffer
+		}
 		var ret C.BroccoliResult
 		if avail_in != 0 || len(mself.upstreams) != 0 {
 			ret = C.BrConcatStream(
@@ -485,7 +485,7 @@ func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
 				(*C.uint8_t)(&data[0]),
 			)
 		} else {
-            finishInvoked = true
+			finishInvoked = true
 			if len(mself.upstreams) != 0 {
 				return 0, errors.New("Invariant Violation: avail upstreams but no bytes to read from")
 			}
@@ -495,14 +495,14 @@ func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
 				&avail_out,
 				(*C.uint8_t)(&data[0]),
 			)
-		    }
+		}
 		mself.validStart = mself.validEnd - int(avail_in)
-        if ret == C.BroccoliNeedsMoreInput {
-            err = mself.potentiallyPopBuffer()
-            if err != nil {
-               return 0, err
-            }
-        }
+		if ret == C.BroccoliNeedsMoreInput {
+			err = mself.potentiallyPopBuffer()
+			if err != nil {
+				return 0, err
+			}
+		}
 		if ret != C.BroccoliSuccess && ret != C.BroccoliNeedsMoreInput && ret != C.BroccoliNeedsMoreOutput {
 			err := fmt.Errorf("Broccoli Error Code: %v", ret)
 			C.BroccoliDestroyInstance(mself.state)

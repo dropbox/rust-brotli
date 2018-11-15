@@ -1,236 +1,238 @@
 package brotli
 
 import (
-//"io/ioutil"
-//"os"
-"fmt"
-"io"
-"bytes"
-"testing"
+	//"io/ioutil"
+	//"os"
+	"bytes"
+	"fmt"
+	"io"
+	"testing"
 )
+
 var options = CompressionOptions{
-		NumThreads: 1,
-		Quality:    9.5,
-		Catable:    true,
-		Appendable: true,
-		Magic:      true,
+	NumThreads: 1,
+	Quality:    9.5,
+	Catable:    true,
+	Appendable: true,
+	Magic:      true,
 }
 
 func TestCompressWriter(*testing.T) {
-    data := testData()
-    outBuffer := bytes.NewBuffer(nil)
-    var options = CompressionOptions{
+	data := testData()
+	outBuffer := bytes.NewBuffer(nil)
+	var options = CompressionOptions{
 		NumThreads: 1,
 		Quality:    4,
 		Catable:    true,
 		Appendable: true,
 		Magic:      true,
-    }
-    writer := NewMultiCompressionWriter(
-			    outBuffer,
-				options,
-			)
-    _, err := writer.Write(data[:])
-    if err != nil {
-    panic(err)
-    }
-    err = writer.Close()
-    if err != nil {
-    panic(err)
-    }    
-    if len(outBuffer.Bytes()) == 0 {
-       panic("Zero output buffer")
-    }
-    if len(outBuffer.Bytes()) > 800000 {
-        panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
-    }
+	}
+	writer := NewMultiCompressionWriter(
+		outBuffer,
+		options,
+	)
+	_, err := writer.Write(data[:])
+	if err != nil {
+		panic(err)
+	}
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if len(outBuffer.Bytes()) > 800000 {
+		panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
+	}
 }
 func TestCompressRoundtrip(*testing.T) {
-    tmp := testData()
-    data := tmp[:len(tmp) - 17]
-    outBuffer := bytes.NewBuffer(nil)
-    var options = CompressionOptions{
+	tmp := testData()
+	data := tmp[:len(tmp)-17]
+	outBuffer := bytes.NewBuffer(nil)
+	var options = CompressionOptions{
 		NumThreads: 1,
 		Quality:    9,
 		Catable:    true,
 		Appendable: true,
 		Magic:      true,
-    }
-    writer := NewMultiCompressionWriter(
-			    NewDecompressionWriter(
-                   outBuffer,
-                ),
-				options,
-			)
-    _, err := writer.Write(data[:])
-    if err != nil {
-    panic(err)
-    }
-    err = writer.Close()
-    if err != nil {
-    panic(err)
-    }    
-    if len(outBuffer.Bytes()) == 0 {
-       panic("Zero output buffer")
-    }
-    if !bytes.Equal(outBuffer.Bytes(), data[:]) {
-        panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
-    }
+	}
+	writer := NewMultiCompressionWriter(
+		NewDecompressionWriter(
+			outBuffer,
+		),
+		options,
+	)
+	_, err := writer.Write(data[:])
+	if err != nil {
+		panic(err)
+	}
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
 }
 func TestCompressReader(*testing.T) {
-    data := testData()
-    inBuffer := bytes.NewBuffer(data[:])
-    outBuffer := bytes.NewBuffer(nil)
-    var options = CompressionOptions{
+	data := testData()
+	inBuffer := bytes.NewBuffer(data[:])
+	outBuffer := bytes.NewBuffer(nil)
+	var options = CompressionOptions{
 		NumThreads: 1,
 		Quality:    4,
 		Catable:    true,
 		Appendable: true,
 		Magic:      true,
-    }
-    reader := NewMultiCompressionReader(
-			    inBuffer,
-				options,
-			)
-    _, err := io.Copy(outBuffer, reader)
-    if err != nil {
-    panic(err)
-    }
-    if len(outBuffer.Bytes()) == 0 {
-       panic("Zero output buffer")
-    }
-    if len(outBuffer.Bytes()) > 800000 {
-        panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
-    }
+	}
+	reader := NewMultiCompressionReader(
+		inBuffer,
+		options,
+	)
+	_, err := io.Copy(outBuffer, reader)
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if len(outBuffer.Bytes()) > 800000 {
+		panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
+	}
 }
 func TestCompressReaderRoundtrip(*testing.T) {
-    data := testData()
-    inBuffer := bytes.NewBuffer(data[:])
-    outBuffer := bytes.NewBuffer(nil)
-    var options = CompressionOptions{
+	data := testData()
+	inBuffer := bytes.NewBuffer(data[:])
+	outBuffer := bytes.NewBuffer(nil)
+	var options = CompressionOptions{
 		NumThreads: 1,
 		Quality:    4,
 		Catable:    true,
 		Appendable: true,
 		Magic:      true,
-    }
-    reader := NewDecompressionReader(
-        NewMultiCompressionReader(
-			    inBuffer,
-				options,
-			),
-            )
-    _, err := io.Copy(outBuffer, reader)
-    if err != nil {
-    panic(err)
-    }
-    if len(outBuffer.Bytes()) == 0 {
-       panic("Zero output buffer")
-    }
-    if !bytes.Equal(outBuffer.Bytes(), data[:]) {
-        panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
-    }
+	}
+	reader := NewDecompressionReader(
+		NewMultiCompressionReader(
+			inBuffer,
+			options,
+		),
+	)
+	_, err := io.Copy(outBuffer, reader)
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
 }
 
 func TestConcatFlatFunction(*testing.T) {
-    data := testData()
-    inBufferAa := bytes.NewBuffer(data[:len(data)/5])
-    inBufferBa := bytes.NewBuffer(data[len(data)/5:2 * (len(data)/5)])
-    inBufferCa := bytes.NewBuffer(data[2 * (len(data)/5):3 * (len(data)/5)])
-    inBufferDa := bytes.NewBuffer(data[3 * (len(data)/5):])
-    midBufferA := bytes.NewBuffer(nil)
-    var err error
-    _, err = io.Copy(midBufferA, NewMultiCompressionReader(
-			    inBufferAa,
-				options,
-			))
-            if err != nil {
-            panic(err)
-            }
-    midBufferB := bytes.NewBuffer(nil)
-    _, err = io.Copy(midBufferB, NewMultiCompressionReader(
-			    inBufferBa,
-				options,
-			))
-            if err != nil {
-            panic(err)
-            }
-    midBufferC := bytes.NewBuffer(nil)
-    _, err = io.Copy(midBufferC, NewMultiCompressionReader(
-			    inBufferCa,
-				options,
-			))
-            if err != nil {
-            panic(err)
-            }
-    midBufferD := bytes.NewBuffer(nil)
-    _,err = io.Copy(midBufferD, NewMultiCompressionReader(
-			    inBufferDa,
-				options,
-			))
-            if err != nil {
-            panic(err)
-            }
-			final, err := BroccoliConcat([][]byte{midBufferA.Bytes(),midBufferB.Bytes(), midBufferC.Bytes(), midBufferD.Bytes()}...)
-            if err != nil {
-            panic(err)
-            }
-            finalBuffer := bytes.NewBuffer(final)
-            rtBuffer := bytes.NewBuffer(nil)
-            _, err = io.Copy(rtBuffer, NewDecompressionReader(finalBuffer))
-            if err != nil {
-            panic(err)
-            }
-            if !bytes.Equal(rtBuffer.Bytes(), data[:]) {
-            panic(fmt.Sprintf("Bytes not equal %d, %d", len(rtBuffer.Bytes()), len(data)))
-            }
+	data := testData()
+	inBufferAa := bytes.NewBuffer(data[:len(data)/5])
+	inBufferBa := bytes.NewBuffer(data[len(data)/5 : 2*(len(data)/5)])
+	inBufferCa := bytes.NewBuffer(data[2*(len(data)/5) : 3*(len(data)/5)])
+	inBufferDa := bytes.NewBuffer(data[3*(len(data)/5):])
+	midBufferA := bytes.NewBuffer(nil)
+	var err error
+	_, err = io.Copy(midBufferA, NewMultiCompressionReader(
+		inBufferAa,
+		options,
+	))
+	if err != nil {
+		panic(err)
+	}
+	midBufferB := bytes.NewBuffer(nil)
+	_, err = io.Copy(midBufferB, NewMultiCompressionReader(
+		inBufferBa,
+		options,
+	))
+	if err != nil {
+		panic(err)
+	}
+	midBufferC := bytes.NewBuffer(nil)
+	_, err = io.Copy(midBufferC, NewMultiCompressionReader(
+		inBufferCa,
+		options,
+	))
+	if err != nil {
+		panic(err)
+	}
+	midBufferD := bytes.NewBuffer(nil)
+	_, err = io.Copy(midBufferD, NewMultiCompressionReader(
+		inBufferDa,
+		options,
+	))
+	if err != nil {
+		panic(err)
+	}
+	final, err := BroccoliConcat([][]byte{midBufferA.Bytes(), midBufferB.Bytes(), midBufferC.Bytes(), midBufferD.Bytes()}...)
+	if err != nil {
+		panic(err)
+	}
+	finalBuffer := bytes.NewBuffer(final)
+	rtBuffer := bytes.NewBuffer(nil)
+	_, err = io.Copy(rtBuffer, NewDecompressionReader(finalBuffer))
+	if err != nil {
+		panic(err)
+	}
+	if !bytes.Equal(rtBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(rtBuffer.Bytes()), len(data)))
+	}
 }
 
 func TestConcatReaderRoundtrip(*testing.T) {
-    data := testData()
-    inBufferA := bytes.NewBuffer(data[:len(data)/5-1])
-    inBufferB := bytes.NewBuffer(data[len(data)/5-1:2 + 2 * (len(data)/5)])
-    inBufferC := bytes.NewBuffer(data[2 + 2 * (len(data)/5):3 * (len(data)/5)])
-    inBufferD := bytes.NewBuffer(data[3 * (len(data)/5):])
-    outBuffer := bytes.NewBuffer(nil)
-    var options = CompressionOptions{
+	data := testData()
+	inBufferA := bytes.NewBuffer(data[:len(data)/5-1])
+	inBufferB := bytes.NewBuffer(data[len(data)/5-1 : 2+2*(len(data)/5)])
+	inBufferC := bytes.NewBuffer(data[2+2*(len(data)/5) : 3*(len(data)/5)])
+	inBufferD := bytes.NewBuffer(data[3*(len(data)/5):])
+	outBuffer := bytes.NewBuffer(nil)
+	var options = CompressionOptions{
 		NumThreads: 1,
 		Quality:    4,
 		Catable:    true,
 		Appendable: true,
 		Magic:      true,
-    }
-        
-    reader := NewDecompressionReader(
-        NewBroccoliConcatReader(
-        NewMultiCompressionReader(
-			    inBufferA,
+	}
+
+	reader := NewDecompressionReader(
+		NewBroccoliConcatReader(
+			NewMultiCompressionReader(
+				inBufferA,
 				options,
 			),
-        NewMultiCompressionReader(
-			    inBufferB,
+			NewMultiCompressionReader(
+				inBufferB,
 				options,
 			),
-        NewMultiCompressionReader(
-			    inBufferC,
+			NewMultiCompressionReader(
+				inBufferC,
 				options,
 			),
-        NewMultiCompressionReader(
-			    inBufferD,
+			NewMultiCompressionReader(
+				inBufferD,
 				options,
 			),
-            ))
-    _, err := io.Copy(outBuffer, reader)
-    if err != nil {
-    panic(err)
-    }
-    if len(outBuffer.Bytes()) == 0 {
-       panic("Zero output buffer")
-    }
-    if !bytes.Equal(outBuffer.Bytes(), data[:]) {
-        panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
-    }
+		))
+	_, err := io.Copy(outBuffer, reader)
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
 }
+
 /*
 	useWriter := false—
 	var toCat []string
