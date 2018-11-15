@@ -1,12 +1,11 @@
 package main
 
 import (
-"brotli"
-"io/ioutil"
-"os"
-"io"
+	"brotli"
+	"io"
+	"io/ioutil"
+	"os"
 )
-
 
 func main() {
 	decompress := false

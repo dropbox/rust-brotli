@@ -1,4 +1,5 @@
 package brotli
+
 /*
 #cgo CFLAGS: -I../../..
 #cgo LDFLAGS: -L../../../target/release -l brotli_ffi -lm -ldl
@@ -577,4 +578,3 @@ func BroccoliConcatWithWindowSize(windowSize uint8, files ...[]byte) ([]byte, er
 	state := C.BroccoliCreateInstanceWithWindowSize(C.uint8_t(windowSize))
 	return broccoliConcat(state, files)
 }
-
