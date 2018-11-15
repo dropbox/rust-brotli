@@ -31,7 +31,6 @@ static BroccoliResult BrConcatFinish(BroccoliState *s,
 */
 import "C"
 import (
-"os"
 "errors"
 	"fmt"
 	"io"
@@ -70,14 +69,11 @@ func NewMultiCompressionReader(
 }
 
 func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
-    fmt.Fprintf(os.Stderr, "Reading into byffer of %d bytes\n", len(data))
 	if mself.upstream != nil {
 		for mself.upstream != nil {
 			size, err := mself.upstream.Read(data)
-            fmt.Fprintf(os.Stderr, "Looping over upstream, reading %d bytes\n", size)
 			mself.buffer = append(mself.buffer, data[:size]...)
 			if err == io.EOF {
-                fmt.Fprintf(os.Stderr, "Looping over upstream, EOS\n")
 				mself.upstream = nil
 				break
 			}
@@ -92,7 +88,6 @@ func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
 			mself.options,
 		)
 		outputLen := C.size_t(len(mself.output))
-        fmt.Fprintf(os.Stderr, "Encoding %d bytes\n", len(mself.buffer))
 		ret := C.BrotliEncoderCompressMulti(
 			numParams,
 			parameters,
@@ -104,7 +99,6 @@ func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
 			C.size_t(mself.options.NumThreads),
 			nil, nil, nil,
 		)
-        fmt.Fprintf(os.Stderr, "%d Returned %d bytes\n", ret, outputLen)
 		mself.output = mself.output[:int(outputLen)]
 		if ret == 0 {
 			return 0, errors.New("Compression failed")
@@ -114,10 +108,8 @@ func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
 	if len(mself.output) < toCopy {
 		toCopy = len(mself.output)
 	}
-    fmt.Fprintf(os.Stderr, "Copying to output %d bytes\n", toCopy)
 	copy(data[:toCopy], mself.output[:toCopy])
 	mself.output = mself.output[toCopy:]
-            fmt.Fprintf(os.Stderr, "Output left %d bytes\n", len(mself.output))
 	if len(mself.output) == 0 {
 		mself.output = nil
 		return toCopy, io.EOF
@@ -317,7 +309,6 @@ func (mself *DecompressionReader) Read(data []byte) (int, error) {
 			return len(data) - int(avail_out), io.EOF
 		}
 		if ret == C.BROTLI_DECODER_NEEDS_MORE_INPUT && mself.validStart == mself.validEnd && mself.eof {
-                panic("AHOYx")
 			return len(data) - int(avail_out), io.ErrUnexpectedEOF
 		}
 		if int(avail_out) != len(data) {
@@ -439,7 +430,6 @@ func NewBroccoliConcatReader(upstreams ...io.Reader) *BroccoliConcatReader {
 	}
 	if len(ret.upstreams) != 0 {
 		C.BroccoliNewBrotliFile(&ret.state)
-        fmt.Fprintf(os.Stderr, "CAT: calling new brotli file with  upstreams left %d\n",len(ret.upstreams))
 	}
 	return ret
 }
@@ -449,7 +439,6 @@ func (mself *BroccoliConcatReader) populateBuffer() error {
 		var err error
 		mself.validEnd, err = mself.upstreams[0].Read(mself.buffer[:])
 		mself.validStart = 0
-        fmt.Fprintf(os.Stderr, "CAT: read new buffer %d -%d\n",mself.validStart, mself.validEnd)
 		if err != nil {
 			if err == io.EOF {
                 mself.upstreams[0] = nil
@@ -464,9 +453,7 @@ func (mself *BroccoliConcatReader) populateBuffer() error {
 func (mself *BroccoliConcatReader) potentiallyPopBuffer() error {
 		if mself.upstreams[0] == nil {
 				mself.upstreams = mself.upstreams[1:]
-                        fmt.Fprintf(os.Stderr, "CAT: popping upstream: %d left\n",len(mself.upstreams))
 				if len(mself.upstreams) != 0 {
-                    fmt.Fprintf(os.Stderr, "CAT: calling new brotli file with  upstreams left %d\n",len(mself.upstreams))
 					C.BroccoliNewBrotliFile(&mself.state)
 				}
        }
@@ -488,7 +475,6 @@ func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
           mself.validStart = 0
           mself.validEnd = 0 // so we don't read off the end of a buffer
         }
-        fmt.Fprintf(os.Stderr, "CAT: avail_in %d avail_out %d\n",avail_in, avail_out)
 		var ret C.BroccoliResult
 		if avail_in != 0 || len(mself.upstreams) != 0 {
 			ret = C.BrConcatStream(
@@ -509,9 +495,7 @@ func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
 				&avail_out,
 				(*C.uint8_t)(&data[0]),
 			)
-            fmt.Fprintf(os.Stderr, "CAT: finization %d\n", ret)
 		    }
-                    fmt.Fprintf(os.Stderr, "CAT: proc done: avail_in %d avail_out %d\n %d upstream remaining",avail_in, avail_out, len(mself.upstreams))
 		mself.validStart = mself.validEnd - int(avail_in)
         if ret == C.BroccoliNeedsMoreInput {
             err = mself.potentiallyPopBuffer()
