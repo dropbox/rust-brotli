@@ -34,6 +34,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"unsafe"
 )
@@ -507,30 +508,31 @@ func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
 func broccoliConcat(state C.BroccoliState, files [][]byte) ([]byte, error) {
 	totalLength := 0
 	for _, file := range files {
-		totalLength = len(file)
+		totalLength += len(file)
 	}
 	ret := make([]byte, totalLength+len(files)*16)
 	curOutputLocation := 0
-	curInputLocation := 0
 	for _, file := range files {
+		curInputLocation := 0
 		C.BroccoliNewBrotliFile(&state)
 		for {
 			var curData *byte
 			if len(file) != 0 {
 				curData = &file[curInputLocation]
 			}
-			avail_in := C.size_t(len(file))
+			avail_in := C.size_t(len(file) - curInputLocation)
 			old_avail_in := avail_in
 			avail_out := C.size_t(len(ret) - curOutputLocation)
 			old_avail_out := avail_out
+			outputAddr := &ret[curOutputLocation]
 			concat_result := C.BrConcatStream(&state,
 				&avail_in,
 				(*C.uint8_t)(curData),
 				&avail_out,
-				(*C.uint8_t)(&ret[curOutputLocation]),
+				(*C.uint8_t)(outputAddr),
 			)
-			curInputLocation := int(avail_in - old_avail_in)
-			curOutputLocation += int(avail_out - old_avail_out)
+			curInputLocation += int(old_avail_in - avail_in)
+			curOutputLocation += int(old_avail_out - avail_out)
 			if concat_result != C.BroccoliNeedsMoreOutput {
 				if concat_result == C.BroccoliNeedsMoreInput { // done with this file
 					if curInputLocation != len(file) {
@@ -559,7 +561,7 @@ func broccoliConcat(state C.BroccoliState, files [][]byte) ([]byte, error) {
 			&avail_out,
 			(*C.uint8_t)(&ret[curOutputLocation]),
 		)
-		curOutputLocation += int(avail_out - old_avail_out)
+		curOutputLocation += int(old_avail_out - avail_out)
 		if concat_result != C.BroccoliNeedsMoreOutput {
 			break
 		}
@@ -601,27 +603,45 @@ func main() {
 			decompress = true
 		}
 		if arg == "-cat" {
-			toCat = os.Args[1:index]
 			toCat = append(toCat, os.Args[index+1:]...)
 			break
 		}
 	}
 	if toCat != nil {
-		files := make([]io.Reader, len(toCat))
-		for index, fn := range toCat {
-			var err error
-			files[index], err = os.Open(fn)
+		if useWriter {
+			buffers := make([][]byte, len(toCat))
+			for index, fn := range toCat {
+				var err error
+				buffers[index], err = ioutil.ReadFile(fn)
+				if err != nil {
+					panic(err)
+				}
+			}
+			final, err := BroccoliConcat(buffers...)
 			if err != nil {
 				panic(err)
 			}
-		}
-		_, err := io.Copy(os.Stdout, NewBroccoliConcatReader(files...))
-		if err != nil {
-			panic(err)
-		}
-		for _, file := range files {
-			if readCloser, ok := file.(io.ReadCloser); ok {
-				_ = readCloser.Close()
+			_, err = os.Stdout.Write(final)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			files := make([]io.Reader, len(toCat))
+			for index, fn := range toCat {
+				var err error
+				files[index], err = os.Open(fn)
+				if err != nil {
+					panic(err)
+				}
+			}
+			_, err := io.Copy(os.Stdout, NewBroccoliConcatReader(files...))
+			if err != nil {
+				panic(err)
+			}
+			for _, file := range files {
+				if readCloser, ok := file.(io.ReadCloser); ok {
+					_ = readCloser.Close()
+				}
 			}
 		}
 		return
