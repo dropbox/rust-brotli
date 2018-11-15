@@ -16,6 +16,18 @@ static BrotliDecoderResult BrDecompressStream(BrotliDecoderState* s,
   return BrotliDecoderDecompressStream(
       s, avail_in, &in, avail_out, &out, NULL);
 }
+static BroccoliResult BrConcatStream(BroccoliState *s,
+                                     size_t * available_in,
+                                     const uint8_t *input_buf,
+                                     size_t *available_out,
+                                     uint8_t *output_buf) {
+    return BroccoliConcatStream(s, available_in, &input_buf, available_out, &output_buf);
+}
+static BroccoliResult BrConcatFinish(BroccoliState *s,
+                                     size_t *available_out,
+                                     uint8_t *output_buf) {
+    return BroccoliConcatFinish(s, available_out, &output_buf);
+}
 */
 import "C"
 import (
@@ -393,7 +405,7 @@ func (mself *DecompressionWriter) Close() error {
 	return nil
 }
 
-type BroccoliReader struct {
+type BroccoliConcatReader struct {
 	upstreams  []io.Reader
 	state      C.BroccoliState
 	buffer     [BufferSize]byte
@@ -401,8 +413,8 @@ type BroccoliReader struct {
 	validEnd   int
 }
 
-func NewBroccoliReaderWithWindowSize(windowSize byte, upstreams ...io.Reader) *BroccoliReader {
-	ret := &BroccoliReader{
+func NewBroccoliConcatReaderWithWindowSize(windowSize byte, upstreams ...io.Reader) *BroccoliConcatReader {
+	ret := &BroccoliConcatReader{
 		upstreams: upstreams,
 		state:     C.BroccoliCreateInstanceWithWindowSize(C.uint8_t(windowSize)),
 	}
@@ -412,8 +424,8 @@ func NewBroccoliReaderWithWindowSize(windowSize byte, upstreams ...io.Reader) *B
 	return ret
 }
 
-func NewBroccoliReader(upstreams ...io.Reader) *BroccoliReader {
-	ret := &BroccoliReader{
+func NewBroccoliConcatReader(upstreams ...io.Reader) *BroccoliConcatReader {
+	ret := &BroccoliConcatReader{
 		upstreams: upstreams,
 		state:     C.BroccoliCreateInstance(),
 	}
@@ -423,7 +435,7 @@ func NewBroccoliReader(upstreams ...io.Reader) *BroccoliReader {
 	return ret
 }
 
-func (mself *BroccoliReader) populateBuffer() error {
+func (mself *BroccoliConcatReader) populateBuffer() error {
 	for mself.validStart == mself.validEnd && len(mself.upstreams) != 0 {
 		var err error
 		mself.validEnd, err = mself.upstreams[0].Read(mself.buffer[:])
@@ -443,7 +455,7 @@ func (mself *BroccoliReader) populateBuffer() error {
 	}
 	return nil
 }
-func (mself *BroccoliReader) Read(data []byte) (int, error) {
+func (mself *BroccoliConcatReader) Read(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
@@ -453,31 +465,29 @@ func (mself *BroccoliReader) Read(data []byte) (int, error) {
 			return 0, err
 		}
 		avail_out := C.size_t(len(data))
-		next_out := (*C.uint8_t)(unsafe.Pointer(&data[0]))
 		avail_in := C.size_t(mself.validEnd - mself.validStart)
 		var ret C.BroccoliResult
 		if avail_in != 0 {
-			next_in := (*C.uint8_t)(unsafe.Pointer(&mself.buffer[mself.validStart]))
-			ret = C.BroccoliConcatStream(
+			ret = C.BrConcatStream(
 				&mself.state,
 				&avail_in,
-				&next_in,
+				(*C.uint8_t)(&mself.buffer[mself.validStart]),
 				&avail_out,
-				&next_out,
+				(*C.uint8_t)(&data[0]),
 			)
 		} else {
 			if len(mself.upstreams) != 0 {
 				return 0, errors.New("Invariant Violation: avail upstreams but no bytes to read from")
 			}
-			ret = C.BroccoliConcatFinish(
+			ret = C.BrConcatFinish(
 				&mself.state,
 				&avail_out,
-				&next_out,
+				(*C.uint8_t)(&data[0]),
 			)
 		}
 		mself.validStart = mself.validEnd - int(avail_in)
 		if ret != C.BroccoliSuccess && ret != C.BroccoliNeedsMoreInput && ret != C.BroccoliNeedsMoreOutput {
-			err := fmt.Errorf("%v", ret)
+			err := fmt.Errorf("Broccoli Error Code: %v", ret)
 			C.BroccoliDestroyInstance(mself.state)
 			return 0, err
 		}
@@ -492,6 +502,81 @@ func (mself *BroccoliReader) Read(data []byte) (int, error) {
 			return len(data) - int(avail_out), nil
 		}
 	}
+}
+
+func broccoliConcat(state C.BroccoliState, files [][]byte) ([]byte, error) {
+	totalLength := 0
+	for _, file := range files {
+		totalLength = len(file)
+	}
+	ret := make([]byte, totalLength+len(files)*16)
+	curOutputLocation := 0
+	curInputLocation := 0
+	for _, file := range files {
+		C.BroccoliNewBrotliFile(&state)
+		for {
+			var curData *byte
+			if len(file) != 0 {
+				curData = &file[curInputLocation]
+			}
+			avail_in := C.size_t(len(file))
+			old_avail_in := avail_in
+			avail_out := C.size_t(len(ret) - curOutputLocation)
+			old_avail_out := avail_out
+			concat_result := C.BrConcatStream(&state,
+				&avail_in,
+				(*C.uint8_t)(curData),
+				&avail_out,
+				(*C.uint8_t)(&ret[curOutputLocation]),
+			)
+			curInputLocation := int(avail_in - old_avail_in)
+			curOutputLocation += int(avail_out - old_avail_out)
+			if concat_result != C.BroccoliNeedsMoreOutput {
+				if concat_result == C.BroccoliNeedsMoreInput { // done with this file
+					if curInputLocation != len(file) {
+						return nil, fmt.Errorf("Broccoli: NeedMoreInput returned but %d input avail",
+							len(file)-curInputLocation)
+					}
+					break
+				}
+				return nil, fmt.Errorf("Broccoli Error Code: %v", concat_result)
+			}
+			if curOutputLocation == len(ret) { // if our estimate of 16 * num_files + size is bad
+				ret = append(ret, make([]byte, 65536)...)
+			}
+		}
+	}
+	var concat_result C.BroccoliResult
+	for {
+		avail_out := C.size_t(len(ret) - curOutputLocation)
+		if avail_out == 0 {
+			ret = append(ret, make([]byte, 65536)...)
+			avail_out = C.size_t(len(ret) - curOutputLocation)
+		}
+		old_avail_out := avail_out
+		concat_result = C.BrConcatFinish(
+			&state,
+			&avail_out,
+			(*C.uint8_t)(&ret[curOutputLocation]),
+		)
+		curOutputLocation += int(avail_out - old_avail_out)
+		if concat_result != C.BroccoliNeedsMoreOutput {
+			break
+		}
+	}
+	if concat_result != C.BroccoliSuccess {
+		return nil, fmt.Errorf("Broccoli Error Code: %v", concat_result)
+	}
+	return ret[:curOutputLocation], nil
+}
+
+func BroccoliConcat(files ...[]byte) ([]byte, error) {
+	state := C.BroccoliCreateInstance()
+	return broccoliConcat(state, files)
+}
+func BroccoliConcatWithWindowSize(windowSize uint8, files ...[]byte) ([]byte, error) {
+	state := C.BroccoliCreateInstanceWithWindowSize(C.uint8_t(windowSize))
+	return broccoliConcat(state, files)
 }
 
 func main() {
@@ -530,7 +615,7 @@ func main() {
 				panic(err)
 			}
 		}
-		_, err := io.Copy(os.Stdout, NewBroccoliReader(files...))
+		_, err := io.Copy(os.Stdout, NewBroccoliConcatReader(files...))
 		if err != nil {
 			panic(err)
 		}
