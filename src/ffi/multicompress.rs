@@ -200,6 +200,7 @@ pub unsafe extern fn BrotliEncoderDestroyWorkPool(work_pool_ptr: *mut BrotliEnco
 mod test {
     use super::*;
     use ::enc::encode::BrotliEncoderParameter;
+    use core;
     #[test]
     fn test_compress_workpool() {
         let input = [102, 114, 111, 109, 32, 99, 116, 121, 112, 101, 115, 32, 105, 109, 112, 111, 114, 116, 32, 42, 10, 10, 99, 108, 97, 115, 115, 32, 69, 110, 117, 109, 84, 121, 112, 101, 40, 116, 121, 112, 101, 40, 99, 95, 117, 105, 110, 116, 41, 41, 58, 10, 32, 32, 32, 32, 100, 101, 102, 32, 95, 95, 110, 101, 119, 95, 95, 40, 109, 101, 116, 97, 99, 108, 115, 41, 58, 10, 32, 32, 32, 32, 32, 32, 32, 32, 112, 97, 115, 115, 10];
