@@ -19,6 +19,101 @@ def BrotliEncoderCreateWorkPool(num_workers):
 
 BrotliEncoderDestroyWorkPool = brotli_library.BrotliEncoderDestroyWorkPool
 BrotliEncoderDestroyWorkPool.restype = None
+class BrotliCompressorException(Exception):
+    pass
+
+def BrotliEncoderCompressWorkPool(
+        work_pool,
+        input,
+        compression_options_map={},
+        num_threads=4,
+        ):
+    OptionsKeysArrayDecl = c_uint * len(compression_options_map)
+    OptionsValuesArrayDecl = c_uint32 * len(compression_options_map)
+    index = 0
+    options_keys = OptionsKeysArrayDecl()
+    options_values = OptionsValuesArrayDecl()
+    for k, v in compression_options_map.iteritems():
+        options_keys[index] = c_uint(k)
+        options_values[index] = c_uint32(v)
+        index += 1
+    max_size = BrotliEncoderMaxCompressedSizeMulti(c_size_t(len(input)),
+                                                   c_size_t(num_threads))
+    EncodedArrayDecl = c_ubyte
+    encoded = (c_ubyte  * max_size)()
+    encoded_size = c_size_t(max_size)
+    ret_code = brotli_library.BrotliEncoderCompressWorkPool(
+        work_pool,
+        c_size_t(len(compression_options_map)),
+        options_keys,
+        options_values,
+        c_size_t(len(input)),
+        input,
+        pointer(encoded_size),
+        pointer(encoded),
+        c_size_t(num_threads),
+        c_void_p(),
+        c_void_p(),
+        c_void_p(),
+        )
+    if ret_code == 0:
+        raise BrotliCompressorException("Insufficient space "
+                                        + str(max_size)
+                                        + " to compress "
+                                        + str(len(input))
+                                        + " bytes with "
+                                        + str(num_threads)
+                                        + " threads")
+    return bytearray(encoded[:encoded_size.value])
+
+def BrotliEncoderCompress(
+        input,
+        compression_options_map={},
+        num_threads=4,
+        ):
+    OptionsKeysArrayDecl = c_uint * len(compression_options_map)
+    OptionsValuesArrayDecl = c_uint32 * len(compression_options_map)
+    index = 0
+    options_keys = OptionsKeysArrayDecl()
+    options_values = OptionsValuesArrayDecl()
+    for k, v in compression_options_map.iteritems():
+        options_keys[index] = c_uint(k)
+        options_values[index] = c_uint32(v)
+        index += 1
+    max_size = BrotliEncoderMaxCompressedSizeMulti(c_size_t(len(input)),
+                                                   c_size_t(num_threads))
+    EncodedArrayDecl = c_ubyte
+    encoded = (c_ubyte  * max_size)()
+    encoded_size = c_size_t(max_size)
+    ret_code = brotli_library.BrotliEncoderCompressMulti(
+        c_size_t(len(compression_options_map)),
+        options_keys,
+        options_values,
+        c_size_t(len(input)),
+        input,
+        pointer(encoded_size),
+        pointer(encoded),
+        c_size_t(num_threads),
+        c_void_p(),
+        c_void_p(),
+        c_void_p(),
+        )
+    if ret_code == 0:
+        raise BrotliCompressorException("Insufficient space "
+                                        + str(max_size)
+                                        + " to compress "
+                                        + str(len(input))
+                                        + " bytes with "
+                                        + str(num_threads)
+                                        + " threads")
+    return bytearray(encoded[:encoded_size.value])
+
+
+
+
+
+
+######################### CONSTANTS ###############################
 
 BROTLI_PARAM_MODE = 0
 # The main compression speed-density lever.
@@ -89,70 +184,46 @@ BROTLI_PARAM_CATABLE = 167
 BROTLI_PARAM_APPENDABLE = 168
 BROTLI_PARAM_MAGIC_NUMBER = 169
 
-def BrotliEncoderCompressWorkPool(
-        work_pool,
-        input,
-        compression_options_map={},
-        num_threads=4,
-        ):
-    OptionsKeysArrayDecl = c_uint * len(compression_options_map)
-    OptionsValuesArrayDecl = c_uint32 * len(compression_options_map)
-    index = 0
-    options_keys = OptionsKeysArrayDecl()
-    options_values = OptionsValuesArrayDecl()
-    for k, v in compression_options_map.iteritems():
-        options_keys[index] = c_uint(k)
-        options_values[index] = c_uint32(v)
-        index += 1
-    max_size = BrotliEncoderMaxCompressedSizeMulti(c_size_t(len(input)),
-                                                   c_size_t(num_threads)) + 150
-    EncodedArrayDecl = c_ubyte
-    encoded = (c_ubyte  * max_size)()
-    encoded_size = c_size_t(max_size)
-    ret_code = brotli_library.BrotliEncoderCompressWorkPool(
-        work_pool,
-        c_size_t(len(compression_options_map)),
-        options_keys,
-        options_values,
-        c_size_t(len(input)),
-        input,
-        pointer(encoded_size),
-        pointer(encoded),
-        c_size_t(num_threads),
-        c_void_p(),
-        c_void_p(),
-        c_void_p(),
-        )
-    return bytearray(encoded[:encoded_size.value])
-
-def BrotliEncoderCompress(
-        input,
-        compression_options_map={},
-        num_threads=4,
-        ):
-    wp = BrotliEncoderCreateWorkPool(num_threads)
-    ret = BrotliEncoderCompressWorkPool(wp, input, num_threads, compression_options_map)
-    BrotliEncoderDestroyWorkPool(wp)
-    return ret
-
-
+#simple test binary
 def main():
     import sys
+    work_pool = False
+    decompress = False
+    for (index, arg) in enumerate(sys.argv):
+        if arg == '-workpool':
+            work_pool = True
+            sys.argv = sys.argv[:index] + sys.argv[index + 1:]
+    for (index, arg) in enumerate(sys.argv):
+        if arg == '-d':
+            decompress = True
+            sys.argv = sys.argv[:index] + sys.argv[index + 1:]
     if len(sys.argv) > 1:
         with open(sys.argv[1]) as f:
             data = f.read()
     else:
         data = sys.stdin.read()
-    work_pool = BrotliEncoderCreateWorkPool(4)
-    encoded = BrotliEncoderCompressWorkPool(work_pool, data, {
-        BROTLI_PARAM_QUALITY:11,
-        BROTLI_PARAM_Q9_5:0,
-        BROTLI_PARAM_LGWIN: 16,
-        BROTLI_PARAM_MAGIC_NUMBER: 0,
-        BROTLI_PARAM_CATABLE: 0,
-        BROTLI_PARAM_SIZE_HINT: len(data),
-    },4 )
+    if work_pool:
+        work_pool = BrotliEncoderCreateWorkPool(4)
+        encoded = BrotliEncoderCompressWorkPool(work_pool, data, {
+            BROTLI_PARAM_QUALITY:11,
+            BROTLI_PARAM_Q9_5:0,
+            BROTLI_PARAM_LGWIN: 16,
+            BROTLI_PARAM_MAGIC_NUMBER: 0,
+            BROTLI_PARAM_CATABLE: 0,
+            BROTLI_PARAM_SIZE_HINT: len(data),
+        },4 )
+    else:
+        encoded = BrotliEncoderCompress(data, {
+            BROTLI_PARAM_QUALITY:11,
+            BROTLI_PARAM_Q9_5:0,
+            BROTLI_PARAM_LGWIN: 16,
+            BROTLI_PARAM_MAGIC_NUMBER: 0,
+            BROTLI_PARAM_CATABLE: 0,
+            BROTLI_PARAM_SIZE_HINT: len(data),
+        },4 )
     sys.stdout.write(encoded)
     BrotliEncoderDestroyWorkPool(work_pool)
+
 if __name__ == "__main__":
     main()
+
