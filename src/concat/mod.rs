@@ -266,11 +266,15 @@ impl BroCatli {
       self.last_bytes[0] = last_bytes as u8 & 0xff; // reset the last_bytes pair
       self.last_bytes[1] = (last_bytes >> 8) as u8 & 0xff;
       if index >= 8 { // if both bits and one useful bit were in the second block, then write that
-        out_bytes[*out_offset] = self.last_bytes[0];
-        self.last_bytes[0] = self.last_bytes[1];
-        *out_offset += 1;
-        index -= 8;
-        self.last_bytes_len -= 1;
+        if out_bytes.len() > *out_offset {
+          out_bytes[*out_offset] = self.last_bytes[0];
+          self.last_bytes[0] = self.last_bytes[1];
+          *out_offset += 1;
+          index -= 8;
+          self.last_bytes_len -= 1;
+        } else {
+            return BroCatliResult::NeedsMoreOutput;
+        }
       }
       self.last_byte_bit_offset = index;
       assert!(index < 8);

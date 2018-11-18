@@ -1,5 +1,5 @@
 #[no_mangle]
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[repr(C)]
 pub enum BrotliEncoderParameter {
   BROTLI_PARAM_MODE = 0,
