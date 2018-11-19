@@ -3,8 +3,10 @@ from ctypes import c_uint, pointer, POINTER, c_size_t, c_void_p, c_uint32, c_uby
 class BrotliEncoderWorkPool(ctypes.Structure):
     pass
 BrotliEncoderWorkPool= ctypes.POINTER(BrotliEncoderWorkPool)
-
-brotli_library=ctypes.CDLL("../target/release/libbrotli_ffi.dylib")
+try:
+    brotli_library=ctypes.CDLL("../target/release/libbrotli_ffi.dylib")
+except OSError:
+    brotli_library=ctypes.CDLL("../target/release/libbrotli_ffi.so")
 _BrotliEncoderCreateWorkPool = brotli_library.BrotliEncoderCreateWorkPool
 _BrotliEncoderCreateWorkPool.restype = POINTER(BrotliEncoderWorkPool)
 _BrotliEncoderCompressWorkPool = brotli_library.BrotliEncoderCompressWorkPool
@@ -212,6 +214,7 @@ def main():
             BROTLI_PARAM_CATABLE: 0,
             BROTLI_PARAM_SIZE_HINT: len(data),
         },4 )
+        BrotliEncoderDestroyWorkPool(work_pool)
     else:
         encoded = BrotliEncoderCompress(data, {
             BROTLI_PARAM_QUALITY:11,
@@ -222,7 +225,6 @@ def main():
             BROTLI_PARAM_SIZE_HINT: len(data),
         },4 )
     sys.stdout.write(encoded)
-    BrotliEncoderDestroyWorkPool(work_pool)
 
 if __name__ == "__main__":
     main()
