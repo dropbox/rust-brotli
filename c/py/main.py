@@ -1,5 +1,5 @@
 import ctypes
-from ctypes import c_uint, pointer, POINTER, c_size_t, c_void_p, c_uint32, c_ubyte
+from ctypes import c_uint, pointer, POINTER, c_size_t, c_void_p, c_uint32, c_ubyte, c_char_p
 class BrotliEncoderWorkPool(ctypes.Structure):
     pass
 BrotliEncoderWorkPool= ctypes.POINTER(BrotliEncoderWorkPool)
@@ -11,8 +11,27 @@ _BrotliEncoderCreateWorkPool = brotli_library.BrotliEncoderCreateWorkPool
 _BrotliEncoderCreateWorkPool.restype = POINTER(BrotliEncoderWorkPool)
 _BrotliEncoderCompressWorkPool = brotli_library.BrotliEncoderCompressWorkPool
 _BrotliEncoderCompressWorkPool.restype = c_uint32
+class BrotliDecoderState(ctypes.Structure):
+    pass
+class BrotliDecompressorException(Exception):
+    pass
+_BrotliDecoderCreateInstance = brotli_library.BrotliDecoderCreateInstance
+_BrotliDecoderCreateInstance.restype = POINTER(BrotliDecoderState)
+_BrotliDecoderDestroyInstance = brotli_library.BrotliDecoderDestroyInstance
+_BrotliDecoderDestroyInstance.restype = None
 BrotliEncoderMaxCompressedSizeMulti = brotli_library.BrotliEncoderMaxCompressedSizeMulti
 BrotliEncoderMaxCompressedSizeMulti.restype = c_size_t
+_BrotliDecoderDecompressStream = brotli_library.BrotliDecoderDecompressStream
+_BrotliDecoderDecompressStream.restype = None
+
+_BrotliDecoderGetErrorString = brotli_library.BrotliDecoderGetErrorString
+_BrotliDecoderGetErrorString.restype = c_char_p 
+
+BROTLI_DECODER_RESULT_ERROR = 0
+BROTLI_DECODER_RESULT_SUCCESS = 1
+BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT = 2
+BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT = 3
+
 def BrotliEncoderCreateWorkPool(num_workers):
     return _BrotliEncoderCreateWorkPool(c_size_t(num_workers),
                                         c_void_p(),
@@ -68,6 +87,40 @@ def BrotliEncoderCompressWorkPool(
                                         + " threads")
     return bytearray(encoded[:encoded_size.value])
 
+def BrotliDecode(const_input):
+    state = _BrotliDecoderCreateInstance(c_void_p(),
+                                         c_void_p(),
+                                         c_void_p())
+    input = memoryview(const_input)
+    output = []
+    try:
+        while True:
+            next_in = (c_ubyte * len(input))(len(input))
+            available_in = c_size_t(len(const_input))
+
+            orig_out = 65536
+            available_out = c_size_t(orig_out)
+            out_buf = (c_ubyte * orig_out)()
+            next_out = out_buf
+            
+            res = _BrotliDecoderDecompressStream(state,
+                                                pointer(available_in),
+                                                ctypes.byref(next_in),
+                                                pointer(available_out),
+                                                pointer(next_out),
+                                                c_void_p())
+            if res == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT:
+                raise BrotliDecompressorException("EarlyEOF")
+            elif res == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT:
+                output.append(out_buf[:orig_out - available_out])
+            elif res == BROTLI_DECODER_RESULT_SUCCESS:
+                break
+            else:
+                raise BrotliDecompressorException(_BrotliDecoderGetErrorString(state))
+    finally:
+        _BrotliDecoderDestroyInstance(state)
+    return ''.join(output)
+
 def BrotliEncoderCompress(
         input,
         compression_options_map={},
@@ -98,8 +151,7 @@ def BrotliEncoderCompress(
         c_size_t(num_threads),
         c_void_p(),
         c_void_p(),
-        c_void_p(),
-        )
+        c_void_p())
     if ret_code == 0:
         raise BrotliCompressorException("Insufficient space "
                                         + str(max_size)
@@ -204,9 +256,11 @@ def main():
             data = f.read()
     else:
         data = sys.stdin.read()
-    if work_pool:
+    if decompress:
+        processed = BrotliDecode(data)
+    elif work_pool:
         work_pool = BrotliEncoderCreateWorkPool(4)
-        encoded = BrotliEncoderCompressWorkPool(work_pool, data, {
+        processed = BrotliEncoderCompressWorkPool(work_pool, data, {
             BROTLI_PARAM_QUALITY:11,
             BROTLI_PARAM_Q9_5:0,
             BROTLI_PARAM_LGWIN: 16,
@@ -216,7 +270,7 @@ def main():
         },4 )
         BrotliEncoderDestroyWorkPool(work_pool)
     else:
-        encoded = BrotliEncoderCompress(data, {
+        processed = BrotliEncoderCompress(data, {
             BROTLI_PARAM_QUALITY:11,
             BROTLI_PARAM_Q9_5:0,
             BROTLI_PARAM_LGWIN: 16,
@@ -224,7 +278,7 @@ def main():
             BROTLI_PARAM_CATABLE: 0,
             BROTLI_PARAM_SIZE_HINT: len(data),
         },4 )
-    sys.stdout.write(encoded)
+    sys.stdout.write(processed)
 
 if __name__ == "__main__":
     main()
