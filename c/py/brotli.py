@@ -53,10 +53,11 @@ class BrotliCompressorException(Exception):
 
 def BrotliEncoderCompressWorkPool(
         work_pool,
-        input,
+        any_input,
         compression_options_map={},
         num_threads=4,
         ):
+    input = _fix_ctype_input_arrays(any_input)
     OptionsKeysArrayDecl = c_uint * len(compression_options_map)
     OptionsValuesArrayDecl = c_uint32 * len(compression_options_map)
     index = 0
@@ -95,48 +96,24 @@ def BrotliEncoderCompressWorkPool(
                                         + " threads")
     return bytearray(encoded[:encoded_size.value])
 
-def _BrotliDecodeSize(const_input):
-    state = _BrotliDecoderCreateInstance(c_void_p(),
-                                         c_void_p(),
-                                         c_void_p())
-    input = ctypes.create_string_buffer(const_input)
-    next_in = pointer(input)
+def _fix_ctype_input_arrays(any_input):
+    if type(any_input) == memoryview:
+        return any_input.tobytes()
+    if type(any_input) != str and type(any_input) != bytes:
+        try:
+            return (c_ubyte * len(any_input)).from_buffer(any_input)
+        except Exception:
+            pass
+    return any_input
 
-    orig_out = 65536
-    out_buf = (c_ubyte * orig_out)()
-    total_size = 0
-    try:
-        while True:
-            available_in = c_size_t(len(const_input))
-
-            available_out = c_size_t(orig_out)
-            
-            res = _BrotliDecoderDecompressStream(state,
-                                                byref(available_in),
-                                                byref(next_in),
-                                                byref(available_out),
-                                                byref(out_buf),
-                                                c_void_p())
-            total_size += orig_out - available_out.value
-            if res == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT:
-                raise BrotliDecompressorException("EarlyEOF")
-            elif res == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT:
-                pass
-            elif res == BROTLI_DECODER_RESULT_SUCCESS:
-                break
-            else:
-                raise BrotliDecompressorException(_BrotliDecoderGetErrorString(state))
-    finally:
-        _BrotliDecoderDestroyInstance(state)
-    return total_size
-
-def BrotliDecode(input, expected_size=4096 * 1024):
+def BrotliDecode(any_input, expected_size=4096 * 1024, max_expected_size = 256 * 1024 * 1024):
+    input = _fix_ctype_input_arrays(any_input)
     while True:
         decoded_size = c_size_t(expected_size)
         decoded = (c_ubyte * decoded_size.value)()
 
         res = brotli_library.BrotliDecoderDecompress(len(input),
-                                                     bytes(input),
+                                                     input,
                                                      byref(decoded_size),
                                                      byref(decoded))
         if res == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT:
@@ -146,14 +123,17 @@ def BrotliDecode(input, expected_size=4096 * 1024):
         elif res == BROTLI_DECODER_RESULT_SUCCESS:
             return bytearray(decoded[:decoded_size.value])
         else:
-            expected_size = _BrotliDecodeSize(input)
+            expected_size *= 2
+            if expected_size > max_expected_size:
+                raise BrotliDecompressorException("Brotli file > " + max_expected_size + " or corrupt brotli file")
 
 
 def BrotliCompress(
-        input,
+        any_input,
         compression_options_map={},
         num_threads=4,
         ):
+    input = _fix_ctype_input_arrays(any_input)
     OptionsKeysArrayDecl = c_uint * len(compression_options_map)
     OptionsValuesArrayDecl = c_uint32 * len(compression_options_map)
     index = 0
@@ -307,7 +287,7 @@ def main(args):
         },4 )
         BrotliEncoderDestroyWorkPool(work_pool)
     else:
-        processed = BrotliEncoderCompress(data, {
+        processed = BrotliCompress(data, {
             BROTLI_PARAM_QUALITY:11,
             BROTLI_PARAM_Q9_5:0,
             BROTLI_PARAM_LGWIN: 16,

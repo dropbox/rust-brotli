@@ -30,6 +30,28 @@ class TestBrotliLibrary(unittest.TestCase):
         rt = BrotliDecode(output)
         assert rt == self.test_data
         assert len(output) < 1024 * 1024
+    def test_tiny_alloc(self):
+        output = BrotliCompress(self.test_data,
+                                {
+                                    BROTLI_PARAM_QUALITY:5,
+                                    BROTLI_PARAM_CATABLE:1,
+                                    BROTLI_PARAM_MAGIC_NUMBER:1,
+                                },
+                                8)
+        rt = BrotliDecode(output, 2)
+        assert rt == self.test_data
+        assert len(output) < 1024 * 1024
+    def test_memory_view(self):
+        output = BrotliCompress(memoryview(self.test_data),
+                                {
+                                    BROTLI_PARAM_QUALITY:5,
+                                    BROTLI_PARAM_CATABLE:1,
+                                    BROTLI_PARAM_MAGIC_NUMBER:1,
+                                },
+                                8)
+        rt = BrotliDecode(output)
+        assert rt == self.test_data
+        assert len(output) < 1024 * 1024
     def test_1(self):
         output = BrotliCompress(self.test_data[:65536],
                                 {
