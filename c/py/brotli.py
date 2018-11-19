@@ -8,7 +8,13 @@ BrotliEncoderWorkPool= ctypes.POINTER(BrotliEncoderWorkPool)
 try:
     brotli_library=ctypes.CDLL("../target/release/libbrotli_ffi.dylib")
 except OSError:
-    brotli_library=ctypes.CDLL("../target/release/libbrotli_ffi.so")
+    try:
+        brotli_library=ctypes.CDLL("../target/release/libbrotli_ffi.so")
+    except:
+        try:
+            brotli_library=ctypes.CDLL("target/release/libbrotli_ffi.dylib")
+        except OSError:
+            brotli_library=ctypes.CDLL("target/release/libbrotli_ffi.so")
 _BrotliEncoderCreateWorkPool = brotli_library.BrotliEncoderCreateWorkPool
 _BrotliEncoderCreateWorkPool.restype = POINTER(BrotliEncoderWorkPool)
 _BrotliEncoderCompressWorkPool = brotli_library.BrotliEncoderCompressWorkPool
@@ -130,7 +136,7 @@ def BrotliDecode(input, expected_size=4096 * 1024):
         decoded = (c_ubyte * decoded_size.value)()
 
         res = brotli_library.BrotliDecoderDecompress(len(input),
-                                                     input,
+                                                     bytes(input),
                                                      byref(decoded_size),
                                                      byref(decoded))
         if res == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT:
@@ -143,7 +149,7 @@ def BrotliDecode(input, expected_size=4096 * 1024):
             expected_size = _BrotliDecodeSize(input)
 
 
-def BrotliEncoderCompress(
+def BrotliCompress(
         input,
         compression_options_map={},
         num_threads=4,
