@@ -1,12 +1,12 @@
 package brotli
 
 /*
-#cgo CFLAGS: -I../../..
-#cgo LDFLAGS: -L../../../target/release -l brotli_ffi -lm -ldl
-#include <brotli/encode.h>
-#include <brotli/decode.h>
-#include <brotli/broccoli.h>
-#include <brotli/multiencode.h>
+#cgo CFLAGS: -I../../.. -I.
+#cgo LDFLAGS: -L../../../target/release -L../target/release -L../../target/release -lbrotli_ffi -lm -ldl
+#include "brotli/encode.h"
+#include "brotli/decode.h"
+#include "brotli/broccoli.h"
+#include "brotli/multiencode.h"
 static BrotliDecoderResult BrDecompressStream(BrotliDecoderState* s,
                                             size_t *avail_in,
                                             const uint8_t* in,

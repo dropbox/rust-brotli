@@ -1,7 +1,7 @@
 package main
 
 import (
-	"brotli"
+	"github.com/dropbox/rust-brotli/c/go/brotli"
 	"io"
 	"io/ioutil"
 	"os"

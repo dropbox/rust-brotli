@@ -1,4 +1,4 @@
-package brotli
+package main
 
 const bufsize = 4096 * 1024
 
