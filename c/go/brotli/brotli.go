@@ -1,7 +1,7 @@
 package brotli
 
 /*
-#cgo CFLAGS: -I../../.. -I.
+#cgo CFLAGS: -I. -I../../..
 #cgo LDFLAGS: -L../../../target/release -L../target/release -L../../target/release -lbrotli_ffi -lm -ldl
 #include "brotli/encode.h"
 #include "brotli/decode.h"
@@ -52,6 +52,14 @@ type CompressionOptions struct {
 	NumPostfix                    uint32
 	LiteralByteScore              uint32
 	AvoidDistancePrefixSearch     bool
+}
+
+func BrotliEncoderVersion() uint32 {
+	return uint32(C.BrotliEncoderVersion())
+}
+
+func BrotliDecoderVersion() uint32 {
+	return uint32(C.BrotliDecoderVersion())
 }
 
 type MultiCompressionReader struct {

@@ -5,6 +5,10 @@ from .testdata import *
 class TestBrotliLibrary(unittest.TestCase):
     def setUp(self):
         self.test_data = make_test_data(4096 * 1024)
+    def test_version(self):
+        assert BrotliDecoderVersion()
+        assert BrotliEncoderVersion()
+
     def test_wp_rt(self):
         wp = BrotliEncoderCreateWorkPool(8)
         output = BrotliEncoderCompressWorkPool(wp,
@@ -78,6 +82,24 @@ class TestBrotliLibrary(unittest.TestCase):
         rt = BrotliDecode(output)
         assert rt == random_data
         assert len(output) > 130000
+    def test_1(self):
+        output = BrotliCompress(self.test_data[:65536],
+                                {
+                                    BROTLI_PARAM_QUALITY:6,
+                                    BROTLI_PARAM_CATABLE:1,
+                                    BROTLI_PARAM_MAGIC_NUMBER:1,
+                                },
+                                8)
+        corrupt = output[:len(output) - 1]
+        rt = BrotliDecode(output)
+        assert rt == self.test_data[:65536]
+        assert len(output) < 1024 * 1024
+        try:
+            BrotliDecode(corrupt)
+        except BrotliDecompressorException:
+            pass
+        else:
+            assert False, "Should have errored"
 if __name__ == '__main__':
     unittest.main()
 

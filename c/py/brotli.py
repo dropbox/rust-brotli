@@ -35,6 +35,21 @@ _BrotliDecoderDecompressStream.restype = int
 _BrotliDecoderGetErrorString = brotli_library.BrotliDecoderGetErrorString
 _BrotliDecoderGetErrorString.restype = c_char_p 
 
+
+_BrotliEncoderVersion = brotli_library.BrotliEncoderVersion
+_BrotliEncoderVersion.restype = c_uint32
+
+_BrotliDecoderVersion = brotli_library.BrotliDecoderVersion
+_BrotliDecoderVersion.restype = c_uint32
+
+def BrotliEncoderVersion():
+    # type: () -> int
+    return _BrotliEncoderVersion()
+
+def BrotliDecoderVersion():
+    # type: () -> int
+    return _BrotliDecoderVersion()
+
 BROTLI_DECODER_RESULT_ERROR = 0
 BROTLI_DECODER_RESULT_SUCCESS = 1
 BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT = 2
@@ -125,7 +140,7 @@ def BrotliDecode(any_input, expected_size=4096 * 1024, max_expected_size = 256 *
         else:
             expected_size *= 2
             if expected_size > max_expected_size:
-                raise BrotliDecompressorException("Brotli file > " + max_expected_size + " or corrupt brotli file")
+                raise BrotliDecompressorException("Brotli file > " + str(max_expected_size) + " or corrupt brotli file")
 
 
 def BrotliCompress(
