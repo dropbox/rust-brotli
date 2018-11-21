@@ -1,7 +1,7 @@
 use core;
 
 #[repr(C)]
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy, PartialEq)]
 #[no_mangle]
 pub enum BroCatliResult {
   Success = 0,
@@ -119,6 +119,7 @@ pub struct BroCatli {
   last_bytes: [u8; 2],
   last_bytes_len: u8,
   last_byte_sanitized: bool,
+  any_bytes_emitted: bool,
   last_byte_bit_offset: u8,
   // need to make sure that window sizes stay similar or get smaller
   window_size: u8,
@@ -136,6 +137,7 @@ impl BroCatli {
       last_bytes_len: 0,
       last_byte_bit_offset: 0,
       last_byte_sanitized: false,
+      any_bytes_emitted: false,
       new_stream_pending: None,
       window_size:0,
     }
@@ -162,6 +164,7 @@ impl BroCatli {
         last_bytes_len: buffer[8],
         last_byte_sanitized: (buffer[9] & 0x1) != 0,
         last_byte_bit_offset: buffer[10],
+        any_bytes_emitted: (buffer[9] & (1 << 5)) != 0,
         window_size: buffer[11],
         new_stream_pending:new_stream_pending,
     };
@@ -180,7 +183,7 @@ impl BroCatli {
     buffer[..self.last_bytes.len()].clone_from_slice(
         &self.last_bytes[..]);
     buffer[8] = self.last_bytes_len;
-    buffer[9] = (self.last_byte_sanitized as u8) | ((self.new_stream_pending.is_some() as u8) << 6);
+    buffer[9] = (self.last_byte_sanitized as u8) | ((self.new_stream_pending.is_some() as u8) << 6) | ((self.any_bytes_emitted as u8) << 5);
       buffer[10] = self.last_byte_bit_offset;
       buffer[11] = self.window_size;
       if let Some(new_stream_pending) = self.new_stream_pending {
@@ -231,6 +234,7 @@ impl BroCatli {
       last_bytes_len: last_bytes_len,
       last_byte_bit_offset: 0,
       last_byte_sanitized: false,
+      any_bytes_emitted: false,
       new_stream_pending: None,
       window_size:log_window_size,
     }
@@ -270,10 +274,11 @@ impl BroCatli {
           out_bytes[*out_offset] = self.last_bytes[0];
           self.last_bytes[0] = self.last_bytes[1];
           *out_offset += 1;
+          self.any_bytes_emitted = true;
           index -= 8;
           self.last_bytes_len -= 1;
         } else {
-            return BroCatliResult::NeedsMoreOutput;
+          return BroCatliResult::NeedsMoreOutput;
         }
       }
       self.last_byte_bit_offset = index;
@@ -297,6 +302,7 @@ impl BroCatli {
         assert_eq!(self.last_byte_bit_offset, 0); // we are first stream
         out_bytes[*out_offset] = new_stream_pending.bytes_so_far[0];
         new_stream_pending.num_bytes_written = Some(1);
+        self.any_bytes_emitted = true;
         *out_offset += 1;
       } else {
         if window_size > self.window_size {
@@ -331,6 +337,7 @@ impl BroCatli {
           realigned_header[whole_byte_destination + aligned_index] = new_stream_pending.bytes_so_far[whole_byte_source + aligned_index];
         }
         out_bytes[*out_offset] = realigned_header[0];
+        self.any_bytes_emitted = true;
         *out_offset += 1;
         // subtract one since that has just been written out and we're only copying realigned_header[1..]
         new_stream_pending.num_bytes_read = (whole_byte_destination + num_whole_bytes_to_copy) as u8 - 1;
@@ -345,6 +352,9 @@ impl BroCatli {
     out_bytes.split_at_mut(*out_offset).1.split_at_mut(to_copy).0.clone_from_slice(
       &new_stream_pending.bytes_so_far.split_at(usize::from(new_stream_pending.num_bytes_written.unwrap())).1.split_at(to_copy).0);
     *out_offset += to_copy;
+    if to_copy != 0 {
+      self.any_bytes_emitted = true;
+    }
     new_stream_pending.num_bytes_written = Some((new_stream_pending.num_bytes_written.unwrap() + to_copy as u8));
     if new_stream_pending.num_bytes_written.unwrap() != new_stream_pending.num_bytes_read {
       self.new_stream_pending = Some(new_stream_pending);
@@ -478,6 +488,15 @@ impl BroCatli {
            *out_offset += 1;
            self.last_bytes_len -= 1;
            self.last_bytes[0] = self.last_bytes[1];
+           self.any_bytes_emitted = true;
+       }
+       if !self.any_bytes_emitted {
+           if out_bytes.len() == *out_offset{
+               return BroCatliResult::NeedsMoreOutput;
+           }
+           self.any_bytes_emitted = true;
+           out_bytes[*out_offset] = b';';
+           *out_offset += 1;
        }
        BroCatliResult::Success
    }
@@ -485,7 +504,7 @@ impl BroCatli {
 
 mod test {
     #[cfg(test)]
-    use super::BroCatli;
+    use super::{BroCatli};
     #[test]
     fn test_deserialization() {
         let broccoli = BroCatli{
@@ -497,6 +516,37 @@ mod test {
             last_bytes: [0x45, 0x46],
             last_bytes_len: 1,
             last_byte_sanitized: true,
+            any_bytes_emitted: false,
+            last_byte_bit_offset: 7,
+            window_size:22,
+        };
+        let mut buffer = [0u8;248];
+        broccoli.serialize_to_buffer(&mut buffer[..]).unwrap();
+        let bc = BroCatli::deserialize_from_buffer(&buffer[..]).unwrap();
+        assert_eq!(broccoli.last_bytes, bc.last_bytes);
+        assert_eq!(broccoli.last_bytes_len, bc.last_bytes_len);
+        assert_eq!(broccoli.last_byte_sanitized, bc.last_byte_sanitized);
+        assert_eq!(broccoli.last_byte_bit_offset, bc.last_byte_bit_offset);
+        assert_eq!(broccoli.window_size, bc.window_size);
+        assert_eq!(broccoli.new_stream_pending.unwrap().bytes_so_far,
+                   bc.new_stream_pending.unwrap().bytes_so_far);
+        assert_eq!(broccoli.new_stream_pending.unwrap().num_bytes_read,
+                   bc.new_stream_pending.unwrap().num_bytes_read);
+        assert_eq!(broccoli.new_stream_pending.unwrap().num_bytes_written,
+                   bc.new_stream_pending.unwrap().num_bytes_written);
+    }
+    #[test]
+    fn test_deserialization_any_written() {
+        let broccoli = BroCatli{
+            new_stream_pending:Some(super::NewStreamData {
+                bytes_so_far: [0x33; super::NUM_STREAM_HEADER_BYTES],
+                num_bytes_read: 16,
+                num_bytes_written: Some(3),
+            }),
+            last_bytes: [0x45, 0x46],
+            last_bytes_len: 1,
+            last_byte_sanitized: true,
+            any_bytes_emitted: true,
             last_byte_bit_offset: 7,
             window_size:22,
         };
@@ -544,5 +594,31 @@ mod test {
         }
         broccoli.serialize_to_buffer(&mut buffer[..]).unwrap();
         assert_eq!(&buffer[..], &buffer2[..]);
+    }
+    #[test]
+    fn test_cat_empty_stream() {
+        let empty_catable = [b';'];
+        let mut bcat = super::BroCatli::default();
+        let mut in_offset = 0usize;
+        let mut out_bytes = [0u8;32];
+        let mut out_offset = 0usize;
+        bcat.new_brotli_file();
+        let mut res = bcat.stream(&empty_catable[..],
+                              &mut in_offset,
+                              &mut out_bytes[..],
+                              &mut out_offset);
+        assert_eq!(res, super::BroCatliResult::NeedsMoreInput);
+        bcat.new_brotli_file();
+        in_offset = 0;
+        res = bcat.stream(&empty_catable[..],
+                              &mut in_offset,
+                              &mut out_bytes[..],
+                              &mut out_offset);
+        assert_eq!(res, super::BroCatliResult::NeedsMoreInput);
+        res = bcat.finish(&mut out_bytes[..],
+                          &mut out_offset);
+        assert_eq!(res, super::BroCatliResult::Success);
+        assert!(out_offset != 0);
+        assert_eq!(&out_bytes[..out_offset], &[b';']);
     }
 }
