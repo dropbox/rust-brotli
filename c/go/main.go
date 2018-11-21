@@ -28,6 +28,10 @@ func main() {
 		if arg == "-d" {
 			decompress = true
 		}
+        if arg == "-dirtree" {
+           recursiveVerify(os.Args[index+1])
+           return
+        }
 		if arg == "-cat" {
 			toCat = append(toCat, os.Args[index+1:]...)
 			break
