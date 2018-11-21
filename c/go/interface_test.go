@@ -141,6 +141,38 @@ func TestRejectCorruptBuffers(*testing.T) {
 		panic(err)
 	}
 }
+func TestCompressRoundtripZero(*testing.T) {
+	var data []byte
+	outBuffer := bytes.NewBuffer(nil)
+	var options = brotli.CompressionOptions{
+		NumThreads: 1,
+		Quality:    9,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
+	writer := brotli.NewMultiCompressionWriter(
+		brotli.NewDecompressionWriter(
+			outBuffer,
+		),
+		options,
+	)
+    _, err := writer.Write(data)
+    
+	if err != nil {
+		panic(err)
+	}
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
+}
 
 func TestCompressReader(*testing.T) {
 	data := testData()
@@ -175,6 +207,35 @@ func TestCompressReaderRoundtrip(*testing.T) {
 	var options = brotli.CompressionOptions{
 		NumThreads: 1,
 		Quality:    4,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
+	reader := brotli.NewDecompressionReader(
+		brotli.NewMultiCompressionReader(
+			inBuffer,
+			options,
+		),
+	)
+	_, err := io.Copy(outBuffer, reader)
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
+}
+
+func TestCompressReaderRoundtripZero(*testing.T) {
+    var data []byte
+	inBuffer := bytes.NewBuffer(data[:])
+	outBuffer := bytes.NewBuffer(nil)
+	var options = brotli.CompressionOptions{
+		NumThreads: 1,
+		Quality:    11,
 		Catable:    true,
 		Appendable: true,
 		Magic:      true,

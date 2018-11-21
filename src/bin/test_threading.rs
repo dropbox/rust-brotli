@@ -18,16 +18,15 @@ impl<'a> SliceWrapper<u8> for SliceRef<'a> {
     fn slice(&self) -> &[u8] { self.0 }
 }
 
-fn multi_threaded_split_compression_test(num_threads: usize, quality: i32, catable: bool, expected_size: usize) {
+fn multi_threaded_split_compression_test(input_data: &'static[u8], num_threads: usize, quality: i32, catable: bool, expected_size: usize) {
     let mut params = BrotliEncoderParams::default();
-    let input_data = &RANDOM_THEN_UNICODE[..];
     params.quality = quality;
     params.magic_number = true;
     if catable {
         params.catable = true;
         params.use_dictionary = false;
     }
-    let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(RANDOM_THEN_UNICODE.len(), num_threads)]);
+    let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input_data.len(), num_threads)]);
     let mut alloc_per_thread = [
         SendAlloc::new(new_brotli_heap_alloc()),
         SendAlloc::new(new_brotli_heap_alloc()),
@@ -57,6 +56,7 @@ fn multi_threaded_split_compression_test(num_threads: usize, quality: i32, catab
     if observed_size > expected_size {
         assert_eq!(observed_size, expected_size);
     }
+    assert!(observed_size != 0);
     let mut compressed_version = UnlimitedBuffer::new(&output.slice()[..observed_size]);
     let mut rt = UnlimitedBuffer::new(&[]);
     match super::decompress(&mut compressed_version, &mut rt, 65536, Rebox::default()) {
@@ -67,37 +67,55 @@ fn multi_threaded_split_compression_test(num_threads: usize, quality: i32, catab
 }
 #[test]
 fn multi_threaded_split_compression_test_1() {
-    multi_threaded_split_compression_test(1, 3, false, 155808)
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 1, 3, false, 155808)
 }
 #[test]
 fn multi_threaded_split_compression_test_2() {
-    multi_threaded_split_compression_test(2, 4, false, 151857)
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 2, 4, false, 151857)
 }
 #[test]
 fn multi_threaded_split_compression_test_3() {
-    multi_threaded_split_compression_test(3, 5, false, 144325)
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 3, 5, false, 144325)
 }
 #[test]
 fn multi_threaded_split_compression_test_4() {
-    multi_threaded_split_compression_test(4, 10, true, 136812)
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 4, 10, true, 136812)
 }
 #[test]
 fn multi_threaded_split_compression_test_5() {
-    multi_threaded_split_compression_test(5, 9, false, 139125)
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 5, 9, false, 139125)
+}
+#[test]
+fn multi_threaded_split_compression_test_1b1() {
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..1], 5, 9, false, 139125)
+}
+#[test]
+fn multi_threaded_split_compression_test_1b5() {
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..1], 5, 9, false, 139125)
+}
+
+
+#[test]
+fn multi_threaded_split_compression_test_0b1() {
+    multi_threaded_split_compression_test(&[], 5, 9, false, 139125)
+}
+#[test]
+fn multi_threaded_split_compression_test_0b5() {
+    multi_threaded_split_compression_test(&[], 5, 9, false, 139125)
 }
 
 
 
-fn thread_spawn_per_job_split_compression_test(num_threads: usize, quality: i32, catable: bool, expected_size: usize) {
+
+fn thread_spawn_per_job_split_compression_test(input_data: &'static[u8], num_threads: usize, quality: i32, catable: bool, expected_size: usize) {
     let mut params = BrotliEncoderParams::default();
-    let input_data = &RANDOM_THEN_UNICODE[..];
     params.quality = quality;
     params.magic_number = true;
     if catable {
         params.catable = true;
         params.use_dictionary = false;
     }
-    let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(RANDOM_THEN_UNICODE.len(), num_threads)]);
+    let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input_data.len(), num_threads)]);
     let mut alloc_per_thread = [
         SendAlloc::new(new_brotli_heap_alloc()),
         SendAlloc::new(new_brotli_heap_alloc()),
@@ -127,6 +145,7 @@ fn thread_spawn_per_job_split_compression_test(num_threads: usize, quality: i32,
     if observed_size > expected_size {
         assert_eq!(observed_size, expected_size);
     }
+    assert!(observed_size != 0);
     let mut compressed_version = UnlimitedBuffer::new(&output.slice()[..observed_size]);
     let mut rt = UnlimitedBuffer::new(&[]);
     match super::decompress(&mut compressed_version, &mut rt, 65536, Rebox::default()) {
@@ -137,9 +156,25 @@ fn thread_spawn_per_job_split_compression_test(num_threads: usize, quality: i32,
 }
 #[test]
 fn thread_spawn_per_job_split_compression_test_1() {
-    thread_spawn_per_job_split_compression_test(1, 3, false, 155808)
+    thread_spawn_per_job_split_compression_test(&RANDOM_THEN_UNICODE[..], 1, 3, false, 155808)
 }
 #[test]
 fn thread_spawn_per_job_split_compression_test_3() {
-    thread_spawn_per_job_split_compression_test(3, 5, false, 144325)
+    thread_spawn_per_job_split_compression_test(&RANDOM_THEN_UNICODE[..], 3, 5, false, 144325)
+}
+#[test]
+fn thread_spawn_per_job_split_compression_test_1b1() {
+    thread_spawn_per_job_split_compression_test(&RANDOM_THEN_UNICODE[..1], 1, 3, false, 155808)
+}
+#[test]
+fn thread_spawn_per_job_split_compression_test_1b3() {
+    thread_spawn_per_job_split_compression_test(&RANDOM_THEN_UNICODE[..1], 3, 5, false, 144325)
+}
+#[test]
+fn thread_spawn_per_job_split_compression_test_0b1() {
+    thread_spawn_per_job_split_compression_test(&[], 1, 3, false, 155808)
+}
+#[test]
+fn thread_spawn_per_job_split_compression_test_0b3() {
+    thread_spawn_per_job_split_compression_test(&[], 3, 5, false, 144325)
 }

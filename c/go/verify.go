@@ -20,7 +20,7 @@ func makeOptions() brotli.CompressionOptions {
 		Appendable: true,
 		Magic:      true,
 	}
-    if ret.Quality > 11 {
+    if ret.Quality > 9 {
        ret.Quality = 9.5
     }
     return ret
@@ -113,10 +113,22 @@ func verifyWriter(path string) {
 
 func recursiveVerify(root string) {
     filepath.Walk(root, filepath.WalkFunc(func(path string, info os.FileInfo, err error) error {
-        if !info.IsDir() {
-            fmt.Fprintf(os.Stderr, "Processing %v", path)
+        if info.Size() > 1 && !info.IsDir() {
+            func() {
+            f, err := os.Open(path);
+            if err != nil {
+               return
+            }
+            defer func () {_ = f.Close()}()
+            var test [64]byte
+            sz, err := f.Read(test[:])
+            if sz == 0 || err != nil {
+              return
+            }
+            fmt.Fprintf(os.Stderr, "Processing %v (%d)\n", path, info.Size())
             verifyReader(path);
             verifyWriter(path);
+            }()
         }
         return nil
     }))
