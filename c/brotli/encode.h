@@ -384,6 +384,10 @@ BROTLI_ENC_API BROTLI_BOOL BrotliEncoderCompressStream(
     const uint8_t** next_in, size_t* available_out, uint8_t** next_out,
     size_t* total_out);
 
+BROTLI_ENC_API BROTLI_BOOL BrotliEncoderCompressStreaming(
+    BrotliEncoderState* state, BrotliEncoderOperation op, size_t* available_in,
+    const uint8_t* next_in, size_t* available_out, uint8_t* next_out);
+
 /**
  * Checks if encoder instance reached the final state.
  *

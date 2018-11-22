@@ -93,6 +93,22 @@ pub unsafe extern fn BroccoliConcatStream(
 }
 
 #[no_mangle]
+pub unsafe extern fn BroccoliConcatStreaming(
+  state: *mut BroccoliState,
+  available_in: *mut usize,
+  mut input_buf: *const u8,
+  available_out: *mut usize,
+  mut output_buf: *mut u8) -> BroccoliResult {
+  BroccoliConcatStream(
+    state,
+    available_in,
+    &mut input_buf,
+    available_out,
+    &mut output_buf)
+      
+}
+
+#[no_mangle]
 pub unsafe extern fn BroccoliConcatFinish(
   state: *mut BroccoliState,
   available_out: *mut usize,
@@ -105,4 +121,16 @@ pub unsafe extern fn BroccoliConcatFinish(
   *available_out -= output_offset;
   *state = BroccoliState::from(bro_catli);
   ret
+}
+
+// exactly the same as BrotliConcatFinish but without the indirect
+#[no_mangle]
+pub unsafe extern fn BroccoliConcatFinished(
+  state: *mut BroccoliState,
+  available_out: *mut usize,
+  mut output_buf: *mut u8) -> BroCatliResult {
+  BroccoliConcatFinish(
+    state,
+    available_out,
+    &mut output_buf)
 }

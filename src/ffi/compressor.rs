@@ -237,6 +237,26 @@ pub unsafe extern fn BrotliEncoderCompress(
     },
   }
 }
+
+#[no_mangle]
+pub unsafe extern fn BrotliEncoderCompressStreaming(
+  state_ptr: *mut BrotliEncoderState,
+  op: BrotliEncoderOperation,
+  available_in: *mut usize,
+  mut input_buf: *const u8,
+  available_out: *mut usize,
+  mut output_buf: *mut u8,
+) -> i32 {
+  BrotliEncoderCompressStream(state_ptr,
+                              op,
+                              available_in,
+                              &mut input_buf,
+                              available_out,
+                              &mut output_buf,
+                              core::ptr::null_mut())
+                              
+}
+
 #[no_mangle]
 pub unsafe extern fn BrotliEncoderCompressStream(
   state_ptr: *mut BrotliEncoderState,

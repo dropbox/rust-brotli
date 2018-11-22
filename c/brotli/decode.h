@@ -118,6 +118,21 @@ typedef enum {
 #undef BROTLI_ERROR_CODE_ENUM_ITEM_
 #undef BROTLI_COMMA_
 
+typedef struct HuffmanCodeStruct {
+    uint16_t value;
+    uint8_t bits;
+} HuffmanCode;
+
+
+
+typedef struct BrotliDecoderReturnInfoStruct {
+    size_t decoded_size;
+    char error[256];
+    BrotliDecoderResult result;
+    BrotliDecoderErrorCode code;
+} BrotliDecoderReturnInfo;
+
+
 /**
  * The value of the last error code, negative integer.
  *
@@ -205,6 +220,25 @@ BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompress(
     size_t* decoded_size,
     uint8_t decoded_buffer[BROTLI_ARRAY_PARAM(*decoded_size)]);
 
+BROTLI_DEC_API BrotliDecoderReturnInfo BrotliDecoderDecompressWithReturnInfo(
+    size_t encoded_size,
+    const uint8_t encoded_buffer[BROTLI_ARRAY_PARAM(encoded_size)],
+    size_t decoded_size,
+    uint8_t decoded_buffer[BROTLI_ARRAY_PARAM(decoded_size)]);
+
+BROTLI_DEC_API BrotliDecoderReturnInfo BrotliDecoderDecompressPrealloc(
+    size_t encoded_size,
+    const uint8_t encoded_buffer[BROTLI_ARRAY_PARAM(encoded_size)],
+    size_t decoded_size,
+    uint8_t decoded_buffer[BROTLI_ARRAY_PARAM(decoded_size)],
+    size_t scratch_u8_size,
+    uint8_t scratch_u8_buffer[BROTLI_ARRAY_PARAM(scratch_u8_size)],
+    size_t scratch_u32_size,
+    uint32_t scratch_u32_buffer[BROTLI_ARRAY_PARAM(scratch_u32_size)],
+    size_t scratch_hc_size,
+    HuffmanCode scratch_hc_buffer[BROTLI_ARRAY_PARAM(scratch_hc_size)]
+    );
+
 /**
  * Decompresses the input stream to the output stream.
  *
@@ -246,6 +280,10 @@ BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompress(
 BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompressStream(
   BrotliDecoderState* state, size_t* available_in, const uint8_t** next_in,
   size_t* available_out, uint8_t** next_out, size_t* total_out);
+
+BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompressStreaming(
+  BrotliDecoderState* state, size_t* available_in, const uint8_t* next_in,
+  size_t* available_out, uint8_t* next_out);
 
 /**
  * Checks if decoder has more output.

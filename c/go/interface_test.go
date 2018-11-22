@@ -80,6 +80,39 @@ func TestCompressRoundtrip(*testing.T) {
 	}
 }
 
+func TestCompressRoundtripMulti(*testing.T) {
+	tmp := testData()
+	data := tmp[:len(tmp)-17]
+	outBuffer := bytes.NewBuffer(nil)
+	var options = brotli.CompressionOptions{
+		NumThreads: 16,
+		Quality:    9,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
+	writer := brotli.NewMultiCompressionWriter(
+		brotli.NewDecompressionWriter(
+			outBuffer,
+		),
+		options,
+	)
+	_, err := writer.Write(data[:])
+	if err != nil {
+		panic(err)
+	}
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
+}
+
 func TestRejectCorruptBuffers(*testing.T) {
 	tmp := testData()
 	data := tmp[:len(tmp)-17]

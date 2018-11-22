@@ -1,7 +1,7 @@
 import ctypes
 import sys
 
-from ctypes import c_uint, pointer, POINTER, c_size_t, c_void_p, c_uint32, c_ubyte, c_char_p, byref
+from ctypes import c_uint, c_int, pointer, POINTER, c_size_t, c_void_p, c_uint32, c_ubyte, c_char_p, byref
 class BrotliEncoderWorkPool(ctypes.Structure):
     pass
 BrotliEncoderWorkPool= ctypes.POINTER(BrotliEncoderWorkPool)
@@ -15,6 +15,7 @@ except OSError:
             brotli_library=ctypes.CDLL("target/release/libbrotli_ffi.dylib")
         except OSError:
             brotli_library=ctypes.CDLL("target/release/libbrotli_ffi.so")
+
 _BrotliEncoderCreateWorkPool = brotli_library.BrotliEncoderCreateWorkPool
 _BrotliEncoderCreateWorkPool.restype = POINTER(BrotliEncoderWorkPool)
 _BrotliEncoderCompressWorkPool = brotli_library.BrotliEncoderCompressWorkPool
@@ -23,6 +24,14 @@ class BrotliDecoderState(ctypes.Structure):
     pass
 class BrotliDecompressorException(Exception):
     pass
+class BrotliDecoderReturnInfo(ctypes.Structure):
+    _fields_ = [('decoded_size', c_size_t),
+                ('error_string', c_ubyte * 256),
+                ('result', c_int),
+                ('error_code', c_int),
+    ]
+BrotliDecoderDecompressWithReturnInfo = brotli_library.BrotliDecoderDecompressWithReturnInfo
+BrotliDecoderDecompressWithReturnInfo.restype = BrotliDecoderReturnInfo
 _BrotliDecoderCreateInstance = brotli_library.BrotliDecoderCreateInstance
 _BrotliDecoderCreateInstance.restype = POINTER(BrotliDecoderState)
 _BrotliDecoderDestroyInstance = brotli_library.BrotliDecoderDestroyInstance
@@ -127,20 +136,20 @@ def BrotliDecode(any_input, expected_size=4096 * 1024, max_expected_size = 256 *
         decoded_size = c_size_t(expected_size)
         decoded = (c_ubyte * decoded_size.value)()
 
-        res = brotli_library.BrotliDecoderDecompress(len(input),
-                                                     input,
-                                                     byref(decoded_size),
-                                                     byref(decoded))
-        if res == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT:
+        res = BrotliDecoderDecompressWithReturnInfo(len(input),
+                                                    input,
+                                                    decoded_size,
+                                                    byref(decoded))
+        if res.result == BROTLI_DECODER_RESULT_NEEDS_MORE_INPUT:
             raise BrotliDecompressorException("EarlyEOF")
-        elif res == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT:
-            expected_size *= 2
-        elif res == BROTLI_DECODER_RESULT_SUCCESS:
-            return bytearray(decoded[:decoded_size.value])
-        else:
+        elif res.result == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT:
             expected_size *= 2
             if expected_size > max_expected_size:
                 raise BrotliDecompressorException("Brotli file > " + str(max_expected_size) + " or corrupt brotli file")
+        elif res.result == BROTLI_DECODER_RESULT_SUCCESS:
+            return bytearray(decoded[:res.decoded_size])
+        else:
+            raise BrotliDecompressorException(''.join(chr(x) for x in res.error_string))
 
 
 def BrotliCompress(

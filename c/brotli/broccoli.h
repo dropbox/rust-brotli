@@ -32,7 +32,17 @@ BroccoliResult BroccoliConcatStream(
     size_t *available_out,
     uint8_t **output_buf_ptr);
 
+BroccoliResult BroccoliConcatStreaming(
+    BroccoliState *state,
+    size_t *available_in,
+    const uint8_t *input_buf_ptr,
+    size_t *available_out,
+    uint8_t *output_buf_ptr);
+
 BroccoliResult BroccoliConcatFinish(BroccoliState * state,
                               size_t *available_out,
                               uint8_t**output_buf);
+BroccoliResult BroccoliConcatFinished(BroccoliState * state,
+                              size_t *available_out,
+                              uint8_t*output_buf);
 #endif

@@ -1,4 +1,5 @@
 pub use brotli_decompressor::ffi;
+pub use brotli_decompressor::{BrotliDecoderReturnInfo, HuffmanCode};
 pub use brotli_decompressor::ffi::interface::{
   brotli_alloc_func,
   brotli_free_func,
@@ -43,6 +44,59 @@ ffi::BrotliDecoderDecompressStream(
   available_out,
   output_buf_ptr,
   total_out)
+}
+
+pub unsafe extern fn CBrotliDecoderDecompressStreaming(
+    state_ptr: *mut ffi::BrotliDecoderState,
+    available_in: *mut usize,
+    input_buf_ptr: *const u8,
+    available_out: *mut usize,
+    output_buf_ptr: *mut u8,
+) -> ffi::interface::BrotliDecoderResult {
+ffi::BrotliDecoderDecompressStreaming(
+  state_ptr,
+  available_in,
+  input_buf_ptr,
+  available_out,
+  output_buf_ptr)
+}
+
+pub unsafe extern fn CBrotliDecoderDecompressWithReturnInfo(
+    available_in: usize,
+    input_buf_ptr: *const u8,
+    available_out_and_scratch: usize,
+    output_buf_and_scratch: *mut u8,
+) -> BrotliDecoderReturnInfo {
+ffi::BrotliDecoderDecompressWithReturnInfo(
+  available_in,
+  input_buf_ptr,
+  available_out_and_scratch,
+  output_buf_and_scratch)
+}
+
+pub unsafe extern fn CBrotliDecoderDecompressPrealloc(
+    available_in: usize,
+    input_buf_ptr: *const u8,
+    available_out: usize,
+    output_buf_ptr: *mut u8,
+    available_u8: usize,
+    u8_ptr: *mut u8,
+    available_u32: usize,
+    u32_ptr: *mut u32,
+    available_hc: usize,
+    hc_ptr: *mut HuffmanCode,
+) -> BrotliDecoderReturnInfo {
+ffi::BrotliDecoderDecompressPrealloc(
+  available_in,
+  input_buf_ptr,
+  available_out,
+  output_buf_ptr,
+  available_u8,
+  u8_ptr,
+  available_u32,
+  u32_ptr,
+  available_hc,
+  hc_ptr)
 }
 
 pub unsafe extern fn CBrotliDecoderMallocU8(state_ptr: *mut ffi::BrotliDecoderState, size: usize) -> *mut u8 {

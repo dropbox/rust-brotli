@@ -9,6 +9,13 @@ use core;
 #[allow(unused_imports)]
 use brotli_decompressor;
 use super::compressor;
+use ::enc::encode::{BrotliEncoderCreateInstance,
+                    BrotliEncoderOperation,
+                    BrotliEncoderSetParameter,
+                    BrotliEncoderCompressStream,
+                    BrotliEncoderIsFinished,
+                    BrotliEncoderDestroyInstance,
+};
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
 use brotli_decompressor::ffi::interface::{
   brotli_alloc_func,
@@ -50,6 +57,42 @@ pub extern fn BrotliEncoderMaxCompressedSizeMulti(input_size: usize, num_threads
   ::enc::encode::BrotliEncoderMaxCompressedSizeMulti(input_size, num_threads)
 }
 
+fn help_brotli_encoder_compress_single(
+  param_keys: &[BrotliEncoderParameter],
+  param_values: &[u32],
+  input: &[u8],
+  output: &mut[u8],
+  encoded_size: &mut usize,
+  m8: BrotliSubclassableAllocator,
+) -> i32 {
+  let mut encoder = BrotliEncoderCreateInstance(m8);
+  for (p, v) in param_keys.iter().zip(param_values.iter()) {
+    BrotliEncoderSetParameter(&mut encoder, *p, *v);
+  }
+  let mut result;
+  let mut available_in = input.len();
+  let mut next_in_offset = 0usize;
+  let mut available_out = output.len();
+  let mut next_out_offset = 0usize;
+  let mut total_out = Some(0usize);
+  result = BrotliEncoderCompressStream(&mut encoder,
+                                       BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
+                                       &mut available_in,
+                                       input,
+                                       &mut next_in_offset,  
+                                       &mut available_out,
+                                       output,
+                                       &mut next_out_offset,
+                                       &mut total_out,
+                                       &mut |_a,_b,_c,_d|());
+  if BrotliEncoderIsFinished(&encoder) == 0 {
+    result = 0i32;
+  }
+  *encoded_size = total_out.unwrap();
+  BrotliEncoderDestroyInstance(&mut encoder);
+  result
+}
+
 #[no_mangle]
 pub unsafe extern fn BrotliEncoderCompressMulti(
   num_params: usize,
@@ -67,22 +110,42 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
   if desired_num_threads == 0 {
     return 0;
   }
-  let null_opaques = [core::ptr::null_mut::<c_void>();MAX_THREADS];
-  let alloc_opaque = if alloc_opaque_per_thread.is_null() {
-    &null_opaques[..]
-  } else {
-    slice_from_raw_parts_or_nil(alloc_opaque_per_thread, desired_num_threads)
-  };
-  let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
-  let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
-  let mut params = BrotliEncoderParams::default();
-  for (k,v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
-    if set_parameter(&mut params, *k, *v) == 0 {
-      return 0;
-    }
-  }
   let num_threads = core::cmp::min(desired_num_threads, MAX_THREADS);
-  let mut alloc_array:[_;MAX_THREADS] = [
+  match compressor::catch_panic(|| {
+    let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
+    let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
+    let input_slice = slice_from_raw_parts_or_nil(input, input_size);
+    let output_slice = slice_from_raw_parts_or_nil_mut(encoded, *encoded_size);
+    if num_threads == 1 {
+      let allocators = CAllocator {
+        alloc_func:alloc_func,
+        free_func:free_func,
+        opaque:if alloc_opaque_per_thread.is_null() {core::ptr::null_mut()} else {*alloc_opaque_per_thread},
+      };
+      let m8 = BrotliSubclassableAllocator::new(
+        SubclassableAllocator::new(allocators.clone()));
+      return help_brotli_encoder_compress_single(
+        param_keys_slice,
+        param_values_slice,
+        input_slice,
+        output_slice,
+        &mut *encoded_size,
+        m8,
+      )
+    }
+    let null_opaques = [core::ptr::null_mut::<c_void>();MAX_THREADS];
+    let alloc_opaque = if alloc_opaque_per_thread.is_null() {
+      &null_opaques[..]
+    } else {
+      slice_from_raw_parts_or_nil(alloc_opaque_per_thread, desired_num_threads)
+    };
+    let mut params = BrotliEncoderParams::default();
+    for (k,v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
+      if set_parameter(&mut params, *k, *v) == 0 {
+        return 0;
+      }
+    }
+    let mut alloc_array:[_;MAX_THREADS] = [
       make_send_alloc!(alloc_func, free_func, alloc_opaque[0]),
       make_send_alloc!(alloc_func, free_func, alloc_opaque[1%desired_num_threads]),
       make_send_alloc!(alloc_func, free_func, alloc_opaque[2%desired_num_threads]),
@@ -100,11 +163,13 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
       make_send_alloc!(alloc_func, free_func, alloc_opaque[14%desired_num_threads]),
       make_send_alloc!(alloc_func, free_func, alloc_opaque[15%desired_num_threads]),
     ];
+
+    let owned_input = &mut Owned::new(SliceRef(input_slice));
     let res = enc::compress_multi_no_threadpool(
-        &params,
-        &mut Owned::new(SliceRef(slice_from_raw_parts_or_nil(input, input_size))),
-        slice_from_raw_parts_or_nil_mut(encoded, *encoded_size),
-        &mut alloc_array[..num_threads],
+      &params,
+      owned_input,
+      output_slice,
+      &mut alloc_array[..num_threads],
     );
     match res {
       Ok(size) => {
@@ -115,6 +180,13 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
         return 0;
       }
     }
+  }) {
+    Ok(ret) => return ret,
+    Err(panic_err) => {
+      error_print(panic_err);
+      return 0;
+    },
+  }
 }
 
 #[no_mangle]

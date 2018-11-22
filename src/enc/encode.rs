@@ -3530,7 +3530,7 @@ pub fn BrotliEncoderCompressStream<Alloc: BrotliAlloc,
   1i32
 }
 
-pub fn BrotliEncoderIsFinished<Alloc:BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> i32 {
+pub fn BrotliEncoderIsFinished<Alloc:BrotliAlloc>(s: &BrotliEncoderStateStruct<Alloc>) -> i32 {
   if !!((*s).stream_state_ as (i32) == BrotliEncoderStreamState::BROTLI_STREAM_FINISHED as (i32) &&
         (BrotliEncoderHasMoreOutput(s) == 0)) {
     1i32
