@@ -7,10 +7,18 @@ use std::io::Write;
 
 #[no_mangle]
 use core;
-use core::slice;
 use brotli_decompressor::ffi::alloc_util;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
-use brotli_decompressor::ffi::interface::{brotli_alloc_func, brotli_free_func, CAllocator, c_void};
+use brotli_decompressor::ffi::interface::{
+  brotli_alloc_func,
+  brotli_free_func,
+  CAllocator,
+  c_void,
+};
+use brotli_decompressor::ffi::{
+  slice_from_raw_parts_or_nil,
+  slice_from_raw_parts_or_nil_mut,
+};
 use ::enc::encode::BrotliEncoderStateStruct;
 use super::alloc_util::BrotliSubclassableAllocator;
 
@@ -147,7 +155,7 @@ pub unsafe extern fn BrotliEncoderSetCustomDictionary(
   dict: *const u8,
 ) {
   if let Err(panic_err) = catch_panic(|| {
-      let dict_slice = slice::from_raw_parts(dict, size);
+      let dict_slice = slice_from_raw_parts_or_nil(dict, size);
       ::enc::encode::BrotliEncoderSetCustomDictionary(&mut (*state_ptr).compressor, size, dict_slice);
       0
   }) {
@@ -180,8 +188,8 @@ pub unsafe extern fn BrotliEncoderCompress(
   encoded_size: *mut usize,
   encoded_buffer: *mut u8) -> i32 {
   match catch_panic(|| {
-    let input_buf = slice::from_raw_parts(input_buffer, input_size);
-    let encoded_buf = slice::from_raw_parts_mut(encoded_buffer, *encoded_size);
+    let input_buf = slice_from_raw_parts_or_nil(input_buffer, input_size);
+    let encoded_buf = slice_from_raw_parts_or_nil_mut(encoded_buffer, *encoded_size);
     let allocators = CAllocator {
         alloc_func:None,
         free_func:None,
@@ -253,8 +261,8 @@ pub unsafe extern fn BrotliEncoderCompressStream(
         ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA,
     };
     {
-      let input_buf = slice::from_raw_parts(*input_buf_ptr, *available_in);
-      let output_buf = slice::from_raw_parts_mut(*output_buf_ptr, *available_out);
+      let input_buf = slice_from_raw_parts_or_nil(*input_buf_ptr, *available_in);
+      let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
       let mut to = Some(0usize);
       result = ::enc::encode::BrotliEncoderCompressStream(
         &mut (*state_ptr).compressor,

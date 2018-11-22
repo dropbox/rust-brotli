@@ -128,6 +128,43 @@ fn test_compress_empty_multi_raw() {
   assert_eq!(&rt_buffer[..rt_size], &input[..]);
 }
 
+#[test]
+fn test_compress_null_multi_raw() {
+  let params = [BrotliEncoderParameter::BROTLI_PARAM_QUALITY, BrotliEncoderParameter::BROTLI_PARAM_LGWIN, BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT, BrotliEncoderParameter::BROTLI_PARAM_CATABLE, BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER, BrotliEncoderParameter::BROTLI_PARAM_Q9_5];
+  let values = [3u32,16u32,0u32,0u32,0u32,0u32];
+  let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(0, 4);
+  let mut encoded_backing = [0u8;145];
+  let encoded = &mut encoded_backing[..encoded_size];
+  let ret = unsafe {
+    BrotliEncoderCompressMulti(
+      params.len(),
+      params[..].as_ptr(),
+      values[..].as_ptr(),
+      0,
+      core::ptr::null(),
+      &mut encoded_size,
+      encoded.as_mut_ptr(),
+      4,
+      None,
+      None,
+      core::ptr::null_mut())
+  };
+  assert_eq!(ret, 1);
+  let mut rt_size = 256;
+  let mut rt_buffer = [0u8;256];
+  assert!(encoded_size != 0);
+  let ret2 = unsafe {
+    super::super::decompressor::CBrotliDecoderDecompress(encoded_size, encoded.as_ptr(),
+                                                         &mut rt_size, rt_buffer.as_mut_ptr())
+  };
+  match ret2 {
+    super::super::decompressor::ffi::interface::BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS => {
+    },
+    _ => panic!(ret2),
+  }
+  assert_eq!(rt_size, 0);
+}
+
 
 
 #[test]

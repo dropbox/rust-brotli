@@ -1,6 +1,6 @@
 [package]
 name = "brotli-ffi"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
 description = "A brotli compressor and decompressor that with an interface exactly matching https://github.com/google/brotli. All included code is safe except the thin exported C-compatible functions."
 license = "BSD-3-Clause/MIT"
@@ -19,7 +19,7 @@ crate-type=["cdylib", "staticlib", "rlib"]
 lto=true
 
 [dependencies]
-"brotli" = {version="~3.0", default-features=false, path="../"}
+"brotli" = {version="~3.0", default-features=false}
 
 [features]
 validation=["brotli/validation"]

@@ -1,7 +1,10 @@
 use core;
-use core::slice;
 pub use brotli_decompressor::ffi::interface::{
-  c_void,
+  c_void
+};
+use brotli_decompressor::ffi::{
+  slice_from_raw_parts_or_nil,
+  slice_from_raw_parts_or_nil_mut,
 };
 use concat::BroCatli;
 pub use concat::BroCatliResult;
@@ -75,8 +78,8 @@ pub unsafe extern fn BroccoliConcatStream(
   input_buf_ptr: *mut*const u8,
   available_out: *mut usize,
   output_buf_ptr: *mut*mut u8) -> BroccoliResult {
-  let input_buf = slice::from_raw_parts(*input_buf_ptr, *available_in);
-  let output_buf = slice::from_raw_parts_mut(*output_buf_ptr, *available_out);
+  let input_buf = slice_from_raw_parts_or_nil(*input_buf_ptr, *available_in);
+  let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
   let mut input_offset = 0usize;
   let mut output_offset = 0usize;
   let mut bro_catli: BroCatli = (*state).into();
@@ -94,7 +97,7 @@ pub unsafe extern fn BroccoliConcatFinish(
   state: *mut BroccoliState,
   available_out: *mut usize,
   output_buf_ptr: *mut*mut u8) -> BroCatliResult {
-  let output_buf = slice::from_raw_parts_mut(*output_buf_ptr, *available_out);
+  let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
   let mut output_offset = 0usize;
   let mut bro_catli: BroCatli = (*state).into();
   let ret = bro_catli.finish(output_buf, &mut output_offset);

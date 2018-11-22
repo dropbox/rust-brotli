@@ -14,7 +14,7 @@ func main() {
 		Quality:    9.5,
 		Catable:    true,
 		Appendable: true,
-		Magic:      true,
+		Magic:      false,
 	}
 	useWriter := false
 	var toCat []string

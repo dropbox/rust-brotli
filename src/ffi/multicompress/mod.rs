@@ -6,12 +6,21 @@ use std::io::Write;
 mod test;
 #[no_mangle]
 use core;
-use core::slice;
 #[allow(unused_imports)]
 use brotli_decompressor;
 use super::compressor;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
-use brotli_decompressor::ffi::interface::{brotli_alloc_func, brotli_free_func, CAllocator, c_void};
+use brotli_decompressor::ffi::interface::{
+  brotli_alloc_func,
+  brotli_free_func,
+  CAllocator,
+  c_void,
+};
+use brotli_decompressor::ffi::{
+  slice_from_raw_parts_or_nil,
+  slice_from_raw_parts_or_nil_mut,
+};
+
 use super::alloc_util::BrotliSubclassableAllocator;
 use ::enc;
 use ::enc::backward_references::BrotliEncoderParams;
@@ -62,10 +71,10 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
   let alloc_opaque = if alloc_opaque_per_thread.is_null() {
     &null_opaques[..]
   } else {
-    slice::from_raw_parts(alloc_opaque_per_thread, desired_num_threads)
+    slice_from_raw_parts_or_nil(alloc_opaque_per_thread, desired_num_threads)
   };
-  let param_keys_slice = slice::from_raw_parts(param_keys, num_params);
-  let param_values_slice = slice::from_raw_parts(param_values, num_params);
+  let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
+  let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
   let mut params = BrotliEncoderParams::default();
   for (k,v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
     if set_parameter(&mut params, *k, *v) == 0 {
@@ -93,8 +102,8 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
     ];
     let res = enc::compress_multi_no_threadpool(
         &params,
-        &mut Owned::new(SliceRef(slice::from_raw_parts(input, input_size))),
-        slice::from_raw_parts_mut(encoded, *encoded_size),
+        &mut Owned::new(SliceRef(slice_from_raw_parts_or_nil(input, input_size))),
+        slice_from_raw_parts_or_nil_mut(encoded, *encoded_size),
         &mut alloc_array[..num_threads],
     );
     match res {
@@ -239,10 +248,10 @@ pub unsafe extern fn BrotliEncoderCompressWorkPool(
     let alloc_opaque = if alloc_opaque_per_thread.is_null() {
       &null_opaques[..]
     } else {
-      slice::from_raw_parts(alloc_opaque_per_thread, desired_num_threads)
+      slice_from_raw_parts_or_nil(alloc_opaque_per_thread, desired_num_threads)
     };
-    let param_keys_slice = slice::from_raw_parts(param_keys, num_params);
-    let param_values_slice = slice::from_raw_parts(param_values, num_params);
+    let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
+    let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
     let mut params = BrotliEncoderParams::default();
     for (k,v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
       if set_parameter(&mut params, *k, *v) == 0 {
@@ -270,8 +279,8 @@ pub unsafe extern fn BrotliEncoderCompressWorkPool(
     ];
     let res = enc::compress_worker_pool(
       &params,
-      &mut Owned::new(SliceRef(slice::from_raw_parts(input, input_size))),
-      slice::from_raw_parts_mut(encoded, *encoded_size),
+      &mut Owned::new(SliceRef(slice_from_raw_parts_or_nil(input, input_size))),
+      slice_from_raw_parts_or_nil_mut(encoded, *encoded_size),
       &mut alloc_array[..num_threads],
       &mut (*work_pool_wrapper.0).work_pool,
     );

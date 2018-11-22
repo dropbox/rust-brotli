@@ -151,22 +151,19 @@ func TestCompressRoundtripZero(*testing.T) {
 		Appendable: true,
 		Magic:      true,
 	}
+    compressedForm := bytes.NewBuffer(nil)
 	writer := brotli.NewMultiCompressionWriter(
-		brotli.NewDecompressionWriter(
+		io.MultiWriter(compressedForm, brotli.NewDecompressionWriter(
 			outBuffer,
 		),
+        ),
 		options,
 	)
-    _, err := writer.Write(data)
-    
+	err := writer.Close()
 	if err != nil {
 		panic(err)
 	}
-	err = writer.Close()
-	if err != nil {
-		panic(err)
-	}
-	if len(outBuffer.Bytes()) == 0 {
+	if len(compressedForm.Bytes()) == 0 {
 		panic("Zero output buffer")
 	}
 	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
@@ -240,17 +237,20 @@ func TestCompressReaderRoundtripZero(*testing.T) {
 		Appendable: true,
 		Magic:      true,
 	}
+    compressedForm := bytes.NewBuffer(nil)
 	reader := brotli.NewDecompressionReader(
+        io.TeeReader(
 		brotli.NewMultiCompressionReader(
 			inBuffer,
 			options,
 		),
+        compressedForm),
 	)
 	_, err := io.Copy(outBuffer, reader)
 	if err != nil {
 		panic(err)
 	}
-	if len(outBuffer.Bytes()) == 0 {
+	if len(compressedForm.Bytes()) == 0 {
 		panic("Zero output buffer")
 	}
 	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
