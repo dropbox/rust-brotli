@@ -101,6 +101,7 @@ pub enum BrotliEncoderStreamState {
   BROTLI_STREAM_METADATA_BODY = 4,
 }
 
+#[derive(Clone,Copy,Debug)]
 enum NextOut {
     DynamicStorage(u32),
     TinyBuf(u32),
@@ -145,7 +146,7 @@ fn IsNextOutNull(next_out :&NextOut) -> bool {
     }
 }
 
-
+#[derive(Clone,Copy,Debug)]
 pub enum IsFirst {
   NothingWritten,
   HeaderWritten,
@@ -2584,7 +2585,8 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
     }
     return;
   }
-  last_bytes = ((storage[1] as u16) << 8) | storage[0] as u16;
+  let saved_byte_location = (*storage_ix) >> 3;
+  last_bytes = ((storage[saved_byte_location + 1] as u16) << 8) | storage[saved_byte_location] as u16;
   last_bytes_bits = *storage_ix as u8;
   /*if params.dist.num_direct_distance_codes != 0 ||
                     params.dist.distance_postfix_bits != 0 {
@@ -2697,13 +2699,13 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                          cb);
     mb.destroy(alloc);
   }
-  if bytes.wrapping_add(4usize) < *storage_ix >> 3i32 {
+  if bytes + 4 + saved_byte_location < (*storage_ix >> 3i32) {
       dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
       //memcpy(dist_cache,
       //     saved_dist_cache,
       //     (4usize).wrapping_mul(::std::mem::size_of::<i32>()));
-      storage[0] = last_bytes as u8;
-      storage[1] = (last_bytes >> 8) as u8;
+      storage[saved_byte_location] = last_bytes as u8;
+      storage[saved_byte_location + 1] = (last_bytes >> 8) as u8;
       *storage_ix = last_bytes_bits as (usize);
       BrotliStoreUncompressedMetaBlock(alloc,
                                        is_last,
