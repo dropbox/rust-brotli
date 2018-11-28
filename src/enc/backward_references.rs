@@ -160,6 +160,7 @@ pub trait AnyHasher {
                       -> bool;
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
+  fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
   fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared;
   fn StitchToPreviousBlock(&mut self,
                            num_bytes: usize,
@@ -183,10 +184,8 @@ pub fn StitchToPreviousBlockInternal<T: AnyHasher>(handle: &mut T,
 
 pub fn StoreLookaheadThenStore<T: AnyHasher>(hasher: &mut T, size: usize, dict: &[u8]) {
   let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
-  let mut i: usize = 0;
-  while i.wrapping_add(overlap) < size {
-    hasher.Store(dict, !(0usize), i);
-    i = i.wrapping_add(1 as (usize));
+  if size > overlap {
+    hasher.BulkStoreRange(dict, !(0usize), 0, size - overlap);
   }
 }
 
@@ -241,13 +240,13 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
     self.buckets_.slice_mut()[key.wrapping_add(off) as (usize)] = ix as (u32);
   }
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-    let mut i: usize;
-    i = ix_start;
-    while i < ix_end {
-      {
+    for i in ix_start..ix_end {
         self.Store(data, mask, i);
-      }
-      i = i.wrapping_add(1 as (usize));
+    }
+  }
+  fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+    for i in ix_start..ix_end {
+        self.Store(data, mask, i);
     }
   }
   fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
@@ -782,6 +781,11 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
             self.Store(data, mask, i);
         }
     }
+    fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+        for i in ix_start..ix_end {
+            self.Store(data, mask, i);
+        }
+    }
     fn Prepare(&mut self, _one_shot: bool, _input_size:usize, _data:&[u8]) ->HowPrepared {
         if self.GetHasherCommon().is_prepared_ != 0 {
             return HowPrepared::ALREADY_PREPARED;
@@ -946,6 +950,11 @@ impl<Specialization: AdvHashSpecialization, Alloc: alloc::Allocator<u16> + alloc
     }
   }
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+    for i in ix_start..ix_end {
+      self.Store(data, mask, i);
+    }
+  }
+  fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
     for i in ix_start..ix_end {
       self.Store(data, mask, i);
     }
@@ -1392,6 +1401,9 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
   }
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
     return match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end);
+  }
+  fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+    return match_all_hashers_mut!(self, BulkStoreRange, data, mask, ix_start, ix_end);
   }
 }
 

@@ -217,6 +217,11 @@ impl<AllocU32: Allocator<u32>,
         i = i.wrapping_add(1 as (usize));
     }
   }
+  fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
+    for i in ix_start..ix_end {
+      self.Store(data, mask, i);
+    }
+  }
   fn Prepare(&mut self, _one_shot: bool, _input_size: usize, _data: &[u8]) -> HowPrepared {
     if self.common.is_prepared_ != 0 {
       return HowPrepared::ALREADY_PREPARED;
