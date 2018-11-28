@@ -184,12 +184,12 @@ func TestCompressRoundtripZero(*testing.T) {
 		Appendable: true,
 		Magic:      true,
 	}
-    compressedForm := bytes.NewBuffer(nil)
+	compressedForm := bytes.NewBuffer(nil)
 	writer := brotli.NewMultiCompressionWriter(
 		io.MultiWriter(compressedForm, brotli.NewDecompressionWriter(
 			outBuffer,
 		),
-        ),
+		),
 		options,
 	)
 	err := writer.Close()
@@ -230,6 +230,65 @@ func TestCompressReader(*testing.T) {
 		panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
 	}
 }
+func TestCompressReaderClose(*testing.T) {
+	data := testData()
+	inBuffer := bytes.NewBuffer(data[:])
+	outBuffer := bytes.NewBuffer(nil)
+	var options = brotli.CompressionOptions{
+		NumThreads: 1,
+		Quality:    2,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
+	reader := brotli.NewMultiCompressionReader(
+		inBuffer,
+		options,
+	)
+	_, err := io.Copy(outBuffer, reader)
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if len(outBuffer.Bytes()) > 1850280 {
+		panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
+	}
+	err = reader.Close()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestCompressReaderEarlyClose(*testing.T) {
+	data := testData()
+	inBuffer := bytes.NewBuffer(data[:])
+	var options = brotli.CompressionOptions{
+		NumThreads: 1,
+		Quality:    2,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
+	reader := brotli.NewMultiCompressionReader(
+		inBuffer,
+		options,
+	)
+	var smallBuf [1024]byte
+	count, err := reader.Read(smallBuf[:])
+	if err != nil {
+		panic(err)
+	}
+	if count != len(smallBuf) {
+		panic("Underflow for test data: too few bytes of test data")
+	}
+	err = reader.Close()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestCompressReaderRoundtrip(*testing.T) {
 	data := testData()
 	inBuffer := bytes.NewBuffer(data[:])
@@ -259,8 +318,41 @@ func TestCompressReaderRoundtrip(*testing.T) {
 	}
 }
 
+func TestDecompressReaderEarlyClose(*testing.T) {
+	data := testData()
+	inBuffer := bytes.NewBuffer(data[:])
+	var options = brotli.CompressionOptions{
+		NumThreads: 1,
+		Quality:    4,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
+	reader := brotli.NewDecompressionReader(
+		brotli.NewMultiCompressionReader(
+			inBuffer,
+			options,
+		),
+	)
+	var smallBuffer [1027]byte
+	count, err := reader.Read(smallBuffer[:])
+	if err != nil {
+		panic(err)
+	}
+	if count < 1024 {
+		panic("Too small a test buffer")
+	}
+	err = reader.Close()
+	if err != nil {
+		panic(err)
+	}
+	if !bytes.Equal(smallBuffer[:], data[:len(smallBuffer)]) {
+		panic(fmt.Sprintf("Bytes not equal %x, %x", smallBuffer[:], data[:len(smallBuffer)]))
+	}
+}
+
 func TestCompressReaderRoundtripZero(*testing.T) {
-    var data []byte
+	var data []byte
 	inBuffer := bytes.NewBuffer(data[:])
 	outBuffer := bytes.NewBuffer(nil)
 	var options = brotli.CompressionOptions{
@@ -270,14 +362,14 @@ func TestCompressReaderRoundtripZero(*testing.T) {
 		Appendable: true,
 		Magic:      true,
 	}
-    compressedForm := bytes.NewBuffer(nil)
+	compressedForm := bytes.NewBuffer(nil)
 	reader := brotli.NewDecompressionReader(
-        io.TeeReader(
-		brotli.NewMultiCompressionReader(
-			inBuffer,
-			options,
-		),
-        compressedForm),
+		io.TeeReader(
+			brotli.NewMultiCompressionReader(
+				inBuffer,
+				options,
+			),
+			compressedForm),
 	)
 	_, err := io.Copy(outBuffer, reader)
 	if err != nil {

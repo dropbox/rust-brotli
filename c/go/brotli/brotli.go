@@ -76,6 +76,13 @@ func NewMultiCompressionReader(
 	return &MultiCompressionReader{options: options, upstream: upstream}
 }
 
+func (mself *MultiCompressionReader) Close() error {
+	if closer, ok := mself.upstream.(io.ReadCloser); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
 func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
 	if mself.upstream != nil {
 		for mself.upstream != nil {
@@ -259,6 +266,17 @@ func NewDecompressionReader(upstream io.Reader) *DecompressionReader {
 		upstream: upstream,
 		state:    C.BrotliDecoderCreateInstance(nil, nil, nil),
 	}
+}
+
+func (mself *DecompressionReader) Close() error {
+	if mself.state != nil {
+		C.BrotliDecoderDestroyInstance(mself.state)
+		mself.state = nil
+	}
+	if closer, ok := mself.upstream.(io.ReadCloser); ok {
+		return closer.Close()
+	}
+	return nil
 }
 
 func (mself *DecompressionReader) populateBuffer() error {
