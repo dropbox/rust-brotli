@@ -15,10 +15,10 @@ extern crate sha2;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib;
-use brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, WorkerPool, compress_worker_pool, new_work_pool};
+use brotli::enc::{UnionHasher, BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, WorkerPool, compress_worker_pool, new_work_pool};
 use brotli::enc::threading::{SendAlloc,Owned, CompressionThreadResult, CompressMulti, BrotliEncoderThreadError};
 #[allow(unused_imports)]
-use brotli::HuffmanCode;
+use brotli::{HuffmanCode};
 use brotli::CustomRead;
 use core::ops;
 use brotli::enc::backward_references::BrotliEncoderMode;
@@ -289,22 +289,22 @@ pub fn compress_multi_nostd(
   mut num_threads: usize,
 ) -> Result<usize, BrotliEncoderThreadError> {
       let mut alloc_array = [
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
       ];
       if num_threads > alloc_array.len() {
         num_threads = alloc_array.len();
@@ -318,8 +318,9 @@ pub fn compress_multi<InputType:Read,
   params:&BrotliEncoderParams,
   mut num_threads: usize,
   work_pool: Option<&mut WorkerPool<CompressionThreadResult<HeapAllocator>,
-                             HeapAllocator,
-                             (Rebox<u8>, BrotliEncoderParams)>>,
+                                    UnionHasher<HeapAllocator>,
+                                    HeapAllocator,
+                                    (Rebox<u8>, BrotliEncoderParams)>>,
 ) -> Result<usize, io::Error> {
   let mut input: Vec<u8> = Vec::<u8>::new();
   if let Err(err) = r.read_to_end(&mut input) {
@@ -328,22 +329,22 @@ pub fn compress_multi<InputType:Read,
   let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input.len(), num_threads)]);
   let res = if let Some(worker_pool) = work_pool {
       let mut alloc_array = [
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
-        SendAlloc::new(HeapAllocator::default()),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
+        SendAlloc::new(HeapAllocator::default(), UnionHasher::Uninit),
       ];
       if num_threads > alloc_array.len() {
         num_threads = alloc_array.len();

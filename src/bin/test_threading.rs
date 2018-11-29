@@ -5,7 +5,7 @@ extern crate core;
 extern crate brotli_decompressor;
 use super::new_brotli_heap_alloc;
 use brotli_decompressor::{SliceWrapperMut, SliceWrapper};
-use super::brotli::enc::{BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, compress_multi, compress_multi_no_threadpool};
+use super::brotli::enc::{UnionHasher, BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, compress_multi, compress_multi_no_threadpool};
 use brotli::enc::threading::{SendAlloc,Owned};
 
 use super::integration_tests::UnlimitedBuffer;
@@ -28,20 +28,20 @@ fn multi_threaded_split_compression_test(input_data: &'static[u8], num_threads: 
     }
     let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input_data.len(), num_threads)]);
     let mut alloc_per_thread = [
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
     ];
     if num_threads > alloc_per_thread.len() {
         panic!("Too many threads requested {} > {}", num_threads, alloc_per_thread.len());
@@ -117,20 +117,20 @@ fn thread_spawn_per_job_split_compression_test(input_data: &'static[u8], num_thr
     }
     let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input_data.len(), num_threads)]);
     let mut alloc_per_thread = [
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
-        SendAlloc::new(new_brotli_heap_alloc()),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
+        SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
     ];
     if num_threads > alloc_per_thread.len() {
         panic!("Too many threads requested {} > {}", num_threads, alloc_per_thread.len());

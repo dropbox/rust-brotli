@@ -63,7 +63,7 @@ mod parameters;
 pub use self::util::floatX;
 pub use self::pdf::PDF;
 pub use self::hash_to_binary_tree::ZopfliNode;
-pub use self::backward_references::BrotliEncoderParams;
+pub use self::backward_references::{BrotliEncoderParams, UnionHasher};
 pub use self::encode::{
     BrotliEncoderInitParams,
     BrotliEncoderSetParameter,
@@ -116,9 +116,13 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
+                                   backward_references::UnionHasher<Alloc>,
                                    Alloc,
-                                   <WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)> as BatchSpawnableLite<CompressionThreadResult<Alloc>,Alloc, (SliceW, BrotliEncoderParams)>>::JoinHandle>],
-  ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+                                   <WorkerPool<CompressionThreadResult<Alloc>, backward_references::UnionHasher<Alloc>, Alloc, (SliceW, BrotliEncoderParams)> as BatchSpawnableLite<CompressionThreadResult<Alloc>, backward_references::UnionHasher<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>>::JoinHandle>],
+) -> Result<usize, BrotliEncoderThreadError>
+  where <Alloc as Allocator<u8>>::AllocatedMemory: Send,
+        <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync,
+        <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   let mut work_pool = self::worker_pool::new_work_pool(alloc_per_thread.len() - 1);
   compress_worker_pool(params, owned_input,output, alloc_per_thread,&mut work_pool)
 }

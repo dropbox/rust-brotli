@@ -61,44 +61,45 @@ pub struct CompressionThreadResult<Alloc:BrotliAlloc+Send+'static> where <Alloc 
   compressed: Result<CompressedFileChunk<Alloc>, BrotliEncoderThreadError>,
   alloc: Alloc,
 }
-pub enum InternalSendAlloc<T:Send+'static, Alloc:BrotliAlloc+Send+'static, Join: Joinable<T, BrotliEncoderThreadError>>
+pub enum InternalSendAlloc<ReturnVal:Send+'static, ExtraInput:Send+'static,Alloc:BrotliAlloc+Send+'static, Join: Joinable<ReturnVal, BrotliEncoderThreadError>>
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
-  A(Alloc),
+  A(Alloc, ExtraInput),
   Join(Join),
-  SpawningOrJoining(PhantomData<T>),
+  SpawningOrJoining(PhantomData<ReturnVal>),
 }
-pub struct SendAlloc<T:Send+'static,
+pub struct SendAlloc<ReturnValue:Send+'static,
+                     ExtraInput:Send+'static,
                      Alloc:BrotliAlloc +Send+'static,
-                     Join:Joinable<T, BrotliEncoderThreadError>>(pub InternalSendAlloc<T, Alloc, Join>)//FIXME pub
+                     Join:Joinable<ReturnValue, BrotliEncoderThreadError>>(pub InternalSendAlloc<ReturnValue, ExtraInput, Alloc, Join>)//FIXME pub
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send;
 
-impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static,Join:Joinable<T, BrotliEncoderThreadError>> SendAlloc<T, Alloc, Join>
+impl<ReturnValue:Send+'static, ExtraInput:Send+'static, Alloc:BrotliAlloc+Send+'static,Join:Joinable<ReturnValue, BrotliEncoderThreadError>> SendAlloc<ReturnValue, ExtraInput, Alloc, Join>
   where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
-  pub fn new(alloc: Alloc) -> Self {
-    SendAlloc::<T, Alloc, Join>(InternalSendAlloc::A(alloc))
+  pub fn new(alloc: Alloc, extra_input: ExtraInput) -> Self {
+    SendAlloc::<ReturnValue, ExtraInput, Alloc, Join>(InternalSendAlloc::A(alloc, extra_input))
   }
-  pub fn unwrap_or(self, other: Alloc) -> Alloc {
+  pub fn unwrap_or(self, other: Alloc, other_extra: ExtraInput) -> (Alloc, ExtraInput) {
     match self.0 {
-      InternalSendAlloc::A(alloc) => {
-        alloc
+      InternalSendAlloc::A(alloc, extra_input) => {
+        (alloc, extra_input)
       },
       InternalSendAlloc::SpawningOrJoining(_) | InternalSendAlloc::Join(_) => {
-        other
+        (other, other_extra)
       },
     }
   }
-  pub fn unwrap(self) -> Alloc {
+  pub fn unwrap(self) -> (Alloc, ExtraInput) {
     match self.0 {
-      InternalSendAlloc::A(alloc) => {
-        alloc
+      InternalSendAlloc::A(alloc, extra_input) => {
+        (alloc, extra_input)
       },
       InternalSendAlloc::SpawningOrJoining(_) | InternalSendAlloc::Join(_) => panic!("Item permanently borrowed/leaked"),
     }
   }
-  pub fn replace_with_default(&mut self) -> Alloc {
+  pub fn replace_with_default(&mut self) -> (Alloc, ExtraInput) {
     match mem::replace(&mut self.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
-      InternalSendAlloc::A(alloc) => {
-        alloc
+      InternalSendAlloc::A(alloc, extra_input) => {
+        (alloc, extra_input)
       },
       InternalSendAlloc::SpawningOrJoining(_) | InternalSendAlloc::Join(_) => panic!("Item permanently borrowed/leaked"),
     }
@@ -166,12 +167,13 @@ impl<U:Send+'static> OwnedRetriever<U> for std::sync::Arc<std::sync::RwLock<U>> 
 
 
 
-pub trait BatchSpawnable<T:Send+'static,
+pub trait BatchSpawnable<ReturnValue:Send+'static,
+                         ExtraInput:Send+'static,
                          Alloc:BrotliAlloc+Send+'static,
                          U:Send+'static+Sync>
   where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static
 {
-  type JoinHandle: Joinable<T, BrotliEncoderThreadError>;
+  type JoinHandle: Joinable<ReturnValue, BrotliEncoderThreadError>;
   type FinalJoinHandle: OwnedRetriever<U>;
   // this function takes in an input slice
   // a SendAlloc per thread and converts them all into JoinHandle
@@ -181,30 +183,32 @@ pub trait BatchSpawnable<T:Send+'static,
   // the FinalJoinHandle is only to be called when each individual JoinHandle has been examined
   // the function is called with the thread_index, the num_threads, a reference to the slice under a read lock,
   // and an allocator from the alloc_per_thread
-  fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T+Send+'static+Copy>(
+  fn batch_spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue+Send+'static+Copy>(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
     f: F,
   ) -> Self::FinalJoinHandle;
 }
 
-pub trait BatchSpawnableLite<T:Send+'static,
+pub trait BatchSpawnableLite<ReturnValue:Send+'static,
+                             ExtraInput:Send+'static,
                          Alloc:BrotliAlloc+Send+'static,
                          U:Send+'static+Sync>
   where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static
 {
-  type JoinHandle: Joinable<T, BrotliEncoderThreadError>;
+  type JoinHandle: Joinable<ReturnValue, BrotliEncoderThreadError>;
   type FinalJoinHandle: OwnedRetriever<U>;
   fn batch_spawn(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
-    f: fn(usize, usize, &U, Alloc) -> T,
+    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
+    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
   ) -> Self::FinalJoinHandle;
 }
 /*
-impl<T:Send+'static,
+impl<ReturnValue:Send+'static,
+     ExtraInput:Send+'static,
      Alloc:BrotliAlloc+Send+'static,
      U:Send+'static+Sync>
      BatchSpawnableLite<T, Alloc, U> for BatchSpawnable<T, Alloc, U> {
@@ -213,24 +217,25 @@ impl<T:Send+'static,
   fn batch_spawn(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
     f: fn(usize, usize, &U, Alloc) -> T,
   ) -> Self::FinalJoinHandle {
-   <Self as BatchSpawnable<T, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
+   <Self as BatchSpawnable<ReturnValue, ExtraInput,  Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
   }
 }*/
 
 pub fn CompressMultiSlice<Alloc:BrotliAlloc+Send+'static,
                           Spawner:BatchSpawnableLite<CompressionThreadResult<Alloc>,
-                                                 Alloc,
-                                                 (<Alloc as Allocator<u8>>::AllocatedMemory, BrotliEncoderParams)>> (
+                                                     UnionHasher<Alloc>,
+                                                     Alloc,
+                                                     (<Alloc as Allocator<u8>>::AllocatedMemory, BrotliEncoderParams)>> (
   params:&BrotliEncoderParams,
   input_slice: &[u8],
   output: &mut [u8],
-  alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, Alloc, Spawner::JoinHandle>],
+  alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, Spawner::JoinHandle>],
   thread_spawner: &mut Spawner,
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send+Sync {
-  let input = if let InternalSendAlloc::A(ref mut alloc) = alloc_per_thread[0].0 {
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
+  let input = if let InternalSendAlloc::A(ref mut alloc, ref _extra) = alloc_per_thread[0].0 {
     let mut input = <Alloc as Allocator<u8>>::alloc_cell(alloc, input_slice.len());
     input.slice_mut().clone_from_slice(input_slice);
     input
@@ -239,7 +244,7 @@ pub fn CompressMultiSlice<Alloc:BrotliAlloc+Send+'static,
   };
   let mut owned_input = Owned::new(input);
   let ret = CompressMulti(params, &mut owned_input, output, alloc_per_thread, thread_spawner);
-  if let InternalSendAlloc::A(ref mut alloc) = alloc_per_thread[0].0 {
+  if let InternalSendAlloc::A(ref mut alloc, ref _extra) = alloc_per_thread[0].0 {
     <Alloc as Allocator<u8>>::free_cell(alloc, owned_input.unwrap());
   }
   ret
@@ -251,6 +256,7 @@ fn get_range(thread_index: usize, num_threads: usize, file_size: usize) -> Range
 
 fn compress_part<Alloc: BrotliAlloc+Send+'static,
                  SliceW:SliceWrapper<u8>>(
+  hasher: UnionHasher<Alloc>,
   thread_index: usize,
   num_threads: usize,
   input_and_params:&(SliceW, BrotliEncoderParams),
@@ -312,58 +318,56 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
 pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                      SliceW: SliceWrapper<u8>+Send+'static+Sync,
                      Spawner:BatchSpawnableLite<CompressionThreadResult<Alloc>,
-                                            Alloc,
-                                            (SliceW, BrotliEncoderParams)>> (
+                                                UnionHasher<Alloc>,
+                                                Alloc,
+                                                (SliceW, BrotliEncoderParams)>> (
   params:&BrotliEncoderParams,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
-  alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, Alloc, Spawner::JoinHandle>],
+  alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, Spawner::JoinHandle>],
   thread_spawner: &mut Spawner,
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync{
     let mut local_params = params.clone();
     let num_threads = alloc_per_thread.len();
     SanitizeParams(&mut local_params);
-    let mut hashers: [UnionHasher<Alloc>;16] = [
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        UnionHasher::Uninit,UnionHasher::Uninit,
-        ];
-    
-    match alloc_per_thread[num_threads -1].0 {
-        InternalSendAlloc::A(ref mut alloc) => HasherSetup(alloc,
-                                                   &mut hashers[num_threads - 1],
-                                                   &mut local_params,
-                                                   &[],
-                                                   0,
-                                                   0,
-                                                   0),
+    // populate all hashers at once, cloning them one by one
+    if num_threads > 0 {
+      let mut hasher = UnionHasher::Uninit;
+      match alloc_per_thread[num_threads -1].0 { // start with the last hashers
+        InternalSendAlloc::A(ref mut alloc, _) => HasherSetup(alloc,
+                                                              &mut hasher,
+                                                              &mut local_params,
+                                                              &[],
+                                                              0,
+                                                              0,
+                                                              0),
         _ => panic!("Bad state for allocator"),
-    }
-    {
-        for thread_index in 1..num_threads {
-            match owned_input.0 {
-                InternalOwned::Item(ref owned_slice) => {
-                    let mut range = get_range(0, num_threads, owned_slice.len());
-                    hashers[num_threads - 1].BulkStoreRange(owned_slice.slice(),
-                                                            -1isize as usize,
-                                                            range.start,
-                                                            range.end);
-                },
-                _ => panic!("Bad state for owned input"),
-            }
-            let (hashers, key) = hashers.split_at_mut(num_threads - 1);
-            match alloc_per_thread[num_threads - 1].0 {
-                InternalSendAlloc::A(ref mut alloc) => {
-                    hashers[thread_index - 1] = key[0].clone_with_alloc(alloc);
-                },
-                _ => panic!("Bad state for allocator"),
-            };
+      }
+      for thread_index in 1..num_threads {
+        match owned_input.0 {
+          InternalOwned::Item(ref owned_slice) => {
+            let mut range = get_range(thread_index - 1, num_threads, owned_slice.len());
+            hasher.BulkStoreRange(owned_slice.slice(),
+                                  -1isize as usize,
+                                  range.start,
+                                  range.end);
+          },
+          _ => panic!("Bad state for owned input"),
         }
+        if thread_index + 1 != num_threads {
+          match alloc_per_thread[thread_index].0 {
+            InternalSendAlloc::A(ref mut alloc, ref mut out_hasher) => {
+              *out_hasher = hasher.clone_with_alloc(alloc);
+            },
+            _ => panic!("Bad state for allocator"),
+          };
+        }
+      }
+      match alloc_per_thread[num_threads - 1].0 {
+        InternalSendAlloc::A(ref mut alloc, ref mut out_hasher) =>
+          *out_hasher = hasher, // clobber UnionHasher::Uninit
+        _ => panic!("Bad state for allocator"),
+      }
     }
     let (alloc, alloc_rest) = alloc_per_thread.split_at_mut(1);
     let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
@@ -379,7 +383,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
             let compression_result_inner;
             let mut state = BrotliEncoderCreateInstance(match mem::replace(&mut alloc[0].0,
                                                                            InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
-            InternalSendAlloc::A(a) => a,
+            InternalSendAlloc::A(a, _) => a,
                 _ => panic!("all public interfaces which create SendAlloc can only specify subtype A")
             });
             state.params = params.clone();
@@ -412,7 +416,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                 }
             }
             BrotliEncoderDestroyInstance(&mut state);
-            alloc[0].0 = InternalSendAlloc::A(state.m8);
+            alloc[0].0 = InternalSendAlloc::A(state.m8, UnionHasher::Uninit);
             compression_result_inner
         }) {
             Ok(res) => {
@@ -453,7 +457,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     if let Ok(mut out_file_size) = compression_result {
      for thread in alloc_rest.iter_mut() {
        match mem::replace(&mut thread.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
-         InternalSendAlloc::A(_) | InternalSendAlloc::SpawningOrJoining(_) => panic!("Thread not properly spawned"),
+         InternalSendAlloc::A(_, _) | InternalSendAlloc::SpawningOrJoining(_) => panic!("Thread not properly spawned"),
          InternalSendAlloc::Join(join) => match join.join() {
            Ok(mut result) => {
              match result.compressed {
@@ -481,7 +485,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                    compression_result = Err(e);
                }
              }
-             thread.0 = InternalSendAlloc::A(result.alloc);
+             thread.0 = InternalSendAlloc::A(result.alloc, UnionHasher::Uninit);
            },
            Err(err) => {
              compression_result = Err(err);

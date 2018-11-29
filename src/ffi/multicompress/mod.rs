@@ -30,7 +30,7 @@ use brotli_decompressor::ffi::{
 
 use super::alloc_util::BrotliSubclassableAllocator;
 use ::enc;
-use ::enc::backward_references::BrotliEncoderParams;
+use ::enc::backward_references::{BrotliEncoderParams, UnionHasher};
 use ::enc::encode::{BrotliEncoderParameter, set_parameter};
 use ::enc::threading::{SendAlloc,Owned};
 use alloc::SliceWrapper;
@@ -49,7 +49,7 @@ macro_rules! make_send_alloc {
           alloc_func:$alloc_func,
           free_func:$free_func,
           opaque:$opaque,
-        })))
+        })), UnionHasher::Uninit)
   )
 }
 #[no_mangle]
@@ -194,6 +194,7 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
 pub struct BrotliEncoderWorkPool {
   custom_allocator: CAllocator,
   work_pool: enc::WorkerPool<enc::CompressionThreadResult<BrotliSubclassableAllocator>,
+                             UnionHasher<BrotliSubclassableAllocator>,
                              BrotliSubclassableAllocator,
                              (SliceRef<'static>, BrotliEncoderParams)>,
 }

@@ -10,6 +10,7 @@ use std::sync:: {
 use alloc::{SliceWrapper, Allocator};
 use enc::BrotliAlloc;
 use enc::BrotliEncoderParams;
+use enc::backward_references::UnionHasher;
 use enc::threading::{
   CompressMulti,
   SendAlloc,
@@ -34,10 +35,12 @@ struct JobReply<T:Send+'static> {
   work_id: u64,
 }
 
-struct JobRequest<T:Send+'static,
+struct JobRequest<ReturnValue:Send+'static,
+                  ExtraInput:Send+'static,
                  Alloc:BrotliAlloc+Send+'static,
                  U:Send+'static+Sync> {
-  func: fn(usize, usize, &U, Alloc) -> T,
+  func: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
+  extra_input: ExtraInput,
   index: usize,
   thread_size: usize,
   data: Arc<RwLock<U>>,
@@ -46,19 +49,21 @@ struct JobRequest<T:Send+'static,
 }
 
 
-struct WorkQueue<T:Send+'static,
+struct WorkQueue<ReturnValue:Send+'static,
+                 ExtraInput:Send+'static,
                  Alloc:BrotliAlloc+Send+'static,
                  U:Send+'static+Sync> {
-  jobs: FixedQueue<JobRequest<T,Alloc,U>>,
-  results: FixedQueue<JobReply<T>>,
+  jobs: FixedQueue<JobRequest<ReturnValue,ExtraInput, Alloc,U>>,
+  results: FixedQueue<JobReply<ReturnValue>>,
   shutdown: bool,
   immediate_shutdown: bool,
   num_in_progress: usize,
   cur_work_id: u64,
 }
-impl <T:Send+'static,
-                 Alloc:BrotliAlloc+Send+'static,
-      U:Send+'static+Sync> Default for WorkQueue<T, Alloc, U> {
+impl <ReturnValue:Send+'static,
+      ExtraInput:Send+'static,
+      Alloc:BrotliAlloc+Send+'static,
+      U:Send+'static+Sync> Default for WorkQueue<ReturnValue, ExtraInput, Alloc, U> {
   fn default() -> Self {
     WorkQueue {
       jobs: FixedQueue::default(),
@@ -71,19 +76,22 @@ impl <T:Send+'static,
   }
 }
 
-pub struct GuardedQueue<T:Send+'static,
+pub struct GuardedQueue<ReturnValue:Send+'static,
+                        ExtraInput:Send+'static,
                       Alloc:BrotliAlloc+Send+'static,
-                       U:Send+'static+Sync>(Arc<(Mutex<WorkQueue<T, Alloc, U>>, Condvar)>);
-pub struct WorkerPool<T:Send+'static,
+                       U:Send+'static+Sync>(Arc<(Mutex<WorkQueue<ReturnValue, ExtraInput, Alloc, U>>, Condvar)>);
+pub struct WorkerPool<ReturnValue:Send+'static,
+                      ExtraInput:Send+'static,
                       Alloc:BrotliAlloc+Send+'static,
                       U:Send+'static+Sync> {
-  queue: GuardedQueue<T, Alloc, U>,
+  queue: GuardedQueue<ReturnValue, ExtraInput, Alloc, U>,
   join: [Option<std::thread::JoinHandle<()>>;MAX_THREADS],
 }
 
-impl <T:Send+'static,
+impl <ReturnValue:Send+'static,
+      ExtraInput:Send+'static,
       Alloc:BrotliAlloc+Send+'static,
-      U:Send+'static+Sync> Drop for WorkerPool<T, Alloc, U> {
+      U:Send+'static+Sync> Drop for WorkerPool<ReturnValue, ExtraInput, Alloc, U> {
   fn drop(&mut self) {
     {
       let &(ref lock, ref cvar) = &*self.queue.0;
@@ -98,10 +106,11 @@ impl <T:Send+'static,
     }
   }
 }
-impl <T:Send+'static,
+impl <ReturnValue:Send+'static,
+      ExtraInput:Send+'static,
       Alloc:BrotliAlloc+Send+'static,
-      U:Send+'static+Sync> WorkerPool<T, Alloc, U> {
-  fn do_work(queue:Arc<(Mutex<WorkQueue<T, Alloc, U>>, Condvar)>) {
+      U:Send+'static+Sync> WorkerPool<ReturnValue, ExtraInput, Alloc, U> {
+  fn do_work(queue:Arc<(Mutex<WorkQueue<ReturnValue, ExtraInput, Alloc, U>>, Condvar)>) {
     loop {
       let ret;
       { // need to drop possible job before the final lock is taken,
@@ -130,7 +139,11 @@ impl <T:Send+'static,
         }
         ret = if let Ok(job_data) = possible_job.data.read() {
           JobReply{
-            result: (possible_job.func)(possible_job.index, possible_job.thread_size, &*job_data, possible_job.alloc),
+            result: (possible_job.func)(possible_job.extra_input,
+                                        possible_job.index,
+                                        possible_job.thread_size,
+                                        &*job_data,
+                                        possible_job.alloc),
             work_id:possible_job.work_id,
           }
         } else{
@@ -146,7 +159,7 @@ impl <T:Send+'static,
       }
     }
   }
-  fn _push_job(&mut self, job:JobRequest<T, Alloc, U>) {
+  fn _push_job(&mut self, job:JobRequest<ReturnValue, ExtraInput, Alloc, U>) {
     let &(ref lock, ref cvar) = &*self.queue.0;
     let mut local_queue = lock.lock().unwrap();
       loop {
@@ -159,7 +172,7 @@ impl <T:Send+'static,
       }    
     
   }
-  fn _try_push_job(&mut self, job:JobRequest<T, Alloc, U>)->Result<(),JobRequest<T, Alloc, U>> {
+  fn _try_push_job(&mut self, job:JobRequest<ReturnValue, ExtraInput, Alloc, U>)->Result<(),JobRequest<ReturnValue, ExtraInput, Alloc, U>> {
     let &(ref lock, ref cvar) = &*self.queue.0;
     let mut local_queue = lock.lock().unwrap();
     if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size() < MAX_THREADS {
@@ -170,7 +183,7 @@ impl <T:Send+'static,
       Err(job)
     }
   }
-  fn start(queue:Arc<(Mutex<WorkQueue<T, Alloc, U>>, Condvar)>) -> std::thread::JoinHandle<()> {
+  fn start(queue:Arc<(Mutex<WorkQueue<ReturnValue, ExtraInput, Alloc, U>>, Condvar)>) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || Self::do_work(queue))
   }
   pub fn new(num_threads: usize) -> Self {
@@ -203,25 +216,31 @@ impl <T:Send+'static,
 pub fn new_work_pool<Alloc:BrotliAlloc+Send+'static, SliceW: SliceWrapper<u8>+Send+'static+Sync>(
   num_threads:usize,
 ) -> WorkerPool<CompressionThreadResult<Alloc>,
+                UnionHasher<Alloc>,
                 Alloc,
-                (SliceW, BrotliEncoderParams)> where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+                (SliceW, BrotliEncoderParams)>
+  where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static,
+        <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync,
+        <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   WorkerPool::new(num_threads)
 }
 
-pub struct WorkerJoinable<T:Send+'static,
+pub struct WorkerJoinable<ReturnValue:Send+'static,
+                          ExtraInput:Send+'static,
                       Alloc:BrotliAlloc+Send+'static,
                       U:Send+'static+Sync> {
-  queue: GuardedQueue<T, Alloc, U>,
+  queue: GuardedQueue<ReturnValue, ExtraInput, Alloc, U>,
   work_id: u64,
 }
-impl<T:Send+'static,
+impl<ReturnValue:Send+'static,
+     ExtraInput:Send+'static,
      Alloc:BrotliAlloc+Send+'static,
-     U:Send+'static+Sync> Joinable<T, BrotliEncoderThreadError> for WorkerJoinable<T, Alloc, U> {
-  fn join(self) -> Result<T, BrotliEncoderThreadError> {
+     U:Send+'static+Sync> Joinable<ReturnValue, BrotliEncoderThreadError> for WorkerJoinable<ReturnValue, ExtraInput, Alloc, U> {
+  fn join(self) -> Result<ReturnValue, BrotliEncoderThreadError> {
     let &(ref lock, ref cvar) = &*self.queue.0;
     let mut local_queue = lock.lock().unwrap();
     loop {
-      match local_queue.results.remove(|data:&Option<JobReply<T>>|if let Some(ref item) = *data { item.work_id == self.work_id} else {false}) {
+      match local_queue.results.remove(|data:&Option<JobReply<ReturnValue>>|if let Some(ref item) = *data { item.work_id == self.work_id} else {false}) {
         Some(matched) => return Ok(matched.result),
         None => local_queue = cvar.wait(local_queue).unwrap(),
       };
@@ -230,18 +249,21 @@ impl<T:Send+'static,
 }
 
 
-impl<T:Send+'static,
+impl<ReturnValue:Send+'static,
+     ExtraInput:Send+'static,
      Alloc:BrotliAlloc+Send+'static,
-     U:Send+'static+Sync> BatchSpawnableLite<T, Alloc, U> for WorkerPool<T, Alloc, U>
-  where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
+     U:Send+'static+Sync> BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U> for WorkerPool<ReturnValue, ExtraInput, Alloc, U>
+  where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static,
+        <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync,
+        <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   type FinalJoinHandle = Arc<RwLock<U>>;
-  type JoinHandle = WorkerJoinable<T, Alloc, U>;
+  type JoinHandle = WorkerJoinable<ReturnValue, ExtraInput, Alloc, U>;
 
   fn batch_spawn(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
-    f: fn(usize, usize, &U, Alloc) -> T,
+    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
+    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
   ) -> Self::FinalJoinHandle {
     let num_threads = alloc_per_thread.len();
     assert!(num_threads <= MAX_THREADS);
@@ -253,12 +275,14 @@ impl<T:Send+'static,
         for (index, work) in alloc_per_thread.iter_mut().enumerate() {
           let work_id = local_queue.cur_work_id;
           local_queue.cur_work_id += 1;
+          let (local_alloc, local_extra) = work.replace_with_default();
           local_queue.jobs.push(JobRequest{
             func:f,
+            extra_input:local_extra,
             index: index,
             thread_size: num_threads,
             data: locked_input.clone(),
-            alloc:work.replace_with_default(),
+            alloc: local_alloc,
             work_id:work_id,
           }).unwrap();
           *work = SendAlloc(InternalSendAlloc::Join(WorkerJoinable{queue:GuardedQueue(self.queue.0.clone()), work_id:work_id}));
@@ -280,10 +304,14 @@ pub fn compress_worker_pool<Alloc:BrotliAlloc+Send+'static,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
+                                   UnionHasher<Alloc>,
                                    Alloc,
-                                   <WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)> as BatchSpawnableLite<CompressionThreadResult<Alloc>,Alloc, (SliceW, BrotliEncoderParams)>>::JoinHandle>],
-  work_pool: &mut WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>,
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+                                   <WorkerPool<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, (SliceW, BrotliEncoderParams)> as BatchSpawnableLite<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>>::JoinHandle>],
+  work_pool: &mut WorkerPool<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>,
+) -> Result<usize, BrotliEncoderThreadError>
+  where <Alloc as Allocator<u8>>::AllocatedMemory: Send,
+        <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync,
+        <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   CompressMulti(params, owned_input, output, alloc_per_thread, work_pool)
 }
 

@@ -5,6 +5,7 @@ use alloc::{SliceWrapper, Allocator};
 use enc::BrotliAlloc;
 use enc::BrotliEncoderParams;
 use core::marker::PhantomData;
+use super::backward_references::{UnionHasher};
 use enc::threading::{
   CompressMulti,
   SendAlloc,
@@ -67,40 +68,42 @@ impl<U:Send+'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
 #[derive(Default)]
 pub struct SingleThreadedSpawner{}
 
-impl<T:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static+Sync> BatchSpawnable<T, Alloc, U> for SingleThreadedSpawner
+impl<ReturnValue:Send+'static, ExtraInput:Send+'static, Alloc:BrotliAlloc+Send+'static, U:Send+'static+Sync>
+  BatchSpawnable<ReturnValue, ExtraInput, Alloc, U> for SingleThreadedSpawner
 where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
-  type JoinHandle = SingleThreadedJoinable<T, BrotliEncoderThreadError>;
+  type JoinHandle = SingleThreadedJoinable<ReturnValue, BrotliEncoderThreadError>;
   type FinalJoinHandle = SingleThreadedOwnedRetriever<U>;
-    fn batch_spawn<F: Fn(usize, usize, &U, Alloc) -> T+Send+'static+Copy>(
+    fn batch_spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue+Send+'static+Copy>(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
+    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
     f: F,
     ) -> Self::FinalJoinHandle {
       let num_threads = alloc_per_thread.len();
       for (index, work) in alloc_per_thread.iter_mut().enumerate() {
-        let alloc = work.replace_with_default();
-        let ret = f(index, num_threads, input.view(), alloc);
+        let (alloc, extra_input) = work.replace_with_default();
+        let ret = f(extra_input, index, num_threads, input.view(), alloc);
         *work = SendAlloc(InternalSendAlloc::Join(SingleThreadedJoinable{result:Ok(ret)}));
       }
       SingleThreadedOwnedRetriever::<U>::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap())
     }
 }
 
-impl<T:Send+'static,
+impl<ReturnValue:Send+'static,
+     ExtraInput:Send+'static,
      Alloc:BrotliAlloc+Send+'static,
      U:Send+'static+Sync>
-  BatchSpawnableLite<T, Alloc, U> for SingleThreadedSpawner
+  BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U> for SingleThreadedSpawner
   where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
-  type JoinHandle = <SingleThreadedSpawner as BatchSpawnable<T, Alloc, U>>::JoinHandle;
-  type FinalJoinHandle = <SingleThreadedSpawner as BatchSpawnable<T, Alloc, U>>::FinalJoinHandle;
+  type JoinHandle = <SingleThreadedSpawner as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::JoinHandle;
+  type FinalJoinHandle = <SingleThreadedSpawner as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::FinalJoinHandle;
   fn batch_spawn(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, Alloc, Self::JoinHandle>],
-    f: fn(usize, usize, &U, Alloc) -> T,
+    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
+    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
   ) -> Self::FinalJoinHandle {
-   <Self as BatchSpawnable<T, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
+   <Self as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
   }
 }
 
@@ -111,9 +114,10 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
+                                   UnionHasher<Alloc>,
                                    Alloc,
-                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, SliceW>>::JoinHandle>],
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,UnionHasher<Alloc>, Alloc, SliceW>>::JoinHandle>],
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   CompressMulti(params, owned_input, output, alloc_per_thread, &mut SingleThreadedSpawner::default())
 }
 
@@ -136,9 +140,13 @@ pub fn compress_worker_pool<Alloc:BrotliAlloc+Send+'static,
   owned_input: &mut Owned<SliceW>,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>,
+                                   UnionHasher<Alloc>,
                                    Alloc,
-                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,Alloc, SliceW>>::JoinHandle>],
+                                   <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,
+                                                                            UnionHasher<Alloc>,
+                                                                            Alloc,
+                                                                            SliceW>>::JoinHandle>],
   _worker_pool:&mut WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>,
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   compress_multi(params, owned_input, output, alloc_per_thread)
 }
