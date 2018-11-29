@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_imports)]
 use super::command::{Command, ComputeDistanceCode, InitCommand, GetInsertLengthCode, GetCopyLengthCode, CombineLengthCodes, PrefixEncodeCopyDistance, CommandCopyLen};
-use super::backward_references::{BrotliEncoderParams, kHashMul32,kHashMul64, kHashMul64Long, BrotliHasherParams, kInvalidMatch, kDistanceCacheIndex, kDistanceCacheOffset, Struct1, H9Opts, HowPrepared, AnyHasher, HasherSearchResult};
+use super::backward_references::{BrotliEncoderParams, kHashMul32,kHashMul64, kHashMul64Long, BrotliHasherParams, kInvalidMatch, kDistanceCacheIndex, kDistanceCacheOffset, Struct1, H9Opts, HowPrepared, AnyHasher, CloneWithAlloc, HasherSearchResult};
 use super::dictionary_hash::kStaticDictionaryHash;
 use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
 use super::static_dict::{BrotliDictionary, kBrotliEncDictionary, BrotliFindAllStaticDictionaryMatches};
@@ -138,6 +138,23 @@ impl<AllocU32: Allocator<u32>,
         self.buckets_.free(m32);
     }
 }
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>, Buckets:Allocable<u32, Alloc>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params,
+     > CloneWithAlloc<Alloc> for H10<Alloc, Buckets, Params> {
+  fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+      let mut ret = H10::<Alloc, Buckets, Params> {
+          window_mask_: self.window_mask_,
+          common: self.common.clone(),
+          buckets_:Buckets::new(m, 0),
+          invalid_pos_:self.invalid_pos_,
+          forest:<Alloc as Allocator<u32>>::alloc_cell(m, self.forest.len()),
+          _params: core::marker::PhantomData::<Params>::default(),
+      };
+      ret.buckets_.slice_mut().clone_from_slice(self.buckets_.slice());
+      ret.forest.slice_mut().clone_from_slice(self.forest.slice());
+      ret
+  }
+}
+
 impl<AllocU32: Allocator<u32>,
      Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
      Params:H10Params> AnyHasher for H10<AllocU32, Buckets, Params> {

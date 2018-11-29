@@ -111,6 +111,7 @@ pub enum HowPrepared {
   ALREADY_PREPARED,
   NEWLY_PREPARED,
 }
+#[derive(Clone)]
 pub struct Struct1 {
   pub params: BrotliHasherParams,
   pub is_prepared_: i32,
@@ -136,6 +137,10 @@ pub struct HasherSearchResult {
   pub len_x_code: usize,
   pub distance: usize,
   pub score: u64,
+}
+
+pub trait CloneWithAlloc<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
+    fn clone_with_alloc(&self, m: &mut Alloc) -> Self;
 }
 
 pub trait AnyHasher {
@@ -818,7 +823,7 @@ pub trait AdvHashSpecialization {
   fn load_and_mix_word(&self, data: &[u8]) -> u64;
 }
 
-pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized,
+pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized + Clone,
                      Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
 {
   pub GetHasherCommon: Struct1,
@@ -831,6 +836,7 @@ pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized,
   pub buckets: <Alloc as Allocator<u32>>::AllocatedMemory,
   pub h9_opts: H9Opts,
 }
+#[derive(Clone)]
 pub struct H5Sub {}
 impl AdvHashSpecialization for H5Sub {
   fn get_hash_mask(&self) -> u64 {
@@ -852,7 +858,7 @@ impl AdvHashSpecialization for H5Sub {
     4
   }
 }
-
+#[derive(Clone)]
 pub struct H6Sub {
   pub hash_mask: u64,
 }
@@ -884,7 +890,7 @@ fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> u64 
 }
 
 
-impl<Specialization: AdvHashSpecialization, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
+impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
   for AdvHasher<Specialization, Alloc> {
   fn Opts(&self) -> H9Opts {
      self.h9_opts
@@ -1290,6 +1296,90 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(dictionary: &BrotliDictionary
   is_match_found
 }
 
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for BasicHasher<H2Sub<Alloc>> {
+  fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+      let mut ret = BasicHasher::<H2Sub<Alloc>> {
+          GetHasherCommon: self.GetHasherCommon.clone(),
+          buckets_: H2Sub::<Alloc>{
+              buckets_:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
+          },
+          h9_opts: self.h9_opts.clone(),
+      };
+      ret.buckets_.buckets_.slice_mut().clone_from_slice(self.buckets_.buckets_.slice());
+      ret
+  }    
+}
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for BasicHasher<H3Sub<Alloc>> {
+  fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+      let mut ret = BasicHasher::<H3Sub<Alloc>> {
+          GetHasherCommon: self.GetHasherCommon.clone(),
+          buckets_: H3Sub::<Alloc>{
+              buckets_:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
+          },
+          h9_opts: self.h9_opts.clone(),
+      };
+      ret.buckets_.buckets_.slice_mut().clone_from_slice(self.buckets_.buckets_.slice());
+      ret
+  }    
+}
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for BasicHasher<H4Sub<Alloc>> {
+  fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+      let mut ret = BasicHasher::<H4Sub<Alloc>> {
+          GetHasherCommon: self.GetHasherCommon.clone(),
+          buckets_: H4Sub::<Alloc>{
+              buckets_:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
+          },
+          h9_opts: self.h9_opts.clone(),
+      };
+      ret.buckets_.buckets_.slice_mut().clone_from_slice(self.buckets_.buckets_.slice());
+      ret
+  }        
+}
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for BasicHasher<H54Sub<Alloc>> {
+  fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+      let mut ret = BasicHasher::<H54Sub<Alloc>> {
+          GetHasherCommon: self.GetHasherCommon.clone(),
+          buckets_: H54Sub::<Alloc>{
+              buckets_:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.len()),
+          },
+          h9_opts: self.h9_opts.clone(),
+      };
+      ret.buckets_.buckets_.slice_mut().clone_from_slice(self.buckets_.buckets_.slice());
+      ret
+  }    
+}
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for H9<Alloc> {
+  fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+      let mut ret = H9::<Alloc> {
+          num_:<Alloc as Allocator<u16>>::alloc_cell(m, self.num_.len()),
+          buckets_:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.len()),
+          dict_search_stats_: self.dict_search_stats_.clone(),
+          h9_opts: self.h9_opts.clone(),
+      };
+      ret.buckets_.slice_mut().clone_from_slice(self.buckets_.slice());
+      ret.num_.slice_mut().clone_from_slice(self.num_.slice());
+      ret
+  }
+}
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
+     Special: AdvHashSpecialization+Sized+Clone,> CloneWithAlloc<Alloc> for AdvHasher<Special, Alloc> {
+  fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+    let mut ret = AdvHasher::<Special, Alloc> {
+      GetHasherCommon: self.GetHasherCommon.clone(),
+      bucket_size_:self.bucket_size_,
+      block_size_:self.block_size_,
+      specialization:self.specialization.clone(),
+      hash_shift_:self.hash_shift_,
+      block_mask_:self.block_mask_,
+      num:<Alloc as Allocator<u16>>::alloc_cell(m, self.num.len()),
+      buckets:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets.len()),
+      h9_opts: self.h9_opts.clone(),
+    };
+    ret.buckets.slice_mut().clone_from_slice(self.buckets.slice());
+    ret.num.slice_mut().clone_from_slice(self.num.slice());
+    ret
+  }
+}
 pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
   Uninit,
   H2(BasicHasher<H2Sub<Alloc>>),
@@ -1300,6 +1390,21 @@ pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
   H6(AdvHasher<H6Sub, Alloc>),
   H9(H9<Alloc>),
   H10(H10<Alloc, H10Buckets<Alloc>, H10DefaultParams>),
+}
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for UnionHasher<Alloc> {
+    fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
+        match *self {
+            UnionHasher::H2(ref hasher) => UnionHasher::H2(hasher.clone_with_alloc(m)),
+            UnionHasher::H3(ref hasher) => UnionHasher::H3(hasher.clone_with_alloc(m)),
+            UnionHasher::H4(ref hasher) => UnionHasher::H4(hasher.clone_with_alloc(m)),
+            UnionHasher::H5(ref hasher) => UnionHasher::H5(hasher.clone_with_alloc(m)),
+            UnionHasher::H6(ref hasher) => UnionHasher::H6(hasher.clone_with_alloc(m)),
+            UnionHasher::H54(ref hasher) => UnionHasher::H54(hasher.clone_with_alloc(m)),
+            UnionHasher::H9(ref hasher) => UnionHasher::H9(hasher.clone_with_alloc(m)),
+            UnionHasher::H10(ref hasher) => UnionHasher::H10(hasher.clone_with_alloc(m)),
+            UnionHasher::Uninit => UnionHasher::Uninit,
+        }
+    }
 }
 macro_rules! match_all_hashers_mut {
     ($xself : expr, $func_call : ident, $( $args:expr),*) => {
