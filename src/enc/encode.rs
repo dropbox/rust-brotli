@@ -602,7 +602,7 @@ fn check_large_window_ok() -> bool {
 }
 
 
-fn SanitizeParams(params: &mut BrotliEncoderParams) {
+pub fn SanitizeParams(params: &mut BrotliEncoderParams) {
   (*params).quality = brotli_min_int(11i32, brotli_max_int(0i32, (*params).quality));
   if (*params).lgwin < 10i32 {
     (*params).lgwin = 10i32;
@@ -1093,7 +1093,7 @@ fn GetHasherCommon<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
   t.GetHasherCommon()
 }
 
-fn HasherSetup<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(m16: &mut Alloc,
+pub fn HasherSetup<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(m16: &mut Alloc,
                                                                     handle: &mut UnionHasher<Alloc>,
                                                                     params: &mut BrotliEncoderParams,
                                                                     data: &[u8],

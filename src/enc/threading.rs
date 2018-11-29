@@ -12,13 +12,15 @@ use super::encode::{
   BrotliEncoderDestroyInstance,
   BrotliEncoderMaxCompressedSize,
   BrotliEncoderCompressStream,
+  SanitizeParams,
+  HasherSetup,
 };
 use concat::{
   BroCatli,
   BroCatliResult,
 };
 use core::ops::Range;
-use super::backward_references::BrotliEncoderParams;
+use super::backward_references::{BrotliEncoderParams, UnionHasher, CloneWithAlloc, AnyHasher};
 pub type PoisonedThreadError = ();
 
 #[cfg(feature="std")]
@@ -318,7 +320,51 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, Alloc, Spawner::JoinHandle>],
   thread_spawner: &mut Spawner,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+    let mut local_params = params.clone();
     let num_threads = alloc_per_thread.len();
+    SanitizeParams(&mut local_params);
+    let mut hashers: [UnionHasher<Alloc>;16] = [
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        UnionHasher::Uninit,UnionHasher::Uninit,
+        ];
+    
+    match alloc_per_thread[num_threads -1].0 {
+        InternalSendAlloc::A(ref mut alloc) => HasherSetup(alloc,
+                                                   &mut hashers[num_threads - 1],
+                                                   &mut local_params,
+                                                   &[],
+                                                   0,
+                                                   0,
+                                                   0),
+        _ => panic!("Bad state for allocator"),
+    }
+    {
+        for thread_index in 1..num_threads {
+            match owned_input.0 {
+                InternalOwned::Item(ref owned_slice) => {
+                    let mut range = get_range(0, num_threads, owned_slice.len());
+                    hashers[num_threads - 1].BulkStoreRange(owned_slice.slice(),
+                                                            -1isize as usize,
+                                                            range.start,
+                                                            range.end);
+                },
+                _ => panic!("Bad state for owned input"),
+            }
+            let (hashers, key) = hashers.split_at_mut(num_threads - 1);
+            match alloc_per_thread[num_threads - 1].0 {
+                InternalSendAlloc::A(ref mut alloc) => {
+                    hashers[thread_index - 1] = key[0].clone_with_alloc(alloc);
+                },
+                _ => panic!("Bad state for allocator"),
+            };
+        }
+    }
     let (alloc, alloc_rest) = alloc_per_thread.split_at_mut(1);
     let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
     let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
