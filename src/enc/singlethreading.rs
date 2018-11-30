@@ -121,16 +121,18 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
   CompressMulti(params, owned_input, output, alloc_per_thread, &mut SingleThreadedSpawner::default())
 }
 
-pub struct WorkerPool<A,B,C> {
+pub struct WorkerPool<A,B,C, D> {
   a: PhantomData<A>,
   b: PhantomData<B>,
   c: PhantomData<C>,
+  d: PhantomData<D>,
 }
-pub fn new_work_pool<A,B, C>(_num_threads: usize) -> WorkerPool<A, B, C>{
-  WorkerPool::<A,B,C>{
+pub fn new_work_pool<A,B, C, D>(_num_threads: usize) -> WorkerPool<A, B, C, D>{
+  WorkerPool::<A,B,C, D>{
     a:PhantomData::default(),
     b:PhantomData::default(),
     c:PhantomData::default(),
+    d:PhantomData::default(),
   }
 }
 
@@ -146,7 +148,7 @@ pub fn compress_worker_pool<Alloc:BrotliAlloc+Send+'static,
                                                                             UnionHasher<Alloc>,
                                                                             Alloc,
                                                                             SliceW>>::JoinHandle>],
-  _worker_pool:&mut WorkerPool<CompressionThreadResult<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>,
+  _worker_pool:&mut WorkerPool<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   compress_multi(params, owned_input, output, alloc_per_thread)
 }

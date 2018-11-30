@@ -64,6 +64,8 @@ impl H10Params for H10DefaultParams {
 const BUCKET_BITS:usize = 17;
 
 pub struct H10Buckets<AllocU32:Allocator<u32>>(AllocU32::AllocatedMemory);
+
+
 impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32> {
   fn new(m:&mut AllocU32, initializer: u32) -> H10Buckets<AllocU32> {
     let mut ret = m.alloc_cell(1 <<BUCKET_BITS);
@@ -75,6 +77,12 @@ impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32> 
     fn free(&mut self, m:&mut AllocU32) {
       m.free_cell(core::mem::replace(&mut self.0, AllocU32::AllocatedMemory::default()));
   }
+}
+
+impl<AllocU32:Allocator<u32>> PartialEq<H10Buckets<AllocU32>> for H10Buckets<AllocU32> {
+    fn eq(&self, other: &H10Buckets<AllocU32>) -> bool {
+        return self.0.slice() == other.0.slice()
+    }
 }
 
 impl<AllocU32:Allocator<u32>> SliceWrapper<u32> for H10Buckets<AllocU32> {
@@ -91,13 +99,29 @@ impl<AllocU32:Allocator<u32>> SliceWrapperMut<u32> for H10Buckets<AllocU32> {
 }
 
 
-pub struct H10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params> {
+pub struct H10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params>
+where Buckets:PartialEq<Buckets>
+{
     pub window_mask_: usize,
     pub common: Struct1,
     pub buckets_: Buckets,
     pub invalid_pos_:u32,
     pub forest: AllocU32::AllocatedMemory,
     pub _params: core::marker::PhantomData<Params>,
+}
+
+impl <AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params>
+    PartialEq<H10<AllocU32, Buckets, Params>> for H10<AllocU32, Buckets, Params>
+    where Buckets:PartialEq<Buckets>
+{
+    fn eq(&self, other: &H10<AllocU32, Buckets, Params>) -> bool {
+        self.window_mask_ == other.window_mask_
+            && self.common == other.common
+            && self.buckets_ == other.buckets_
+            && self.invalid_pos_ == other.invalid_pos_
+            && self.forest.slice() == other.forest.slice()
+            && self._params == other._params
+    }
 }
 
 pub fn InitializeH10<AllocU32:Allocator<u32>>(
@@ -107,7 +131,7 @@ pub fn InitializeH10<AllocU32:Allocator<u32>>(
 }
 fn initialize_h10<AllocU32:Allocator<u32>, Buckets:SliceWrapperMut<u32>+SliceWrapper<u32>+Allocable<u32, AllocU32> >(
     m32: &mut AllocU32, one_shot: bool, params: &BrotliEncoderParams, input_size: usize
-) -> H10<AllocU32, Buckets, H10DefaultParams> {
+) -> H10<AllocU32, Buckets, H10DefaultParams> where Buckets:PartialEq<Buckets> {
     let mut num_nodes = 1 << params.lgwin;
     if one_shot && input_size < num_nodes {
         num_nodes = input_size;
@@ -132,14 +156,14 @@ fn initialize_h10<AllocU32:Allocator<u32>, Buckets:SliceWrapperMut<u32>+SliceWra
 
 impl<AllocU32: Allocator<u32>,
      Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
-     Params:H10Params> H10<AllocU32, Buckets, Params> {
+     Params:H10Params> H10<AllocU32, Buckets, Params> where Buckets:PartialEq<Buckets> {
     pub fn free(&mut self, m32: &mut AllocU32) {
         m32.free_cell(core::mem::replace(&mut self.forest, AllocU32::AllocatedMemory::default()));
         self.buckets_.free(m32);
     }
 }
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>, Buckets:Allocable<u32, Alloc>+SliceWrapperMut<u32>+SliceWrapper<u32>, Params:H10Params,
-     > CloneWithAlloc<Alloc> for H10<Alloc, Buckets, Params> {
+     > CloneWithAlloc<Alloc> for H10<Alloc, Buckets, Params> where Buckets:PartialEq<Buckets> {
   fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
       let mut ret = H10::<Alloc, Buckets, Params> {
           window_mask_: self.window_mask_,
@@ -157,7 +181,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>, Buckets:Allocable<u32
 
 impl<AllocU32: Allocator<u32>,
      Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
-     Params:H10Params> AnyHasher for H10<AllocU32, Buckets, Params> {
+     Params:H10Params> AnyHasher for H10<AllocU32, Buckets, Params> where Buckets:PartialEq<Buckets> {
 /*  fn GetH10Tree(&mut self) -> Option<&mut H10<AllocU32, Buckets, H10Params>> {
     Some(self)
   }*/
@@ -361,7 +385,7 @@ pub fn StoreAndFindMatchesH10<AllocU32: Allocator<u32>,
     max_length : usize,
     max_backward : usize,
     best_len : &mut usize,
-    matches : &mut [u64]) -> usize {
+    matches : &mut [u64]) -> usize where Buckets:PartialEq<Buckets> {
     let mut matches_offset = 0usize;
     let cur_ix_masked : usize = cur_ix & ring_buffer_mask;
     let max_comp_len

@@ -37,7 +37,7 @@ pub enum BrotliEncoderMode {
   BROTLI_FORCE_SIGNED_PRIOR = 6,
 }
 
-#[derive(Clone,Copy, Debug)]
+#[derive(Clone,Copy, Debug, PartialEq)]
 pub struct BrotliHasherParams {
   // type of hasher to use (default: type 6, but others have tradeoffs of speed/memory)
   pub type_: i32,
@@ -103,7 +103,7 @@ impl Default for BrotliEncoderParams {
    }
 }
 
-#[derive(Clone,Copy,Default)]
+#[derive(Clone,Copy,Default,PartialEq)]
 pub struct H9Opts{
    pub literal_byte_score: u32,
 }
@@ -111,7 +111,7 @@ pub enum HowPrepared {
   ALREADY_PREPARED,
   NEWLY_PREPARED,
 }
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Struct1 {
   pub params: BrotliHasherParams,
   pub is_prepared_: i32,
@@ -205,6 +205,14 @@ pub struct BasicHasher<Buckets: SliceWrapperMut<u32> + SliceWrapper<u32> + Basic
   pub buckets_: Buckets,
   pub h9_opts: H9Opts,
 }
+
+impl<A: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> PartialEq<BasicHasher<A>> for BasicHasher<A> {
+    fn eq(&self, other: &BasicHasher<A>) -> bool {
+        self.GetHasherCommon == other.GetHasherCommon && self.h9_opts == other.h9_opts && self.buckets_.slice() == other.buckets_.slice()
+    }
+}
+
+
 pub struct H2Sub<AllocU32: alloc::Allocator<u32>> {
   pub buckets_: AllocU32::AllocatedMemory, // 65537
 }
@@ -543,6 +551,15 @@ pub struct H9<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
     pub h9_opts: H9Opts,
 }
 
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<H9<Alloc>> for H9<Alloc> {
+    fn eq(&self, other: &H9<Alloc>) -> bool {
+        self.dict_search_stats_ == other.dict_search_stats_
+            && self.num_.slice() == other.num_.slice()
+            && self.buckets_.slice() == other.buckets_.slice()
+            && self.h9_opts == other.h9_opts
+    }
+}
+
 fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
         if num_distances > 4i32 {
             let last_distance: i32 = distance_cache[(0usize)];
@@ -814,7 +831,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
     }
 }
 
-pub trait AdvHashSpecialization {
+pub trait AdvHashSpecialization : PartialEq<Self>{
   fn get_hash_mask(&self) -> u64;
   fn set_hash_mask(&mut self, params_hash_len: i32);
   fn get_k_hash_mul(&self) -> u64;
@@ -836,7 +853,24 @@ pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized + Clone,
   pub buckets: <Alloc as Allocator<u32>>::AllocatedMemory,
   pub h9_opts: H9Opts,
 }
-#[derive(Clone)]
+impl<Specialization:AdvHashSpecialization+Sized+Clone,
+     Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<AdvHasher<Specialization,
+                                                                               Alloc>> for AdvHasher<Specialization,
+                                                                                                     Alloc> {
+    fn eq(&self, other: &AdvHasher<Specialization, Alloc>) -> bool {
+        self.GetHasherCommon == other.GetHasherCommon
+            && self.bucket_size_ == other.bucket_size_
+            && self.block_size_ == other.block_size_
+            && self.specialization == other.specialization
+            && self.hash_shift_ == other.hash_shift_
+            && self.block_mask_ == other.block_mask_
+            && self.num.slice() == other.num.slice()
+            && self.buckets.slice() == other.buckets.slice()
+            && self.h9_opts == other.h9_opts
+    }
+}
+
+#[derive(Clone, PartialEq)]
 pub struct H5Sub {}
 impl AdvHashSpecialization for H5Sub {
   fn get_hash_mask(&self) -> u64 {
@@ -858,7 +892,7 @@ impl AdvHashSpecialization for H5Sub {
     4
   }
 }
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct H6Sub {
   pub hash_mask: u64,
 }
@@ -1380,6 +1414,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
     ret
   }
 }
+
 pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
   Uninit,
   H2(BasicHasher<H2Sub<Alloc>>),
@@ -1390,6 +1425,48 @@ pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
   H6(AdvHasher<H6Sub, Alloc>),
   H9(H9<Alloc>),
   H10(H10<Alloc, H10Buckets<Alloc>, H10DefaultParams>),
+}
+impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<UnionHasher<Alloc>> for UnionHasher<Alloc> {
+    fn eq(&self, other: &UnionHasher<Alloc>) -> bool {
+        match *self {
+            UnionHasher::H2(ref hasher) => match *other {
+                UnionHasher::H2(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H3(ref hasher) => match *other {
+                UnionHasher::H3(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H4(ref hasher) => match *other {
+                UnionHasher::H4(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H54(ref hasher) => match *other {
+                UnionHasher::H54(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H5(ref hasher) => match *other {
+                UnionHasher::H5(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H6(ref hasher) => match *other {
+                UnionHasher::H6(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H9(ref hasher) => match *other {
+                UnionHasher::H9(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H10(ref hasher) => match *other {
+                UnionHasher::H10(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::Uninit => match *other {
+                UnionHasher::Uninit => true,
+                _ => false,
+            },
+        }        
+    }
 }
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for UnionHasher<Alloc> {
     fn clone_with_alloc(&self, m: &mut Alloc) -> Self {

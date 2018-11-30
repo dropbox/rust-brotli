@@ -362,7 +362,7 @@ pub fn StitchToPreviousBlockH10<AllocU32:Allocator<u32>,
                             Buckets: Allocable<u32, AllocU32>+SliceWrapperMut<u32>+SliceWrapper<u32>,
                             Params:H10Params>(handle: &mut H10<AllocU32, Buckets, Params>,
                                               num_bytes: usize, position: usize, ringbuffer: &[u8],
-                                              ringbuffer_mask: usize) {
+                                              ringbuffer_mask: usize) where Buckets:PartialEq<Buckets> {
   if (num_bytes >= handle.HashTypeLength() - 1 &&
       position >= Params::max_tree_comp_length() as usize) {
     /* Store the last `MAX_TREE_COMP_LENGTH - 1` positions in the hasher.
@@ -398,7 +398,7 @@ fn FindAllMatchesH10<AllocU32:Allocator<u32>, Buckets: Allocable<u32, AllocU32>+
     max_backward : usize,
     gap : usize,
     params : & BrotliEncoderParams,
-    matches : &mut [u64]) -> usize {
+    matches : &mut [u64]) -> usize where Buckets:PartialEq<Buckets> {
     let mut matches_offset = 0usize;
     let cur_ix_masked : usize = cur_ix & ring_buffer_mask;
     let mut best_len : usize = 1usize;
@@ -1182,7 +1182,7 @@ pub fn BrotliZopfliComputeShortestPath<AllocU32:Allocator<u32>,
     dist_cache : & [i32],
     handle : &mut H10<AllocU32, Buckets, Params>,
     nodes : &mut [ZopfliNode
-]) -> usize {
+]) -> usize where Buckets:PartialEq<Buckets> {
     let max_zopfli_len : usize = MaxZopfliLen(params);
     let mut model : ZopfliCostModel<AllocF>;
     let mut queue : StartPosQueue;
@@ -1344,7 +1344,7 @@ pub fn BrotliCreateZopfliBackwardReferences<Alloc:Allocator<u32> + Allocator<flo
     last_insert_len : &mut usize,
     commands : &mut [Command],
     num_commands : &mut usize,
-    num_literals : &mut usize) {
+    num_literals : &mut usize) where Buckets:PartialEq<Buckets> {
     let max_backward_limit
         : usize
         = (1usize << (*params).lgwin).wrapping_sub(
@@ -1695,7 +1695,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<Alloc:Allocator<u32> + Allocator<u
     commands : &mut [Command],
     num_commands : &mut usize,
     num_literals : &mut usize,
-) {
+) where Buckets:PartialEq<Buckets> {
     let max_backward_limit
         : usize
         = (1usize << (*params).lgwin).wrapping_sub(
