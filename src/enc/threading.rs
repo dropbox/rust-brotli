@@ -97,6 +97,14 @@ impl<ReturnValue:Send+'static, ExtraInput:Send+'static, Alloc:BrotliAlloc+Send+'
       },
     }
   }
+  fn unwrap_view_mut(&mut self) -> (&mut Alloc, &mut ExtraInput) {
+    match self.0 {
+      InternalSendAlloc::A(ref mut alloc, ref mut extra_input) => {
+        (alloc, extra_input)
+      },
+      InternalSendAlloc::SpawningOrJoining(_) | InternalSendAlloc::Join(_) => panic!("Item permanently borrowed/leaked"),
+    }
+  }
   pub fn unwrap(self) -> (Alloc, ExtraInput) {
     match self.0 {
       InternalSendAlloc::A(alloc, extra_input) => {
@@ -288,9 +296,11 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
                                                      BrotliEncoderMaxCompressedSize(range.end - range.start));
   let mut state = BrotliEncoderCreateInstance(alloc);
   state.params = input_and_params.1.clone();
-  state.params.catable = true; // make sure we can concatenate this to the other work results
+  if thread_index != 0 {
+    state.params.catable = true; // make sure we can concatenate this to the other work results
+    state.params.magic_number = false; // no reason to pepper this around
+  }
   state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
-  state.params.magic_number = false; // no reason to pepper this around
   BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher(
     &mut state, range.start, &input_and_params.0.slice()[..range.start], hasher,
   );
@@ -350,30 +360,28 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, Spawner::JoinHandle>],
   thread_spawner: &mut Spawner,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send, <Alloc as Allocator<u32>>::AllocatedMemory: Send{
-    let mut local_params = params.clone();
     let num_threads = alloc_per_thread.len();
-    SanitizeParams(&mut local_params);
     let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
     let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
     // start thread spawner
     let mut spawner_and_input = thread_spawner.make_spawner(&mut owned_input_pair);
-    if num_threads > 1 {
-      thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[0], 0, num_threads, compress_part); // spawn first thread with no prior
+  if num_threads > 1 {
+    // spawn first thread without "custom dictionary" while we compute the custom dictionary for other work items
+      thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[0], 0, num_threads, compress_part);
     }
     // populate all hashers at once, cloning them one by one
     let mut compression_last_thread_result = Err(());
-    if num_threads > 1 && local_params.favor_cpu_efficiency {
+    if num_threads > 1 && params.favor_cpu_efficiency {
+      let mut local_params = params.clone();
+      SanitizeParams(&mut local_params);
       let mut hasher = UnionHasher::Uninit;
-      match alloc_per_thread[num_threads -1].0 { // start with the last hashers
-        InternalSendAlloc::A(ref mut alloc, _) => HasherSetup(alloc,
-                                                              &mut hasher,
-                                                              &mut local_params,
-                                                              &[],
-                                                              0,
-                                                              0,
-                                                              0),
-        _ => panic!("Bad state for allocator"),
-      }
+      HasherSetup(alloc_per_thread[num_threads -1].0.unwrap_input().0,
+                  &mut hasher,
+                  &mut local_params,
+                  &[],
+                  0,
+                  0,
+                  0);
       for thread_index in 1..num_threads {
         let res = spawner_and_input.view(|input_and_params:&(SliceW, BrotliEncoderParams)| -> () {
           let mut range = get_range(thread_index - 1, num_threads, input_and_params.0.len());
@@ -386,30 +394,37 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
           return Err(BrotliEncoderThreadError::OtherThreadPanic);
         }
         if thread_index + 1 != num_threads {
-          match alloc_per_thread[thread_index].0 {
-            InternalSendAlloc::A(ref mut alloc, ref mut out_hasher) => {
-              *out_hasher = hasher.clone_with_alloc(alloc);
-            },
-            _ => panic!("Bad state for allocator"),
-          };
+          {
+            let (alloc, out_hasher) = alloc_per_thread[thread_index].unwrap_view_mut();
+            *out_hasher = hasher.clone_with_alloc(alloc);
+          }
           thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[thread_index], thread_index, num_threads, compress_part);
         }
       }
-      let local_alloc = core::mem::replace(&mut alloc_per_thread[num_threads -1].0, InternalSendAlloc::SpawningOrJoining(PhantomData::default()));
+      let (mut alloc, _extra) = alloc_per_thread[num_threads -1].replace_with_default();
       compression_last_thread_result = spawner_and_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> CompressionThreadResult<Alloc> {
-        match local_alloc {
-          InternalSendAlloc::A(alloc, _extra) => 
-            compress_part(hasher,
-                          num_threads - 1,
-                          num_threads,
-                          input_and_params,
-                          alloc,
-            ),
-          _ => panic!("Bad state for allocator"),
-        }
+        compress_part(hasher,
+                      num_threads - 1,
+                      num_threads,
+                      input_and_params,
+                      alloc,
+        )
       });
-    } else if num_threads > 1 {
-      panic!("UNIMPL");
+    } else {
+      if num_threads > 1 {
+        for thread_index in 1..num_threads-1 {
+          thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[thread_index], thread_index, num_threads, compress_part);
+        }
+      }
+      let (mut alloc, _extra) = alloc_per_thread[num_threads - 1].replace_with_default();
+      compression_last_thread_result = spawner_and_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> CompressionThreadResult<Alloc> {
+        compress_part(UnionHasher::Uninit,
+                      num_threads - 1,
+                      num_threads,
+                      input_and_params,
+                      alloc,
+        )
+      });
     }
     let mut compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace);
     let mut out_file_size = 0usize;

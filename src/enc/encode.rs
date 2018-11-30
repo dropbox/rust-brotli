@@ -1206,6 +1206,7 @@ pub fn BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher<Alloc: Brot
                                   dict);
     if has_optional_hasher {
       debug_assert!(orig_hasher == s.hasher_);
+      DestroyHasher(m16, &mut orig_hasher);
     }
   }
 }
