@@ -271,6 +271,9 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
   state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
   state.params.magic_number = false; // no reason to pepper this around
   BrotliEncoderSetCustomDictionary(&mut state, range.start, &input_and_params.0.slice()[..range.start]);
+  let _res = hasher == state.hasher_;
+  assert!(hasher == state.hasher_);
+  assert!(_res);
   let mut out_offset = 0usize;
   let compression_result;
   let mut available_out = mem.len();
@@ -347,10 +350,10 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         match owned_input.0 {
           InternalOwned::Item(ref owned_slice) => {
             let mut range = get_range(thread_index - 1, num_threads, owned_slice.len());
-            hasher.BulkStoreRange(owned_slice.slice(),
-                                  -1isize as usize,
-                                  range.start,
-                                  range.end);
+            let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
+            if range.end - range.start >  overlap {
+              hasher.BulkStoreRange(owned_slice.slice(), !(0usize), if range.start > overlap {range.start - overlap} else {0}, range.end - overlap);
+            }
           },
           _ => panic!("Bad state for owned input"),
         }
