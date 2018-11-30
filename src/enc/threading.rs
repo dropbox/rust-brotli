@@ -67,6 +67,15 @@ pub enum InternalSendAlloc<ReturnVal:Send+'static, ExtraInput:Send+'static,Alloc
   Join(Join),
   SpawningOrJoining(PhantomData<ReturnVal>),
 }
+impl <ReturnVal:Send+'static, ExtraInput:Send+'static,Alloc:BrotliAlloc+Send+'static, Join: Joinable<ReturnVal, BrotliEncoderThreadError>> InternalSendAlloc<ReturnVal, ExtraInput, Alloc, Join>  where <Alloc as Allocator<u8>>::AllocatedMemory: Send {
+  fn unwrap_input(&mut self) -> (&mut Alloc, &mut ExtraInput) {
+    match *self {
+      InternalSendAlloc::A(ref mut alloc, ref mut extra) => (alloc, extra),
+      _ => panic!("Bad state for allocator"),
+    }
+  }
+}
+
 pub struct SendAlloc<ReturnValue:Send+'static,
                      ExtraInput:Send+'static,
                      Alloc:BrotliAlloc +Send+'static,
@@ -274,7 +283,7 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
   input_and_params:&(SliceW, BrotliEncoderParams),
   mut alloc: Alloc,
 ) -> CompressionThreadResult<Alloc> where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
-  let mut range = get_range(thread_index + 1, num_threads + 1, input_and_params.0.len());
+  let mut range = get_range(thread_index, num_threads, input_and_params.0.len());
   let mut mem = <Alloc as Allocator<u8>>::alloc_cell(&mut alloc,
                                                      BrotliEncoderMaxCompressedSize(range.end - range.start));
   let mut state = BrotliEncoderCreateInstance(alloc);
@@ -344,8 +353,16 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     let mut local_params = params.clone();
     let num_threads = alloc_per_thread.len();
     SanitizeParams(&mut local_params);
+    let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
+    let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
+    // start thread spawner
+    let mut spawner_and_input = thread_spawner.make_spawner(&mut owned_input_pair);
+    if num_threads > 1 {
+      thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[0], 0, num_threads, compress_part); // spawn first thread with no prior
+    }
     // populate all hashers at once, cloning them one by one
-    if num_threads > 2 && local_params.favor_cpu_efficiency {
+    let mut compression_last_thread_result = Err(());
+    if num_threads > 1 && local_params.favor_cpu_efficiency {
       let mut hasher = UnionHasher::Uninit;
       match alloc_per_thread[num_threads -1].0 { // start with the last hashers
         InternalSendAlloc::A(ref mut alloc, _) => HasherSetup(alloc,
@@ -358,15 +375,15 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         _ => panic!("Bad state for allocator"),
       }
       for thread_index in 1..num_threads {
-        match owned_input.0 {
-          InternalOwned::Item(ref owned_slice) => {
-            let mut range = get_range(thread_index - 1, num_threads, owned_slice.len());
-            let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
-            if range.end - range.start >  overlap {
-              hasher.BulkStoreRange(owned_slice.slice(), !(0usize), if range.start > overlap {range.start - overlap} else {0}, range.end - overlap);
-            }
-          },
-          _ => panic!("Bad state for owned input"),
+        let res = spawner_and_input.view(|input_and_params:&(SliceW, BrotliEncoderParams)| -> () {
+          let mut range = get_range(thread_index - 1, num_threads, input_and_params.0.len());
+          let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
+          if range.end - range.start >  overlap {
+            hasher.BulkStoreRange(input_and_params.0.slice(), !(0usize), if range.start > overlap {range.start - overlap} else {0}, range.end - overlap);
+          }
+        });
+        if let Err(_e) = res {
+          return Err(BrotliEncoderThreadError::OtherThreadPanic);
         }
         if thread_index + 1 != num_threads {
           match alloc_per_thread[thread_index].0 {
@@ -375,156 +392,83 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
             },
             _ => panic!("Bad state for allocator"),
           };
+          thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[thread_index], thread_index, num_threads, compress_part);
         }
       }
-      match alloc_per_thread[num_threads - 1].0 {
-        InternalSendAlloc::A(ref _alloc, ref mut out_hasher) =>
-          *out_hasher = hasher, // clobber UnionHasher::Uninit
-        _ => panic!("Bad state for allocator"),
-      }
-    }
-    let (alloc, alloc_rest) = alloc_per_thread.split_at_mut(1);
-    let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
-    let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
-    let mut retrieve_owned_input = thread_spawner.make_spawner(&mut owned_input_pair);
-    for (index, alloc) in alloc_rest.iter_mut().enumerate() {
-      thread_spawner.spawn(&mut retrieve_owned_input, alloc, index, num_threads - 1, compress_part);
-    }
-    let output_len = output.len();
-    let first_thread_output_max_len = if alloc_rest.len() != 0 { output_len / 2 } else {output.len()};
-    let mut compression_result;
-    let mut available_out = first_thread_output_max_len;
-    {
-        let first_thread_output = &mut output[output_len - first_thread_output_max_len..];
-        compression_result = match retrieve_owned_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> Result<usize,BrotliEncoderThreadError> {
-            let compression_result_inner;
-            let mut state = BrotliEncoderCreateInstance(match mem::replace(&mut alloc[0].0,
-                                                                           InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
-            InternalSendAlloc::A(a, _) => a,
-                _ => panic!("all public interfaces which create SendAlloc can only specify subtype A")
-            });
-            state.params = params.clone();
-            state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
-            let mut out_offset = 0usize;
-
-            let mut range = get_range(0, num_threads, (input_and_params.0).len());
-            loop {
-                assert_eq!(range.start, 0);
-                let mut next_in_offset = 0usize;
-                let mut available_in = range.end - range.start;
-                let result = BrotliEncoderCompressStream(&mut state,
-                                                         BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
-                                                         &mut available_in,
-                                                         &(input_and_params.0).slice()[range.clone()],//fixme *
-                                                         &mut next_in_offset,
-                                                         &mut available_out,
-                                                         first_thread_output,
-                                                         &mut out_offset,
-                                                         &mut None,
-                                                         &mut |_a,_b,_c,_d|());
-                let new_range = range.start + next_in_offset..range.end;
-                range = new_range;
-                if result != 0 {
-                    compression_result_inner = Ok(out_offset);
-                    break;
-                } else if available_out == 0 {
-                    compression_result_inner = Err(BrotliEncoderThreadError::InsufficientOutputSpace); // mark no space??
-                    break
-                }
-            }
-            BrotliEncoderDestroyInstance(&mut state);
-            alloc[0].0 = InternalSendAlloc::A(state.m8, UnionHasher::Uninit);
-            compression_result_inner
-        }) {
-            Ok(res) => {
-                res
-            },
-            Err(_) =>
-                Err(BrotliEncoderThreadError::OtherThreadPanic), // lock got poisoned
+      let local_alloc = core::mem::replace(&mut alloc_per_thread[num_threads -1].0, InternalSendAlloc::SpawningOrJoining(PhantomData::default()));
+      compression_last_thread_result = spawner_and_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> CompressionThreadResult<Alloc> {
+        match local_alloc {
+          InternalSendAlloc::A(alloc, _extra) => 
+            compress_part(hasher,
+                          num_threads - 1,
+                          num_threads,
+                          input_and_params,
+                          alloc,
+            ),
+          _ => panic!("Bad state for allocator"),
         }
-    };
+      });
+    } else if num_threads > 1 {
+      panic!("UNIMPL");
+    }
+    let mut compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace);
+    let mut out_file_size = 0usize;
     let mut bro_cat_li = BroCatli::new();
-    if alloc_rest.len() != 0 {
-      if let Ok(first_file_size) = compression_result {
-        bro_cat_li.new_brotli_file();
-        let (cat_output, cat_input) = output.split_at_mut(output_len - first_thread_output_max_len);
-        let mut in_offset = 0usize;
-        let mut out_offset = 0usize;
-        let cat_result = bro_cat_li.stream(&cat_input[..first_file_size],
-                                           &mut in_offset,
-                                           cat_output,
-                                           &mut out_offset);
-        match cat_result {
-          BroCatliResult::Success | BroCatliResult::NeedsMoreInput  => {
-            if in_offset != first_file_size {
-              compression_result = Err(BrotliEncoderThreadError::ConcatenationDidNotProcessFullFile); // wasn't able to ingest the full file
-            } else {
-               compression_result = Ok(out_offset);
+    for (index, thread) in alloc_per_thread.iter_mut().enumerate() {
+      let mut cur_result = if index + 1 == num_threads {
+        match core::mem::replace(&mut compression_last_thread_result, Err(())){
+          Ok(result) => result,
+          Err(err) => return Err(BrotliEncoderThreadError::OtherThreadPanic),
+        }
+      } else {
+        match mem::replace(&mut thread.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
+          InternalSendAlloc::A(_, _) | InternalSendAlloc::SpawningOrJoining(_) => panic!("Thread not properly spawned"),
+          InternalSendAlloc::Join(join) => match join.join() {
+            Ok(mut result) => result,
+            Err(err) => {
+              return Err(err);
             }
-          },
-          BroCatliResult::NeedsMoreOutput => {
-            compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace); // not enough space
-          },
-          err => {
-            compression_result = Err(BrotliEncoderThreadError::ConcatenationError(err)); // misc error
-          },
+          }
+        }
+      };
+      match cur_result.compressed {
+        Ok(compressed_out) => {
+          bro_cat_li.new_brotli_file();
+          let mut in_offset = 0usize;
+          let cat_result = bro_cat_li.stream(&compressed_out.data_backing.slice()[..compressed_out.data_size],
+                                             &mut in_offset,
+                                             output,
+                                             &mut out_file_size);
+          match cat_result {
+            BroCatliResult::Success | BroCatliResult::NeedsMoreInput  => {
+              compression_result = Ok(out_file_size);
+            },
+            BroCatliResult::NeedsMoreOutput => {
+              compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace); // not enough space
+            },
+            err => {
+              compression_result = Err(BrotliEncoderThreadError::ConcatenationError(err)); // misc error
+            },
+          }
+          <Alloc as Allocator<u8>>::free_cell(&mut cur_result.alloc, compressed_out.data_backing);
+        }
+        Err(e) => {
+          compression_result = Err(e);
         }
       }
+      thread.0 = InternalSendAlloc::A(cur_result.alloc, UnionHasher::Uninit);
     }
-    if let Ok(mut out_file_size) = compression_result {
-     for thread in alloc_rest.iter_mut() {
-       match mem::replace(&mut thread.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
-         InternalSendAlloc::A(_, _) | InternalSendAlloc::SpawningOrJoining(_) => panic!("Thread not properly spawned"),
-         InternalSendAlloc::Join(join) => match join.join() {
-           Ok(mut result) => {
-             match result.compressed {
-               Ok(compressed_out) => {
-                 bro_cat_li.new_brotli_file();
-                 let mut in_offset = 0usize;
-                 let cat_result = bro_cat_li.stream(&compressed_out.data_backing.slice()[..compressed_out.data_size],
-                                                    &mut in_offset,
-                                                    output,
-                                                    &mut out_file_size);
-                 match cat_result {
-                   BroCatliResult::Success | BroCatliResult::NeedsMoreInput  => {
-                     compression_result = Ok(out_file_size);
-                   },
-                   BroCatliResult::NeedsMoreOutput => {
-                     compression_result = Err(BrotliEncoderThreadError::InsufficientOutputSpace); // not enough space
-                   },
-                   err => {
-                     compression_result = Err(BrotliEncoderThreadError::ConcatenationError(err)); // misc error
-                   },
-                 }
-                 <Alloc as Allocator<u8>>::free_cell(&mut result.alloc, compressed_out.data_backing);
-               }
-               Err(e) => {
-                   compression_result = Err(e);
-               }
-             }
-             thread.0 = InternalSendAlloc::A(result.alloc, UnionHasher::Uninit);
-           },
-           Err(err) => {
-             compression_result = Err(err);
-           },
-         },
-       }
-     }
-     if alloc_rest.len() != 0 {
-       match bro_cat_li.finish(output, &mut out_file_size) {
-         BroCatliResult::Success => compression_result = Ok(out_file_size),
-         err => compression_result = Err(BrotliEncoderThreadError::ConcatenationFinalizationError(err)),
-       }
-     }
-   }
-
-  if let Ok(retrieved_owned_input) = retrieve_owned_input.unwrap() {
+    match bro_cat_li.finish(output, &mut out_file_size) {
+      BroCatliResult::Success => compression_result = Ok(out_file_size),
+      err => compression_result = Err(BrotliEncoderThreadError::ConcatenationFinalizationError(err)),
+    }
+    if let Ok(retrieved_owned_input) = spawner_and_input.unwrap() {
       *owned_input = Owned::new(retrieved_owned_input.0); // return the input to its rightful owner before returning
-  } else {
-    if let Ok(_) = compression_result {
-          compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic);
+    } else {
+      if let Ok(_) = compression_result {
+        compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic);
       }
-  }
-  compression_result
+    }
+    compression_result
 }
 
