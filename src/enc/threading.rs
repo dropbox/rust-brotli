@@ -301,9 +301,11 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
     state.params.magic_number = false; // no reason to pepper this around
   }
   state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
-  BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher(
-    &mut state, range.start, &input_and_params.0.slice()[..range.start], hasher,
-  );
+  if thread_index != 0 {
+    BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher(
+      &mut state, range.start, &input_and_params.0.slice()[..range.start], hasher,
+    );
+  }
   let mut out_offset = 0usize;
   let compression_result;
   let mut available_out = mem.len();
@@ -360,17 +362,17 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, Spawner::JoinHandle>],
   thread_spawner: &mut Spawner,
 ) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send, <Alloc as Allocator<u32>>::AllocatedMemory: Send{
-    let num_threads = alloc_per_thread.len();
-    let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
-    let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
-    // start thread spawner
-    let mut spawner_and_input = thread_spawner.make_spawner(&mut owned_input_pair);
+  let num_threads = alloc_per_thread.len();
+  let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
+  let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
+  // start thread spawner
+  let mut spawner_and_input = thread_spawner.make_spawner(&mut owned_input_pair);
   if num_threads > 1 {
     // spawn first thread without "custom dictionary" while we compute the custom dictionary for other work items
       thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[0], 0, num_threads, compress_part);
     }
     // populate all hashers at once, cloning them one by one
-    let mut compression_last_thread_result = Err(());
+    let mut compression_last_thread_result;
     if num_threads > 1 && params.favor_cpu_efficiency {
       let mut local_params = params.clone();
       SanitizeParams(&mut local_params);
@@ -384,10 +386,12 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
                   0);
       for thread_index in 1..num_threads {
         let res = spawner_and_input.view(|input_and_params:&(SliceW, BrotliEncoderParams)| -> () {
-          let mut range = get_range(thread_index - 1, num_threads, input_and_params.0.len());
+          let range = get_range(thread_index - 1, num_threads, input_and_params.0.len());
           let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
-          if range.end - range.start >  overlap {
-            hasher.BulkStoreRange(input_and_params.0.slice(), !(0usize), if range.start > overlap {range.start - overlap} else {0}, range.end - overlap);
+          if range.end - range.start > overlap {
+            hasher.BulkStoreRange(input_and_params.0.slice(),
+                                  !(0usize),
+                                  if range.start > overlap {range.start - overlap} else {0}, range.end - overlap);
           }
         });
         if let Err(_e) = res {
@@ -401,7 +405,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
           thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[thread_index], thread_index, num_threads, compress_part);
         }
       }
-      let (mut alloc, _extra) = alloc_per_thread[num_threads -1].replace_with_default();
+      let (alloc, _extra) = alloc_per_thread[num_threads -1].replace_with_default();
       compression_last_thread_result = spawner_and_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> CompressionThreadResult<Alloc> {
         compress_part(hasher,
                       num_threads - 1,
@@ -416,7 +420,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
           thread_spawner.spawn(&mut spawner_and_input, &mut alloc_per_thread[thread_index], thread_index, num_threads, compress_part);
         }
       }
-      let (mut alloc, _extra) = alloc_per_thread[num_threads - 1].replace_with_default();
+      let (alloc, _extra) = alloc_per_thread[num_threads - 1].replace_with_default();
       compression_last_thread_result = spawner_and_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> CompressionThreadResult<Alloc> {
         compress_part(UnionHasher::Uninit,
                       num_threads - 1,
@@ -433,7 +437,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
       let mut cur_result = if index + 1 == num_threads {
         match core::mem::replace(&mut compression_last_thread_result, Err(())){
           Ok(result) => result,
-          Err(err) => return Err(BrotliEncoderThreadError::OtherThreadPanic),
+          Err(_err) => return Err(BrotliEncoderThreadError::OtherThreadPanic),
         }
       } else {
         match mem::replace(&mut thread.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
@@ -472,6 +476,9 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         }
       }
       thread.0 = InternalSendAlloc::A(cur_result.alloc, UnionHasher::Uninit);
+    }
+    if let Err(e) = compression_result {
+      return Err(e);
     }
     match bro_cat_li.finish(output, &mut out_file_size) {
       BroCatliResult::Success => compression_result = Ok(out_file_size),
