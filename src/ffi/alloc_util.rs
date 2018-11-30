@@ -49,9 +49,6 @@ unsafe impl Send for BrotliSubclassableAllocator{}
 #[cfg(not(feature="safe"))]
 unsafe impl<T:Clone+Default> Send for SendableMemoryBlock<T>{}
 
-#[cfg(not(feature="safe"))]
-unsafe impl<T:Clone+Default> Sync for SendableMemoryBlock<T>{} //FIXME: remove!
-
 
 
 #[cfg(not(feature="std"))]

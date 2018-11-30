@@ -117,7 +117,7 @@ pub fn compress_multi<Alloc:BrotliAlloc+Send+'static,
                                    UnionHasher<Alloc>,
                                    Alloc,
                                    <SingleThreadedSpawner as BatchSpawnable<CompressionThreadResult<Alloc>,UnionHasher<Alloc>, Alloc, SliceW>>::JoinHandle>],
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send, <Alloc as Allocator<u32>>::AllocatedMemory: Send {
   CompressMulti(params, owned_input, output, alloc_per_thread, &mut SingleThreadedSpawner::default())
 }
 
@@ -149,6 +149,6 @@ pub fn compress_worker_pool<Alloc:BrotliAlloc+Send+'static,
                                                                             Alloc,
                                                                             SliceW>>::JoinHandle>],
   _worker_pool:&mut WorkerPool<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, (SliceW, BrotliEncoderParams)>,
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send, <Alloc as Allocator<u32>>::AllocatedMemory: Send {
   compress_multi(params, owned_input, output, alloc_per_thread)
 }

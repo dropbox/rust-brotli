@@ -326,7 +326,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
   output: &mut [u8],
   alloc_per_thread:&mut [SendAlloc<CompressionThreadResult<Alloc>, UnionHasher<Alloc>, Alloc, Spawner::JoinHandle>],
   thread_spawner: &mut Spawner,
-) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send+Sync, <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync{
+) -> Result<usize, BrotliEncoderThreadError> where <Alloc as Allocator<u8>>::AllocatedMemory: Send, <Alloc as Allocator<u16>>::AllocatedMemory: Send, <Alloc as Allocator<u32>>::AllocatedMemory: Send{
     let mut local_params = params.clone();
     let num_threads = alloc_per_thread.len();
     SanitizeParams(&mut local_params);
