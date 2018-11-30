@@ -1387,34 +1387,36 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
 }
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for H9<Alloc> {
   fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
-      let mut ret = H9::<Alloc> {
-          num_:<Alloc as Allocator<u16>>::alloc_cell(m, self.num_.len()),
-          buckets_:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.len()),
+      let mut num = <Alloc as Allocator<u16>>::alloc_cell(m, self.num_.len());
+      num.slice_mut().clone_from_slice(self.num_.slice());
+      let mut buckets = <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.len());
+      buckets.slice_mut().clone_from_slice(self.buckets_.slice());
+      H9::<Alloc> {
+          num_:num,
+          buckets_:buckets,
           dict_search_stats_: self.dict_search_stats_.clone(),
           h9_opts: self.h9_opts.clone(),
-      };
-      ret.buckets_.slice_mut().clone_from_slice(self.buckets_.slice());
-      ret.num_.slice_mut().clone_from_slice(self.num_.slice());
-      ret
+      }
   }
 }
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
      Special: AdvHashSpecialization+Sized+Clone,> CloneWithAlloc<Alloc> for AdvHasher<Special, Alloc> {
   fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
-    let mut ret = AdvHasher::<Special, Alloc> {
+    let mut num = <Alloc as Allocator<u16>>::alloc_cell(m, self.num.len());
+    num.slice_mut().clone_from_slice(self.num.slice());
+    let mut buckets = <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets.len());
+    buckets.slice_mut().clone_from_slice(self.buckets.slice());
+    AdvHasher::<Special, Alloc> {
       GetHasherCommon: self.GetHasherCommon.clone(),
       bucket_size_:self.bucket_size_,
       block_size_:self.block_size_,
       specialization:self.specialization.clone(),
       hash_shift_:self.hash_shift_,
       block_mask_:self.block_mask_,
-      num:<Alloc as Allocator<u16>>::alloc_cell(m, self.num.len()),
-      buckets:<Alloc as Allocator<u32>>::alloc_cell(m, self.buckets.len()),
+      num:num,
+      buckets:buckets,
       h9_opts: self.h9_opts.clone(),
-    };
-    ret.buckets.slice_mut().clone_from_slice(self.buckets.slice());
-    ret.num.slice_mut().clone_from_slice(self.num.slice());
-    ret
+    }
   }
 }
 
