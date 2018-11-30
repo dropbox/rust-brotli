@@ -249,20 +249,23 @@ impl<T:Send+'static,
 where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
   type JoinHandle = MTJoinable<T, BrotliEncoderThreadError>;
   type FinalJoinHandle = MTOwnedRetriever<U>;
-    fn batch_spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> T+Send+'static+Copy>(
+    fn make_spawner(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, ExtraInput, Alloc, Self::JoinHandle>],
-    f: F,
     ) -> Self::FinalJoinHandle {
-      let num_threads = alloc_per_thread.len();
-      let locked_input = MTOwnedRetriever(std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap())));
-      for (index, work) in alloc_per_thread.iter_mut().enumerate() {
-        let (alloc, extra_input) = work.replace_with_default();
-        let ret = spawn_work(extra_input, index, num_threads, locked_input.clone(), alloc, f);
-        *work = SendAlloc(InternalSendAlloc::Join(MTJoinable(ret, PhantomData::default())));
-      }
-      locked_input
+      MTOwnedRetriever(std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap())))
+    }
+    fn spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> T+Send+'static+Copy>(
+      &mut self,
+      locked_input: &mut Self::FinalJoinHandle,
+      work:&mut SendAlloc<T, ExtraInput, Alloc, Self::JoinHandle>,
+      index: usize,
+      num_threads: usize,
+      f: F,
+    ) {
+      let (alloc, extra_input) = work.replace_with_default();
+      let ret = spawn_work(extra_input, index, num_threads, locked_input.clone(), alloc, f);
+      *work = SendAlloc(InternalSendAlloc::Join(MTJoinable(ret, PhantomData::default())));
     }
 }
 impl<T:Send+'static,
@@ -273,13 +276,21 @@ impl<T:Send+'static,
   where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
   type JoinHandle = <MTSpawner as BatchSpawnable<T, ExtraInput, Alloc, U>>::JoinHandle;
   type FinalJoinHandle = <MTSpawner as BatchSpawnable<T, ExtraInput, Alloc, U>>::FinalJoinHandle;
-  fn batch_spawn(
+  fn make_spawner(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<T, ExtraInput, Alloc, Self::JoinHandle>],
-    f: fn(ExtraInput, usize, usize, &U, Alloc) -> T,
   ) -> Self::FinalJoinHandle {
-   <Self as BatchSpawnable<T, ExtraInput, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
+     <Self as BatchSpawnable<T, ExtraInput, Alloc, U>>::make_spawner(self, input)
+  }
+  fn spawn(
+    &mut self,
+    handle:&mut Self::FinalJoinHandle,
+    alloc_per_thread:&mut SendAlloc<T, ExtraInput, Alloc, Self::JoinHandle>,
+    index: usize,
+    num_threads: usize,
+    f: fn(ExtraInput, usize, usize, &U, Alloc) -> T,
+  ) {
+   <Self as BatchSpawnable<T, ExtraInput, Alloc, U>>::spawn(self, handle, alloc_per_thread, index, num_threads, f)
   }
 }
 

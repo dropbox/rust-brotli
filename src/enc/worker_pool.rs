@@ -259,41 +259,44 @@ impl<ReturnValue:Send+'static,
   type FinalJoinHandle = Arc<RwLock<U>>;
   type JoinHandle = WorkerJoinable<ReturnValue, ExtraInput, Alloc, U>;
 
-  fn batch_spawn(
+  fn make_spawner(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
-    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
   ) -> Self::FinalJoinHandle {
-    let num_threads = alloc_per_thread.len();
+    std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap()))
+  }
+  fn spawn(
+    &mut self,
+    locked_input: &mut Self::FinalJoinHandle,
+    work:&mut SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>,
+    index: usize,
+    num_threads: usize,
+    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
+  ) {
     assert!(num_threads <= MAX_THREADS);
-    let locked_input = std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap()));
     let &(ref lock, ref cvar) = &*self.queue.0;
     let mut local_queue = lock.lock().unwrap();
     loop {
       if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size() <= MAX_THREADS {
-        for (index, work) in alloc_per_thread.iter_mut().enumerate() {
-          let work_id = local_queue.cur_work_id;
-          local_queue.cur_work_id += 1;
-          let (local_alloc, local_extra) = work.replace_with_default();
-          local_queue.jobs.push(JobRequest{
-            func:f,
-            extra_input:local_extra,
-            index: index,
-            thread_size: num_threads,
-            data: locked_input.clone(),
-            alloc: local_alloc,
-            work_id:work_id,
-          }).unwrap();
-          *work = SendAlloc(InternalSendAlloc::Join(WorkerJoinable{queue:GuardedQueue(self.queue.0.clone()), work_id:work_id}));
-        }
+        let work_id = local_queue.cur_work_id;
+        local_queue.cur_work_id += 1;
+        let (local_alloc, local_extra) = work.replace_with_default();
+        local_queue.jobs.push(JobRequest{
+          func:f,
+          extra_input:local_extra,
+          index: index,
+          thread_size: num_threads,
+          data: locked_input.clone(),
+          alloc: local_alloc,
+          work_id:work_id,
+        }).unwrap();
+        *work = SendAlloc(InternalSendAlloc::Join(WorkerJoinable{queue:GuardedQueue(self.queue.0.clone()), work_id:work_id}));
         cvar.notify_all();
         break;
       } else{
         local_queue = cvar.wait(local_queue).unwrap(); // hope room frees up
       }
     }
-    locked_input
   }
 }
 

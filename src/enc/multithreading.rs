@@ -84,20 +84,23 @@ impl<ReturnValue:Send+'static, ExtraInput:Send+'static, Alloc:BrotliAlloc+Send+'
 where <Alloc as Allocator<u8>>::AllocatedMemory:Send+'static {
   type JoinHandle = MultiThreadedJoinable<ReturnValue, BrotliEncoderThreadError>;
   type FinalJoinHandle = std::sync::Arc<RwLock<U>>;
-    fn batch_spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue+Send+'static+Copy>(
+    fn make_spawner(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
-    f: F,
     ) -> Self::FinalJoinHandle {
-      let num_threads = alloc_per_thread.len();
-      let locked_input = std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap()));
-      for (index, work) in alloc_per_thread.iter_mut().enumerate() {
-        let (alloc, extra_input) = work.replace_with_default();
-        let ret = spawn_work(extra_input, index, num_threads, locked_input.clone(), alloc, f);
-        *work = SendAlloc(InternalSendAlloc::Join(MultiThreadedJoinable(ret, PhantomData::default())));
-      }
-      locked_input
+      std::sync::Arc::<RwLock<U>>::new(RwLock::new(mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap()))
+    }
+    fn spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue+Send+'static+Copy>(
+    &mut self,
+    input: &mut Self::FinalJoinHandle,
+    work:&mut SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>,
+    index: usize,
+    num_threads: usize,
+    f: F,
+    ) {
+     let (alloc, extra_input) = work.replace_with_default();
+     let ret = spawn_work(extra_input, index, num_threads, input.clone(), alloc, f);
+     *work = SendAlloc(InternalSendAlloc::Join(MultiThreadedJoinable(ret, PhantomData::default())));
     }
 }
 impl<ReturnValue:Send+'static, ExtraInput:Send+'static,
@@ -109,13 +112,21 @@ impl<ReturnValue:Send+'static, ExtraInput:Send+'static,
         <Alloc as Allocator<u32>>::AllocatedMemory: Send+Sync {
   type JoinHandle = <MultiThreadedSpawner as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::JoinHandle;
   type FinalJoinHandle = <MultiThreadedSpawner as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::FinalJoinHandle;
-  fn batch_spawn(
+  fn make_spawner(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
-    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
   ) -> Self::FinalJoinHandle {
-   <Self as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::batch_spawn(self, input, alloc_per_thread, f)
+     <Self as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::make_spawner(self, input)
+  }
+  fn spawn(
+    &mut self,
+    handle:&mut Self::FinalJoinHandle,
+    alloc_per_thread:&mut SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>,
+    index: usize,
+    num_threads: usize,
+    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
+  ) {
+   <Self as BatchSpawnable<ReturnValue, ExtraInput, Alloc, U>>::spawn(self, handle, alloc_per_thread, index, num_threads, f)
   }
 }
 

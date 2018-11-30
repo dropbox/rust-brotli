@@ -183,12 +183,18 @@ pub trait BatchSpawnable<ReturnValue:Send+'static,
   // the FinalJoinHandle is only to be called when each individual JoinHandle has been examined
   // the function is called with the thread_index, the num_threads, a reference to the slice under a read lock,
   // and an allocator from the alloc_per_thread
-  fn batch_spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue+Send+'static+Copy>(
+  fn make_spawner(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
-    f: F,
   ) -> Self::FinalJoinHandle;
+  fn spawn<F: Fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue+Send+'static+Copy>(
+    &mut self,
+    handle:&mut Self::FinalJoinHandle,
+    alloc:&mut SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>,
+    index: usize,
+    num_threads: usize,
+    f: F,
+  );
 }
 
 pub trait BatchSpawnableLite<ReturnValue:Send+'static,
@@ -199,12 +205,18 @@ pub trait BatchSpawnableLite<ReturnValue:Send+'static,
 {
   type JoinHandle: Joinable<ReturnValue, BrotliEncoderThreadError>;
   type FinalJoinHandle: OwnedRetriever<U>;
-  fn batch_spawn(
+  fn make_spawner(
     &mut self,
     input: &mut Owned<U>,
-    alloc_per_thread:&mut [SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>],
-    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
   ) -> Self::FinalJoinHandle;
+  fn spawn(
+    &mut self,
+    handle:&mut Self::FinalJoinHandle,
+    alloc_per_thread:&mut SendAlloc<ReturnValue, ExtraInput, Alloc, Self::JoinHandle>,
+    index: usize,
+    num_threads: usize,
+    f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
+  );
 }
 /*
 impl<ReturnValue:Send+'static,
@@ -374,7 +386,10 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     let (alloc, alloc_rest) = alloc_per_thread.split_at_mut(1);
     let actually_owned_mem = mem::replace(owned_input, Owned(InternalOwned::Borrowed));
     let mut owned_input_pair = Owned::new((actually_owned_mem.unwrap(), params.clone()));
-    let retrieve_owned_input = thread_spawner.batch_spawn(&mut owned_input_pair, alloc_rest, compress_part);
+    let mut retrieve_owned_input = thread_spawner.make_spawner(&mut owned_input_pair);
+    for (index, alloc) in alloc_rest.iter_mut().enumerate() {
+      thread_spawner.spawn(&mut retrieve_owned_input, alloc, index, num_threads - 1, compress_part);
+    }
     let output_len = output.len();
     let first_thread_output_max_len = if alloc_rest.len() != 0 { output_len / 2 } else {output.len()};
     let mut compression_result;
