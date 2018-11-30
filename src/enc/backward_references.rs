@@ -95,6 +95,9 @@ pub struct BrotliEncoderParams {
   pub appendable: bool,
   // include a magic number and version number and size_hint at the beginning
   pub magic_number: bool,
+  // prefer to compute the map of previously seen strings
+  // just once for all the threads at the beginning, since they overlap significantly
+  pub favor_cpu_efficiency: bool,
 }
 
 impl Default for BrotliEncoderParams {

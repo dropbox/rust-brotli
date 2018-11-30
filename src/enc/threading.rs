@@ -8,7 +8,7 @@ use super::BrotliAlloc;
 use super::encode::{
   BrotliEncoderOperation,
   BrotliEncoderCreateInstance,
-  BrotliEncoderSetCustomDictionary,
+  BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher,
   BrotliEncoderDestroyInstance,
   BrotliEncoderMaxCompressedSize,
   BrotliEncoderCompressStream,
@@ -270,10 +270,9 @@ fn compress_part<Alloc: BrotliAlloc+Send+'static,
   state.params.catable = true; // make sure we can concatenate this to the other work results
   state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
   state.params.magic_number = false; // no reason to pepper this around
-  BrotliEncoderSetCustomDictionary(&mut state, range.start, &input_and_params.0.slice()[..range.start]);
-  let _res = hasher == state.hasher_;
-  assert!(hasher == state.hasher_);
-  assert!(_res);
+  BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher(
+    &mut state, range.start, &input_and_params.0.slice()[..range.start], hasher,
+  );
   let mut out_offset = 0usize;
   let compression_result;
   let mut available_out = mem.len();
@@ -334,7 +333,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     let num_threads = alloc_per_thread.len();
     SanitizeParams(&mut local_params);
     // populate all hashers at once, cloning them one by one
-    if num_threads > 0 {
+    if num_threads > 2 && local_params.favor_cpu_efficiency {
       let mut hasher = UnionHasher::Uninit;
       match alloc_per_thread[num_threads -1].0 { // start with the last hashers
         InternalSendAlloc::A(ref mut alloc, _) => HasherSetup(alloc,
@@ -367,7 +366,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         }
       }
       match alloc_per_thread[num_threads - 1].0 {
-        InternalSendAlloc::A(ref mut alloc, ref mut out_hasher) =>
+        InternalSendAlloc::A(ref _alloc, ref mut out_hasher) =>
           *out_hasher = hasher, // clobber UnionHasher::Uninit
         _ => panic!("Bad state for allocator"),
       }

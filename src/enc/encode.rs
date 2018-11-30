@@ -336,6 +336,10 @@ value: u32) -> i32 {
     params.magic_number = value != 0;
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_FAVOR_EFFICIENCY as (i32) {
+    params.favor_cpu_efficiency = value != 0;
+    return 1i32;
+  }
   0i32  
 }
 
@@ -397,6 +401,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            use_dictionary: true,
            appendable: false,
            magic_number: false,
+           favor_cpu_efficiency:false,
            hasher: BrotliHasherParams {
              type_: 6,
              block_bits: 9 - 1,
@@ -1151,8 +1156,20 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
 pub fn BrotliEncoderSetCustomDictionary<Alloc: BrotliAlloc>
   (s: &mut BrotliEncoderStateStruct<Alloc>,
    size: usize,
-   mut dict: &[u8]) {
+   dict: &[u8]) {
+    BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher(s, size, dict, UnionHasher::Uninit)
+}
+
+                                                          
+pub fn BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher<Alloc: BrotliAlloc>
+  (s: &mut BrotliEncoderStateStruct<Alloc>,
+   size: usize,
+   mut dict: &[u8],
+   opt_hasher: UnionHasher<Alloc>,
+) {
+  let has_optional_hasher = if let UnionHasher::Uninit = opt_hasher { false } else {true};
   let max_dict_size: usize = (1usize << (*s).params.lgwin).wrapping_sub(16usize);
+  s.hasher_ = opt_hasher;
   let mut dict_size: usize = size;
   if EnsureInitialized(s) == 0 {
     return;
@@ -1177,11 +1194,20 @@ pub fn BrotliEncoderSetCustomDictionary<Alloc: BrotliAlloc>
     (*s).prev_byte2_ = dict[(dict_size.wrapping_sub(2usize) as (usize))];
   }
   let m16 = &mut s.m8;
-  HasherPrependCustomDictionary(m16,
-                                &mut (*s).hasher_,
-                                &mut (*s).params,
-                                dict_size,
-                                dict);
+  if cfg!(debug_assertions) || !has_optional_hasher {
+    let mut orig_hasher = UnionHasher::Uninit;
+    if has_optional_hasher {
+      orig_hasher = core::mem::replace(&mut s.hasher_, UnionHasher::Uninit);
+    }
+    HasherPrependCustomDictionary(m16,
+                                  &mut (*s).hasher_,
+                                  &mut (*s).params,
+                                  dict_size,
+                                  dict);
+    if has_optional_hasher {
+      debug_assert!(orig_hasher == s.hasher_);
+    }
+  }
 }
 pub fn BrotliEncoderMaxCompressedSizeMulti(input_size: usize, num_threads: usize) -> usize {
   BrotliEncoderMaxCompressedSize(input_size) + num_threads * 8

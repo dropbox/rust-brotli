@@ -115,6 +115,7 @@ fn thread_spawn_per_job_split_compression_test(input_data: &'static[u8], num_thr
         params.catable = true;
         params.use_dictionary = false;
     }
+    params.favor_cpu_efficiency = true; // this should test both paths
     let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input_data.len(), num_threads)]);
     let mut alloc_per_thread = [
         SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),

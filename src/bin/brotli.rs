@@ -559,6 +559,14 @@ fn main() {
           params.mode = BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR;
           continue;
       }
+      if argument == "-efficient" && !double_dash {
+          params.favor_cpu_efficiency = true;
+          continue;
+      }
+      if argument == "-lowlatency" && !double_dash {
+          params.favor_cpu_efficiency = false;
+          continue;
+      }
       if argument == "-i" && !double_dash {
         // display the intermediate representation of metablocks
         params.log_meta_block = true;
