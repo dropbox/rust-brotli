@@ -1006,11 +1006,12 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
       dict_num_lookups: 0,
       dict_num_matches: 0,
     },
-    specialization: H5Sub {},
-    hash_shift_: 32i32 - params.hasher.bucket_bits,
-    bucket_size_: bucket_size,
-    block_size_: block_size,
-    block_mask_: block_size.wrapping_sub(1u64) as (u32),
+    specialization: H5Sub {
+      hash_shift_: 32i32 - params.hasher.bucket_bits,
+      bucket_size_: bucket_size,
+      block_bits_: params.hasher.block_bits,
+      block_mask_: block_size.wrapping_sub(1u64),
+    }
   }
 }
 fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
@@ -1031,13 +1032,13 @@ fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
       dict_num_lookups: 0,
       dict_num_matches: 0,
     },
-    hash_shift_: 64i32 - params.hasher.bucket_bits,
     specialization: H6Sub {
+      bucket_size_: 1u64 << params.hasher.bucket_bits,
+      block_bits_: params.hasher.block_bits,
+      block_mask_: block_size.wrapping_sub(1u64),
       hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
+      hash_shift_: 64i32 - params.hasher.bucket_bits,
     },
-    bucket_size_: 1u64 << params.hasher.bucket_bits,
-    block_size_: block_size,
-    block_mask_: block_size.wrapping_sub(1u64) as (u32),
   }
 }
 

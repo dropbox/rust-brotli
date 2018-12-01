@@ -435,7 +435,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
     let mut bro_cat_li = BroCatli::new();
     for (index, thread) in alloc_per_thread.iter_mut().enumerate() {
       let mut cur_result = if index + 1 == num_threads {
-        match core::mem::replace(&mut compression_last_thread_result, Err(())){
+        match mem::replace(&mut compression_last_thread_result, Err(())){
           Ok(result) => result,
           Err(_err) => return Err(BrotliEncoderThreadError::OtherThreadPanic),
         }

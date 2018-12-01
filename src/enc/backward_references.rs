@@ -835,47 +835,75 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
 }
 
 pub trait AdvHashSpecialization : PartialEq<Self>{
+  #[inline(always)]
   fn get_hash_mask(&self) -> u64;
+  #[inline(always)]
   fn set_hash_mask(&mut self, params_hash_len: i32);
+  #[inline(always)]
   fn get_k_hash_mul(&self) -> u64;
+  #[inline(always)]
   fn HashTypeLength(&self) -> usize;
+  #[inline(always)]
   fn StoreLookahead(&self) -> usize;
+    #[inline(always)]
   fn load_and_mix_word(&self, data: &[u8]) -> u64;
+    #[inline(always)]
+  fn hash_shift(&self) -> i32;
+    #[inline(always)]
+  fn bucket_size(&self) -> u64;
+    #[inline(always)]
+  fn block_mask(&self) -> u64;
+    #[inline(always)]
+  fn block_size(&self) -> u64;
+  #[inline(always)]
+  fn block_bits(&self) -> i32;
 }
-
 pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized + Clone,
                      Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
 {
   pub GetHasherCommon: Struct1,
-  pub bucket_size_: u64,
-  pub block_size_: u64,
   pub specialization: Specialization, // contains hash_mask_
-  pub hash_shift_: i32,
-  pub block_mask_: u32,
   pub num: <Alloc as Allocator<u16>>::AllocatedMemory,
   pub buckets: <Alloc as Allocator<u32>>::AllocatedMemory,
   pub h9_opts: H9Opts,
 }
-impl<Specialization:AdvHashSpecialization+Sized+Clone,
-     Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<AdvHasher<Specialization,
-                                                                               Alloc>> for AdvHasher<Specialization,
-                                                                                                     Alloc> {
-    fn eq(&self, other: &AdvHasher<Specialization, Alloc>) -> bool {
-        self.GetHasherCommon == other.GetHasherCommon
-            && self.bucket_size_ == other.bucket_size_
-            && self.block_size_ == other.block_size_
-            && self.specialization == other.specialization
-            && self.hash_shift_ == other.hash_shift_
-            && self.block_mask_ == other.block_mask_
-            && self.num.slice() == other.num.slice()
-            && self.buckets.slice() == other.buckets.slice()
-            && self.h9_opts == other.h9_opts
-    }
+
+impl<Specialization: AdvHashSpecialization + Sized + Clone,
+     Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<AdvHasher<Specialization, Alloc>> for AdvHasher<Specialization, Alloc> {
+  fn eq(&self, other: &Self) -> bool {
+    self.GetHasherCommon == other.GetHasherCommon
+      && self.specialization == other.specialization
+      && self.num.slice() == other.num.slice()
+      && self.buckets.slice() == other.buckets.slice()
+      && self.h9_opts == other.h9_opts
+  }
 }
 
 #[derive(Clone, PartialEq)]
-pub struct H5Sub {}
+pub struct H5Sub {
+  pub hash_shift_: i32,
+  pub bucket_size_: u64,
+  pub block_mask_:u64,
+  pub block_bits_: i32,
+}
+
 impl AdvHashSpecialization for H5Sub {
+  #[inline(always)]
+  fn hash_shift(&self) -> i32 {
+    return self.hash_shift_
+  }
+  fn bucket_size(&self) -> u64 {
+    return self.bucket_size_
+  }
+  fn block_bits(&self) -> i32 {
+    self.block_bits_
+  }
+  fn block_size(&self) -> u64 {
+    1 << self.block_bits_
+  }
+  fn block_mask(&self) -> u64 {
+    return self.block_mask_
+  }
   fn get_hash_mask(&self) -> u64 {
     //return 0xffffffffffffffffu64;
     return 0xffffffffu64; // make it 32 bit
@@ -895,28 +923,57 @@ impl AdvHashSpecialization for H5Sub {
     4
   }
 }
+
 #[derive(Clone, PartialEq)]
 pub struct H6Sub {
   pub hash_mask: u64,
+  pub hash_shift_: i32,
+  pub bucket_size_: u64,
+  pub block_mask_:u64,
+  pub block_bits_: i32,
 }
 
 impl AdvHashSpecialization for H6Sub {
+  #[inline(always)]
+  fn hash_shift(&self) -> i32 {
+    return self.hash_shift_
+  }
+  #[inline(always)]
+  fn bucket_size(&self) -> u64 {
+    return self.bucket_size_
+  }
+  fn block_bits(&self) -> i32 {
+    self.block_bits_
+  }
+  fn block_size(&self) -> u64 {
+    1 << self.block_bits_
+  }
+  #[inline(always)]
+  fn block_mask(&self) -> u64 {
+    return self.block_mask_
+  }
+  #[inline(always)]
   fn get_hash_mask(&self) -> u64 {
     self.hash_mask
   }
+  #[inline(always)]
   fn set_hash_mask(&mut self, params_hash_len: i32) {
     self.hash_mask = !(0u32 as (u64)) >> 64i32 - 8i32 * params_hash_len;
   }
+  #[inline(always)]
   fn get_k_hash_mul(&self) -> u64 {
     kHashMul64Long
   }
+  #[inline(always)]
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
     return (BROTLI_UNALIGNED_LOAD64(data) & self.get_hash_mask())
              .wrapping_mul(self.get_k_hash_mul());
   }
+  #[inline(always)]
   fn HashTypeLength(&self) -> usize {
     8
   }
+  #[inline(always)]
   fn StoreLookahead(&self) -> usize {
     8
   }
@@ -951,14 +1008,14 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
       if self.GetHasherCommon.is_prepared_ != 0 {
           return HowPrepared::ALREADY_PREPARED;
       }
-      let partial_prepare_threshold = self.bucket_size_ as usize >> 6;
+      let partial_prepare_threshold = self.specialization.bucket_size() as usize >> 6;
       if one_shot && input_size <= partial_prepare_threshold {
         for i in 0..input_size {
           let key = self.HashBytes(&data[i..]);
           self.num.slice_mut()[key] = 0;
         }
       } else {
-        for item in self.num.slice_mut()[..(self.bucket_size_ as usize)].iter_mut() {
+        for item in self.num.slice_mut()[..(self.specialization.bucket_size() as usize)].iter_mut() {
           *item =0;
         }
       }
@@ -976,15 +1033,15 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
      self.specialization.StoreLookahead()
   }
   fn HashBytes(&self, data: &[u8]) -> usize {
-    let shift = self.hash_shift_;
+    let shift = self.specialization.hash_shift();
     let h: u64 = self.specialization.load_and_mix_word(data);
     (h >> shift) as (u32) as usize
   }
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
     let (_, data_window) = data.split_at((ix & mask) as (usize));
     let key: u32 = self.HashBytes(data_window) as u32;
-    let minor_ix: usize = (self.num.slice()[(key as (usize))] as (u32) & (*self).block_mask_) as (usize);
-    let offset: usize = minor_ix.wrapping_add((key << (self.GetHasherCommon).params.block_bits) as
+    let minor_ix: usize = (self.num.slice()[(key as (usize))] as (u32) & (*self).specialization.block_mask() as u32) as (usize);
+    let offset: usize = minor_ix.wrapping_add((key << (*self).specialization.block_bits()) as
                                               (usize));
     self.buckets.slice_mut()[offset] = ix as (u32);
     {
@@ -1079,15 +1136,15 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
     }
     {
       let key: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
-      let common_block_bits = self.GetHasherCommon.params.block_bits;
+      let common_block_bits = self.specialization.block_bits();
         if (key << common_block_bits) as usize >= self.buckets.slice().len() {
             let key2: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
             let key3: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
             assert_eq!(key2, key3 + 1);
         }
       let bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
-      let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).block_size_ {
-        (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).block_size_) as usize
+      let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).specialization.block_size() {
+        (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).specialization.block_size()) as usize
       } else {
         0u32 as (usize)
       };
@@ -1096,7 +1153,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
         let mut prev_ix: usize = bucket[(({
             i = i.wrapping_sub(1 as (usize));
             i
-          } & (*self).block_mask_ as (usize)) as (usize))] as (usize);
+          } & (*self).specialization.block_mask() as (usize)) as (usize))] as (usize);
         let backward: usize = cur_ix.wrapping_sub(prev_ix);
         if backward > max_backward {
           {
@@ -1130,7 +1187,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
           }
         }
       }
-      bucket[((self.num.slice()[(key as (usize))] as (u32) & (self).block_mask_) as (usize))] = cur_ix as (u32);
+      bucket[((self.num.slice()[(key as (usize))] as (u32) & (self).specialization.block_mask() as u32) as (usize))] = cur_ix as (u32);
       {
         let _rhs = 1;
         let _lhs = &mut self.num.slice_mut()[(key as (usize))];
@@ -1408,11 +1465,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
     buckets.slice_mut().clone_from_slice(self.buckets.slice());
     AdvHasher::<Special, Alloc> {
       GetHasherCommon: self.GetHasherCommon.clone(),
-      bucket_size_:self.bucket_size_,
-      block_size_:self.block_size_,
       specialization:self.specialization.clone(),
-      hash_shift_:self.hash_shift_,
-      block_mask_:self.block_mask_,
       num:num,
       buckets:buckets,
       h9_opts: self.h9_opts.clone(),
