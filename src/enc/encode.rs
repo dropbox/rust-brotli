@@ -1004,7 +1004,7 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
   let buckets : <Alloc as Allocator<u32>>::AllocatedMemory = <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
   let num : <Alloc as Allocator<u16>>::AllocatedMemory = <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
 
-  if params.hasher.block_bits == 6 && params.hasher.bucket_bits == 15 {
+  if false&&params.hasher.block_bits == 6 && params.hasher.bucket_bits == 15 {
     return UnionHasher::H5q7(AdvHasher {
       buckets: buckets,
       h9_opts: super::backward_references::H9Opts::new(&params.hasher),
@@ -1030,9 +1030,9 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
     },
     specialization: H5Sub {
       hash_shift_: 32i32 - params.hasher.bucket_bits,
-      bucket_size_: bucket_size,
-      block_bits_: params.hasher.block_bits,
-      block_mask_: block_size.wrapping_sub(1u64),
+      bucket_size_: bucket_size as u32,
+      block_bits_: params.hasher.block_bits as i32,
+      block_mask_: block_size.wrapping_sub(1u64) as u32,
     }
   })
 }
@@ -1055,9 +1055,9 @@ fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
       dict_num_matches: 0,
     },
     specialization: H6Sub {
-      bucket_size_: 1u64 << params.hasher.bucket_bits,
+      bucket_size_: 1u32 << params.hasher.bucket_bits,
       block_bits_: params.hasher.block_bits,
-      block_mask_: block_size.wrapping_sub(1u64),
+      block_mask_: block_size.wrapping_sub(1) as u32,
       hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
       hash_shift_: 64i32 - params.hasher.bucket_bits,
     },

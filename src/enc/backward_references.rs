@@ -850,11 +850,11 @@ pub trait AdvHashSpecialization : PartialEq<Self>{
     #[inline(always)]
   fn hash_shift(&self) -> i32;
     #[inline(always)]
-  fn bucket_size(&self) -> u64;
+  fn bucket_size(&self) -> u32;
     #[inline(always)]
-  fn block_mask(&self) -> u64;
+  fn block_mask(&self) -> u32;
     #[inline(always)]
-  fn block_size(&self) -> u64;
+  fn block_size(&self) -> u32;
   #[inline(always)]
   fn block_bits(&self) -> i32;
 }
@@ -888,7 +888,7 @@ impl AdvHashSpecialization for HQ7Sub {
     32i32 - 15 // 32 - bucket_bits
   }
   #[inline(always)]
-  fn bucket_size(&self) -> u64 {
+  fn bucket_size(&self) -> u32 {
     1 << 15
   }
   #[inline(always)]
@@ -896,11 +896,11 @@ impl AdvHashSpecialization for HQ7Sub {
     6
   }
   #[inline(always)]
-  fn block_size(&self) -> u64 {
+  fn block_size(&self) -> u32 {
     1 << 6
   }
   #[inline(always)]
-  fn block_mask(&self) -> u64 {
+  fn block_mask(&self) -> u32 {
     (1 << 6) - 1
   }
   #[inline(always)]
@@ -931,8 +931,8 @@ impl AdvHashSpecialization for HQ7Sub {
 #[derive(Clone, PartialEq)]
 pub struct H5Sub {
   pub hash_shift_: i32,
-  pub bucket_size_: u64,
-  pub block_mask_:u64,
+  pub bucket_size_: u32,
+  pub block_mask_:u32,
   pub block_bits_: i32,
 }
 
@@ -941,16 +941,16 @@ impl AdvHashSpecialization for H5Sub {
   fn hash_shift(&self) -> i32 {
     return self.hash_shift_
   }
-  fn bucket_size(&self) -> u64 {
+  fn bucket_size(&self) -> u32 {
     return self.bucket_size_
   }
   fn block_bits(&self) -> i32 {
     self.block_bits_
   }
-  fn block_size(&self) -> u64 {
+  fn block_size(&self) -> u32 {
     1 << self.block_bits_
   }
-  fn block_mask(&self) -> u64 {
+  fn block_mask(&self) -> u32 {
     return self.block_mask_
   }
   fn get_hash_mask(&self) -> u64 {
@@ -977,8 +977,8 @@ impl AdvHashSpecialization for H5Sub {
 pub struct H6Sub {
   pub hash_mask: u64,
   pub hash_shift_: i32,
-  pub bucket_size_: u64,
-  pub block_mask_:u64,
+  pub bucket_size_: u32,
+  pub block_mask_:u32,
   pub block_bits_: i32,
 }
 
@@ -988,17 +988,17 @@ impl AdvHashSpecialization for H6Sub {
     return self.hash_shift_
   }
   #[inline(always)]
-  fn bucket_size(&self) -> u64 {
+  fn bucket_size(&self) -> u32 {
     return self.bucket_size_
   }
   fn block_bits(&self) -> i32 {
     self.block_bits_
   }
-  fn block_size(&self) -> u64 {
+  fn block_size(&self) -> u32 {
     1 << self.block_bits_
   }
   #[inline(always)]
-  fn block_mask(&self) -> u64 {
+  fn block_mask(&self) -> u32 {
     return self.block_mask_
   }
   #[inline(always)]
@@ -1192,8 +1192,8 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
             assert_eq!(key2, key3 + 1);
         }
       let bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
-      let down: usize = if self.num.slice()[(key as (usize))] as (u64) > (*self).specialization.block_size() {
-        (self.num.slice()[(key as (usize))] as (u64)).wrapping_sub((*self).specialization.block_size()) as usize
+      let down: usize = if u32::from(self.num.slice()[(key as (usize))]) > (*self).specialization.block_size() {
+        (u32::from(self.num.slice()[(key as (usize))])).wrapping_sub((*self).specialization.block_size()) as usize
       } else {
         0u32 as (usize)
       };
