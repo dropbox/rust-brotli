@@ -26,7 +26,7 @@ fn test_custom_dict() {
     super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
     assert_eq!(rt.data(), raw.data());
     if br.data().len() != 43654 {
-        assert_eq!(br.data().len(), 43629);
+        assert_eq!(br.data().len(), 43636);
     }
 }
 
@@ -178,7 +178,7 @@ fn test_custom_dict_for_multithreading() {
     assert_eq!(rt.data(), ALICE);
     // without setting std flag: approximation make it 4 bytes bigger
     if output.data().len() != 48568 {
-       assert_eq!(output.data().len(), 48564); // as opposed to 46487 with standard settings
+       assert_eq!(output.data().len(), 48563); // as opposed to 46487 with standard settings
     }
 }
 

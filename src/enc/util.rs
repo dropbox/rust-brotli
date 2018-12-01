@@ -311,17 +311,17 @@ pub fn FastLog2(v: u64) -> floatX {
 
 #[cfg(feature="std")]
 #[inline(always)]
-pub fn FastLog2f64(v: u64) -> f64 {
+pub fn FastLog2f64(v: u64) -> floatX {
     if v < 256 {
-        return kLog2Table[v as usize] as f64;
+        return kLog2Table[v as usize] as floatX;
     }
-    (v as f64).log2()
+    (v as floatX).log2()
 }
 
 #[cfg(not(feature="std"))]
 #[inline(always)]
-pub fn FastLog2f64(v: u64) -> f64 {
-    FastLog2(v) as f64
+pub fn FastLog2f64(v: u64) -> floatX {
+    FastLog2(v) as floatX
 }
 
 #[inline]

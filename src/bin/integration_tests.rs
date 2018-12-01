@@ -398,10 +398,10 @@ const alice_compressed_size_11 : usize = 46496;
 
 #[cfg(feature="std")]
 #[cfg(not(feature="float64"))]
-const alice_compressed_size_10 : usize = 47477;
+const alice_compressed_size_10 : usize = 47488;
 #[cfg(feature="std")]
 #[cfg(not(feature="float64"))]
-const alice_compressed_size_11 : usize = 46487;
+const alice_compressed_size_11 : usize = 46492;
 
 #[cfg(feature="std")]
 #[cfg(feature="float64")]

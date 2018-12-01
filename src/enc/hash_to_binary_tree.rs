@@ -42,6 +42,7 @@ impl Default for ZopfliNode {
 
 pub trait Allocable<T:Copy, AllocT: Allocator<T>> {
     fn new(m: &mut AllocT, init:T) -> Self;
+    fn new_uninit(m: &mut AllocT) -> Self;
     fn free(&mut self, m: &mut AllocT);
 }
 pub trait H10Params {
@@ -74,8 +75,11 @@ impl<AllocU32:Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32> 
     }
     H10Buckets::<AllocU32>(ret)
   }
-    fn free(&mut self, m:&mut AllocU32) {
-      m.free_cell(core::mem::replace(&mut self.0, AllocU32::AllocatedMemory::default()));
+  fn new_uninit(m:&mut AllocU32) -> H10Buckets<AllocU32> {
+    H10Buckets::<AllocU32>(m.alloc_cell(1 <<BUCKET_BITS))
+  }
+  fn free(&mut self, m:&mut AllocU32) {
+    m.free_cell(core::mem::replace(&mut self.0, AllocU32::AllocatedMemory::default()));
   }
 }
 
@@ -168,7 +172,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>, Buckets:Allocable<u32
       let mut ret = H10::<Alloc, Buckets, Params> {
           window_mask_: self.window_mask_,
           common: self.common.clone(),
-          buckets_:Buckets::new(m, 0),
+          buckets_:Buckets::new_uninit(m),
           invalid_pos_:self.invalid_pos_,
           forest:<Alloc as Allocator<u32>>::alloc_cell(m, self.forest.len()),
           _params: core::marker::PhantomData::<Params>::default(),
