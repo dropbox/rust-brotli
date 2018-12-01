@@ -4,7 +4,7 @@ use super::constants::{BROTLI_WINDOW_GAP, BROTLI_CONTEXT_LUT, BROTLI_CONTEXT,
                        BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_MAX_NPOSTFIX, BROTLI_MAX_NDIRECT};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
-                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, AdvHasher, BasicHasher, H9,
+                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, HQ7Sub, AdvHasher, BasicHasher, H9,
                                  H9_BUCKET_BITS, H9_BLOCK_SIZE, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 use alloc::Allocator;
@@ -882,6 +882,12 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
       (*hparams).block_bits = H9_BLOCK_BITS as i32;
       (*hparams).bucket_bits = H9_BUCKET_BITS as i32;
       (*hparams).hash_len = 4;
+  } else if (*params).quality == 9 {
+      (*hparams).type_ = 9;
+      (*hparams).num_last_distances_to_check = H9_NUM_LAST_DISTANCES_TO_CHECK as i32;
+      (*hparams).block_bits = H9_BLOCK_BITS as i32;
+      (*hparams).bucket_bits = H9_BUCKET_BITS as i32;
+      (*hparams).hash_len = 4;    
   } else if (*params).quality == 4 && ((*params).size_hint >= (1i32 << 20i32) as (usize)) {
     (*hparams).type_ = 54i32;
   } else if (*params).quality < 5 {
@@ -894,7 +900,8 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
     } else {
       42i32
     };
-  } else if (*params).size_hint >= (1i32 << 20i32) as (usize) && ((*params).lgwin >= 19i32) {
+  } else if ((params.q9_5 && (*params).size_hint > (1usize << 20i32))
+             || (*params).size_hint > (1usize << 22i32)) && ((*params).lgwin >= 19i32) {
     (*hparams).type_ = 6i32;
     (*hparams).block_bits = core::cmp::min((*params).quality - 1, 9);
     (*hparams).bucket_bits = 15i32;
@@ -990,13 +997,28 @@ fn InitializeH9<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(m16: &mut A
 
 fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
   (m16: &mut Alloc,
-   params: &BrotliEncoderParams)
-   -> AdvHasher<H5Sub, Alloc> {
+   params: &BrotliEncoderParams,
+) -> UnionHasher<Alloc> {
   let block_size = 1u64 << params.hasher.block_bits;
   let bucket_size = 1u64 << params.hasher.bucket_bits;
   let buckets : <Alloc as Allocator<u32>>::AllocatedMemory = <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
   let num : <Alloc as Allocator<u16>>::AllocatedMemory = <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
-  AdvHasher {
+
+  if params.hasher.block_bits == 6 && params.hasher.bucket_bits == 15 {
+    return UnionHasher::H5q7(AdvHasher {
+      buckets: buckets,
+      h9_opts: super::backward_references::H9Opts::new(&params.hasher),
+      num: num,
+      GetHasherCommon: Struct1 {
+        params: params.hasher,
+        is_prepared_: 1,
+        dict_num_lookups: 0,
+        dict_num_matches: 0,
+      },
+      specialization: HQ7Sub {}
+    })
+  }
+  UnionHasher::H5(AdvHasher {
     buckets: buckets,
     h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     num: num,
@@ -1012,17 +1034,17 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
       block_bits_: params.hasher.block_bits,
       block_mask_: block_size.wrapping_sub(1u64),
     }
-  }
+  })
 }
 fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
   (m16: &mut Alloc,
    params: &BrotliEncoderParams)
-   -> AdvHasher<H6Sub, Alloc> {
+   -> UnionHasher<Alloc> {
   let block_size = 1u64 << params.hasher.block_bits;
   let bucket_size = 1u64 << params.hasher.bucket_bits;
   let buckets: <Alloc as Allocator<u32>>::AllocatedMemory = <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
   let num: <Alloc as Allocator<u16>>::AllocatedMemory = <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
-  AdvHasher {
+   UnionHasher::H6(AdvHasher {
     buckets: buckets,
     num: num,
     h9_opts: super::backward_references::H9Opts::new(&params.hasher),
@@ -1039,7 +1061,7 @@ fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
       hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
       hash_shift_: 64i32 - params.hasher.bucket_bits,
     },
-  }
+  })
 }
 
 fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
@@ -1057,10 +1079,10 @@ fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
     return UnionHasher::H4(InitializeH4(m, params));
   }
   if hasher_type == 5i32 {
-    return UnionHasher::H5(InitializeH5(m, params));
+    return InitializeH5(m, params);
   }
   if hasher_type == 6i32 {
-    return UnionHasher::H6(InitializeH6(m, params));
+    return InitializeH6(m, params);
   }
   if hasher_type == 9i32 {
     return UnionHasher::H9(InitializeH9(m, params));
@@ -1083,7 +1105,7 @@ fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
       return UnionHasher::H10(InitializeH10(m, false, params, 0));
   }
   // since we don't support all of these, fall back to something sane
-  return UnionHasher::H6(InitializeH6(m, params));
+  return InitializeH6(m, params);
       
 //  return UnionHasher::Uninit;
 }
@@ -1146,6 +1168,7 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
     &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H4(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H5(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H5q7(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H6(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H9(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H54(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),

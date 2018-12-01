@@ -879,6 +879,55 @@ impl<Specialization: AdvHashSpecialization + Sized + Clone,
   }
 }
 
+
+#[derive(Clone, PartialEq)]
+pub struct HQ7Sub {}
+impl AdvHashSpecialization for HQ7Sub {
+  #[inline(always)]
+  fn hash_shift(&self) -> i32 {
+    32i32 - 15 // 32 - bucket_bits
+  }
+  #[inline(always)]
+  fn bucket_size(&self) -> u64 {
+    1 << 15
+  }
+  #[inline(always)]
+  fn block_bits(&self) -> i32 {
+    6
+  }
+  #[inline(always)]
+  fn block_size(&self) -> u64 {
+    1 << 6
+  }
+  #[inline(always)]
+  fn block_mask(&self) -> u64 {
+    (1 << 6) - 1
+  }
+  #[inline(always)]
+  fn get_hash_mask(&self) -> u64 {
+    //return 0xffffffffffffffffu64;
+    return 0xffffffffu64; // make it 32 bit
+  }
+  #[inline(always)]
+  fn get_k_hash_mul(&self) -> u64 {
+    return kHashMul32 as u64;
+  }
+  #[inline(always)]
+  fn load_and_mix_word(&self, data: &[u8]) -> u64 {
+    return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
+  }
+  #[inline(always)]
+  fn set_hash_mask(&mut self, _params_hash_len: i32) {}
+  fn HashTypeLength(&self) -> usize {
+    4
+  }
+  #[inline(always)]
+  fn StoreLookahead(&self) -> usize {
+    4
+  }
+}
+
+
 #[derive(Clone, PartialEq)]
 pub struct H5Sub {
   pub hash_shift_: i32,
@@ -1480,6 +1529,7 @@ pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
   H4(BasicHasher<H4Sub<Alloc>>),
   H54(BasicHasher<H54Sub<Alloc>>),
   H5(AdvHasher<H5Sub, Alloc>),
+  H5q7(AdvHasher<HQ7Sub, Alloc>),
   H6(AdvHasher<H6Sub, Alloc>),
   H9(H9<Alloc>),
   H10(H10<Alloc, H10Buckets<Alloc>, H10DefaultParams>),
@@ -1505,6 +1555,10 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<UnionHasher
             },
             UnionHasher::H5(ref hasher) => match *other {
                 UnionHasher::H5(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H5q7(ref hasher) => match *other {
+                UnionHasher::H5q7(ref otherh) => *hasher == *otherh,
                 _ => false,
             },
             UnionHasher::H6(ref hasher) => match *other {
@@ -1533,6 +1587,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
             UnionHasher::H3(ref hasher) => UnionHasher::H3(hasher.clone_with_alloc(m)),
             UnionHasher::H4(ref hasher) => UnionHasher::H4(hasher.clone_with_alloc(m)),
             UnionHasher::H5(ref hasher) => UnionHasher::H5(hasher.clone_with_alloc(m)),
+            UnionHasher::H5q7(ref hasher) => UnionHasher::H5q7(hasher.clone_with_alloc(m)),
             UnionHasher::H6(ref hasher) => UnionHasher::H6(hasher.clone_with_alloc(m)),
             UnionHasher::H54(ref hasher) => UnionHasher::H54(hasher.clone_with_alloc(m)),
             UnionHasher::H9(ref hasher) => UnionHasher::H9(hasher.clone_with_alloc(m)),
@@ -1548,6 +1603,7 @@ macro_rules! match_all_hashers_mut {
      &mut UnionHasher::H3(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H4(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H5(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H5q7(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H6(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H54(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H9(ref mut hasher) => hasher.$func_call($($args),*),
@@ -1563,6 +1619,7 @@ macro_rules! match_all_hashers {
      &UnionHasher::H3(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H4(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H5(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H5q7(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H6(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H54(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H9(ref hasher) => hasher.$func_call($($args),*),
@@ -1973,6 +2030,21 @@ pub fn BrotliCreateBackwardReferences<Alloc: alloc::Allocator<u16> + alloc::Allo
                                num_literals)
     }
     &mut UnionHasher::H5(ref mut hasher) => {
+      CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
+                               &kStaticDictionaryHash[..],
+                               num_bytes,
+                               position,
+                               ringbuffer,
+                               ringbuffer_mask,
+                               params,
+                               hasher,
+                               dist_cache,
+                               last_insert_len,
+                               commands,
+                               num_commands,
+                               num_literals)
+    }
+    &mut UnionHasher::H5q7(ref mut hasher) => {
       CreateBackwardReferences(if params.use_dictionary {Some(dictionary)} else {None},
                                &kStaticDictionaryHash[..],
                                num_bytes,
