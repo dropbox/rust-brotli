@@ -1032,6 +1032,150 @@ fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> u64 
   (39u64).wrapping_add((0x1ca10u64 >> (distance_short_code & 0xeusize) & 0xeu64))
 }
 
+#[cfg(test)]
+mod test {
+    use super::{Allocator, SliceWrapper};
+    use super::{AdvHasher, H5Sub, HQ7Sub,
+                Struct1, BrotliHasherParams, H9Opts,
+                CloneWithAlloc, AnyHasher, };
+    use ::alloc_stdlib::StandardAlloc;
+    static RANDOM_THEN_UNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
+    #[cfg(feature="std")]
+    #[test]
+    fn test_bulk_store_range() {
+        let params_hasher = BrotliHasherParams {
+            type_: 5,
+            block_bits: 6,
+            bucket_bits: 15,
+            num_last_distances_to_check:10,
+            hash_len: 4,
+            literal_byte_score: 540,
+        };
+        let block_size = 1u64 << params_hasher.block_bits;
+        let bucket_size = 1u64 << params_hasher.bucket_bits;
+        let mut alloc = StandardAlloc::default();
+        let mut buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(&mut alloc, (bucket_size * block_size) as usize);
+        let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+
+        let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc>{
+            buckets: buckets,
+            h9_opts: H9Opts::new(&params_hasher),
+            num: num,
+            GetHasherCommon: Struct1 {
+                params: params_hasher,
+                is_prepared_: 1,
+                dict_num_lookups: 0,
+                dict_num_matches: 0,
+            },
+            specialization: H5Sub {
+                hash_shift_: 32i32 - params_hasher.bucket_bits,
+                bucket_size_: bucket_size as u32,
+                block_bits_: params_hasher.block_bits as i32,
+                block_mask_: block_size.wrapping_sub(1u64) as u32,
+            }
+        };
+        buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(&mut alloc, (bucket_size * block_size) as usize);
+        num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+        let mut hasher_b = hasher_a.clone_with_alloc(&mut alloc);
+        assert!(hasher_a == hasher_b);
+        let mut hasher_c = AdvHasher::<HQ7Sub, StandardAlloc>{
+            buckets: buckets,
+            h9_opts: H9Opts::new(&params_hasher),
+            num: num,
+            GetHasherCommon: Struct1 {
+                params: params_hasher,
+                is_prepared_: 1,
+                dict_num_lookups: 0,
+                dict_num_matches: 0,
+            },
+            specialization: HQ7Sub {},
+        };
+        let mut hasher_d = hasher_c.clone_with_alloc(&mut alloc);
+        assert!(hasher_d == hasher_c);
+        hasher_a.BulkStoreRange(RANDOM_THEN_UNICODE, !0usize, 15, RANDOM_THEN_UNICODE.len() - 8);
+        hasher_c.BulkStoreRange(RANDOM_THEN_UNICODE, !0usize, 15, RANDOM_THEN_UNICODE.len() - 8);
+        for i in 15..RANDOM_THEN_UNICODE.len() - 8  {
+            hasher_b.Store(RANDOM_THEN_UNICODE, !0usize, i);
+            hasher_d.Store(RANDOM_THEN_UNICODE, !0usize, i);
+        }
+        assert_eq!(hasher_a.buckets.slice(), hasher_c.buckets.slice());
+        assert_eq!(hasher_b.buckets.slice(), hasher_d.buckets.slice());
+        assert_eq!(hasher_a.num.slice(), hasher_c.num.slice());
+        assert_eq!(hasher_b.num.slice(), hasher_d.num.slice());
+        assert_eq!(hasher_a.buckets.slice(), hasher_b.buckets.slice());
+        assert_eq!(hasher_c.buckets.slice(), hasher_d.buckets.slice());
+        assert_eq!(hasher_a.num.slice(), hasher_b.num.slice());
+        assert_eq!(hasher_c.num.slice(), hasher_d.num.slice());
+        assert!(hasher_a == hasher_b);
+        assert!(hasher_d == hasher_c);
+    }
+    #[cfg(feature="std")]
+    #[test]
+    // does not use the fancy optimizations for q7
+    fn test_bulk_store_range_off_spec() {
+        let params_hasher = BrotliHasherParams {
+            type_: 5,
+            block_bits: 6,
+            bucket_bits: 15,
+            num_last_distances_to_check:10,
+            hash_len: 4,
+            literal_byte_score: 540,
+        };
+        let block_size = 1u64 << params_hasher.block_bits;
+        let bucket_size = 1u64 << params_hasher.bucket_bits;
+        let mut alloc = StandardAlloc::default();
+        let mut buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(&mut alloc, (bucket_size * block_size) as usize);
+        let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+
+        let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc>{
+            buckets: buckets,
+            h9_opts: H9Opts::new(&params_hasher),
+            num: num,
+            GetHasherCommon: Struct1 {
+                params: params_hasher,
+                is_prepared_: 1,
+                dict_num_lookups: 0,
+                dict_num_matches: 0,
+            },
+            specialization: H5Sub {
+                hash_shift_: 32i32 - params_hasher.bucket_bits,
+                bucket_size_: bucket_size as u32,
+                block_bits_: params_hasher.block_bits as i32,
+                block_mask_: block_size.wrapping_sub(1u64) as u32,
+            }
+        };
+        buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(&mut alloc, (bucket_size * block_size) as usize);
+        num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+        let mut hasher_b = hasher_a.clone_with_alloc(&mut alloc);
+        assert!(hasher_a == hasher_b);
+        let mut hasher_c = AdvHasher::<HQ7Sub, StandardAlloc>{
+            buckets: buckets,
+            h9_opts: H9Opts::new(&params_hasher),
+            num: num,
+            GetHasherCommon: Struct1 {
+                params: params_hasher,
+                is_prepared_: 1,
+                dict_num_lookups: 0,
+                dict_num_matches: 0,
+            },
+            specialization: HQ7Sub {},
+        };
+        let mut hasher_d = hasher_c.clone_with_alloc(&mut alloc);
+        assert!(hasher_d == hasher_c);
+        hasher_a.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfffffff, 15, RANDOM_THEN_UNICODE.len() - 8);
+        hasher_c.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfffffff, 15, RANDOM_THEN_UNICODE.len() - 8);
+        for i in 15..RANDOM_THEN_UNICODE.len() - 8  {
+            hasher_b.Store(RANDOM_THEN_UNICODE, 0xfffffff, i);
+            hasher_d.Store(RANDOM_THEN_UNICODE, 0xfffffff, i);
+        }
+        assert_eq!(hasher_a.buckets.slice(), hasher_c.buckets.slice());
+        assert_eq!(hasher_b.buckets.slice(), hasher_d.buckets.slice());
+        assert_eq!(hasher_a.num.slice(), hasher_c.num.slice());
+        assert_eq!(hasher_b.num.slice(), hasher_d.num.slice());
+        assert!(hasher_a == hasher_b);
+        assert!(hasher_d == hasher_c);
+    }
+}
 
 impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
   for AdvHasher<Specialization, Alloc> {
@@ -1103,10 +1247,84 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
       self.Store(data, mask, i);
     }
   }
-  fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-    for i in ix_start..ix_end {
-      self.Store(data, mask, i);
-    }
+  // 7 opt
+  
+    fn BulkStoreRange(&mut self, data: &[u8], mask: usize, mut ix_start: usize, ix_end: usize) {
+        const REG_SIZE : usize = 32usize;
+        let lookahead = self.specialization.StoreLookahead();
+        if mask == !0 && ix_end - ix_start > REG_SIZE && lookahead == 4{
+            const lookahead4: usize = 4;
+            assert_eq!(lookahead4, lookahead);
+            let mut data64 = [0u8;REG_SIZE + lookahead4];
+            let del = (ix_end - ix_start) / REG_SIZE;
+            let num = self.num.slice_mut();
+            let buckets = self.buckets.slice_mut();
+            assert_eq!(num.len(), self.specialization.bucket_size() as usize);
+            assert_eq!(buckets.len(), self.specialization.bucket_size() as usize * self.specialization.block_size() as usize);
+            let shift = self.specialization.hash_shift();
+            for chunk_id in 0..del {
+                let ix_offset = ix_start + chunk_id * REG_SIZE;
+                data64[..REG_SIZE + lookahead4].clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
+                for i in 0..REG_SIZE {
+                    let mixed_word = ((u32::from(data64[i])
+                                       | (u32::from(data64[i + 1]) << 8)
+                                       | (u32::from(data64[i + 2]) << 16)
+                                       | (u32::from(data64[i + 3]) << 24)) as u64
+                                      * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask();
+                    let key = mixed_word >> shift;
+                    let num_ref = &mut num[key as usize];
+                    let minor_ix: usize = *num_ref as usize & (*self).specialization.block_mask() as usize;
+                    let offset: usize = minor_ix + (key << self.specialization.block_bits()) as usize;
+                    buckets[offset] = (ix_offset + i) as u32;
+                    *num_ref = num_ref.wrapping_add(1);
+                }
+            }
+            ix_start += del * REG_SIZE;
+        }
+        // below is a hack where a "random" item in the bucket is incremented
+        // and then things are compacted later
+        if false && mask == !0 && ix_end - ix_start > REG_SIZE && lookahead == 4{
+            const lookahead4: usize = 4;
+            assert_eq!(lookahead4, lookahead);
+            let mut data64 = [0u8;REG_SIZE + lookahead4];
+            let del = (ix_end - ix_start) / REG_SIZE;
+            let num = self.num.slice_mut();
+            let buckets = self.buckets.slice_mut();
+            assert_eq!(num.len(), self.specialization.bucket_size() as usize);
+            assert_eq!(buckets.len(), self.specialization.bucket_size() as usize * self.specialization.block_size() as usize);
+            let shift = self.specialization.hash_shift();
+            for chunk_id in 0..del {
+                let ix_offset = ix_start + chunk_id * REG_SIZE;
+                data64[..REG_SIZE + lookahead4].clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
+                for i in 0..REG_SIZE {
+                    let mixed_word = ((u32::from(data64[i])
+                                       | (u32::from(data64[i + 1]) << 8)
+                                       | (u32::from(data64[i + 2]) << 16)
+                                       | (u32::from(data64[i + 3]) << 24)) as u64
+                                      * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask();
+                    let key = mixed_word >> shift;
+                    let minor_ix: usize = chunk_id&(*self).specialization.block_mask() as usize;//   *num_ref as usize & (*self).specialization.block_mask() as usize; //GIGANTIC HAX: overwrite firsst option
+                    let offset: usize = minor_ix + (key << self.specialization.block_bits()) as usize;
+                    buckets[offset] = (ix_offset + i) as u32;
+                }
+            }
+            ix_start += del * REG_SIZE;
+            for (bucket_index, num_ref) in num.iter_mut().enumerate() {
+                let region = buckets.split_at_mut(bucket_index << self.specialization.block_bits()).1.split_at_mut( self.specialization.block_size() as usize).0;
+                let mut lnum = 0usize;
+                for block_index in 0..self.specialization.block_size() as usize{
+                    if region[block_index] != 0 {
+                        let byte_addr = region[block_index];
+                        region[lnum] = byte_addr;
+                        lnum += 1;
+                    }
+                }
+                *num_ref = lnum as u16;
+            }
+        }
+        for i in ix_start..ix_end {
+            self.Store(data, mask, i);
+        }
   }
 
   fn FindLongestMatch(&mut self,

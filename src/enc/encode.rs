@@ -1004,7 +1004,7 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
   let buckets : <Alloc as Allocator<u32>>::AllocatedMemory = <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
   let num : <Alloc as Allocator<u16>>::AllocatedMemory = <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
 
-  if false&&params.hasher.block_bits == 6 && params.hasher.bucket_bits == 15 {
+  if params.hasher.block_bits == 6 && params.hasher.bucket_bits == 15 {
     return UnionHasher::H5q7(AdvHasher {
       buckets: buckets,
       h9_opts: super::backward_references::H9Opts::new(&params.hasher),
