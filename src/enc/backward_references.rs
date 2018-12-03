@@ -1032,6 +1032,7 @@ fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> u64 
   (39u64).wrapping_add((0x1ca10u64 >> (distance_short_code & 0xeusize) & 0xeu64))
 }
 
+#[cfg(feature="std")]
 #[cfg(test)]
 mod test {
     use super::{Allocator, SliceWrapper};
