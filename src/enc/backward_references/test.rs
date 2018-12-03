@@ -1,6 +1,6 @@
 #![cfg(feature="std")]
 #![cfg(test)]
-use super::{Allocator, SliceWrapper};
+use enc::{Allocator, SliceWrapper};
 use super::{AdvHasher, H5Sub, HQ7Sub,
             Struct1, BrotliHasherParams, H9Opts,
             CloneWithAlloc, AnyHasher, };
