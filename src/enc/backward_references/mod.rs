@@ -1388,59 +1388,52 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
     {
       let key: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
       let common_block_bits = self.specialization.block_bits();
-        if (key << common_block_bits) as usize >= self.buckets.slice().len() {
-            let key2: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
-            let key3: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
-            assert_eq!(key2, key3 + 1);
-        }
+      let num_ref_mut = &mut self.num.slice_mut()[key as usize];
+      let num_copy = *num_ref_mut;
       let bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
-      let down: usize = core::cmp::max(i32::from(self.num.slice()[(key as (usize))]) - (*self).specialization.block_size() as i32,
+      if num_copy != 0 {
+      let down: usize = core::cmp::max(i32::from(num_copy) - (*self).specialization.block_size() as i32,
                                        0) as usize;
-      i = self.num.slice()[(key as (usize))] as (usize);
-      while i > down {
-        let mut prev_ix: usize = bucket[(({
+        i = num_copy as (usize);
+        while i > down {
+          let mut prev_ix: usize = bucket[(({
             i = i.wrapping_sub(1 as (usize));
             i
           } & (*self).specialization.block_mask() as (usize)) as (usize))] as (usize);
-        let backward: usize = cur_ix.wrapping_sub(prev_ix);
-        if backward > max_backward {
-          {
+          let backward: usize = cur_ix.wrapping_sub(prev_ix);
+          if backward > max_backward {
             break;
           }
-        }
-        prev_ix = prev_ix & ring_buffer_mask;
-        if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
-           data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32) !=
-           data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
+          prev_ix = prev_ix & ring_buffer_mask;
+          if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
+            data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32) !=
+            data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
+              {
+                continue;
+              }
+            }
           {
-            continue;
-          }
-        }
-        {
-          let (_, prev_data) = data.split_at(prev_ix as usize);
-          let (_, cur_data) = data.split_at(cur_ix_masked as usize);
-          let len: usize = FindMatchLengthWithLimit(&prev_data,
-                                                    &cur_data,
-                                                    max_length);
-          if len >= 4usize {
-            let score: u64 = BackwardReferenceScore(len, backward, opts);
-            if best_score < score {
-              best_score = score;
-              best_len = len;
-              (*out).len = best_len;
-              (*out).distance = backward;
-              (*out).score = best_score;
-              is_match_found = 1i32;
+            let (_, prev_data) = data.split_at(prev_ix as usize);
+            let (_, cur_data) = data.split_at(cur_ix_masked as usize);
+            let len: usize = FindMatchLengthWithLimit(&prev_data,
+                                                      &cur_data,
+                                                      max_length);
+            if len >= 4usize {
+              let score: u64 = BackwardReferenceScore(len, backward, opts);
+              if best_score < score {
+                best_score = score;
+                best_len = len;
+                (*out).len = best_len;
+                (*out).distance = backward;
+                (*out).score = best_score;
+                is_match_found = 1i32;
+              }
             }
           }
         }
       }
-      bucket[((self.num.slice()[(key as (usize))] as (u32) & (self).specialization.block_mask() as u32) as (usize))] = cur_ix as (u32);
-      {
-        let _rhs = 1;
-        let _lhs = &mut self.num.slice_mut()[(key as (usize))];
-        *_lhs = (*_lhs as (i32) + _rhs) as (u16);
-      }
+      bucket[((num_copy as (u32) & (self).specialization.block_mask() as u32) as (usize))] = cur_ix as (u32);
+      *num_ref_mut = num_ref_mut.wrapping_add(1);
     }
     if is_match_found == 0 && dictionary.is_some() {
       let (_, cur_data) = data.split_at(cur_ix_masked as usize);
