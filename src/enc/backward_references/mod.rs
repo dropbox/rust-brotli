@@ -171,6 +171,16 @@ pub trait AnyHasher {
                       out: &mut HasherSearchResult)
                       -> bool;
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize);
+  fn Store4Vec4(&mut self, data: &[u8], mask: usize, ix: usize) {
+    for i in 0..4 {
+      self.Store(data, mask, ix + i * 4);
+    }
+  }
+  fn StoreEvenVec4(&mut self, data: &[u8], mask: usize, ix: usize) {
+    for i in 0..4 {
+      self.Store(data, mask, ix + i * 2);
+    }
+  }
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
   fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize);
   fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared;
@@ -2088,23 +2098,13 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: Option<&BrotliDictionary>
         } else if position >
            apply_random_heuristics.wrapping_add((4usize)
                                                   .wrapping_mul(random_heuristics_window_size)) {
-          let pos_jump: usize = position.wrapping_add(16usize);
-          while position < pos_jump {
-            {
-              hasher.Store(ringbuffer, ringbuffer_mask, position);
-              insert_length = insert_length.wrapping_add(4usize);
-            }
-            position = position.wrapping_add(4usize);
-          }
+          hasher.Store4Vec4(ringbuffer, ringbuffer_mask, position);
+          insert_length = insert_length.wrapping_add(16usize);
+          position = position.wrapping_add(16usize);
         } else {
-          let pos_jump: usize = position.wrapping_add(8usize);
-          while position < pos_jump {
-            {
-              hasher.Store(ringbuffer, ringbuffer_mask, position);
-              insert_length = insert_length.wrapping_add(2usize);
-            }
-            position = position.wrapping_add(2usize);
-          }
+          hasher.StoreEvenVec4(ringbuffer, ringbuffer_mask, position);
+          insert_length = insert_length.wrapping_add(8usize);
+          position = position.wrapping_add(8usize);
         }
       }
     }
