@@ -1394,11 +1394,8 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
             assert_eq!(key2, key3 + 1);
         }
       let bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
-      let down: usize = if u32::from(self.num.slice()[(key as (usize))]) > (*self).specialization.block_size() {
-        (u32::from(self.num.slice()[(key as (usize))])).wrapping_sub((*self).specialization.block_size()) as usize
-      } else {
-        0u32 as (usize)
-      };
+      let down: usize = core::cmp::max(i32::from(self.num.slice()[(key as (usize))]) - (*self).specialization.block_size() as i32,
+                                       0) as usize;
       i = self.num.slice()[(key as (usize))] as (usize);
       while i > down {
         let mut prev_ix: usize = bucket[(({
