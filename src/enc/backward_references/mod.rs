@@ -1333,50 +1333,41 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
     (*out).len = 0usize;
     (*out).len_x_code = 0usize;
     i = 0usize;
+    let cur_data = data.split_at(cur_ix_masked).1;
     while i < self.GetHasherCommon.params.num_last_distances_to_check as (usize) {
       'continue45: loop {
         {
           let backward: usize = distance_cache[(i as (usize))] as (usize);
           let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
           if prev_ix >= cur_ix {
-            {
-              break 'continue45;
-            }
+            break 'continue45;
           }
           if backward > max_backward {
-            {
-              break 'continue45;
-            }
+            break 'continue45;
           }
           prev_ix = prev_ix & ring_buffer_mask;
-          if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
-             data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32) !=
-             data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
-            {
-              break 'continue45;
-            }
+          if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
+              cur_data[best_len] != data[prev_ix.wrapping_add(best_len)]) {
+            break 'continue45;
           }
-          {
-            let (_, prev_data) = data.split_at(prev_ix as usize);
-            let (_, cur_data) = data.split_at(cur_ix_masked as usize);
-
-            let len: usize = FindMatchLengthWithLimit(&prev_data,
-                                                      &cur_data,
-                                                      max_length);
-            if len >= 3usize || len == 2usize && (i < 2usize) {
-              let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
+          let prev_data = data.split_at(prev_ix).1;
+          
+          let len: usize = FindMatchLengthWithLimit(&prev_data,
+                                                    &cur_data,
+                                                    max_length);
+          if len >= 3usize || len == 2usize && (i < 2usize) {
+            let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
+            if best_score < score {
+              if i != 0usize {
+                score = score.wrapping_sub(BackwardReferencePenaltyUsingLastDistance(i));
+              }
               if best_score < score {
-                if i != 0usize {
-                  score = score.wrapping_sub(BackwardReferencePenaltyUsingLastDistance(i));
-                }
-                if best_score < score {
-                  best_score = score;
-                  best_len = len;
-                  (*out).len = best_len;
-                  (*out).distance = backward;
-                  (*out).score = best_score;
-                  is_match_found = 1i32;
-                }
+                best_score = score;
+                best_len = len;
+                (*out).len = best_len;
+                (*out).distance = backward;
+                (*out).score = best_score;
+                is_match_found = 1i32;
               }
             }
           }
@@ -1386,48 +1377,42 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
       i = i.wrapping_add(1 as (usize));
     }
     {
-      let key: u32 = self.HashBytes(&data[(cur_ix_masked as (usize))..]) as u32;
+      let key: u32 = self.HashBytes(cur_data) as u32;
       let common_block_bits = self.specialization.block_bits();
       let num_ref_mut = &mut self.num.slice_mut()[key as usize];
       let num_copy = *num_ref_mut;
-      let bucket: &mut [u32] = &mut self.buckets.slice_mut()[((key << common_block_bits) as (usize))..];
+      let bucket: &mut [u32] = self.buckets.slice_mut().split_at_mut((key << common_block_bits) as (usize)).1.split_at_mut(
+        (*self).specialization.block_size() as usize).0;
+      assert!(bucket.len() > (*self).specialization.block_mask() as usize);
       if num_copy != 0 {
-      let down: usize = core::cmp::max(i32::from(num_copy) - (*self).specialization.block_size() as i32,
-                                       0) as usize;
+        let down: usize = core::cmp::max(i32::from(num_copy) - (*self).specialization.block_size() as i32,
+                                         0) as usize;
         i = num_copy as (usize);
         while i > down {
-          let mut prev_ix: usize = bucket[(({
-            i = i.wrapping_sub(1 as (usize));
-            i
-          } & (*self).specialization.block_mask() as (usize)) as (usize))] as (usize);
-          let backward: usize = cur_ix.wrapping_sub(prev_ix);
+          i -= 1;
+          let mut prev_ix = bucket[i & (*self).specialization.block_mask() as usize] as usize;
+          let backward = cur_ix.wrapping_sub(prev_ix);
           if backward > max_backward {
             break;
           }
-          prev_ix = prev_ix & ring_buffer_mask;
-          if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
-            data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32) !=
-            data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
-              {
-                continue;
-              }
-            }
-          {
-            let (_, prev_data) = data.split_at(prev_ix as usize);
-            let (_, cur_data) = data.split_at(cur_ix_masked as usize);
-            let len: usize = FindMatchLengthWithLimit(&prev_data,
-                                                      &cur_data,
-                                                      max_length);
-            if len >= 4usize {
-              let score: u64 = BackwardReferenceScore(len, backward, opts);
-              if best_score < score {
-                best_score = score;
-                best_len = len;
-                (*out).len = best_len;
-                (*out).distance = backward;
-                (*out).score = best_score;
-                is_match_found = 1i32;
-              }
+          prev_ix &= ring_buffer_mask;
+          if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
+              cur_data[best_len] != data[prev_ix.wrapping_add(best_len)]) {
+            continue;
+          }
+          let prev_data = data.split_at(prev_ix as usize).1;
+          let len = FindMatchLengthWithLimit(&prev_data,
+                                             &cur_data,
+                                             max_length);
+          if len >= 4 {
+            let score: u64 = BackwardReferenceScore(len, backward, opts);
+            if best_score < score {
+              best_score = score;
+              best_len = len;
+              (*out).len = best_len;
+              (*out).distance = backward;
+              (*out).score = best_score;
+              is_match_found = 1i32;
             }
           }
         }
