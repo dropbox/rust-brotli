@@ -1,16 +1,17 @@
 #![allow(dead_code, unused_imports)]
-use super::command::{Command, ComputeDistanceCode, InitCommand, GetInsertLengthCode, GetCopyLengthCode, CombineLengthCodes, PrefixEncodeCopyDistance, CommandCopyLen, BrotliDistanceParams};
-use super::backward_references::{BrotliEncoderParams, kHashMul32,kHashMul64, kHashMul64Long, BrotliHasherParams, kInvalidMatch, kDistanceCacheIndex, kDistanceCacheOffset, AnyHasher};
-use super::dictionary_hash::kStaticDictionaryHash;
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
-use super::static_dict::{BrotliDictionary, kBrotliEncDictionary, BrotliFindAllStaticDictionaryMatches};
-use super::literal_cost::BrotliEstimateBitCostsForLiterals;
-use super::constants::{kInsExtra, kCopyExtra};
-use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
-use super::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, FastLog2f64, floatX};
+use enc::command::{Command, ComputeDistanceCode, InitCommand, GetInsertLengthCode, GetCopyLengthCode, CombineLengthCodes, PrefixEncodeCopyDistance, CommandCopyLen, BrotliDistanceParams};
+use super::{BrotliEncoderParams, kHashMul32,kHashMul64, kHashMul64Long, BrotliHasherParams, kInvalidMatch, kDistanceCacheIndex, kDistanceCacheOffset, AnyHasher};
+use enc::dictionary_hash::kStaticDictionaryHash;
+use enc::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
+use enc::static_dict::{BrotliDictionary, kBrotliEncDictionary, BrotliFindAllStaticDictionaryMatches};
+use enc::literal_cost::BrotliEstimateBitCostsForLiterals;
+use enc::constants::{kInsExtra, kCopyExtra};
+use ::alloc;
+use alloc::{SliceWrapper, SliceWrapperMut, Allocator};
+use enc::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, FastLog2f64, floatX};
 use super::hash_to_binary_tree::{InitBackwardMatch, BackwardMatch, BackwardMatchMut, StoreAndFindMatchesH10, Allocable, H10Params, H10, ZopfliNode, Union1, kInfinity};
 use core;
+use enc::encode;
 
 const BROTLI_WINDOW_GAP:usize = 16;
 const BROTLI_MAX_STATIC_DICTIONARY_MATCH_LEN:usize = 37;
@@ -38,8 +39,8 @@ pub const BROTLI_NUM_LITERAL_SYMBOLS:usize = 256;
 pub const BROTLI_NUM_COMMAND_SYMBOLS:usize = 704;
 
 
-pub const BROTLI_SIMPLE_DISTANCE_ALPHABET_SIZE: usize = super::encode::BROTLI_NUM_DISTANCE_SHORT_CODES as usize +
-    (2 * super::encode::BROTLI_LARGE_MAX_DISTANCE_BITS as usize);
+pub const BROTLI_SIMPLE_DISTANCE_ALPHABET_SIZE: usize = encode::BROTLI_NUM_DISTANCE_SHORT_CODES as usize +
+    (2 * encode::BROTLI_LARGE_MAX_DISTANCE_BITS as usize);
 
 #[inline(always)]
 pub fn BrotliInitZopfliNodes(

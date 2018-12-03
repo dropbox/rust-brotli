@@ -1,14 +1,14 @@
 #![allow(dead_code, unused_imports)]
-use super::command::{Command, ComputeDistanceCode, InitCommand, GetInsertLengthCode, GetCopyLengthCode, CombineLengthCodes, PrefixEncodeCopyDistance, CommandCopyLen};
-use super::backward_references::{BrotliEncoderParams, kHashMul32,kHashMul64, kHashMul64Long, BrotliHasherParams, kInvalidMatch, kDistanceCacheIndex, kDistanceCacheOffset, Struct1, H9Opts, HowPrepared, AnyHasher, CloneWithAlloc, HasherSearchResult};
-use super::dictionary_hash::kStaticDictionaryHash;
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
-use super::static_dict::{BrotliDictionary, kBrotliEncDictionary, BrotliFindAllStaticDictionaryMatches};
-use super::literal_cost::BrotliEstimateBitCostsForLiterals;
-use super::constants::{kInsExtra, kCopyExtra};
-use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
-use super::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, floatX};
+use enc::command::{Command, ComputeDistanceCode, InitCommand, GetInsertLengthCode, GetCopyLengthCode, CombineLengthCodes, PrefixEncodeCopyDistance, CommandCopyLen};
+use super::{BrotliEncoderParams, kHashMul32,kHashMul64, kHashMul64Long, BrotliHasherParams, kInvalidMatch, kDistanceCacheIndex, kDistanceCacheOffset, Struct1, H9Opts, HowPrepared, AnyHasher, CloneWithAlloc, HasherSearchResult};
+use enc::dictionary_hash::kStaticDictionaryHash;
+use enc::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
+use enc::static_dict::{BrotliDictionary, kBrotliEncDictionary, BrotliFindAllStaticDictionaryMatches};
+use enc::literal_cost::BrotliEstimateBitCostsForLiterals;
+use enc::constants::{kInsExtra, kCopyExtra};
+use alloc;
+use alloc::{SliceWrapper, SliceWrapperMut, Allocator};
+use enc::util::{Log2FloorNonZero, brotli_max_size_t,FastLog2, floatX};
 use core;
 
 pub const kInfinity: floatX = 1.7e38 as floatX;
@@ -208,7 +208,7 @@ impl<AllocU32: Allocator<u32>,
                            position: usize,
                            ringbuffer: &[u8],
                            ringbuffer_mask: usize) {
-      super::backward_references_hq::StitchToPreviousBlockH10(self, num_bytes, position, ringbuffer, ringbuffer_mask)
+      super::hq::StitchToPreviousBlockH10(self, num_bytes, position, ringbuffer, ringbuffer_mask)
   }
   #[inline(always)]
   fn GetHasherCommon(&mut self) -> &mut Struct1 {
