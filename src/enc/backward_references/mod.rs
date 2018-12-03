@@ -2078,14 +2078,17 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: Option<&BrotliDictionary>
     } else {
       insert_length = insert_length.wrapping_add(1 as (usize));
       position = position.wrapping_add(1 as (usize));
+
       if position > apply_random_heuristics {
-        if position >
+        let kMargin: usize = brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1usize),
+                                               4usize);
+        if position.wrapping_add(16usize) >= pos_end.wrapping_sub(kMargin) {
+          insert_length = insert_length.wrapping_add(pos_end - position);
+          position = pos_end;
+        } else if position >
            apply_random_heuristics.wrapping_add((4usize)
                                                   .wrapping_mul(random_heuristics_window_size)) {
-          let kMargin: usize = brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1usize),
-                                                 4usize);
-          let pos_jump: usize = brotli_min_size_t(position.wrapping_add(16usize),
-                                                  pos_end.wrapping_sub(kMargin));
+          let pos_jump: usize = position.wrapping_add(16usize);
           while position < pos_jump {
             {
               hasher.Store(ringbuffer, ringbuffer_mask, position);
@@ -2094,10 +2097,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(dictionary: Option<&BrotliDictionary>
             position = position.wrapping_add(4usize);
           }
         } else {
-          let kMargin: usize = brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1usize),
-                                                 2usize);
-          let pos_jump: usize = brotli_min_size_t(position.wrapping_add(8usize),
-                                                  pos_end.wrapping_sub(kMargin));
+          let pos_jump: usize = position.wrapping_add(8usize);
           while position < pos_jump {
             {
               hasher.Store(ringbuffer, ringbuffer_mask, position);
