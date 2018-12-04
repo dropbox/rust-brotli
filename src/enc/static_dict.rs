@@ -129,20 +129,18 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
 }
 #[allow(unused)]
 pub fn FindMatchLengthWithLimitMin4(s1: &[u8], s2: &[u8], limit: usize) -> usize {
-  let v0 = BROTLI_UNALIGNED_LOAD32(s1);
-  let v1 = BROTLI_UNALIGNED_LOAD32(s2);
+  let (s1_start, s1_rest) = s1.split_at(5);
+  let (s2_start, s2_rest) = s2.split_at(5);
+  let v0 = BROTLI_UNALIGNED_LOAD32(s1_start);
+  let v1 = BROTLI_UNALIGNED_LOAD32(s2_start);
+  let beyond_ok = s1_start[4] != s2_start[4];
   if v0 != v1 {
     return 0;
   }
-  if limit < 4 {
-    return limit;
+  if limit <= 4 || beyond_ok {
+    return core::cmp::min(limit, 4);
   }
-  for (index, pair) in s1[4..limit].iter().zip(s2[4..limit].iter()).enumerate() {
-    if *pair.0 != *pair.1 {
-      return index + 4;
-    }
-  }
-  return limit;
+  return ComplexFindMatchLengthWithLimit(s1_rest, s2_rest, limit - 5) + 5;
 }
 #[inline] 
 pub fn ComplexFindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {

@@ -1534,13 +1534,16 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
           i -= 1;
           let mut prev_ix = bucket[i & (*self).specialization.block_mask() as usize] as usize;
           let backward = cur_ix.wrapping_sub(prev_ix);
-          if backward > max_backward {
-            break;
-          }
           prev_ix &= ring_buffer_mask;
           if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
               cur_data[best_len] != data[prev_ix.wrapping_add(best_len)]) {
+            if backward > max_backward {
+              break;
+            }
             continue;
+          }
+          if backward > max_backward {
+            break;
           }
           let prev_data = data.split_at(prev_ix as usize).1;
           let len = FindMatchLengthWithLimitMin4(&prev_data,
