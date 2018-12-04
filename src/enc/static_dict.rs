@@ -1,3 +1,4 @@
+use core;
 pub const kNumDistanceCacheEntries: usize = 4;
 
 use super::static_dict_lut::{kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets,
