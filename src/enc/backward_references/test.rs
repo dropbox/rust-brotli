@@ -63,9 +63,9 @@ fn test_bulk_store_range() {
   hasher_c.BulkStoreRange(RANDOM_THEN_UNICODE, !0usize, 15, RANDOM_THEN_UNICODE.len() - 8);
   for i in 15..RANDOM_THEN_UNICODE.len() - 8  {
     hasher_b.Store(RANDOM_THEN_UNICODE, !0usize, i);
-    hasher_d.Store(RANDOM_THEN_UNICODE, !0usize, i);
   }
-  let ret_start = hasher_e.BulkStoreRangeOptBatch(RANDOM_THEN_UNICODE, !0, 15, RANDOM_THEN_UNICODE.len() - 8);
+  hasher_d.StoreRange(RANDOM_THEN_UNICODE, !0usize, 15, RANDOM_THEN_UNICODE.len() - 8);
+  let ret_start = hasher_e.StoreRangeOptBatch(RANDOM_THEN_UNICODE, !0, 15, RANDOM_THEN_UNICODE.len() - 8);
   assert!(ret_start > 15);
   hasher_e.BulkStoreRange(RANDOM_THEN_UNICODE, !0, ret_start, RANDOM_THEN_UNICODE.len() - 8);
   assert_eq!(hasher_a.buckets.slice(), hasher_c.buckets.slice());
@@ -135,6 +135,7 @@ fn test_bulk_store_range_off_spec() {
   assert!(hasher_d == hasher_c);
   hasher_a.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfff, 15, RANDOM_THEN_UNICODE.len() - 8);
   hasher_c.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfff, 15, RANDOM_THEN_UNICODE.len() - 8);
+  hasher_c.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfff, RANDOM_THEN_UNICODE.len(), RANDOM_THEN_UNICODE.len() - 8); // noop
   for i in 15..RANDOM_THEN_UNICODE.len() - 8  {
     hasher_b.Store(RANDOM_THEN_UNICODE, 0xfff, i);
     hasher_d.Store(RANDOM_THEN_UNICODE, 0xfff, i);

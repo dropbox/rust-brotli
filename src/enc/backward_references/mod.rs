@@ -1049,10 +1049,9 @@ fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> u64 
 impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AdvHasher<Specialization, Alloc> {
   // 7 opt
   // returns a new ix_start
-  fn BulkStoreRangeOptBatch(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) -> usize {
-    const REG_SIZE : usize = 32usize;
+  fn StoreRangeOptBatch(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) -> usize {
     let lookahead = self.specialization.StoreLookahead();
-    if mask == !0 && ix_end - ix_start > lookahead * 2 && lookahead == 4{
+    if ix_end >= ix_start + lookahead * 2 && lookahead == 4{
       let num = self.num.slice_mut();
       let buckets = self.buckets.slice_mut();
       assert_eq!(num.len(), self.specialization.bucket_size() as usize);
@@ -1060,7 +1059,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
       let shift = self.specialization.hash_shift();
       let chunk_count = (ix_end - ix_start) / 4;
       for chunk_id in 0..chunk_count {
-        let i = ix_start + chunk_id * 4;
+        let i = (ix_start + chunk_id * 4) & mask;
         let ffffffff = 0xffffffff;
         let word = u64::from(data[i])
           | (u64::from(data[i + 1]) << 8)
@@ -1103,7 +1102,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
   fn BulkStoreRangeOptMemFetch(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) -> usize {
       const REG_SIZE : usize = 32usize;
     let lookahead = self.specialization.StoreLookahead();
-      if mask == !0 && ix_end - ix_start > REG_SIZE && lookahead == 4{
+      if mask == !0 && ix_end > ix_start + REG_SIZE && lookahead == 4{
       const lookahead4: usize = 4;
       assert_eq!(lookahead4, lookahead);
       let mut data64 = [0u8;REG_SIZE + lookahead4];
@@ -1160,7 +1159,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
   fn BulkStoreRangeOptMemFetchLazyDupeUpdate(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) -> usize {
     const REG_SIZE : usize = 32usize;
     let lookahead = self.specialization.StoreLookahead();
-    if mask == !0 && ix_end - ix_start > REG_SIZE && lookahead == 4{
+    if mask == !0 && ix_end > ix_start + REG_SIZE && lookahead == 4{
       const lookahead4: usize = 4;
       assert_eq!(lookahead4, lookahead);
       let mut data64 = [0u8;REG_SIZE + lookahead4];
@@ -1217,7 +1216,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
   fn BulkStoreRangeOptRandomDupeUpdate(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) -> usize {
     const REG_SIZE : usize = 32usize;
     let lookahead = self.specialization.StoreLookahead();
-    if mask == !0 && ix_end - ix_start > REG_SIZE && lookahead == 4{
+    if mask == !0 && ix_end > ix_start + REG_SIZE && lookahead == 4{
       const lookahead4: usize = 4;
       assert_eq!(lookahead4, lookahead);
       let mut data64 = [0u8;REG_SIZE + lookahead4];
@@ -1313,6 +1312,108 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
     let h: u64 = self.specialization.load_and_mix_word(data);
     (h >> shift) as (u32) as usize
   }
+  fn StoreEvenVec4(&mut self, data: &[u8], mask: usize, ix: usize) {
+    if self.specialization.StoreLookahead() != 4 {
+      for i in 0..4 {
+        self.Store(data, mask, ix + i * 2);
+      }
+      return;
+    }
+    let shift = self.specialization.hash_shift();
+    let num = self.num.slice_mut();
+    let buckets = self.buckets.slice_mut();
+    let li = ix & mask;
+    let lword = u64::from(data[li])
+      | (u64::from(data[li + 1]) << 8)
+      | (u64::from(data[li + 2]) << 16)
+      | (u64::from(data[li + 3]) << 24)
+      | (u64::from(data[li + 4]) << 32)
+      | (u64::from(data[li + 5]) << 40)
+      | (u64::from(data[li + 6]) << 48)
+      | (u64::from(data[li + 7]) << 56);
+    let hi = (ix + 8) & mask;
+    let hword = u64::from(data[hi])
+      | (u64::from(data[hi + 1]) << 8);
+    let mixed0 = ((((lword & 0xffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed1 = (((((lword >> 16) & 0xffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed2 = (((((lword >> 32) & 0xffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed3 = ((((((hword & 0xffff) << 16) | ((lword >> 48) & 0xffff)) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mut num_ref0 = u32::from(num[mixed0]);
+    num[mixed0] = num_ref0.wrapping_add(1) as u16;
+    num_ref0 &= (*self).specialization.block_mask();
+    let mut num_ref1 = u32::from(num[mixed1]);
+    num[mixed1] = num_ref1.wrapping_add(1) as u16;
+    num_ref1 &= (*self).specialization.block_mask();
+    let mut num_ref2 = u32::from(num[mixed2]);
+    num[mixed2] = num_ref2.wrapping_add(1) as u16;
+    num_ref2 &= (*self).specialization.block_mask();
+    let mut num_ref3 = u32::from(num[mixed3]);
+    num[mixed3] = num_ref3.wrapping_add(1) as u16;
+    num_ref3 &= (*self).specialization.block_mask();
+    let offset0: usize = (mixed0 << self.specialization.block_bits()) + num_ref0 as usize;
+    let offset1: usize = (mixed1 << self.specialization.block_bits()) + num_ref1 as usize;
+    let offset2: usize = (mixed2 << self.specialization.block_bits()) + num_ref2 as usize;
+    let offset3: usize = (mixed3 << self.specialization.block_bits()) + num_ref3 as usize;
+    buckets[offset0] = ix as u32;
+    buckets[offset1] = (ix + 2) as u32;
+    buckets[offset2] = (ix + 4) as u32;
+    buckets[offset3] = (ix + 6) as u32;
+  }
+  fn Store4Vec4(&mut self, data: &[u8], mask: usize, ix: usize) {
+    if self.specialization.StoreLookahead() != 4 {
+      for i in 0..4 {
+        self.Store(data, mask, ix + i * 4);
+      }
+      return;
+    }
+    let shift = self.specialization.hash_shift();
+    let num = self.num.slice_mut();
+    let buckets = self.buckets.slice_mut();
+    let li = ix & mask;
+    let llword = u32::from(data[li])
+      | (u32::from(data[li + 1]) << 8)
+      | (u32::from(data[li + 2]) << 16)
+      | (u32::from(data[li + 3]) << 24);
+    let luword = u32::from(data[li + 4])
+      | (u32::from(data[li + 5]) << 8)
+      | (u32::from(data[li + 6]) << 16)
+      | (u32::from(data[li + 7]) << 24);
+    let ui = (ix + 8) & mask;
+    let ulword = u32::from(data[ui])
+      | (u32::from(data[ui + 1]) << 8)
+      | (u32::from(data[ui + 2]) << 16)
+      | (u32::from(data[ui + 3]) << 24);
+    
+    let uuword = u32::from(data[ui + 4])
+      | (u32::from(data[ui + 5]) << 8)
+      | (u32::from(data[ui + 6]) << 16)
+      | (u32::from(data[ui + 7]) << 24);
+
+    let mixed0 = (((u64::from(llword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed1 = (((u64::from(luword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed2 = (((u64::from(ulword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed3 = (((u64::from(uuword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mut num_ref0 = u32::from(num[mixed0]);
+    num[mixed0] = num_ref0.wrapping_add(1) as u16;
+    num_ref0 &= (*self).specialization.block_mask();
+    let mut num_ref1 = u32::from(num[mixed1]);
+    num[mixed1] = num_ref1.wrapping_add(1) as u16;
+    num_ref1 &= (*self).specialization.block_mask();
+    let mut num_ref2 = u32::from(num[mixed2]);
+    num[mixed2] = num_ref2.wrapping_add(1) as u16;
+    num_ref2 &= (*self).specialization.block_mask();
+    let mut num_ref3 = u32::from(num[mixed3]);
+    num[mixed3] = num_ref3.wrapping_add(1) as u16;
+    num_ref3 &= (*self).specialization.block_mask();
+    let offset0: usize = (mixed0 << self.specialization.block_bits()) + num_ref0 as usize;
+    let offset1: usize = (mixed1 << self.specialization.block_bits()) + num_ref1 as usize;
+    let offset2: usize = (mixed2 << self.specialization.block_bits()) + num_ref2 as usize;
+    let offset3: usize = (mixed3 << self.specialization.block_bits()) + num_ref3 as usize;
+    buckets[offset0] = ix as u32;
+    buckets[offset1] = (ix + 4) as u32;
+    buckets[offset2] = (ix + 8) as u32;
+    buckets[offset3] = (ix + 12) as u32;
+  }
   fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
     let (_, data_window) = data.split_at((ix & mask) as (usize));
     let key: u32 = self.HashBytes(data_window) as u32;
@@ -1326,11 +1427,26 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
     }
   }
     fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-      for i in ix_start..ix_end {
+      for i in self.StoreRangeOptBatch(data, mask, ix_start, ix_end)..ix_end {
         self.Store(data, mask, i);
       }
     }
     fn BulkStoreRange(&mut self, data: &[u8], mask: usize, mut ix_start: usize, ix_end: usize) {
+      /*
+      if ix_start + 4096 < ix_end {
+        for vec_offset in 0..(ix_end - ix_start - 4096) / 16 {
+          self.Store4Vec4(data, mask, ix_start + vec_offset * 16);
+        }
+        ix_start += 16 * ((ix_end - ix_start - 4096) / 16);
+      }
+      if ix_start + 512 < ix_end {
+        for vec_offset in 0..(ix_end - ix_start - 512) / 8 {
+          self.StoreEvenVec4(data, mask, ix_start + vec_offset * 8);
+          //self.StoreRange(data, mask, ix_start + vec_offset * 8, ix_start + (1+ vec_offset) * 8);
+        }
+        ix_start += 8 * ((ix_end - ix_start - 512) / 8);
+      }
+       */
       ix_start = self.BulkStoreRangeOptMemFetch(data, mask, ix_start, ix_end);
       for i in ix_start..ix_end {
         self.Store(data, mask, i);
