@@ -1067,8 +1067,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
           | (u64::from(data[i + 3]) << 24)
           | (u64::from(data[i + 4]) << 32)
           | (u64::from(data[i + 5]) << 40)
-          | (u64::from(data[i + 6]) << 48)
-          | (u64::from(data[i + 7]) << 56);
+          | (u64::from(data[i + 6]) << 48);
           let mixed0 = ((((word & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mixed1 = (((((word >> 8) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mixed2 = (((((word >> 16) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
@@ -1124,8 +1123,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
             | (u64::from(data64[i + 3]) << 24)
             | (u64::from(data64[i + 4]) << 32)
             | (u64::from(data64[i + 5]) << 40)
-            | (u64::from(data64[i + 6]) << 48)
-            | (u64::from(data64[i + 7]) << 56);
+            | (u64::from(data64[i + 6]) << 48);
           let mixed0 = ((((word & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mixed1 = (((((word >> 8) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mixed2 = (((((word >> 16) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
@@ -1181,8 +1179,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
             | (u64::from(data64[i + 3]) << 24)
             | (u64::from(data64[i + 4]) << 32)
             | (u64::from(data64[i + 5]) << 40)
-            | (u64::from(data64[i + 6]) << 48)
-            | (u64::from(data64[i + 7]) << 56);
+            | (u64::from(data64[i + 6]) << 48);
           let mixed0 = ((((word & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mixed1 = (((((word >> 8) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mixed2 = (((((word >> 16) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
@@ -1549,7 +1546,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
           let len = FindMatchLengthWithLimitMin4(&prev_data,
                                                  &cur_data,
                                                  max_length);
-          if len >= 4 {
+          if len != 0 {
             let score: u64 = BackwardReferenceScore(len, backward, opts);
             if best_score < score {
               best_score = score;
