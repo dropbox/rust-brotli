@@ -44,6 +44,7 @@ fn test_bulk_store_range() {
   num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
   let mut hasher_b = hasher_a.clone_with_alloc(&mut alloc);
   assert!(hasher_a == hasher_b);
+  let mut hasher_e = hasher_a.clone_with_alloc(&mut alloc);
   let mut hasher_c = AdvHasher::<HQ7Sub, StandardAlloc>{
     buckets: buckets,
     h9_opts: H9Opts::new(&params_hasher),
@@ -64,6 +65,9 @@ fn test_bulk_store_range() {
     hasher_b.Store(RANDOM_THEN_UNICODE, !0usize, i);
     hasher_d.Store(RANDOM_THEN_UNICODE, !0usize, i);
   }
+  let ret_start = hasher_e.BulkStoreRangeOptBatch(RANDOM_THEN_UNICODE, !0, 15, RANDOM_THEN_UNICODE.len() - 8);
+  assert!(ret_start > 15);
+  hasher_e.BulkStoreRange(RANDOM_THEN_UNICODE, !0, ret_start, RANDOM_THEN_UNICODE.len() - 8);
   assert_eq!(hasher_a.buckets.slice(), hasher_c.buckets.slice());
   assert_eq!(hasher_b.buckets.slice(), hasher_d.buckets.slice());
   assert_eq!(hasher_a.num.slice(), hasher_c.num.slice());
@@ -74,6 +78,7 @@ fn test_bulk_store_range() {
   assert_eq!(hasher_c.num.slice(), hasher_d.num.slice());
   assert!(hasher_a == hasher_b);
   assert!(hasher_d == hasher_c);
+  assert!(hasher_a == hasher_e);
 }
 #[cfg(feature="std")]
 #[test]
@@ -128,11 +133,12 @@ fn test_bulk_store_range_off_spec() {
   };
   let mut hasher_d = hasher_c.clone_with_alloc(&mut alloc);
   assert!(hasher_d == hasher_c);
-  hasher_a.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfffffff, 15, RANDOM_THEN_UNICODE.len() - 8);
-  hasher_c.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfffffff, 15, RANDOM_THEN_UNICODE.len() - 8);
+  hasher_a.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfff, 15, RANDOM_THEN_UNICODE.len() - 8);
+  hasher_c.BulkStoreRange(RANDOM_THEN_UNICODE, 0xfff, 15, RANDOM_THEN_UNICODE.len() - 8);
   for i in 15..RANDOM_THEN_UNICODE.len() - 8  {
-    hasher_b.Store(RANDOM_THEN_UNICODE, 0xfffffff, i);
-    hasher_d.Store(RANDOM_THEN_UNICODE, 0xfffffff, i);
+    hasher_b.Store(RANDOM_THEN_UNICODE, 0xfff, i);
+    hasher_d.Store(RANDOM_THEN_UNICODE, 0xfff, i);
+
   }
   assert_eq!(hasher_a.buckets.slice(), hasher_c.buckets.slice());
   assert_eq!(hasher_b.buckets.slice(), hasher_d.buckets.slice());
@@ -141,3 +147,5 @@ fn test_bulk_store_range_off_spec() {
   assert!(hasher_a == hasher_b);
   assert!(hasher_d == hasher_c);
 }
+
+
