@@ -6,7 +6,7 @@ mod benchmark;
 use super::command::{Command, ComputeDistanceCode, InitCommand, BrotliDistanceParams};
 use super::hash_to_binary_tree::{H10, H10Buckets, H10DefaultParams, ZopfliNode};
 use super::dictionary_hash::kStaticDictionaryHash;
-use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit};
+use super::static_dict::{BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit, FindMatchLengthWithLimitMin4};
 use super::static_dict::BrotliDictionary;
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
@@ -1543,9 +1543,9 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
             continue;
           }
           let prev_data = data.split_at(prev_ix as usize).1;
-          let len = FindMatchLengthWithLimit(&prev_data,
-                                             &cur_data,
-                                             max_length);
+          let len = FindMatchLengthWithLimitMin4(&prev_data,
+                                                 &cur_data,
+                                                 max_length);
           if len >= 4 {
             let score: u64 = BackwardReferenceScore(len, backward, opts);
             if best_score < score {

@@ -119,7 +119,7 @@ pub fn SlowerFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usi
 }
 // factor of 5 slower (example takes 90 seconds)
 #[allow(unused)]
-pub fn SlowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+pub fn FindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
   for (index, pair) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
     if *pair.0 != *pair.1 {
       return index;
@@ -127,8 +127,25 @@ pub fn SlowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize
   }
   return limit;
 }
+#[allow(unused)]
+pub fn FindMatchLengthWithLimitMin4(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+  let v0 = BROTLI_UNALIGNED_LOAD32(s1);
+  let v1 = BROTLI_UNALIGNED_LOAD32(s2);
+  if v0 != v1 {
+    return 0;
+  }
+  if limit < 4 {
+    return limit;
+  }
+  for (index, pair) in s1[4..limit].iter().zip(s2[4..limit].iter()).enumerate() {
+    if *pair.0 != *pair.1 {
+      return index + 4;
+    }
+  }
+  return limit;
+}
 #[inline] 
-pub fn FindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
+pub fn ComplexFindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
   let mut matched: usize = 0usize;
   let mut s1_as_64 : u64;
   let mut s2_as_64 : u64;
