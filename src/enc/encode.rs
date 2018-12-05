@@ -4,9 +4,9 @@ use super::constants::{BROTLI_WINDOW_GAP, BROTLI_CONTEXT_LUT, BROTLI_CONTEXT,
                        BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_MAX_NPOSTFIX, BROTLI_MAX_NDIRECT};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
-                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, HQ7Sub, AdvHasher, BasicHasher, H9Sub,
+                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, HQ5Sub, HQ7Sub, AdvHasher, BasicHasher, H9Sub,
                                  H9_BUCKET_BITS, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
-                                 AnyHasher, HowPrepared, StoreLookaheadThenStore};
+                                 AnyHasher, HowPrepared, StoreLookaheadThenStore, AdvHashSpecialization};
 use alloc::Allocator;
 pub use super::parameters::BrotliEncoderParameter;
 use super::combined_alloc::BrotliAlloc;
@@ -994,7 +994,21 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
   let buckets : <Alloc as Allocator<u32>>::AllocatedMemory = <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
   let num : <Alloc as Allocator<u16>>::AllocatedMemory = <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
 
-  if params.hasher.block_bits == 6 && params.hasher.bucket_bits == 15 {
+  if params.hasher.block_bits == (HQ5Sub{}).block_bits() && (1<<params.hasher.bucket_bits) == (HQ5Sub{}).bucket_size() {
+    return UnionHasher::H5q5(AdvHasher {
+      buckets: buckets,
+      h9_opts: super::backward_references::H9Opts::new(&params.hasher),
+      num: num,
+      GetHasherCommon: Struct1 {
+        params: params.hasher,
+        is_prepared_: 1,
+        dict_num_lookups: 0,
+        dict_num_matches: 0,
+      },
+      specialization: HQ5Sub {}
+    })
+  }
+  if params.hasher.block_bits == (HQ7Sub{}).block_bits() && (1 <<params.hasher.bucket_bits) == (HQ7Sub{}).bucket_size() {
     return UnionHasher::H5q7(AdvHasher {
       buckets: buckets,
       h9_opts: super::backward_references::H9Opts::new(&params.hasher),
@@ -1008,7 +1022,7 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
       specialization: HQ7Sub {}
     })
   }
-  if params.hasher.block_bits == 8 && params.hasher.bucket_bits == 15 {
+  if params.hasher.block_bits == (H9Sub{}).block_bits() && (1<<params.hasher.bucket_bits) == (H9Sub{}).bucket_size() {
     return UnionHasher::H9(AdvHasher {
       buckets: buckets,
       h9_opts: super::backward_references::H9Opts::new(&params.hasher),
@@ -1173,6 +1187,7 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
     &mut UnionHasher::H4(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H5(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H5q7(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
+    &mut UnionHasher::H5q5(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H6(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H9(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
     &mut UnionHasher::H54(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
