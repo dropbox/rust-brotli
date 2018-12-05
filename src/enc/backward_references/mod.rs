@@ -328,10 +328,10 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
     if prev_ix < cur_ix {
       prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
       if compare_char == data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
-        let len: usize = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
-                                                  &data[(cur_ix_masked as (usize))..],
-                                                  max_length);
-        if len >= 4usize {
+        let len: usize = FindMatchLengthWithLimitMin4(&data[(prev_ix as (usize))..],
+                                                      &data[(cur_ix_masked as (usize))..],
+                                                      max_length);
+        if len != 0 {
           best_score = BackwardReferenceScoreUsingLastDistance(len, opts);
           best_len = len;
           (*out).len = len;
@@ -347,8 +347,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         }
       }
     }
-    let BUCKET_SWEEP = self.buckets_.BUCKET_SWEEP();
-    if BUCKET_SWEEP == 1i32 {
+    let bucket_sweep = self.buckets_.BUCKET_SWEEP();
+    if bucket_sweep == 1i32 {
       let backward: usize;
       let len: usize;
       prev_ix = (*self).buckets_.slice()[key as (usize)] as (usize);
@@ -361,60 +361,40 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
       if backward == 0usize || backward > max_backward {
         return false;
       }
-      len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
+      len = FindMatchLengthWithLimitMin4(&data[(prev_ix as (usize))..],
                                      &data[(cur_ix_masked as (usize))..],
                                      max_length);
-      if len >= 4usize {
+      if len != 0 {
         (*out).len = len;
         (*out).distance = backward;
         (*out).score = BackwardReferenceScore(len, backward, opts);
         return true;
       }
     } else {
-      let (old_, mut bucket) = (*self).buckets_.slice_mut()[key as usize..].split_at_mut(1);
-      let mut i: i32;
-      prev_ix = old_[0] as (usize);
-      i = 0i32;
-
-      while i < BUCKET_SWEEP {
-        'continue3: loop {
-          {
-            let backward: usize = cur_ix.wrapping_sub(prev_ix);
-            let len: usize;
-            prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
-            if compare_char != data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
-              {
-                break 'continue3;
-              }
-            }
-            if backward == 0usize || backward > max_backward {
-              {
-                break 'continue3;
-              }
-            }
-            len = FindMatchLengthWithLimit(&data[(prev_ix as (usize))..],
+      for prev_ix_ref in self.buckets_.slice().split_at(key as usize).1[..bucket_sweep as usize].iter() {
+        let mut prev_ix = *prev_ix_ref as usize;
+        let backward: usize = cur_ix.wrapping_sub(prev_ix);
+        prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+        if compare_char != data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
+          continue;
+        }
+        if backward == 0usize || backward > max_backward {
+          continue;
+        }
+        let len = FindMatchLengthWithLimitMin4(&data[(prev_ix as (usize))..],
                                            &data[(cur_ix_masked as (usize))..],
                                            max_length);
-            if len >= 4usize {
-              let score: u64 = BackwardReferenceScore(len, backward, opts);
-              if best_score < score {
-                best_score = score;
-                best_len = len;
-                (*out).len = best_len;
-                (*out).distance = backward;
-                (*out).score = score;
-                compare_char = data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32);
-                is_match_found = 1i32;
-              }
-            }
+        if len != 0 {
+          let score: u64 = BackwardReferenceScore(len, backward, opts);
+          if best_score < score {
+            best_score = score;
+            best_len = len;
+            (*out).len = best_len;
+            (*out).distance = backward;
+            (*out).score = score;
+            compare_char = data[(cur_ix_masked.wrapping_add(best_len) as (usize))] as (i32);
+            is_match_found = 1i32;
           }
-          break;
-        }
-        i = i + 1;
-        {
-          let (_old, new_bucket) = core::mem::replace(&mut bucket, &mut []).split_at_mut(1);
-          prev_ix = _old[0] as usize;
-          bucket = new_bucket;
         }
       }
     }
@@ -430,7 +410,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                                                 1i32);
     }
     (*self).buckets_.slice_mut()[(key as (usize)).wrapping_add((cur_ix >> 3)
-                                    .wrapping_rem(BUCKET_SWEEP as usize))] = cur_ix as (u32);
+                                    .wrapping_rem(bucket_sweep as usize))] = cur_ix as (u32);
     is_match_found != 0
 
   }
