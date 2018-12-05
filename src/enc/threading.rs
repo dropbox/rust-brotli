@@ -443,7 +443,7 @@ pub fn CompressMulti<Alloc:BrotliAlloc+Send+'static,
         match mem::replace(&mut thread.0, InternalSendAlloc::SpawningOrJoining(PhantomData::default())) {
           InternalSendAlloc::A(_, _) | InternalSendAlloc::SpawningOrJoining(_) => panic!("Thread not properly spawned"),
           InternalSendAlloc::Join(join) => match join.join() {
-            Ok(mut result) => result,
+            Ok(result) => result,
             Err(err) => {
               return Err(err);
             }
