@@ -5,7 +5,7 @@ use super::constants::{BROTLI_WINDOW_GAP, BROTLI_CONTEXT_LUT, BROTLI_CONTEXT,
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
                                  H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, HQ7Sub, AdvHasher, BasicHasher, H9Sub,
-                                 H9_BUCKET_BITS, H9_BLOCK_SIZE, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
+                                 H9_BUCKET_BITS, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 use alloc::Allocator;
 pub use super::parameters::BrotliEncoderParameter;
