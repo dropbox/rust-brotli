@@ -413,7 +413,7 @@ const alice_compressed_size_11 : usize = 46510;
 
 
 #[cfg(not(feature="std"))] // approx log
-const random_then_unicode_compressed_size_9_5 : usize = 136699;
+const random_then_unicode_compressed_size_9_5 : usize = 136719;
 #[cfg(not(feature="std"))] // approx log
 const random_then_unicode_compressed_size_9_5x : usize = 136095;
 
