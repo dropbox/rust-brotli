@@ -4,7 +4,7 @@ use super::constants::{BROTLI_WINDOW_GAP, BROTLI_CONTEXT_LUT, BROTLI_CONTEXT,
                        BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_MAX_NPOSTFIX, BROTLI_MAX_NDIRECT};
 use super::backward_references::{BrotliCreateBackwardReferences, Struct1, UnionHasher,
                                  BrotliEncoderParams, BrotliEncoderMode, BrotliHasherParams, H2Sub,
-                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, HQ7Sub, AdvHasher, BasicHasher, H9,
+                                 H3Sub, H4Sub, H5Sub, H6Sub, H54Sub, HQ7Sub, AdvHasher, BasicHasher, H9Sub,
                                  H9_BUCKET_BITS, H9_BLOCK_SIZE, H9_BLOCK_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
                                  AnyHasher, HowPrepared, StoreLookaheadThenStore};
 use alloc::Allocator;
@@ -981,18 +981,8 @@ fn InitializeH54<AllocU32:alloc::Allocator<u32>>(m32: &mut AllocU32, params : &B
 }
 
 fn InitializeH9<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(m16: &mut Alloc,
-                                                                     params : &BrotliEncoderParams) -> H9<Alloc> {
-    H9 {
-        dict_search_stats_:Struct1{
-            params:params.hasher,
-            is_prepared_:1,
-            dict_num_lookups:0,
-            dict_num_matches:0,
-        },
-        num_:<Alloc as Allocator<u16>>::alloc_cell(m16, 1<<H9_BUCKET_BITS),
-        buckets_:<Alloc as Allocator<u32>>::alloc_cell(m16, H9_BLOCK_SIZE<<H9_BUCKET_BITS),
-        h9_opts: super::backward_references::H9Opts::new(&params.hasher),
-    }
+                                                                     params : &BrotliEncoderParams) -> UnionHasher<Alloc> {
+  InitializeH5(m16, params)
 }
 
 fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
@@ -1016,6 +1006,20 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
         dict_num_matches: 0,
       },
       specialization: HQ7Sub {}
+    })
+  }
+  if params.hasher.block_bits == 8 && params.hasher.bucket_bits == 15 {
+    return UnionHasher::H9(AdvHasher {
+      buckets: buckets,
+      h9_opts: super::backward_references::H9Opts::new(&params.hasher),
+      num: num,
+      GetHasherCommon: Struct1 {
+        params: params.hasher,
+        is_prepared_: 1,
+        dict_num_lookups: 0,
+        dict_num_matches: 0,
+      },
+      specialization: H9Sub {}
     })
   }
   UnionHasher::H5(AdvHasher {
@@ -1085,7 +1089,7 @@ fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>
     return InitializeH6(m, params);
   }
   if hasher_type == 9i32 {
-    return UnionHasher::H9(InitializeH9(m, params));
+    return InitializeH9(m, params);
   }
   /*
     if hasher_type == 40i32 {
