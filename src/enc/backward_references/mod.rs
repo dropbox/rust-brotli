@@ -1104,7 +1104,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
       if mask == !0 && ix_end > ix_start + REG_SIZE && lookahead == 4{
       const lookahead4: usize = 4;
       assert_eq!(lookahead4, lookahead);
-      let mut data64 = [0u8;REG_SIZE + lookahead4];
+      let mut data64 = [0u8;REG_SIZE + lookahead4 - 1];
       let del = (ix_end - ix_start) / REG_SIZE;
       let num = self.num.slice_mut();
       let buckets = self.buckets.slice_mut();
@@ -1113,7 +1113,7 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
       let shift = self.specialization.hash_shift();
       for chunk_id in 0..del {
         let ix_offset = ix_start + chunk_id * REG_SIZE;
-        data64[..REG_SIZE + lookahead4].clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
+        data64[..REG_SIZE + lookahead4 - 1].clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4 - 1).0);
         for quad_index in 0..(REG_SIZE>>2) {
           let i = quad_index<<2;
           let ffffffff = 0xffffffff;
