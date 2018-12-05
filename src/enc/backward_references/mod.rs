@@ -229,7 +229,34 @@ impl<A: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> PartialEq<
     }
 }
 
+impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> BasicHasher<T> {
+    fn StoreRangeOptBasic(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) -> usize {
+      let lookahead = 8;
+      if ix_end >= ix_start + lookahead * 2{
+        let chunk_count = (ix_end - ix_start) / 4;
+        for chunk_id in 0..chunk_count {
+          let i = (ix_start + chunk_id * 4) & mask;
+          let word11 = data.split_at(i).1.split_at(11).0;
+          let mixed0 = self.HashBytes(word11);
+          let mixed1 = self.HashBytes(word11.split_at(1).1);
+          let mixed2 = self.HashBytes(word11.split_at(2).1);
+          let mixed3 = self.HashBytes(word11.split_at(3).1);
+          let off: u32 = (i >> 3i32).wrapping_rem(self.buckets_.BUCKET_SWEEP() as usize) as (u32);
+          let offset0: usize = mixed0 + off as usize;
+          let offset1: usize = mixed1 + off as usize;
+          let offset2: usize = mixed2 + off as usize;
+          let offset3: usize = mixed3 + off as usize;
+          self.buckets_.slice_mut()[offset0] = i as u32;
+          self.buckets_.slice_mut()[offset1] = i as u32 + 1;
+          self.buckets_.slice_mut()[offset2] = i as u32 + 2;
+          self.buckets_.slice_mut()[offset3] = i as u32 + 3;
+      }
+      return ix_start + chunk_count * 4;
+    }
+    ix_start
+  }
 
+}
 pub struct H2Sub<AllocU32: alloc::Allocator<u32>> {
   pub buckets_: AllocU32::AllocatedMemory, // 65537
 }
@@ -270,14 +297,12 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
     self.buckets_.slice_mut()[key.wrapping_add(off) as (usize)] = ix as (u32);
   }
   fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-    for i in ix_start..ix_end {
-        self.Store(data, mask, i);
+    for i in self.StoreRangeOptBasic(data, mask, ix_start, ix_end)..ix_end {
+      self.Store(data, mask, i);
     }
   }
   fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-    for i in ix_start..ix_end {
-        self.Store(data, mask, i);
-    }
+    self.StoreRange(data, mask, ix_start, ix_end);
   }
   fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
     if self.GetHasherCommon.is_prepared_ != 0 {
