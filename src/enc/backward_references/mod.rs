@@ -12,6 +12,7 @@ use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut, Allocator};
 use super::util::{Log2FloorNonZero, brotli_max_size_t, floatX};
 use core;
+use core::hash::{Hash, SipHasher, Hasher};
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -138,6 +139,11 @@ fn brotli_min_size_t(a: usize, b: usize) -> usize {
   if a < b { a } else { b }
 }
 
+fn calculate_hash(t: u64) -> u64 {
+    let mut s = SipHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
 
 pub struct HasherSearchResult {
   pub len: usize,
@@ -643,8 +649,6 @@ pub trait AdvHashSpecialization : PartialEq<Self>{
   #[inline(always)]
   fn set_hash_mask(&mut self, params_hash_len: i32);
   #[inline(always)]
-  fn get_k_hash_mul(&self) -> u64;
-  #[inline(always)]
   fn HashTypeLength(&self) -> usize;
   #[inline(always)]
   fn StoreLookahead(&self) -> usize;
@@ -712,12 +716,8 @@ impl AdvHashSpecialization for HQ5Sub {
     return 0xffffffffu64; // make it 32 bit
   }
   #[inline(always)]
-  fn get_k_hash_mul(&self) -> u64 {
-    return kHashMul32 as u64;
-  }
-  #[inline(always)]
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-    return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
+    return calculate_hash(u64::from(BROTLI_UNALIGNED_LOAD32(data))) & self.get_hash_mask();
   }
   #[inline(always)]
   fn set_hash_mask(&mut self, _params_hash_len: i32) {}
@@ -760,12 +760,8 @@ impl AdvHashSpecialization for HQ7Sub {
     return 0xffffffffu64; // make it 32 bit
   }
   #[inline(always)]
-  fn get_k_hash_mul(&self) -> u64 {
-    return kHashMul32 as u64;
-  }
-  #[inline(always)]
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-    return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
+    return calculate_hash(BROTLI_UNALIGNED_LOAD32(data) as u64) & self.get_hash_mask();
   }
   #[inline(always)]
   fn set_hash_mask(&mut self, _params_hash_len: i32) {}
@@ -808,12 +804,8 @@ impl AdvHashSpecialization for H9Sub {
     return 0xffffffffu64; // make it 32 bit
   }
   #[inline(always)]
-  fn get_k_hash_mul(&self) -> u64 {
-    return kHashMul32 as u64;
-  }
-  #[inline(always)]
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-    return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
+    return calculate_hash(BROTLI_UNALIGNED_LOAD32(data) as u64) & self.get_hash_mask();
   }
   #[inline(always)]
   fn set_hash_mask(&mut self, _params_hash_len: i32) {}
@@ -856,11 +848,8 @@ impl AdvHashSpecialization for H5Sub {
     //return 0xffffffffffffffffu64;
     return 0xffffffffu64; // make it 32 bit
   }
-  fn get_k_hash_mul(&self) -> u64 {
-    return kHashMul32 as u64;
-  }
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-    return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask();
+    return calculate_hash(BROTLI_UNALIGNED_LOAD32(data) as u64) & self.get_hash_mask();
   }
   #[allow(unused_variables)]
   fn set_hash_mask(&mut self, params_hash_len: i32) {}
@@ -909,13 +898,8 @@ impl AdvHashSpecialization for H6Sub {
     self.hash_mask = !(0u32 as (u64)) >> 64i32 - 8i32 * params_hash_len;
   }
   #[inline(always)]
-  fn get_k_hash_mul(&self) -> u64 {
-    kHashMul64Long
-  }
-  #[inline(always)]
   fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-    return (BROTLI_UNALIGNED_LOAD64(data) & self.get_hash_mask())
-             .wrapping_mul(self.get_k_hash_mul());
+    return calculate_hash(BROTLI_UNALIGNED_LOAD64(data) & self.get_hash_mask());
   }
   #[inline(always)]
   fn HashTypeLength(&self) -> usize {
@@ -953,10 +937,10 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
           | (u64::from(data[i + 4]) << 32)
           | (u64::from(data[i + 5]) << 40)
           | (u64::from(data[i + 6]) << 48);
-          let mixed0 = ((((word & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed1 = (((((word >> 8) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed2 = (((((word >> 16) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed3 = (((((word >> 24) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed0 = (((calculate_hash(word & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed1 = (((calculate_hash((word >> 8) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed2 = (((calculate_hash((word >> 16) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed3 = (((calculate_hash((word >> 24) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mut num_ref0 = u32::from(num[mixed0]);
           num[mixed0] = num_ref0.wrapping_add(1) as u16;
           num_ref0 &= (*self).specialization.block_mask();
@@ -1009,10 +993,10 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
             | (u64::from(data64[i + 4]) << 32)
             | (u64::from(data64[i + 5]) << 40)
             | (u64::from(data64[i + 6]) << 48);
-          let mixed0 = ((((word & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed1 = (((((word >> 8) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed2 = (((((word >> 16) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed3 = (((((word >> 24) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed0 = ((calculate_hash((word & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed1 = ((calculate_hash(((word >> 8) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed2 = ((calculate_hash(((word >> 16) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed3 = ((calculate_hash(((word >> 24) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mut num_ref0 = u32::from(num[mixed0]);
           num[mixed0] = num_ref0.wrapping_add(1) as u16;
           num_ref0 &= (*self).specialization.block_mask();
@@ -1065,10 +1049,10 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
             | (u64::from(data64[i + 4]) << 32)
             | (u64::from(data64[i + 5]) << 40)
             | (u64::from(data64[i + 6]) << 48);
-          let mixed0 = ((((word & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed1 = (((((word >> 8) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed2 = (((((word >> 16) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-          let mixed3 = (((((word >> 24) & ffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed0 = ((calculate_hash((word & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed1 = ((calculate_hash(((word >> 8) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed2 = ((calculate_hash(((word >> 16) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
+          let mixed3 = ((calculate_hash(((word >> 24) & ffffffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
           let mut num_ref0 = u32::from(num[mixed0]);
           let mut num_ref1 = u32::from(num[mixed1]);
           let mut num_ref2 = u32::from(num[mixed2]);
@@ -1112,11 +1096,11 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
         let ix_offset = ix_start + chunk_id * REG_SIZE;
         data64[..REG_SIZE + lookahead4].clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
         for i in 0..REG_SIZE {
-          let mixed_word = ((u32::from(data64[i])
+          let mixed_word = calculate_hash((u32::from(data64[i])
                              | (u32::from(data64[i + 1]) << 8)
                              | (u32::from(data64[i + 2]) << 16)
                              | (u32::from(data64[i + 3]) << 24)) as u64
-                            * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask();
+                            ) & self.specialization.get_hash_mask();
           let key = mixed_word >> shift;
           let minor_ix: usize = chunk_id&(*self).specialization.block_mask() as usize;//   *num_ref as usize & (*self).specialization.block_mask() as usize; //GIGANTIC HAX: overwrite firsst option
           let offset: usize = minor_ix + (key << self.specialization.block_bits()) as usize;
@@ -1216,10 +1200,10 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
     let hi = (ix + 8) & mask;
     let hword = u64::from(data[hi])
       | (u64::from(data[hi + 1]) << 8);
-    let mixed0 = ((((lword & 0xffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-    let mixed1 = (((((lword >> 16) & 0xffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-    let mixed2 = (((((lword >> 32) & 0xffffffff) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-    let mixed3 = ((((((hword & 0xffff) << 16) | ((lword >> 48) & 0xffff)) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed0 = ((calculate_hash(lword & 0xffffffff) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed1 = ((calculate_hash((lword >> 16) & 0xffffffff) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed2 = ((calculate_hash((lword >> 32) & 0xffffffff) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed3 = ((calculate_hash(((hword & 0xffff) << 16) | ((lword >> 48) & 0xffff)) & self.specialization.get_hash_mask()) >> shift) as usize;
     let mut num_ref0 = u32::from(num[mixed0]);
     num[mixed0] = num_ref0.wrapping_add(1) as u16;
     num_ref0 &= (*self).specialization.block_mask();
@@ -1271,10 +1255,10 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
       | (u32::from(data[ui + 6]) << 16)
       | (u32::from(data[ui + 7]) << 24);
 
-    let mixed0 = (((u64::from(llword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-    let mixed1 = (((u64::from(luword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-    let mixed2 = (((u64::from(ulword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
-    let mixed3 = (((u64::from(uuword) * self.specialization.get_k_hash_mul()) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed0 = ((calculate_hash(u64::from(llword)) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed1 = ((calculate_hash(u64::from(luword)) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed2 = ((calculate_hash(u64::from(ulword)) & self.specialization.get_hash_mask()) >> shift) as usize;
+    let mixed3 = ((calculate_hash(u64::from(uuword)) & self.specialization.get_hash_mask()) >> shift) as usize;
     let mut num_ref0 = u32::from(num[mixed0]);
     num[mixed0] = num_ref0.wrapping_add(1) as u16;
     num_ref0 &= (*self).specialization.block_mask();
