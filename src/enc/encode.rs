@@ -916,7 +916,7 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
   } else {
     (*hparams).type_ = 5i32;
     (*hparams).block_bits = core::cmp::min((*params).quality - 1, 9);
-    (*hparams).bucket_bits = if (*params).quality < 7 {
+    (*hparams).bucket_bits = if (*params).quality < 7 && (*params).size_hint <= (1usize << 20i32) {
       14i32
     } else {
       15i32
