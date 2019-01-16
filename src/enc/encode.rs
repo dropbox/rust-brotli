@@ -3009,7 +3009,7 @@ pub fn BrotliEncoderTakeOutput<'a, Alloc:BrotliAlloc>(s: &'a mut BrotliEncoderSt
 
 
 pub fn BrotliEncoderVersion() -> u32 {
-  0x1000f00u32
+  0x1000f01u32
 }
 
 

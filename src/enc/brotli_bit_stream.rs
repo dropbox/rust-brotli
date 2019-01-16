@@ -2776,35 +2776,64 @@ pub fn BrotliWriteEmptyLastMetaBlock(storage_ix: &mut usize, storage: &mut [u8])
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     JumpToByteBoundary(storage_ix, storage);
 }
+
+const MAX_SIZE_ENCODING:usize = 10;
+
+fn encode_base_128(mut value: u64)-> (usize, [u8;MAX_SIZE_ENCODING]) {
+  let mut ret = [0u8; MAX_SIZE_ENCODING];
+  for index in 0..ret.len() {
+    ret[index] = (value & 0x7f) as u8;
+    value >>= 7;
+    if value != 0 {
+      ret[index] |= 0x80;
+    } else {
+      return (index + 1, ret)
+    }
+  }
+  (ret.len(), ret)
+}
+
 pub fn BrotliWriteMetadataMetaBlock(params: &BrotliEncoderParams, storage_ix: &mut usize, storage: &mut [u8]) {
     BrotliWriteBits(1u8, 0u64, storage_ix, storage); // not last
     BrotliWriteBits(2u8, 3u64, storage_ix, storage); // MNIBBLES = 0 (pattern 1,1)
     BrotliWriteBits(1u8, 0u64, storage_ix, storage); // reserved
     BrotliWriteBits(2u8, 1u64, storage_ix, storage); // num bytes for length of magic number header
-    let log_size_hint_bits = 64 - (params.size_hint as u64).leading_zeros();
-    let size_hint_bytes = (log_size_hint_bits as u64 + 7) >> 3;
+    let (size_hint_count, size_hint_b128) = encode_base_128(params.size_hint as u64);
     
-    BrotliWriteBits(8u8, 3 + size_hint_bytes, storage_ix, storage); // 1 byte of data: writing 12 for the magic number header
+    BrotliWriteBits(8u8, 3 + size_hint_count as u64, storage_ix, storage); // 1 byte of data: writing 12 for the magic number header
     JumpToByteBoundary(storage_ix, storage);
-    let magic_number = if params.catable && !params.use_dictionary {
+    let magic_number: [u8;3] = if params.catable && !params.use_dictionary {
         [0xe1, 0x97, 0x81]
     } else if params.appendable {
         [0xe1, 0x97, 0x82]
     } else {
         [0xe1, 0x97, 0x80]
     };
-    let size_hint_64 = params.size_hint as u64;
-    let header = [magic_number[0], magic_number[1], magic_number[2], VERSION,
-                        (size_hint_64 & 0xff) as u8,
-                        ((size_hint_64 >> 8) & 0xff) as u8,
-                        ((size_hint_64 >> 16) & 0xff) as u8,
-                        ((size_hint_64 >> 24) & 0xff) as u8,
-                        ((size_hint_64 >> 32) & 0xff) as u8,
-                        ((size_hint_64 >> 40) & 0xff) as u8,
-                        ((size_hint_64 >> 48) & 0xff) as u8,
-                        ((size_hint_64 >> 56) & 0xff) as u8,
-    ];
-    for magic in header[..4 + size_hint_bytes as usize].iter() {
-        BrotliWriteBits(8u8, u64::from(*magic), storage_ix, storage);
+    for magic in magic_number.iter() {
+      BrotliWriteBits(8u8, u64::from(*magic), storage_ix, storage);
     }
+    BrotliWriteBits(8u8, u64::from(VERSION), storage_ix, storage);
+    for sh in size_hint_b128[..size_hint_count].iter() {
+        BrotliWriteBits(8u8, u64::from(*sh), storage_ix, storage);
+    }
+}
+
+mod test {
+  use super::{encode_base_128, MAX_SIZE_ENCODING};
+  #[test]
+  fn test_encode_base_128() {
+    assert_eq!(encode_base_128(0), (1,[0u8;MAX_SIZE_ENCODING]));
+    assert_eq!(encode_base_128(1), (1,[1,0,0,0,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(127), (1,[0x7f,0,0,0,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(128), (2,[0x80,0x1,0,0,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(16383), (2,[0xff,0x7f,0,0,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(16384), (3,[0x80,0x80,0x1,0,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(2097151), (3,[0xff,0xff,0x7f,0,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(2097152), (4,[0x80,0x80,0x80,0x1,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(4194303), (4,[0xff,0xff,0xff,0x1,0,0,0,0,0,0]));
+    assert_eq!(encode_base_128(4294967295), (5,[0xff,0xff,0xff,0xff,0xf,0,0,0,0,0]));
+    assert_eq!(encode_base_128(4294967296), (5,[0x80,0x80,0x80,0x80,0x10,0,0,0,0,0]));
+    assert_eq!(encode_base_128(9223372036854775808), (10,[0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x1]));
+    assert_eq!(encode_base_128(18446744073709551615), (10,[0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x1]));
+  }
 }

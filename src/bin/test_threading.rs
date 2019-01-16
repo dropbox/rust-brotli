@@ -83,11 +83,11 @@ fn multi_threaded_split_compression_test_4() {
 }
 #[test]
 fn multi_threaded_split_compression_test_5() {
-    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 5, 9, false, 139125)
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 5, 9, false, 139126)
 }
 #[test]
 fn multi_threaded_split_compression_test_1b1() {
-    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..1], 5, 9, false, 139125)
+    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..1], 5, 9, false, 139126)
 }
 #[test]
 fn multi_threaded_split_compression_test_1b5() {
