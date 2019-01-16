@@ -236,7 +236,9 @@ def BrotliParseHeader(raw_data):
     size_le = data[byte_offset + 4:byte_offset + num_raw_header_bytes]
     total_size = 0
     for	index in range(len(size_le)):
-	total_size += size_le[index] << (8 * index)
+	total_size += (size_le[index] & 0x7f) << (7 * index)
+        if not (size_le[index] & 0x80):
+            break
     return (version, total_size)
 
 

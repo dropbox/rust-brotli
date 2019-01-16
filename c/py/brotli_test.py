@@ -23,6 +23,19 @@ class TestBrotliLibrary(unittest.TestCase):
         rt = BrotliDecode(output)
         assert rt == self.test_data
         assert len(output) < 1024 * 1024
+
+    def test_header(self):
+        data = ''.join(chr(x) for x in [
+            0x6b, 0x1d, 0x00, 0xe1, 0x97, 0x81, 0x01, 0xe8, 0x99, 0xf4, 0x01, 0x08,
+            0x00, 0x08, 0x79, 0x0a, 0x2c, 0x67, 0xe8, 0x81, 0x5f, 0x22, 0x2f, 0x1e,
+            0x8b, 0x08, 0x3e, 0x09, 0x7a, 0x06
+        ])
+        parsed_header = BrotliParseHeader(data)
+        assert parsed_header
+        version, size = parsed_header
+        assert size == 4001000
+        assert version == 1
+
     def test_rt(self):
         output = BrotliCompress(self.test_data,
                                 {
