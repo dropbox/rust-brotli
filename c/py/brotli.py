@@ -194,8 +194,50 @@ def BrotliCompress(
                                         + " threads")
     return bytearray(encoded[:encoded_size.value])
 
-
-
+def BrotliParseHeader(raw_data):
+    """ returns None or the version and size of the file """
+    data = [ord(x) for x in raw_data[:min(len(raw_data), 16)]]
+    if len(data) < 4:
+	return None
+    hdr = data[0] + data[1] * 256 + data[2] * 65536 + data[3] * 65536 * 256
+    if hdr&1 == 0:
+        bits = 1
+    elif (hdr&15) != 1:
+        bits = 4
+    elif (hdr & 127) != 0x11:
+        bits = 7
+    else:
+        bits = 14
+    hdr >>= bits
+    if (hdr & 1) != 0:
+        return None # not last
+    hdr >>= 1
+    bits += 1
+    if (hdr & 3) != 3:
+        return None # MNIBBLES = 0
+    hdr >>= 2
+    bits += 2
+    if (hdr & 1) != 0:
+        return None # reserved: 0
+    hdr >>= 1
+    bits += 1
+    if (hdr & 3) != 1:
+        return None # header should only have 1 byte of size data
+    hdr >>= 2
+    bits += 2
+    num_raw_header_bytes = 1 + (hdr & 0xff)
+    bits += 8
+    byte_offset = ((bits + 7) // 8)
+    if len(data) < byte_offset + num_raw_header_bytes:
+        return None
+    if data[byte_offset] != 0xe1 or data[byte_offset+1] != 0x97 or data[byte_offset+2] != 0x81:
+        return None
+    version = data[byte_offset + 3]
+    size_le = data[byte_offset + 4:byte_offset + num_raw_header_bytes]
+    total_size = 0
+    for	index in range(len(size_le)):
+	total_size += size_le[index] << (8 * index)
+    return (version, total_size)
 
 
 
