@@ -46,7 +46,18 @@ func TestCompressWriter(*testing.T) {
 	if len(outBuffer.Bytes()) > 800000 {
 		panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
 	}
+	version, size, err := brotli.BrotliParseHeader(outBuffer.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	if version != byte(brotli.BrotliEncoderVersion()&0xff) {
+		panic(version)
+	}
+	if size != uint64(len(data)) {
+		panic(size)
+	}
 }
+
 func TestCompressRoundtrip(*testing.T) {
 	tmp := testData()
 	data := tmp[:len(tmp)-17]
@@ -211,7 +222,6 @@ func TestCompressReader(*testing.T) {
 	var options = brotli.CompressionOptions{
 		NumThreads: 1,
 		Quality:    4,
-		Catable:    true,
 		Appendable: true,
 		Magic:      true,
 	}
@@ -228,6 +238,16 @@ func TestCompressReader(*testing.T) {
 	}
 	if len(outBuffer.Bytes()) > 800000 {
 		panic(fmt.Sprintf("Buffer too large: %d", len(outBuffer.Bytes())))
+	}
+	version, size, err := brotli.BrotliParseHeader(outBuffer.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	if version != byte(brotli.BrotliEncoderVersion()&0xff) {
+		panic(version)
+	}
+	if size != uint64(len(data)) {
+		panic(size)
 	}
 }
 func TestCompressReaderClose(*testing.T) {
@@ -258,6 +278,16 @@ func TestCompressReaderClose(*testing.T) {
 	err = reader.Close()
 	if err != nil {
 		panic(err)
+	}
+	version, size, err := brotli.BrotliParseHeader(outBuffer.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	if version != byte(brotli.BrotliEncoderVersion()&0xff) {
+		panic(version)
+	}
+	if size != uint64(len(data)) {
+		panic(size)
 	}
 }
 
