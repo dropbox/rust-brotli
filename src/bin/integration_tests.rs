@@ -1240,8 +1240,8 @@ fn test_empty18() {
 }
 
 pub struct SoonErrorReader(&'static[u8], bool);
-impl std::io::Read for SoonErrorReader {
-    fn read(&mut self, data:&mut [u8]) -> std::io::Result<usize> {
+impl Read for SoonErrorReader {
+    fn read(&mut self, data:&mut [u8]) -> io::Result<usize> {
         let first = self.1;
         self.1 = false;
         if first {
