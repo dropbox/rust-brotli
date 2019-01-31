@@ -11,6 +11,7 @@ static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("../../testdata/rand
 static ALICE: &'static[u8]  = include_bytes!("../../testdata/alice29.txt");
 use super::Rebox;
 
+
 #[test]
 fn test_custom_dict() {
     let mut raw = UnlimitedBuffer::new(ALICE);

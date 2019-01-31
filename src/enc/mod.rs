@@ -232,6 +232,7 @@ pub fn BrotliCompressCustomIoCustomDict<ErrType,
   let mut next_in_offset: usize = 0;  
   let mut next_out_offset: usize = 0;
   let mut total_out = Some(0usize);
+  let mut read_err: Result<(), ErrType> = Ok(());
   {
       let s = &mut s_orig;
       
@@ -246,7 +247,8 @@ pub fn BrotliCompressCustomIoCustomDict<ErrType,
           if available_in == 0 && !eof {
               next_in_offset = 0;
               match r.read(input_buffer) {
-                  Err(_) => {
+                  Err(e) => {
+                      read_err = Err(e);
                       available_in = 0;
                       eof = true;
                   },
@@ -281,7 +283,13 @@ pub fn BrotliCompressCustomIoCustomDict<ErrType,
               next_out_offset = 0;
               while next_out_offset < lim {
                   match w.write(&mut output_buffer[next_out_offset..lim]) {
-                      Err(e) => return Err(e),
+                      Err(e) => {
+                          BrotliEncoderDestroyInstance(s);
+                          if let Err(err) = read_err {
+                              return Err(err);
+                          }
+                          return Err(e);
+                      }
                       Ok(size) => {
                           next_out_offset += size;
                       }
@@ -291,13 +299,19 @@ pub fn BrotliCompressCustomIoCustomDict<ErrType,
               next_out_offset = 0;
           }
           if result <= 0 {
-              return Err(unexpected_eof_error_constant);
+              if let Ok(_) = read_err {
+                  read_err = Err(unexpected_eof_error_constant);
+              }
+              break;
           }
           if fin != 0 {
               break;
           }
       }
       BrotliEncoderDestroyInstance(s);
+  }
+  if let Err(err) = read_err {
+    return Err(err)
   }
   Ok(total_out.unwrap())
 }

@@ -1238,3 +1238,38 @@ fn test_empty18() {
                                            65536,
                                            65536);
 }
+
+pub struct SoonErrorReader(&'static[u8], bool);
+impl std::io::Read for SoonErrorReader {
+    fn read(&mut self, data:&mut [u8]) -> std::io::Result<usize> {
+        let first = self.1;
+        self.1 = false;
+        if first {
+            let len = core::cmp::min(self.0.len(),data.len());
+            data[..len].clone_from_slice(&self.0[..len]);
+            return Ok(len);
+        }
+        Err(io::Error::new(io::ErrorKind::PermissionDenied, "err"))
+    }
+}
+#[test]
+fn test_error_returned() {
+    static onetwothreefourfive: [u8;5] = [1,2,3,4,5];
+    let params = super::brotli::enc::BrotliEncoderParams::default();
+    let mut erroring = SoonErrorReader(&onetwothreefourfive[..], true);
+    let mut br = UnlimitedBuffer::new(&[]);
+    let dict = &[];
+    let err = super::compress(&mut erroring, &mut br, 4096, &params, dict, 1);
+    if let Ok(_x) = err {
+        panic!("Should have errored {:?}\n", err);
+    }
+    let mut output = UnlimitedBuffer::new(&[]);
+    let mut br_copy = Buffer::new(&br.data[..]);
+    assert_eq!(br.data.len(),9);
+    match decompress_internal(&mut br_copy, &mut output, 1, 1, &mut Passthrough{}) {
+        Ok(_) => {}
+        Err(e) => panic!("Error {:?}", e),
+    }
+    assert_eq!(output.data, &onetwothreefourfive[..]);
+}
+
