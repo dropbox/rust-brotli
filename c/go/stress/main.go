@@ -3,8 +3,8 @@ package main
 import (
 	"syscall"
 	//	"io/ioutil"
+	"time"
 	"bytes"
-	//	"os"
 	"compress/zlib"
 	"crypto/md5"
 	"io"
@@ -23,8 +23,15 @@ var quality = flag.Float64("quality", 5, "brotli quality level")
 var useZlib = flag.Int("zlib", 0, "1 for zlib 2 for both zlib and brotli")
 var nongraceful = flag.Bool("hardexit", false, "use syscall.ExitGroup to end the program")
 var anongoroutines = flag.Bool("anon", false, "use a separate anonymous goroutine for each invocation")
+var timeout = flag.Duration("timeout", 0, "timeout until process exits with code 1")
 func main() {
 	flag.Parse()
+	if *timeout != 0 {
+		go func() {
+			time.Sleep(*timeout)
+			syscall.Exit(1)
+		}()
+	}
 	options := brotli.CompressionOptions{
 		NumThreads: *threads,
 		Quality:    float32(*quality),
