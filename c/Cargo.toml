@@ -19,7 +19,7 @@ crate-type=["cdylib", "staticlib", "rlib"]
 lto=true
 
 [dependencies]
-"brotli" = {version="~3.1", default-features=false}
+"brotli" = {version="~3.2", default-features=false}
 
 [features]
 validation=["brotli/validation"]
