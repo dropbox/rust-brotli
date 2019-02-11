@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature="std"), allow(unused_imports))]
+use core;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
                     BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
@@ -56,6 +57,9 @@ impl<W: Write,
     pub fn get_ref(&self) -> &W {
       &self.0.get_ref().0
     }
+    pub fn into_inner(self) -> W {
+      self.0.into_inner().0
+    }
 }
 
 #[cfg(feature="std")]
@@ -101,6 +105,9 @@ impl<W: Write> CompressorWriter<W> {
   pub fn get_ref(&self) -> &W {
     self.0.get_ref()
   }
+  pub fn into_inner(self) -> W {
+    self.0.into_inner()
+  }
 }
 
 
@@ -122,7 +129,7 @@ pub struct CompressorWriterCustomIo<ErrType,
 {
   output_buffer: BufferType,
   total_out: Option<usize>,
-  output: W,
+  output: Option<W>,
   error_if_invalid_data: Option<ErrType>,
   state: BrotliEncoderStateStruct<Alloc>,
 }
@@ -150,7 +157,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc>
         let mut ret = CompressorWriterCustomIo{
             output_buffer : buffer,
             total_out : Some(0),
-            output: w,
+            output: Some(w),
             state : BrotliEncoderCreateInstance(alloc),
             error_if_invalid_data : Some(invalid_data_error_type),
         };
@@ -185,7 +192,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc>
                 &mut self.total_out,
                 &mut nop_callback);
            if output_offset > 0 {
-             match write_all(&mut self.output, &self.output_buffer.slice_mut()[..output_offset]) {
+             match write_all(self.output.as_mut().unwrap(), &self.output_buffer.slice_mut()[..output_offset]) {
                Ok(_) => {},
                Err(e) => return Err(e),
              }
@@ -203,7 +210,10 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc>
     }
 
     pub fn get_ref(&self) -> &W {
-      &self.output
+      self.output.as_ref().unwrap()
+    }
+    pub fn into_inner(mut self) -> W {
+      core::mem::replace(&mut self.output, None).unwrap()
     }
 }
 
@@ -246,7 +256,7 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc> {
                 &mut self.total_out,
                 &mut nop_callback);
            if output_offset > 0 {
-             match write_all(&mut self.output, &self.output_buffer.slice_mut()[..output_offset]) {
+             match write_all(self.output.as_mut().unwrap(), &self.output_buffer.slice_mut()[..output_offset]) {
               Ok(_) => {},
               Err(e) => return Err(e),
              }
@@ -262,6 +272,6 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc> {
               Ok(_) => {},
               Err(e) => return Err(e),
         }
-        self.output.flush()
+        self.output.as_mut().unwrap().flush()
       }
 }

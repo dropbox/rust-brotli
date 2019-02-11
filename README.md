@@ -3,6 +3,10 @@
 [![crates.io](http://meritbadge.herokuapp.com/brotli)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+
+## What's new in 3.2
+* into_inner conversions for both Reader and Writer classes
+
 ## What's new in 3.0
 * A fully compatible FFI for drop-in compatibiltiy with the https://github.com/google/brotli binaries
   * custom allocators fully supported
