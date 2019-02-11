@@ -213,6 +213,10 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc>
       self.output.as_ref().unwrap()
     }
     pub fn into_inner(mut self) -> W {
+      match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
+        Ok(_) => {},
+        Err(_) => {},
+      }
       core::mem::replace(&mut self.output, None).unwrap()
     }
 }
@@ -223,9 +227,11 @@ impl<ErrType,
      Alloc: BrotliAlloc> Drop for
 CompressorWriterCustomIo<ErrType, W, BufferType, Alloc> {
     fn drop(&mut self) {
-        match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
-              Ok(_) => {},
+        if self.output.is_some() {
+            match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
+                Ok(_) => {},
               Err(_) => {},
+            }
         }
         BrotliEncoderDestroyInstance(&mut self.state);
     }
