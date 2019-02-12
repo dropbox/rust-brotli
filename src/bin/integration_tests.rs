@@ -477,6 +477,8 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
       Err(e) => panic!("Error {:?}", e),
     }
   }
+  let inner_item = rdec.into_inner();
+  let _inner_inner_item = inner_item.into_inner();
   }
   in_buf = original_buf;
   input = UnlimitedBuffer::new(&in_buf);
@@ -635,10 +637,51 @@ fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32, do_flus
   assert!(compressed.data.len() < original_buf.len() * pct_ratio / 100);
   }
 }
+
+
+#[cfg(feature="std")]
+fn into_inner_writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32) {
+  let orig_buf = in_buf;
+  let mut compressed = UnlimitedBuffer::new(&[]);
+  let mut wenc = CompressorWriter::new(&mut compressed, 255, q, lgwin);
+  while in_buf.len() > 0 {
+    match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
+      Ok(size) => {
+        if size == 0 {
+          break;
+        }
+        in_buf = &in_buf[size..];
+      }
+      Err(e) => panic!("Error {:?}", e),
+    }
+  }
+  let c2 = wenc.into_inner();
+
+  let pct_ratio = 95usize;
+  assert!(c2.data.len() > 0);
+  assert!(c2.data.len() < orig_buf.len() * pct_ratio / 100);
+  let mut compressed_in = UnlimitedBuffer::new(&c2.data[..]);
+  let mut output = UnlimitedBuffer::new(&[]);
+  match super::decompress(&mut compressed_in, &mut output, 65536, Rebox::default()) {
+    Ok(_) => {}
+    Err(e) => panic!("Error {:?}", e),
+  }
+  for i in 0..orig_buf.len() {
+    assert_eq!(output.data[i], orig_buf[i]);
+  }
+  assert_eq!(output.data.len(), orig_buf.len());
+
+}
+
 #[cfg(feature="std")]
 #[test]
 fn test_writer_as_you_lik() {
   writer_helper(include_bytes!("../../testdata/asyoulik.txt"), 17, 9, 20, false);
+}
+#[cfg(feature="std")]
+#[test]
+fn test_writer_as_you_lik_into_inner() {
+  into_inner_writer_helper(include_bytes!("../../testdata/asyoulik.txt"), 256, 4, 16);
 }
 #[cfg(feature="std")]
 #[test]
