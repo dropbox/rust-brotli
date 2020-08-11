@@ -679,7 +679,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
   let kInputMarginBytes = 16usize;
   let kMinMatchLen = 5usize;
   let mut metablock_start = 0usize;
-  let mut block_size = input_size.min(kFirstBlockSize);
+  let mut block_size = brotli_min_size_t(input_size, kFirstBlockSize);
   let mut total_block_size = block_size;
   let mut mlen_storage_ix = (*storage_ix).wrapping_add(3usize);
   let mut lit_depth = [0u8; 256];
@@ -720,7 +720,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
       last_distance = -1i32;
       ip_end = input_index.wrapping_add(block_size);
       if block_size >= kInputMarginBytes {
-        let len_limit: usize = block_size.wrapping_sub(kMinMatchLen).min(
+        let len_limit: usize = brotli_min_size_t(block_size.wrapping_sub(kMinMatchLen),
                                                  input_size.wrapping_sub(kInputMarginBytes));
         let ip_limit: usize = input_index.wrapping_add(len_limit);
         let mut next_hash = Hash(&input_ptr[{
