@@ -10,6 +10,13 @@ repository = "https://github.com/dropbox/rust-brotli"
 keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
 readme = "README.md"
 autobins = false
+exclude = [
+  "/ci/*",
+  "/research/*",
+  "/.travis.yml",
+  "/appveyor.yml",
+  "/uncorrode.py",
+]
 
 [[bin]]
 doc = false
