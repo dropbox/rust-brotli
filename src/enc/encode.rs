@@ -16,8 +16,9 @@ use super::bit_cost::{BitsEntropy, ShannonEntropy};
 use super::block_split::BlockSplit;
 #[allow(unused_imports)]
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
-                               BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
-                               BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
+                               BrotliStoreMetaBlock, BrotliStoreSyncMetaBlock,
+                               BrotliStoreMetaBlockFast, BrotliStoreMetaBlockTrivial,
+                               BrotliStoreUncompressedMetaBlock,
                                BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
                                MetaBlockSplit, RecoderState, JumpToByteBoundary};
                                
@@ -340,6 +341,10 @@ value: u32) -> i32 {
     params.favor_cpu_efficiency = value != 0;
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_BYTE_ALIGN as (i32) {
+    params.byte_align = value != 0;
+    return 1i32;
+  }
   0i32  
 }
 
@@ -397,6 +402,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            cdf_adaptation_detection: 0,
            prior_bitmask_detection: 0,
            literal_adaptation: [(0,0);4],
+           byte_align: false,
            catable: false,
            use_dictionary: true,
            appendable: false,
@@ -1975,7 +1981,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                          &mut [interface::StaticCommand],
                                          interface::InputPair, &mut Alloc) {
   let actual_is_last = is_last;
-  if params.appendable {
+  if params.appendable || params.byte_align {
     is_last = 0;
   } else {
     assert_eq!(params.catable, false); // Sanitize Params senforces this constraint
@@ -2010,6 +2016,9 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                      false,
                                      cb);
     if actual_is_last != is_last {
+      if params.byte_align {
+        BrotliStoreSyncMetaBlock(storage_ix, storage);
+      }
       BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
     }
     return;
@@ -2150,6 +2159,9 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                        cb);
   }
   if actual_is_last != is_last {
+    if params.byte_align {
+      BrotliStoreSyncMetaBlock(storage_ix, storage);
+    }
     BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
   }
 }
@@ -2237,8 +2249,15 @@ fn EncodeData<Alloc: BrotliAlloc,
   }
   let mut catable_header_size = 0;
   if let IsFirst::NothingWritten = s.is_first_mb {
-    if s.params.magic_number {
-      BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, (*s).storage_.slice_mut());
+    if s.params.magic_number || (s.params.byte_align && !s.params.catable) {
+      if s.params.magic_number {
+        BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, (*s).storage_.slice_mut());
+      } else {
+        // magic and catable have their own headers that cause byte alignment
+        // so in those cases we don't need to force it here
+        BrotliStoreSyncMetaBlock(&mut storage_ix, (*s).storage_.slice_mut());
+      }
+      // XXX What does this do?
       (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
         ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
       (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);

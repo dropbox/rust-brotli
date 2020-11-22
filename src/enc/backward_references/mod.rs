@@ -91,6 +91,9 @@ pub struct BrotliEncoderParams {
   pub large_window: bool,
   // avoid search for the best ndirect vs npostfix parameters for distance
   pub avoid_distance_prefix_search: bool,
+  // insert empty metadata blocks before and after the compressed data
+  // this allows for concatonation by byte copying with catable/appendable
+  pub byte_align: bool,
   // construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
   pub catable: bool,
   // can use the dictionary (default yes unless catable is set)
