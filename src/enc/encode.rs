@@ -16,8 +16,9 @@ use super::bit_cost::{BitsEntropy, ShannonEntropy};
 use super::block_split::BlockSplit;
 #[allow(unused_imports)]
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
-                               BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
-                               BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
+                               BrotliStoreMetaBlock, BrotliStoreSyncMetaBlock,
+                               BrotliStoreMetaBlockFast, BrotliStoreMetaBlockTrivial,
+                               BrotliStoreUncompressedMetaBlock,
                                BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
                                MetaBlockSplit, RecoderState, JumpToByteBoundary};
                                
@@ -340,6 +341,17 @@ value: u32) -> i32 {
     params.favor_cpu_efficiency = value != 0;
     return 1i32;
   }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_BYTE_ALIGN as (i32) {
+    params.byte_align = value != 0;
+    return 1i32;
+  }
+  if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_BARE_STREAM as (i32) {
+    params.bare_stream = value != 0;
+    if !params.byte_align {
+      params.byte_align = value != 0;
+    }
+    return 1i32;
+  }
   0i32  
 }
 
@@ -397,6 +409,8 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
            cdf_adaptation_detection: 0,
            prior_bitmask_detection: 0,
            literal_adaptation: [(0,0);4],
+           byte_align: false,
+           bare_stream: false,
            catable: false,
            use_dictionary: true,
            appendable: false,
@@ -621,7 +635,12 @@ pub fn SanitizeParams(params: &mut BrotliEncoderParams) {
     }
   }
   if params.catable {
-      params.appendable = true;
+    params.appendable = true;
+  }
+  if params.bare_stream {
+    params.byte_align = true;
+  } else if !params.appendable {
+    params.byte_align = false;
   }
 }
 
@@ -721,7 +740,9 @@ fn EnsureInitialized<Alloc: BrotliAlloc>
     if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
       lgwin = brotli_max_int(lgwin, 18i32);
     }
-    EncodeWindowBits(lgwin, s.params.large_window, &mut (*s).last_bytes_, &mut (*s).last_bytes_bits_);
+    if !(*s).params.bare_stream {
+      EncodeWindowBits(lgwin, s.params.large_window, &mut (*s).last_bytes_, &mut (*s).last_bytes_bits_);
+    }
   }
   if (*s).params.quality == 0i32 {
     InitCommandPrefixCodes(&mut (*s).cmd_depths_[..],
@@ -1979,7 +2000,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                          &mut [interface::StaticCommand],
                                          interface::InputPair, &mut Alloc) {
   let actual_is_last = is_last;
-  if params.appendable {
+  if params.appendable || params.byte_align {
     is_last = 0;
   } else {
     assert_eq!(params.catable, false); // Sanitize Params senforces this constraint
@@ -2014,7 +2035,13 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                      false,
                                      cb);
     if actual_is_last != is_last {
-      BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
+      // insert empty block for byte alignment if required
+      if params.byte_align && ((*storage_ix & 7u32 as (usize)) != 0) {
+        BrotliStoreSyncMetaBlock(storage_ix, storage);
+      }
+      if !params.bare_stream {
+        BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
+      }
     }
     return;
   }
@@ -2154,7 +2181,13 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                        cb);
   }
   if actual_is_last != is_last {
-    BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
+    // insert empty block for byte alignment if required
+    if params.byte_align && ((*storage_ix & 7u32 as (usize)) != 0) {
+      BrotliStoreSyncMetaBlock(storage_ix, storage);
+    }
+    if !params.bare_stream {
+      BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
+    }
   }
 }
 

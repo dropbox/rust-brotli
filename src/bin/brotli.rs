@@ -524,7 +524,14 @@ fn main() {
           use_work_pool = false;
           continue;
       }
-      
+      if (argument == "-bytealign" || argument == "--bytealign") && !double_dash {
+          params.byte_align = true;
+          continue;
+      }
+      if (argument == "-bare" || argument == "--bare") && !double_dash {
+          params.bare_stream = true;
+          continue;
+      }
       if (argument == "-appendable" || argument == "--appendable") && !double_dash {
           params.appendable = true;
           continue;

@@ -2767,7 +2767,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>
 
 
 pub fn BrotliStoreSyncMetaBlock(storage_ix: &mut usize, storage: &mut [u8]) {
-  BrotliWriteBits(6, 6, storage_ix, storage);
+  BrotliWriteBits(6u8, 6u64, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
 }
 
