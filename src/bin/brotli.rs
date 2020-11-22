@@ -528,6 +528,10 @@ fn main() {
           params.byte_align = true;
           continue;
       }
+      if (argument == "-bare" || argument == "--bare") && !double_dash {
+          params.bare_stream = true;
+          continue;
+      }
       if (argument == "-appendable" || argument == "--appendable") && !double_dash {
           params.appendable = true;
           continue;

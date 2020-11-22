@@ -94,6 +94,8 @@ pub struct BrotliEncoderParams {
   // insert empty metadata blocks before and after the compressed data
   // this allows for concatonation by byte copying with catable/appendable
   pub byte_align: bool,
+  // do not emit a stream header or empty last block at end of data
+  pub bare_stream: bool,
   // construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
   pub catable: bool,
   // can use the dictionary (default yes unless catable is set)
