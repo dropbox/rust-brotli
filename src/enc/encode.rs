@@ -2016,7 +2016,8 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                      false,
                                      cb);
     if actual_is_last != is_last {
-      if params.byte_align {
+      // insert empty block for byte alignment if required
+      if params.byte_align && ((*storage_ix & 7u32 as (usize)) != 0) {
         BrotliStoreSyncMetaBlock(storage_ix, storage);
       }
       BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
@@ -2159,7 +2160,8 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                        cb);
   }
   if actual_is_last != is_last {
-    if params.byte_align {
+    // insert empty block for byte alignment if required
+    if params.byte_align && ((*storage_ix & 7u32 as (usize)) != 0) {
       BrotliStoreSyncMetaBlock(storage_ix, storage);
     }
     BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
