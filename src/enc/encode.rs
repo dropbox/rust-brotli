@@ -639,6 +639,8 @@ pub fn SanitizeParams(params: &mut BrotliEncoderParams) {
   }
   if params.bare_stream {
     params.byte_align = true;
+  } else if !params.appendable {
+    params.byte_align = false;
   }
 }
 
@@ -2268,16 +2270,8 @@ fn EncodeData<Alloc: BrotliAlloc,
   }
   let mut catable_header_size = 0;
   if let IsFirst::NothingWritten = s.is_first_mb {
-    if s.params.magic_number || (s.params.byte_align && !s.params.catable && !s.params.appendable && !s.params.bare_stream) {
-      if s.params.magic_number {
-        BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, (*s).storage_.slice_mut());
-      } else {
-        // magic and catable have their own headers that cause byte alignment,
-        // and aligning the compressed data is pointless in appendable mode, so
-        // in those cases we don't need to force it here
-        BrotliStoreSyncMetaBlock(&mut storage_ix, (*s).storage_.slice_mut());
-      }
-      // XXX What does this do?
+    if s.params.magic_number {
+      BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, (*s).storage_.slice_mut());
       (*s).last_bytes_ = (*s).storage_.slice()[((storage_ix >> 3i32) as (usize))] as u16 | (
         ((*s).storage_.slice()[1 + ((storage_ix >> 3i32) as (usize))] as u16)<<8);
       (*s).last_bytes_bits_ = (storage_ix & 7u32 as (usize)) as (u8);

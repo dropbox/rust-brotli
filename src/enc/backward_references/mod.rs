@@ -91,8 +91,8 @@ pub struct BrotliEncoderParams {
   pub large_window: bool,
   // avoid search for the best ndirect vs npostfix parameters for distance
   pub avoid_distance_prefix_search: bool,
-  // insert empty metadata blocks before and after the compressed data
-  // this allows for concatonation by byte copying with catable/appendable
+  // inserts an extra empty metadata block before the final empty metablock in
+  // catable/appendable mode so concatination tools can just remove the last byte
   pub byte_align: bool,
   // do not emit a stream header or empty last block at end of data
   pub bare_stream: bool,
