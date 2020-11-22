@@ -2251,12 +2251,13 @@ fn EncodeData<Alloc: BrotliAlloc,
   }
   let mut catable_header_size = 0;
   if let IsFirst::NothingWritten = s.is_first_mb {
-    if s.params.magic_number || (s.params.byte_align && !s.params.catable) {
+    if s.params.magic_number || (s.params.byte_align && !s.params.catable && !s.params.appendable) {
       if s.params.magic_number {
         BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, (*s).storage_.slice_mut());
       } else {
-        // magic and catable have their own headers that cause byte alignment
-        // so in those cases we don't need to force it here
+        // magic and catable have their own headers that cause byte alignment,
+        // and aligning the compressed data is pointless in appendable mode, so
+        // in those cases we don't need to force it here
         BrotliStoreSyncMetaBlock(&mut storage_ix, (*s).storage_.slice_mut());
       }
       // XXX What does this do?
