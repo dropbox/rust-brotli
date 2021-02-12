@@ -123,6 +123,9 @@ pub unsafe extern fn BrotliEncoderSetParameter(
 
 #[no_mangle]
 pub unsafe extern fn BrotliEncoderDestroyInstance(state_ptr: *mut BrotliEncoderState) {
+  if state_ptr.is_null() {
+    return;
+  }
   ::enc::encode::BrotliEncoderDestroyInstance(&mut (*state_ptr).compressor);
   if let Some(_) = (*state_ptr).custom_allocator.alloc_func {
     if let Some(free_fn) = (*state_ptr).custom_allocator.free_func {
