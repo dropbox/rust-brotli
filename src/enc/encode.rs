@@ -117,7 +117,7 @@ fn GetNextOutInternal<'a>(
             return &mut storage[offset as usize..],
         &NextOut::TinyBuf(offset) =>
             return &mut tiny_buf[offset as usize..],
-        &NextOut::None => panic!("Next out: Null ptr deref"),
+        &NextOut::None => &mut [],
     }
 }
 macro_rules! GetNextOut {
@@ -133,7 +133,7 @@ fn NextOutIncrement(next_out :&NextOut, inc : i32) -> NextOut{
             return NextOut::DynamicStorage((offset as i32 + inc) as u32),
         &NextOut::TinyBuf(offset) =>
             return NextOut::TinyBuf((offset as i32 + inc) as u32),
-        &NextOut::None => panic!("Next out: Null ptr deref"),
+        &NextOut::None => NextOut::None,
     }
 }
 fn IsNextOutNull(next_out :&NextOut) -> bool {
