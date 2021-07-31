@@ -52,6 +52,7 @@ pub use enc::input_pair::InputPair;
 pub use enc::interface::SliceOffset;
 pub use enc::interface::thaw;
 pub use enc::interface::thaw_pair;
+#[cfg(feature="ffi-api")]
 pub mod ffi;
 // interface
 // pub fn BrotliDecompressStream(mut available_in: &mut usize,
