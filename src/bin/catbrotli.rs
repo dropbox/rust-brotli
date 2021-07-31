@@ -89,7 +89,7 @@ fn main() {
         loop {
             ioffset = 0;
             match read_no_interrupt(&mut input_file, &mut ibuffer[..]) {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(cur_read) => {
                     if cur_read == 0 {
                         break;
@@ -142,7 +142,7 @@ fn main() {
                 break;
             }
             failure => {
-                panic!(failure)
+                panic!("{:?}", failure)
             }
         }
     }

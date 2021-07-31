@@ -24,7 +24,7 @@ use super::backward_references::{BrotliEncoderParams, UnionHasher, CloneWithAllo
 pub type PoisonedThreadError = ();
 
 #[cfg(feature="std")]
-pub type LowLevelThreadError = std::boxed::Box<any::Any + Send + 'static>;
+pub type LowLevelThreadError = std::boxed::Box<dyn any::Any + Send + 'static>;
 #[cfg(not(feature="std"))]
 pub type LowLevelThreadError = ();
 

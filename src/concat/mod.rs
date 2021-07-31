@@ -2,7 +2,6 @@ use core;
 
 #[repr(C)]
 #[derive(Debug,Clone,Copy, PartialEq)]
-#[no_mangle]
 pub enum BroCatliResult {
   Success = 0,
   NeedsMoreInput = 1,

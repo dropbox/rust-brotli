@@ -39,7 +39,7 @@ fn test_compress_workpool() {
   match ret2 {
     super::super::decompressor::ffi::interface::BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS => {
     },
-    _ => panic!(ret2),
+    _ => panic!("{}", ret2 as i32),
   }
   assert_eq!(rt_size, input.len());
   assert_eq!(&rt_buffer[..rt_size], &input[..]);
@@ -82,7 +82,7 @@ fn test_compress_empty_workpool() {
   match ret2 {
     super::super::decompressor::ffi::interface::BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS => {
     },
-    _ => panic!(ret2),
+    _ => panic!("{}", ret2 as i32),
   }
   assert_eq!(rt_size, input.len());
   assert_eq!(&rt_buffer[..rt_size], &input[..]);
@@ -122,7 +122,7 @@ fn test_compress_empty_multi_raw() {
   match ret2 {
     super::super::decompressor::ffi::interface::BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS => {
     },
-    _ => panic!(ret2),
+    _ => panic!("{}", ret2 as i32),
   }
   assert_eq!(rt_size, input.len());
   assert_eq!(&rt_buffer[..rt_size], &input[..]);
@@ -160,7 +160,7 @@ fn test_compress_null_multi_raw() {
   match ret2 {
     super::super::decompressor::ffi::interface::BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS => {
     },
-    _ => panic!(ret2),
+    _ => panic!("{}", ret2 as i32),
   }
   assert_eq!(rt_size, 0);
 }
@@ -202,7 +202,7 @@ fn test_compress_empty_multi_raw_one_thread() {
   match ret2 {
     super::super::decompressor::ffi::interface::BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS => {
     },
-    _ => panic!(ret2),
+    _ => panic!("{}", ret2 as i32),
   }
   assert_eq!(rt_size, input.len());
   assert_eq!(&rt_buffer[..rt_size], &input[..]);
@@ -242,7 +242,7 @@ fn test_compress_empty_multi_catable() {
   match ret2 {
     super::super::decompressor::ffi::interface::BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS => {
     },
-    _ => panic!(ret2),
+    _ => panic!("{:?}", ret2 as i32),
   }
   assert_eq!(rt_size, input.len());
   assert_eq!(&rt_buffer[..rt_size], &input[..]);

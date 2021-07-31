@@ -21,7 +21,7 @@ fn main() {
                     if let io::ErrorKind::Interrupted = e.kind() {
                         continue;
                     }
-                    panic!(e);
+                    panic!("{}", e);
                 }
                 Ok(size) => {
                     if size == 0 {
@@ -30,13 +30,13 @@ fn main() {
                                 if let io::ErrorKind::Interrupted = e.kind() {
                                     continue;
                                 }
-                                panic!(e)
+                                panic!("{}", e)
                             }
                             Ok(_) => break,
                         }
                     }
                     match writer.write_all(&buf[..size]) {
-                        Err(e) => panic!(e),
+                        Err(e) => panic!("{}", e),
                         Ok(_) => {},
                     }
                 }

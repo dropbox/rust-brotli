@@ -5,7 +5,6 @@ use std::{panic,thread, io};
 #[cfg(feature="std")]
 use std::io::Write;
 
-#[no_mangle]
 use core;
 use brotli_decompressor::ffi::alloc_util;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
@@ -23,7 +22,6 @@ use ::enc::encode::BrotliEncoderStateStruct;
 use super::alloc_util::BrotliSubclassableAllocator;
 
 #[repr(C)]
-#[no_mangle]
 pub enum BrotliEncoderOperation {
   BROTLI_OPERATION_PROCESS = 0,
   BROTLI_OPERATION_FLUSH = 1,
@@ -32,7 +30,6 @@ pub enum BrotliEncoderOperation {
 }
 
 #[repr(C)]
-#[no_mangle]
 pub enum BrotliEncoderMode {
   BROTLI_MODE_GENERIC = 0,
   BROTLI_MODE_TEXT = 1,
@@ -44,7 +41,6 @@ pub enum BrotliEncoderMode {
 }
 
 #[repr(C)]
-#[no_mangle]
 pub struct BrotliEncoderState {
   pub custom_allocator: CAllocator,
   pub compressor: BrotliEncoderStateStruct<BrotliSubclassableAllocator>,

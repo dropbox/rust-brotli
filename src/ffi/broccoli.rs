@@ -12,7 +12,6 @@ pub type BroccoliResult = BroCatliResult;
 // a tool to concatenate brotli files together
 
 #[repr(C)]
-#[no_mangle]
 pub struct BroccoliState {
     more_data: *mut c_void,
     current_data: [u8;120],

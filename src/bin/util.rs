@@ -32,7 +32,9 @@ struct HexSlice<'a>(&'a [u8]);
 impl<'a> fmt::Display for HexSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for byte in self.0 {
-            try!(write!(f, "{:02X}", byte));
+            if let Err(e) = write!(f, "{:02X}", byte) {
+                return Err(e);
+            }
         }
         Ok(())
     }
@@ -83,7 +85,9 @@ struct SliceU8Ref<'a>(pub &'a[u8]);
 impl<'a> fmt::LowerHex for SliceU8Ref<'a> {
     fn fmt(&self, fmtr: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         for item in self.0 {
-            try!( fmtr.write_fmt(format_args!("{:02x}", item)));
+            if let Err(e) = fmtr.write_fmt(format_args!("{:02x}", item)) {
+                return Err(e);
+            }
         }
         Ok(())
     }

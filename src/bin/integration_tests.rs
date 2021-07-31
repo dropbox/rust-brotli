@@ -143,12 +143,12 @@ fn decompress_internal<InputType, OutputType, Run: Runner>(r: &mut InputType,
             Err(e) => {
               match e.kind() {
                 io::ErrorKind::Interrupted => continue,
-                _ => panic!(e),
+                _ => panic!("{}", e),
               }
             }
             Ok(size) => {
               if size == 0 {
-                panic!(io::Error::new(io::ErrorKind::UnexpectedEof, "Read EOF"));
+                panic!("{:?}", io::Error::new(io::ErrorKind::UnexpectedEof, "Read EOF"));
               }
               available_in = size;
             }
@@ -385,7 +385,7 @@ fn test_random_then_unicode_9() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22, false);
 }
 #[cfg(feature="std")]
-const random_then_unicode_compressed_size_9_5 : usize = 136563;
+const random_then_unicode_compressed_size_9_5 : usize = 136542;
 #[cfg(feature="std")]
 const random_then_unicode_compressed_size_9_5x : usize = 136045;
 

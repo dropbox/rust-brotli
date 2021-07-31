@@ -317,7 +317,7 @@ fn FindBlocks<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAcce
   }
   for (byte_ix, data_byte_ix) in data[..length].iter().enumerate() {
     {
-      let mut block_id_ptr = &mut block_id[byte_ix];
+      let block_id_ptr = &mut block_id[byte_ix];
       let ix: usize = byte_ix.wrapping_mul(bitmaplen);
       let insert_cost_ix: usize = u64::from(data_byte_ix.clone())
         .wrapping_mul(num_histograms as u64) as usize;

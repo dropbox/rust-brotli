@@ -40,7 +40,7 @@ fn concat(files:&mut [UnlimitedBuffer],
           loop {
             ioffset = 0;
             match input.read(&mut ibuffer[..]) {
-              Err(e) => panic!(e),
+              Err(e) => panic!("{}", e),
               Ok(cur_read) => {
                 if cur_read == 0 {
                   break;
@@ -62,7 +62,7 @@ fn concat(files:&mut [UnlimitedBuffer],
                       panic!("Unexpected state: Success when streaming before finish");
                     },
                     failure => {
-                      panic!(failure);
+                      panic!("{:?}", failure);
                     },
                   }
                 }
@@ -94,7 +94,7 @@ fn concat(files:&mut [UnlimitedBuffer],
           break;
         }
         failure => {
-          panic!(failure)
+          panic!("{:?}", failure)
         }
       }
     }
