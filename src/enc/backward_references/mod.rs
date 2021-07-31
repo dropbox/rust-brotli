@@ -554,6 +554,7 @@ impl<AllocU32: alloc::Allocator<u32>> SliceWrapper<u32> for H54Sub<AllocU32> {
 pub const H9_BUCKET_BITS :usize = 15;
 pub const H9_BLOCK_BITS :usize =8;
 pub const H9_NUM_LAST_DISTANCES_TO_CHECK:usize = 16;
+pub const H9_BLOCK_SIZE :usize= 1 << H9_BLOCK_BITS;
 const H9_BLOCK_MASK :usize= (1 << H9_BLOCK_BITS) - 1;
 
 
@@ -784,23 +785,23 @@ pub struct H9Sub {}
 impl AdvHashSpecialization for H9Sub {
   #[inline(always)]
   fn hash_shift(&self) -> i32 {
-    32i32 - H9_BUCKET_BITS as i32 // 32 - bucket_bits
+    32i32 - 15 // 32 - bucket_bits
   }
   #[inline(always)]
   fn bucket_size(&self) -> u32 {
-    1 << H9_BUCKET_BITS
+    1 << 15
   }
   #[inline(always)]
   fn block_bits(&self) -> i32 {
-    H9_BLOCK_BITS as i32
+    8
   }
   #[inline(always)]
   fn block_size(&self) -> u32 {
-    1 << H9_BLOCK_BITS
+    1 << 8
   }
   #[inline(always)]
   fn block_mask(&self) -> u32 {
-    (1 << H9_BLOCK_BITS) - 1
+    (1 << 8) - 1
   }
   #[inline(always)]
   fn get_hash_mask(&self) -> u64 {
@@ -1357,42 +1358,45 @@ impl<Specialization: AdvHashSpecialization + Clone, Alloc: alloc::Allocator<u16>
     (*out).len = 0usize;
     (*out).len_x_code = 0usize;
     let cur_data = data.split_at(cur_ix_masked).1;
-    let mut prev_best = cur_data[best_len];
     for i in 0..self.GetHasherCommon.params.num_last_distances_to_check as (usize) {
-      let backward: usize = distance_cache[(i as (usize))] as (usize);
-      let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
-      if prev_ix >= cur_ix {
-        continue;
-      }
-      if backward > max_backward {
-        continue;
-      }
-      prev_ix = prev_ix & ring_buffer_mask;
-      if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
-        prev_best != data[prev_ix.wrapping_add(best_len)]) {
-        continue;
-      }
-      let prev_data = data.split_at(prev_ix).1;
-          
-      let len: usize = FindMatchLengthWithLimit(&prev_data,
-                                                cur_data,
-                                                max_length);
-      if len >= 3usize || len == 2usize && (i < 2usize) {
-        let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
-        if best_score < score {
-          if i != 0usize {
-                score = score.wrapping_sub(BackwardReferencePenaltyUsingLastDistance(i));
+      'continue45: loop {
+        {
+          let backward: usize = distance_cache[(i as (usize))] as (usize);
+          let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
+          if prev_ix >= cur_ix {
+            break 'continue45;
           }
-          if best_score < score {
-            best_score = score;
-            best_len = len;
-            (*out).len = best_len;
-            (*out).distance = backward;
-            (*out).score = best_score;
-            is_match_found = 1i32;
-            prev_best = cur_data[best_len];
+          if backward > max_backward {
+            break 'continue45;
+          }
+          prev_ix = prev_ix & ring_buffer_mask;
+          if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask || prev_ix.wrapping_add(best_len) > ring_buffer_mask ||
+              cur_data[best_len] != data[prev_ix.wrapping_add(best_len)]) {
+            break 'continue45;
+          }
+          let prev_data = data.split_at(prev_ix).1;
+          
+          let len: usize = FindMatchLengthWithLimit(&prev_data,
+                                                    cur_data,
+                                                    max_length);
+          if len >= 3usize || len == 2usize && (i < 2usize) {
+            let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
+            if best_score < score {
+              if i != 0usize {
+                score = score.wrapping_sub(BackwardReferencePenaltyUsingLastDistance(i));
+              }
+              if best_score < score {
+                best_score = score;
+                best_len = len;
+                (*out).len = best_len;
+                (*out).distance = backward;
+                (*out).score = best_score;
+                is_match_found = 1i32;
+              }
+            }
           }
         }
+        break;
       }
     }
     {
