@@ -385,7 +385,7 @@ fn test_random_then_unicode_9() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22, false);
 }
 #[cfg(feature="std")]
-const random_then_unicode_compressed_size_9_5 : usize = 136542;
+const random_then_unicode_compressed_size_9_5 : usize = 136126;
 #[cfg(feature="std")]
 const random_then_unicode_compressed_size_9_5x : usize = 136045;
 
@@ -412,7 +412,7 @@ const alice_compressed_size_11 : usize = 46510;
 
 
 #[cfg(not(feature="std"))] // approx log
-const random_then_unicode_compressed_size_9_5 : usize = 136719;
+const random_then_unicode_compressed_size_9_5 : usize = 136409;
 #[cfg(not(feature="std"))] // approx log
 const random_then_unicode_compressed_size_9_5x : usize = 136095;
 

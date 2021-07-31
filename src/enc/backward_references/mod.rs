@@ -679,17 +679,17 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
     }
   #[inline(always)]
     fn HashBytes(&self, data: &[u8]) -> usize {
-        let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kHashMul32);
-        let thirty_two : usize = 32;
+        let h: u64 = (BROTLI_UNALIGNED_LOAD32(data) as u64| ((data[4] as u64) << 32)).wrapping_mul(kHashMul64Long);
+        let thirty_two : usize = 64;
         (h >> (thirty_two.wrapping_sub(H9_BUCKET_BITS))) as usize
     }
   #[inline(always)]
     fn HashTypeLength(&self) -> usize {
-        4
+        5
     }
   #[inline(always)]
     fn StoreLookahead(&self) -> usize {
-        4
+        5
     }
     fn PrepareDistanceCache(&self, distance_cache: &mut [i32]) {
         let num_distances = H9_NUM_LAST_DISTANCES_TO_CHECK as i32;
