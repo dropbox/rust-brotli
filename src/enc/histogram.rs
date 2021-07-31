@@ -98,13 +98,9 @@ impl Default for HistogramDistance {
 pub trait CostAccessors {
   type i32vec : Sized + SliceWrapper<Mem256i>+SliceWrapperMut<Mem256i>;
   fn make_nnz_storage() -> Self::i32vec;
-  #[inline(always)]
   fn total_count(&self) -> usize;
-  #[inline(always)]
   fn bit_cost(&self) -> super::util::floatX;
-  #[inline(always)]
   fn set_bit_cost(&mut self, cost: super::util::floatX);
-  #[inline(always)]
   fn set_total_count(&mut self, count: usize);
 }
 impl SliceWrapper<u32> for HistogramLiteral {
@@ -438,7 +434,7 @@ pub fn HistogramAddHistogram<HistogramType:SliceWrapperMut<u32> + SliceWrapper<u
   let h1 = v.slice();
   let n = min(h0.len(), h1.len());
   for i in 0..n {
-    let mut h0val = &mut h0[i];
+    let h0val = &mut h0[i];
     let val = h0val.wrapping_add(h1[i]);
     *h0val = val;
   }

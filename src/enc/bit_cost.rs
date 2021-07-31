@@ -197,7 +197,7 @@ fn CostComputation<T:SliceWrapper<Mem256i> >(depth_histo: &mut [u32;BROTLI_CODE_
       let cur = cumulative_sum[(j&8) >> 3].extract(j & 7);
       let delta = cur - prev;
       prev = cur;
-      let mut cur = &mut depth_histo[j];
+      let cur = &mut depth_histo[j];
       *cur = (*cur as i32 + delta) as u32; // depth_histo[j] += delta
       if delta != 0 {
          max_depth = j;

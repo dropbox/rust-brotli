@@ -854,27 +854,16 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
 }
 
 pub trait AdvHashSpecialization : PartialEq<Self>{
-  #[inline(always)]
   fn get_hash_mask(&self) -> u64;
-  #[inline(always)]
   fn set_hash_mask(&mut self, params_hash_len: i32);
-  #[inline(always)]
   fn get_k_hash_mul(&self) -> u64;
-  #[inline(always)]
   fn HashTypeLength(&self) -> usize;
-  #[inline(always)]
   fn StoreLookahead(&self) -> usize;
-    #[inline(always)]
   fn load_and_mix_word(&self, data: &[u8]) -> u64;
-    #[inline(always)]
   fn hash_shift(&self) -> i32;
-    #[inline(always)]
   fn bucket_size(&self) -> u32;
-    #[inline(always)]
   fn block_mask(&self) -> u32;
-    #[inline(always)]
   fn block_size(&self) -> u32;
-  #[inline(always)]
   fn block_bits(&self) -> i32;
 }
 pub struct AdvHasher<Specialization: AdvHashSpecialization + Sized + Clone,

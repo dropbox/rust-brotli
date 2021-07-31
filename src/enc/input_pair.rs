@@ -90,10 +90,14 @@ impl<'a> core::ops::Index<usize> for InputPair<'a> {
 impl<'a> core::fmt::LowerHex for InputPair<'a> {
     fn fmt(&self, fmtr: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
         for item in self.0.data {
-            try!( fmtr.write_fmt(format_args!("{:02x}", item)));
+            if let Err(e) = fmtr.write_fmt(format_args!("{:02x}", item)) {
+                return Err(e)
+            }
         }
         for item in self.1.data {
-            try!( fmtr.write_fmt(format_args!("{:02x}", item)));
+            if let Err(e) = fmtr.write_fmt(format_args!("{:02x}", item)) {
+                return Err(e);
+            }
         }
         Ok(())
     }

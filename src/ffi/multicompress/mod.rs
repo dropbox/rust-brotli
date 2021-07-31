@@ -4,7 +4,6 @@ use std::{panic,thread, io};
 #[cfg(feature="std")]
 use std::io::Write;
 mod test;
-#[no_mangle]
 use core;
 #[allow(unused_imports)]
 use brotli_decompressor;
@@ -189,7 +188,6 @@ pub unsafe extern fn BrotliEncoderCompressMulti(
   }
 }
 
-#[no_mangle]
 #[repr(C)]
 pub struct BrotliEncoderWorkPool {
   custom_allocator: CAllocator,

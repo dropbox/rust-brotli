@@ -113,11 +113,11 @@ fn test_custom_dict_for_multithreading() {
     for brotli in brs.iter_mut() {
         brotli.reset_read();
         bro_cat_li.new_brotli_file();
-        let mut input = brotli;
+        let input = brotli;
         loop {
             let mut ioffset = 0usize;
             match input.read(&mut ibuffer[..]) {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{:?}", e),
                 Ok(cur_read) => {
                     if cur_read == 0 {
                         break;
@@ -139,7 +139,7 @@ fn test_custom_dict_for_multithreading() {
                                 panic!("Unexpected state: Success when streaming before finish");
                             },
                             failure => {
-                                panic!(failure);
+                                panic!("{:?}", failure);
                             },
                         }
                     }
@@ -169,7 +169,7 @@ fn test_custom_dict_for_multithreading() {
                 break;
             }
             failure => {
-                panic!(failure)
+                panic!("{}", failure as i32)
             }
         }
     }

@@ -1,4 +1,3 @@
-#[no_mangle]
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[repr(C)]
 pub enum BrotliEncoderParameter {

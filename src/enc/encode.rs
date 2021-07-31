@@ -758,7 +758,7 @@ fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8,
     new_data.slice_mut()[..lim].clone_from_slice(&(*rb).data_mo.slice()[..lim]);
     m.free_cell(core::mem::replace(&mut (*rb).data_mo, AllocU8::AllocatedMemory::default()));
   }
-  core::mem::replace(&mut (*rb).data_mo, new_data);
+  let _ = core::mem::replace(&mut (*rb).data_mo, new_data);
   (*rb).cur_size_ = buflen;
   (*rb).buffer_index = 2usize;
   (*rb).data_mo.slice_mut()[((*rb).buffer_index.wrapping_sub(2usize))] = 0;
@@ -1532,7 +1532,7 @@ pub fn BrotliEncoderCompress<Alloc: BrotliAlloc,
       *encoded_size = total_out.unwrap();
       BrotliEncoderDestroyInstance(s);
     }
-    core::mem::replace(m8, s_orig.m8);
+    let _ = core::mem::replace(m8, s_orig.m8);
     if result == 0 || max_out_size != 0 && (*encoded_size > max_out_size) {
         is_fallback = 1i32;
     } else {

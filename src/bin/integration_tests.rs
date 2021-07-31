@@ -143,12 +143,12 @@ fn decompress_internal<InputType, OutputType, Run: Runner>(r: &mut InputType,
             Err(e) => {
               match e.kind() {
                 io::ErrorKind::Interrupted => continue,
-                _ => panic!(e),
+                _ => panic!("{}", e),
               }
             }
             Ok(size) => {
               if size == 0 {
-                panic!(io::Error::new(io::ErrorKind::UnexpectedEof, "Read EOF"));
+                panic!("{:?}", io::Error::new(io::ErrorKind::UnexpectedEof, "Read EOF"));
               }
               available_in = size;
             }

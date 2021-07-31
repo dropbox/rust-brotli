@@ -556,7 +556,7 @@ impl<AllocU32:alloc::Allocator<u32> > EntropyTally<AllocU32> {
     }
     fn identify_best_population_and_update_cache(&mut self) -> u8 {
         let mut old_bit_entropy : [floatY; NUM_STRIDES] = [0.0; NUM_STRIDES];
-        for (mut obe, be) in old_bit_entropy.iter_mut().zip(self.pop.iter_mut()) {
+        for (obe, be) in old_bit_entropy.iter_mut().zip(self.pop.iter_mut()) {
             *obe = be.cached_bit_entropy;
             if *obe != 0.0 {
                 be.cached_bit_entropy = HuffmanCost(be.bucket_populations.slice());
