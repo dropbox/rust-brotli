@@ -277,8 +277,16 @@ pub unsafe extern fn BrotliEncoderCompressStream(
         ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA,
     };
     {
-      let input_buf = slice_from_raw_parts_or_nil(*input_buf_ptr, *available_in);
-      let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
+      let (input_buf, input_any):(&[u8],bool) = if *available_in != 0 {
+        (slice_from_raw_parts_or_nil(*input_buf_ptr, *available_in), true)
+      } else {
+        (&[], false)
+      };
+      let (output_buf, output_any):(&mut[u8],bool) = if *available_out != 0 {
+        (slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out), true)
+      } else {
+        (&mut [], false)
+      };
       let mut to = Some(0usize);
       result = ::enc::encode::BrotliEncoderCompressStream(
         &mut (*state_ptr).compressor,
@@ -295,9 +303,13 @@ pub unsafe extern fn BrotliEncoderCompressStream(
       if !total_out.is_null() {
         *total_out = to.unwrap_or(0);
       }
+      if input_any {
+        *input_buf_ptr = (*input_buf_ptr).offset(input_offset as isize);
+      }
+      if output_any {
+        *output_buf_ptr = (*output_buf_ptr).offset(output_offset as isize);
+      }
     }
-    *input_buf_ptr = (*input_buf_ptr).offset(input_offset as isize);
-    *output_buf_ptr = (*output_buf_ptr).offset(output_offset as isize);
     result
   }) {
     Ok(ret) => ret,
