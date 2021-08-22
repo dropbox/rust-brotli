@@ -1,6 +1,6 @@
 # rust-brotli
 
-[![crates.io](http://meritbadge.herokuapp.com/brotli)](https://crates.io/crates/brotli)
+[![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
 * A fully compatible FFI for drop-in compatibiltiy with the https://github.com/google/brotli binaries
@@ -23,7 +23,7 @@ optimizations are employed.
 
 ## Using the C interface
 
-rust-brotli is a drop-in replacement for the official http://github.com/google/brotli/ C
+rust-brotli is a drop-in replacement for the official https://github.com/google/brotli C
 implementation. That means you can use it from any place that supports that library.
 To build rust-brotli in this manner enter the c subdirectory and run make there
 
