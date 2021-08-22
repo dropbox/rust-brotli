@@ -165,7 +165,7 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(items: &mut [HuffmanT
    especially when population counts are longer than 2**tree_limit, but
    we are not planning to use this with extremely long blocks.
 
-   See http://en.wikipedia.org/wiki/Huffman_coding */
+   See https://en.wikipedia.org/wiki/Huffman_coding */
 pub fn BrotliCreateHuffmanTree(data: &[u32],
                                length: usize,
                                tree_limit: i32,
