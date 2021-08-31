@@ -43,7 +43,7 @@ pub mod multithreading;
 pub mod fixed_queue;
 pub mod worker_pool;
 #[cfg(feature="simd")]
-use packed_simd::{i16x16, f32x8, i32x8};
+use packed_simd_2::{i16x16, f32x8, i32x8};
 #[cfg(feature="simd")]
 pub type s16 = i16x16;
 #[cfg(feature="simd")]
