@@ -11,7 +11,7 @@
 #[cfg(feature="std")]
 extern crate std;
 #[cfg(feature="simd")]
-extern crate packed_simd;
+extern crate packed_simd_2;
 #[cfg(feature="std")]
 extern crate alloc_stdlib;
 #[allow(unused_imports)]

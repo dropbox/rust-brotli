@@ -9,7 +9,7 @@ use super::util::{floatX, FastLog2u16};
 use super::find_stride;
 use super::{s16, v8};
 #[cfg(feature="simd")]
-use packed_simd::IntoBits;
+use packed_simd_2::IntoBits;
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;
 pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * 2;
