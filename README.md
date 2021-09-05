@@ -1,6 +1,6 @@
 # rust-brotli
 
-[![crates.io](http://meritbadge.herokuapp.com/brotli)](https://crates.io/crates/brotli)
+[![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
 
