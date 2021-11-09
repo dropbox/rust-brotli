@@ -43,6 +43,8 @@ type CompressionOptions struct {
 	Catable                       bool
 	Appendable                    bool
 	Magic                         bool
+	ByteAlign                     bool
+	BareStream                    bool
 	Mode                          int
 	LgWin                         byte
 	LgBlock                       byte
@@ -155,6 +157,14 @@ func makeCompressionOptionsStreams(options CompressionOptions,
 	}
 	if options.Magic {
 		qualityParams = append(qualityParams, C.BROTLI_PARAM_MAGIC_NUMBER)
+		values = append(values, 1)
+	}
+	if options.ByteAlign {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_BYTE_ALIGN)
+		values = append(values, 1)
+	}
+	if options.BareStream {
+		qualityParams = append(qualityParams, C.BROTLI_PARAM_BARE_STREAM)
 		values = append(values, 1)
 	}
 	if options.Mode != 0 {

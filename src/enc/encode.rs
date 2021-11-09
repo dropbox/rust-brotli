@@ -16,10 +16,10 @@ use super::bit_cost::{BitsEntropy, ShannonEntropy};
 use super::block_split::BlockSplit;
 #[allow(unused_imports)]
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree,
-                               BrotliStoreMetaBlock, BrotliStoreSyncMetaBlock,
-                               BrotliStoreMetaBlockFast, BrotliStoreMetaBlockTrivial,
-                               BrotliStoreUncompressedMetaBlock,
-                               BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
+                               BrotliStoreMetaBlock, BrotliStoreMetaBlockFast,
+                               BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
+                               BrotliWriteEmptyLastMetaBlock,
+                               BrotliWritePaddingMetaBlock, BrotliWriteMetadataMetaBlock,
                                MetaBlockSplit, RecoderState, JumpToByteBoundary};
                                
 use enc::input_pair::InputReferenceMut;
@@ -740,7 +740,7 @@ fn EnsureInitialized<Alloc: BrotliAlloc>
     if (*s).params.quality == 0i32 || (*s).params.quality == 1i32 {
       lgwin = brotli_max_int(lgwin, 18i32);
     }
-    if !(*s).params.bare_stream {
+    if !((*s).params.catable && (*s).params.bare_stream) {
       EncodeWindowBits(lgwin, s.params.large_window, &mut (*s).last_bytes_, &mut (*s).last_bytes_bits_);
     }
   }
@@ -1969,6 +1969,15 @@ fn DecideOverLiteralContextModeling(input: &[u8],
                      literal_context_map);
   }
 }
+fn WriteEmptyLastBlocksInternal(params: &BrotliEncoderParams, storage_ix: &mut usize, storage: &mut [u8]) {
+  // insert empty block for byte alignment if required
+  if params.byte_align {
+    BrotliWritePaddingMetaBlock(storage_ix, storage);
+  }
+  if !params.bare_stream {
+    BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
+  }
+}
 fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                           Cb>
             (alloc: &mut Alloc,
@@ -2007,8 +2016,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
   let literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
   let mut block_params = params.clone();
   if bytes == 0usize {
-    BrotliWriteBits(2usize, 3, storage_ix, storage);
-    *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
+    WriteEmptyLastBlocksInternal(params, storage_ix, storage);
     return;
   }
   if ShouldCompress(data,
@@ -2031,13 +2039,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                      false,
                                      cb);
     if actual_is_last != is_last {
-      // insert empty block for byte alignment if required
-      if params.byte_align && ((*storage_ix & 7u32 as (usize)) != 0) {
-        BrotliStoreSyncMetaBlock(storage_ix, storage);
-      }
-      if !params.bare_stream {
-        BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
-      }
+      WriteEmptyLastBlocksInternal(params, storage_ix, storage);
     }
     return;
   }
@@ -2177,13 +2179,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc,
                                        cb);
   }
   if actual_is_last != is_last {
-    // insert empty block for byte alignment if required
-    if params.byte_align && ((*storage_ix & 7u32 as (usize)) != 0) {
-      BrotliStoreSyncMetaBlock(storage_ix, storage);
-    }
-    if !params.bare_stream {
-      BrotliWriteEmptyLastMetaBlock(storage_ix, storage)
-    }
+    WriteEmptyLastBlocksInternal(params, storage_ix, storage);
   }
 }
 
@@ -2279,6 +2275,10 @@ fn EncodeData<Alloc: BrotliAlloc,
       catable_header_size = storage_ix >> 3;
       *out_size = catable_header_size;
       s.is_first_mb = IsFirst::HeaderWritten;
+    }
+    // fixup for empty stream - note: catable is always appendable
+    if bytes == 0 && s.params.byte_align && s.params.appendable && !s.params.catable {
+      BrotliWritePaddingMetaBlock(&mut storage_ix, (*s).storage_.slice_mut());
     }
   }
   if let IsFirst::BothCatableBytesWritten = s.is_first_mb {
