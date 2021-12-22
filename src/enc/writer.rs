@@ -57,6 +57,9 @@ impl<W: Write,
     pub fn get_ref(&self) -> &W {
       &self.0.get_ref().0
     }
+    pub fn get_mut(&mut self) -> &mut W {
+      &mut self.0.get_mut().0
+    }
     pub fn into_inner(self) -> W {
       self.0.into_inner().0
     }
@@ -104,6 +107,9 @@ impl<W: Write> CompressorWriter<W> {
 
   pub fn get_ref(&self) -> &W {
     self.0.get_ref()
+  }
+  pub fn get_mut(&mut self) -> &mut W {
+    self.0.get_mut()
   }
   pub fn into_inner(self) -> W {
     self.0.into_inner()
@@ -211,6 +217,9 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc>
 
     pub fn get_ref(&self) -> &W {
       self.output.as_ref().unwrap()
+    }
+    pub fn get_mut(&mut self) -> &mut W {
+      self.output.as_mut().unwrap()
     }
     pub fn into_inner(mut self) -> W {
       match self.flush_or_close(BrotliEncoderOperation::BROTLI_OPERATION_FINISH) {
