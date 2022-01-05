@@ -15,26 +15,24 @@ autobins = false
 doc = false
 name = "brotli"
 
-
-
 [[bin]]
 doc = false
 name = "catbrotli"
 
 [profile.release]
-lto=true
-incremental=false
+lto = true
+incremental = false
 
 [dependencies]
-"alloc-no-stdlib" = {version="2.0"}
-"brotli-decompressor" = {version="~2.3", default-features=false}
-"alloc-stdlib" = {version="~0.2", optional=true}
-"packed_simd_2" = {version="0.3", optional=true}
-"sha2" = {version="~0.8", optional=true}
+"alloc-no-stdlib" = { version = "2.0" }
+"brotli-decompressor" = { version = "~2.3", default-features = false }
+"alloc-stdlib" = { version = "~0.2", optional = true }
+"packed_simd_2" = { version = "0.3", optional = true }
+"sha2" = { version = "~0.8", optional = true }
 
 [features]
-default=["std", "ffi-api"]
-validation=["sha2"]
+default = ["std", "ffi-api"]
+validation = ["sha2"]
 seccomp = ["brotli-decompressor/seccomp"]
 std = ["alloc-stdlib", "brotli-decompressor/std"]
 external-literal-probability = []

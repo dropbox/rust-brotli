@@ -2,7 +2,6 @@
 use super::super::alloc;
 use super::super::alloc::Allocator;
 use super::super::alloc::SliceWrapper;
-use core;
 pub struct BlockSplit<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> {
   pub num_types: usize,
   pub num_blocks: usize,
@@ -20,8 +19,8 @@ impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> BlockSplit<Alloc> {
     }
   }
   pub fn destroy(&mut self, m: &mut Alloc) {
-    <Alloc as Allocator<u8>>::free_cell(m, core::mem::replace(&mut self.types, <Alloc as Allocator<u8>>::AllocatedMemory::default()));
-    <Alloc as Allocator<u32>>::free_cell(m, core::mem::replace(&mut self.lengths, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+    <Alloc as Allocator<u8>>::free_cell(m, core::mem::take(&mut self.types));
+    <Alloc as Allocator<u32>>::free_cell(m, core::mem::take(&mut self.lengths));
     self.num_blocks = 0;
     self.num_types = 0;
   }

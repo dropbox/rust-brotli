@@ -2,6 +2,7 @@
 
 [![crates.io](http://meritbadge.herokuapp.com/brotli)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
+![MSRV](https://img.shields.io/badge/rustc-1.44+-ab6000.svg)
 
 
 ## What's new in 3.2
@@ -19,7 +20,7 @@
 ## What's new in 2.5
 * In 2.5 The callback also passes down an allocator to make new StaticCommands and PDFs and 256 bit floating point vectors.
 * In 2.4 The callback with the compression intermediate representation now passes a full metablock at a time. Also these items are mutable
-in case futher optimization is desired
+in case further optimization is desired
 
 ## What's new in 2.3
 
@@ -182,4 +183,3 @@ appendable.br catable1.br catable2.br catable3.br
 
 or simply
 catable0.br catable1.br catable2.br catable3.br
-
