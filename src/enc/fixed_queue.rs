@@ -1,25 +1,25 @@
 use core;
 pub const MAX_THREADS: usize = 16;
 
-
-pub struct FixedQueue<T:Sized>{
-  data: [Option<T>;MAX_THREADS],
+pub struct FixedQueue<T: Sized> {
+  data: [Option<T>; MAX_THREADS],
   size: usize,
   start: usize,
 }
-impl<T:Sized> Default for FixedQueue<T> {
+impl<T: Sized> Default for FixedQueue<T> {
   fn default() -> Self {
     Self::new()
   }
 }
-impl<T:Sized> FixedQueue<T> {
+impl<T: Sized> FixedQueue<T> {
   pub fn new() -> Self {
-    FixedQueue{
-      data:[None,None,None,None,None,None,None,None,
-            None,None,None,None,None,None,None,None,
+    FixedQueue {
+      data: [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None,
       ],
-      size:0,
-      start:0,
+      size: 0,
+      start: 0,
     }
   }
   pub fn can_push(&self) -> bool {
@@ -41,7 +41,7 @@ impl<T:Sized> FixedQueue<T> {
     if self.size == 0 {
       return None;
     }
-    let index = self.start%self.data.len();
+    let index = self.start % self.data.len();
     let ret = core::mem::replace(&mut self.data[index], None);
     self.start += 1;
     self.size -= 1;
@@ -50,21 +50,21 @@ impl<T:Sized> FixedQueue<T> {
   pub fn how_much_free_space(&self) -> usize {
     self.data.len() - self.size
   }
-  pub fn remove<F:Fn(&Option<T>) ->bool>(&mut self,f:F) -> Option<T> {
+  pub fn remove<F: Fn(&Option<T>) -> bool>(&mut self, f: F) -> Option<T> {
     if self.size == 0 {
       return None;
     }
     for index in 0..self.size {
-      if f(&self.data[(self.start + index)%self.data.len()]) {
-        let start_index = self.start%self.data.len();
-        let target_index = (self.start + index)%self.data.len();
+      if f(&self.data[(self.start + index) % self.data.len()]) {
+        let start_index = self.start % self.data.len();
+        let target_index = (self.start + index) % self.data.len();
         let ret = core::mem::replace(&mut self.data[target_index], None);
         let replace = core::mem::replace(&mut self.data[start_index], None);
         let is_none = core::mem::replace(&mut self.data[target_index], replace);
         assert!(is_none.is_none());
         self.start += 1;
         self.size -= 1;
-        return ret
+        return ret;
       }
     }
     None

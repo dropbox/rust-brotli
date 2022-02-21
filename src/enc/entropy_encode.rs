@@ -8,7 +8,6 @@
 #![allow(dead_code)]
 use super::util::brotli_max_uint32_t;
 
-
 #[derive(Clone, Copy)]
 pub struct HuffmanTree {
   pub total_count_: u32,
@@ -27,15 +26,14 @@ impl Default for HuffmanTree {
 
 pub fn NewHuffmanTree(count: u32, left: i16, right: i16) -> HuffmanTree {
   return HuffmanTree {
-           total_count_: count,
-           index_left_: left,
-           index_right_or_value_: right,
-         };
+    total_count_: count,
+    index_left_: left,
+    index_right_or_value_: right,
+  };
 }
 pub fn InitHuffmanTree(xself: &mut HuffmanTree, count: u32, left: i16, right: i16) {
   *xself = NewHuffmanTree(count, left, right);
 }
-
 
 pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_depth: i32) -> bool {
   let mut stack: [i32; 16] = [0; 16];
@@ -71,7 +69,6 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
   }
 }
 
-
 pub trait HuffmanComparator {
   fn Cmp(self: &Self, a: &HuffmanTree, b: &HuffmanTree) -> bool;
 }
@@ -91,10 +88,11 @@ impl HuffmanComparator for SortHuffmanTree {
     }
   }
 }
-pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(items: &mut [HuffmanTree],
-                                                           n: usize,
-                                                           comparator: Comparator) {
-
+pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(
+  items: &mut [HuffmanTree],
+  n: usize,
+  comparator: Comparator,
+) {
   static gaps: [usize; 6] = [132usize, 57usize, 23usize, 10usize, 4usize, 1usize];
   if n < 13usize {
     let mut i: usize;
@@ -108,10 +106,11 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(items: &mut [HuffmanT
           items[(k as (usize))] = items[(j as (usize))];
           k = j;
           if {
-               let _old = j;
-               j = j.wrapping_sub(1 as (usize));
-               _old
-             } == 0 {
+            let _old = j;
+            j = j.wrapping_sub(1 as (usize));
+            _old
+          } == 0
+          {
             {
               break;
             }
@@ -132,8 +131,9 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(items: &mut [HuffmanT
           {
             let mut j: usize = i;
             let mut tmp: HuffmanTree = items[(i as (usize))];
-            while j >= gap &&
-                  (comparator.Cmp(&mut tmp, &mut items[(j.wrapping_sub(gap) as (usize))])) {
+            while j >= gap
+              && (comparator.Cmp(&mut tmp, &mut items[(j.wrapping_sub(gap) as (usize))]))
+            {
               {
                 items[(j as (usize))] = items[(j.wrapping_sub(gap) as (usize))];
               }
@@ -149,28 +149,28 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(items: &mut [HuffmanT
   }
 }
 
-
-
 /* This function will create a Huffman tree.
 
-   The catch here is that the tree cannot be arbitrarily deep.
-   Brotli specifies a maximum depth of 15 bits for "code trees"
-   and 7 bits for "code length code trees."
+The catch here is that the tree cannot be arbitrarily deep.
+Brotli specifies a maximum depth of 15 bits for "code trees"
+and 7 bits for "code length code trees."
 
-   count_limit is the value that is to be faked as the minimum value
-   and this minimum value is raised until the tree matches the
-   maximum length requirement.
+count_limit is the value that is to be faked as the minimum value
+and this minimum value is raised until the tree matches the
+maximum length requirement.
 
-   This algorithm is not of excellent performance for very long data blocks,
-   especially when population counts are longer than 2**tree_limit, but
-   we are not planning to use this with extremely long blocks.
+This algorithm is not of excellent performance for very long data blocks,
+especially when population counts are longer than 2**tree_limit, but
+we are not planning to use this with extremely long blocks.
 
-   See https://en.wikipedia.org/wiki/Huffman_coding */
-pub fn BrotliCreateHuffmanTree(data: &[u32],
-                               length: usize,
-                               tree_limit: i32,
-                               tree: &mut [HuffmanTree],
-                               depth: &mut [u8]) {
+See https://en.wikipedia.org/wiki/Huffman_coding */
+pub fn BrotliCreateHuffmanTree(
+  data: &[u32],
+  length: usize,
+  tree_limit: i32,
+  tree: &mut [HuffmanTree],
+  depth: &mut [u8],
+) {
   let mut count_limit: u32;
   let mut sentinel: HuffmanTree = HuffmanTree {
     total_count_: 0,
@@ -190,14 +190,16 @@ pub fn BrotliCreateHuffmanTree(data: &[u32],
         i = i.wrapping_sub(1 as (usize));
         if data[(i as (usize))] != 0 {
           let count: u32 = brotli_max_uint32_t(data[(i as (usize))], count_limit);
-          InitHuffmanTree(&mut tree[({
-                                  let _old = n;
-                                  n = n.wrapping_add(1 as (usize));
-                                  _old
-                                } as (usize))],
-                          count,
-                          -1i32 as (i16),
-                          i as (i16));
+          InitHuffmanTree(
+            &mut tree[({
+              let _old = n;
+              n = n.wrapping_add(1 as (usize));
+              _old
+            } as (usize))],
+            count,
+            -1i32 as (i16),
+            i as (i16),
+          );
         }
       }
       if n == 1usize {
@@ -234,10 +236,9 @@ pub fn BrotliCreateHuffmanTree(data: &[u32],
           }
           {
             let j_end: usize = (2usize).wrapping_mul(n).wrapping_sub(k);
-            (tree[(j_end as (usize))]).total_count_ =
-              (tree[(left as (usize))])
-                .total_count_
-                .wrapping_add((tree[(right as (usize))]).total_count_);
+            (tree[(j_end as (usize))]).total_count_ = (tree[(left as (usize))])
+              .total_count_
+              .wrapping_add((tree[(right as (usize))]).total_count_);
             (tree[(j_end as (usize))]).index_left_ = left as (i16);
             (tree[(j_end as (usize))]).index_right_or_value_ = right as (i16);
             tree[(j_end.wrapping_add(1usize) as (usize))] = sentinel;
@@ -245,10 +246,12 @@ pub fn BrotliCreateHuffmanTree(data: &[u32],
         }
         k = k.wrapping_sub(1 as (usize));
       }
-      if BrotliSetDepth((2usize).wrapping_mul(n).wrapping_sub(1usize) as (i32),
-                        tree,
-                        depth,
-                        tree_limit) {
+      if BrotliSetDepth(
+        (2usize).wrapping_mul(n).wrapping_sub(1usize) as (i32),
+        tree,
+        depth,
+        tree_limit,
+      ) {
         {
           break 'break1;
         }
@@ -257,9 +260,11 @@ pub fn BrotliCreateHuffmanTree(data: &[u32],
     count_limit = count_limit.wrapping_mul(2u32);
   }
 }
-pub fn BrotliOptimizeHuffmanCountsForRle(mut length: usize,
-                                         counts: &mut [u32],
-                                         good_for_rle: &mut [u8]) {
+pub fn BrotliOptimizeHuffmanCountsForRle(
+  mut length: usize,
+  counts: &mut [u32],
+  good_for_rle: &mut [u8],
+) {
   let mut nonzero_count: usize = 0usize;
   let mut stride: usize;
   let mut limit: usize;
@@ -308,9 +313,10 @@ pub fn BrotliOptimizeHuffmanCountsForRle(mut length: usize,
         i = 1usize;
         while i < length.wrapping_sub(1usize) {
           {
-            if counts[(i.wrapping_sub(1usize) as (usize))] != 0u32 &&
-               (counts[(i as (usize))] == 0u32) &&
-               (counts[(i.wrapping_add(1usize) as (usize))] != 0u32) {
+            if counts[(i.wrapping_sub(1usize) as (usize))] != 0u32
+              && (counts[(i as (usize))] == 0u32)
+              && (counts[(i.wrapping_add(1usize) as (usize))] != 0u32)
+            {
               counts[(i as (usize))] = 1u32;
             }
           }
@@ -355,22 +361,30 @@ pub fn BrotliOptimizeHuffmanCountsForRle(mut length: usize,
   }
   stride = 0usize;
   limit = (256u32)
-    .wrapping_mul((counts[(0usize)]).wrapping_add(counts[(1usize)]).wrapping_add(counts
-                                                                                   [(2usize)]))
+    .wrapping_mul(
+      (counts[(0usize)])
+        .wrapping_add(counts[(1usize)])
+        .wrapping_add(counts[(2usize)]),
+    )
     .wrapping_div(3u32)
     .wrapping_add(420u32) as (usize);
   sum = 0usize;
   i = 0usize;
   while i <= length {
     {
-      if i == length || good_for_rle[(i as (usize))] != 0 ||
-         i != 0usize && (good_for_rle[(i.wrapping_sub(1usize) as (usize))] != 0) ||
-         ((256u32).wrapping_mul(counts[(i as (usize))]) as (usize))
-           .wrapping_sub(limit)
-           .wrapping_add(streak_limit) >= (2usize).wrapping_mul(streak_limit) {
+      if i == length
+        || good_for_rle[(i as (usize))] != 0
+        || i != 0usize && (good_for_rle[(i.wrapping_sub(1usize) as (usize))] != 0)
+        || ((256u32).wrapping_mul(counts[(i as (usize))]) as (usize))
+          .wrapping_sub(limit)
+          .wrapping_add(streak_limit)
+          >= (2usize).wrapping_mul(streak_limit)
+      {
         if stride >= 4usize || stride >= 3usize && (sum == 0usize) {
           let mut k: usize;
-          let mut count: usize = sum.wrapping_add(stride.wrapping_div(2usize)).wrapping_div(stride);
+          let mut count: usize = sum
+            .wrapping_add(stride.wrapping_div(2usize))
+            .wrapping_div(stride);
           if count == 0usize {
             count = 1usize;
           }
@@ -389,9 +403,11 @@ pub fn BrotliOptimizeHuffmanCountsForRle(mut length: usize,
         sum = 0usize;
         if i < length.wrapping_sub(2usize) {
           limit = (256u32)
-            .wrapping_mul((counts[(i as (usize))])
-                            .wrapping_add(counts[(i.wrapping_add(1usize) as (usize))])
-                            .wrapping_add(counts[(i.wrapping_add(2usize) as (usize))]))
+            .wrapping_mul(
+              (counts[(i as (usize))])
+                .wrapping_add(counts[(i.wrapping_add(1usize) as (usize))])
+                .wrapping_add(counts[(i.wrapping_add(2usize) as (usize))]),
+            )
             .wrapping_div(3u32)
             .wrapping_add(420u32) as (usize);
         } else if i < length {
@@ -418,11 +434,12 @@ pub fn BrotliOptimizeHuffmanCountsForRle(mut length: usize,
   }
 }
 
-
-pub fn DecideOverRleUse(depth: &[u8],
-                        length: usize,
-                        use_rle_for_non_zero: &mut i32,
-                        use_rle_for_zero: &mut i32) {
+pub fn DecideOverRleUse(
+  depth: &[u8],
+  length: usize,
+  use_rle_for_non_zero: &mut i32,
+  use_rle_for_zero: &mut i32,
+) {
   let mut total_reps_zero: usize = 0usize;
   let mut total_reps_non_zero: usize = 0usize;
   let mut count_reps_zero: usize = 1usize;
@@ -462,8 +479,6 @@ pub fn DecideOverRleUse(depth: &[u8],
   };
 }
 
-
-
 fn Reverse(v: &mut [u8], mut start: usize, mut end: usize) {
   end = end.wrapping_sub(1 as (usize));
   while start < end {
@@ -475,13 +490,14 @@ fn Reverse(v: &mut [u8], mut start: usize, mut end: usize) {
   }
 }
 
-
-fn BrotliWriteHuffmanTreeRepetitions(previous_value: u8,
-                                     value: u8,
-                                     mut repetitions: usize,
-                                     tree_size: &mut usize,
-                                     tree: &mut [u8],
-                                     extra_bits_data: &mut [u8]) {
+fn BrotliWriteHuffmanTreeRepetitions(
+  previous_value: u8,
+  value: u8,
+  mut repetitions: usize,
+  tree_size: &mut usize,
+  tree: &mut [u8],
+  extra_bits_data: &mut [u8],
+) {
   0i32;
   if previous_value as (i32) != value as (i32) {
     tree[(*tree_size as (usize))] = value;
@@ -526,11 +542,12 @@ fn BrotliWriteHuffmanTreeRepetitions(previous_value: u8,
   }
 }
 
-
-fn BrotliWriteHuffmanTreeRepetitionsZeros(mut repetitions: usize,
-                                          tree_size: &mut usize,
-                                          tree: &mut [u8],
-                                          extra_bits_data: &mut [u8]) {
+fn BrotliWriteHuffmanTreeRepetitionsZeros(
+  mut repetitions: usize,
+  tree_size: &mut usize,
+  tree: &mut [u8],
+  extra_bits_data: &mut [u8],
+) {
   if repetitions == 11usize {
     tree[(*tree_size as (usize))] = 0i32 as (u8);
     extra_bits_data[(*tree_size as (usize))] = 0i32 as (u8);
@@ -568,12 +585,13 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(mut repetitions: usize,
   }
 }
 
-
-pub fn BrotliWriteHuffmanTree(depth: &[u8],
-                              length: usize,
-                              tree_size: &mut usize,
-                              tree: &mut [u8],
-                              extra_bits_data: &mut [u8]) {
+pub fn BrotliWriteHuffmanTree(
+  depth: &[u8],
+  length: usize,
+  tree_size: &mut usize,
+  tree: &mut [u8],
+  extra_bits_data: &mut [u8],
+) {
   let mut previous_value: u8 = 8i32 as (u8);
   let mut i: usize;
   let mut use_rle_for_non_zero: i32 = 0i32;
@@ -591,17 +609,20 @@ pub fn BrotliWriteHuffmanTree(depth: &[u8],
     i = i.wrapping_add(1 as (usize));
   }
   if length > 50usize {
-    DecideOverRleUse(depth,
-                     new_length,
-                     &mut use_rle_for_non_zero,
-                     &mut use_rle_for_zero);
+    DecideOverRleUse(
+      depth,
+      new_length,
+      &mut use_rle_for_non_zero,
+      &mut use_rle_for_zero,
+    );
   }
   i = 0usize;
   while i < new_length {
     let value: u8 = depth[(i as (usize))];
     let mut reps: usize = 1usize;
-    if value as (i32) != 0i32 && (use_rle_for_non_zero != 0) ||
-       value as (i32) == 0i32 && (use_rle_for_zero != 0) {
+    if value as (i32) != 0i32 && (use_rle_for_non_zero != 0)
+      || value as (i32) == 0i32 && (use_rle_for_zero != 0)
+    {
       let mut k: usize;
       k = i.wrapping_add(1usize);
       while k < new_length && (depth[(k as (usize))] as (i32) == value as (i32)) {
@@ -614,24 +635,25 @@ pub fn BrotliWriteHuffmanTree(depth: &[u8],
     if value as (i32) == 0i32 {
       BrotliWriteHuffmanTreeRepetitionsZeros(reps, tree_size, tree, extra_bits_data);
     } else {
-      BrotliWriteHuffmanTreeRepetitions(previous_value,
-                                        value,
-                                        reps,
-                                        tree_size,
-                                        tree,
-                                        extra_bits_data);
+      BrotliWriteHuffmanTreeRepetitions(
+        previous_value,
+        value,
+        reps,
+        tree_size,
+        tree,
+        extra_bits_data,
+      );
       previous_value = value;
     }
     i = i.wrapping_add(reps);
   }
 }
 
-
-
 fn BrotliReverseBits(num_bits: usize, mut bits: u16) -> u16 {
-  static kLut: [usize; 16] = [0x0usize, 0x8usize, 0x4usize, 0xcusize, 0x2usize, 0xausize,
-                              0x6usize, 0xeusize, 0x1usize, 0x9usize, 0x5usize, 0xdusize,
-                              0x3usize, 0xbusize, 0x7usize, 0xfusize];
+  static kLut: [usize; 16] = [
+    0x0usize, 0x8usize, 0x4usize, 0xcusize, 0x2usize, 0xausize, 0x6usize, 0xeusize, 0x1usize,
+    0x9usize, 0x5usize, 0xdusize, 0x3usize, 0xbusize, 0x7usize, 0xfusize,
+  ];
   let mut retval: usize = kLut[(bits as (i32) & 0xfi32) as (usize)];
   let mut i: usize;
   i = 4usize;
@@ -649,7 +671,7 @@ fn BrotliReverseBits(num_bits: usize, mut bits: u16) -> u16 {
 const MAX_HUFFMAN_BITS: usize = 16;
 pub fn BrotliConvertBitDepthsToSymbols(depth: &[u8], len: usize, bits: &mut [u16]) {
   /* In Brotli, all bit depths are [1..15]
-     0 bit depth means that the symbol does not exist. */
+  0 bit depth means that the symbol does not exist. */
 
   let mut bl_count: [u16; MAX_HUFFMAN_BITS] = [0; MAX_HUFFMAN_BITS];
   let mut next_code: [u16; MAX_HUFFMAN_BITS] = [0; MAX_HUFFMAN_BITS];
