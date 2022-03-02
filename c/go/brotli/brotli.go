@@ -7,6 +7,19 @@ package brotli
 #include "brotli/decode.h"
 #include "brotli/broccoli.h"
 #include "brotli/multiencode.h"
+
+
+static BROTLI_BOOL BrCompressStream(BrotliEncoderState* s,
+                                    BrotliEncoderOperation op,
+                                            size_t *avail_in,
+                                            const uint8_t* in,
+                                            size_t *avail_out,
+                                            uint8_t* out,
+                                            size_t* total_bytes_written) {
+  return BrotliEncoderCompressStream(
+      s, op, avail_in, &in, avail_out, &out, NULL);
+}
+
 static BrotliDecoderResult BrDecompressStream(BrotliDecoderState* s,
                                             size_t *avail_in,
                                             const uint8_t* in,
@@ -36,6 +49,10 @@ import (
 	"io"
 	"unsafe"
 )
+
+const BROTLI_OPERATION_PROCESS = 0
+const BROTLI_OPERATION_FLUSH = 1
+const BROTLI_OPERATION_FINISH = 2
 
 type CompressionOptions struct {
 	NumThreads                    int
@@ -69,6 +86,10 @@ type MultiCompressionReader struct {
 	upstream io.Reader
 }
 
+/**
+ * Make a Reader that absorbs the whole upstream reader and then
+ * compresses the entire file at once using as many threads as specified.
+ */
 func NewMultiCompressionReader(
 	upstream io.Reader,
 	options CompressionOptions,
@@ -132,8 +153,110 @@ func (mself *MultiCompressionReader) Read(data []byte) (int, error) {
 	return toCopy, nil
 }
 
-func makeCompressionOptionsStreams(options CompressionOptions,
-) (*C.BrotliEncoderParameter, *C.uint32_t, C.size_t) {
+type CompressionReader struct {
+	upstream   io.Reader
+	state      *C.BrotliEncoderState
+	buffer     [BufferSize]byte
+	validStart int
+	validEnd   int
+	eof        bool
+}
+
+/**
+ * Make a Reader that incrementally compresses data as it receives that
+ * data from the upstream
+ */
+func NewCompressionReader(upstream io.Reader, options CompressionOptions) *CompressionReader {
+	state := C.BrotliEncoderCreateInstance(nil, nil, nil)
+	params, values := makeCompressionOptionsSlices(options)
+	for index, param := range params {
+		C.BrotliEncoderSetParameter(state, param, values[index])
+	}
+	return &CompressionReader{
+		upstream: upstream,
+		state:    state,
+	}
+}
+
+func (mself *CompressionReader) Close() error {
+	if mself.state != nil {
+		C.BrotliEncoderDestroyInstance(mself.state)
+		mself.state = nil
+	}
+	if closer, ok := mself.upstream.(io.ReadCloser); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
+func (mself *CompressionReader) populateBuffer() error {
+	for mself.validStart == mself.validEnd && !mself.eof {
+		var err error
+		mself.validEnd, err = mself.upstream.Read(mself.buffer[:])
+		mself.validStart = 0
+		if err != nil {
+			if err == io.EOF {
+				mself.eof = true
+				break
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func (mself *CompressionReader) Read(data []byte) (int, error) {
+	if mself.state == nil {
+		return 0, io.EOF
+	}
+	if len(data) == 0 {
+		return 0, nil
+	}
+	for {
+		err := mself.populateBuffer()
+		if err != nil {
+			return 0, err
+		}
+		avail_in := C.size_t(mself.validEnd - mself.validStart)
+		next_in := &mself.buffer[0]
+		if avail_in != 0 {
+			next_in = &mself.buffer[mself.validStart]
+		}
+		avail_out := C.size_t(len(data))
+		next_out := &data[0]
+		var op C.BrotliEncoderOperation = BROTLI_OPERATION_PROCESS
+		if mself.eof {
+			op = BROTLI_OPERATION_FINISH
+		}
+		ret := C.BrCompressStream(
+			mself.state,
+			op,
+			&avail_in,
+			(*C.uint8_t)(next_in),
+			&avail_out,
+			(*C.uint8_t)(next_out),
+			nil,
+		)
+		mself.validStart = mself.validEnd - int(avail_in)
+		if ret == 0 {
+			err := errors.New("Error compressing data")
+			C.BrotliEncoderDestroyInstance(mself.state)
+			mself.state = nil
+			return 0, err
+		}
+		if mself.eof && int(avail_out) == len(data) {
+			C.BrotliEncoderDestroyInstance(mself.state)
+			mself.state = nil
+			return 0, io.EOF
+		}
+		if int(avail_out) != len(data) {
+			return len(data) - int(avail_out), nil
+		}
+	}
+}
+
+func makeCompressionOptionsSlices(options CompressionOptions,
+) ([]C.BrotliEncoderParameter, []C.uint32_t) {
 	qualityParams := []C.BrotliEncoderParameter{C.BROTLI_PARAM_QUALITY}
 	values := []C.uint32_t{C.uint32_t(options.Quality)}
 	if options.Quality > 9 && options.Quality < 10 {
@@ -194,8 +317,35 @@ func makeCompressionOptionsStreams(options CompressionOptions,
 		qualityParams = append(qualityParams, C.BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH)
 		values = append(values, 1)
 	}
+	return qualityParams, values
+}
 
+func makeCompressionOptionsStreams(options CompressionOptions,
+) (*C.BrotliEncoderParameter, *C.uint32_t, C.size_t) {
+	qualityParams, values := makeCompressionOptionsSlices(options)
 	return &qualityParams[0], &values[0], C.size_t(len(qualityParams))
+}
+
+type CompressionWriter struct {
+	downstream io.Writer
+	state      *C.BrotliEncoderState
+	buffer     [BufferSize]byte
+}
+
+/**
+ * Make a Writer that incrementally compresses incoming data as it is received.
+ * Can call Flush to force data to be written out
+ */
+func NewCompressionWriter(downstream io.Writer, options CompressionOptions) *CompressionWriter {
+	state := C.BrotliEncoderCreateInstance(nil, nil, nil)
+	params, values := makeCompressionOptionsSlices(options)
+	for index, param := range params {
+		C.BrotliEncoderSetParameter(state, param, values[index])
+	}
+	return &CompressionWriter{
+		downstream: downstream,
+		state:      state,
+	}
 }
 
 type MultiCompressionWriter struct {
@@ -204,6 +354,114 @@ type MultiCompressionWriter struct {
 	downstream io.Writer
 }
 
+func (mself *CompressionWriter) Close() error {
+	err0 := mself.flushOrClose(BROTLI_OPERATION_FINISH)
+	if closer, ok := mself.downstream.(io.WriteCloser); ok {
+		err1 := closer.Close()
+		if err1 != nil {
+			return err1
+		}
+	}
+	return err0
+}
+
+func (mself *CompressionWriter) Flush() error {
+	return mself.flushOrClose(BROTLI_OPERATION_FLUSH)
+}
+
+func (mself *CompressionWriter) flushOrClose(op C.BrotliEncoderOperation) error {
+	if mself.state == nil {
+		return errors.New("Flush or close on closed CompressionWriter")
+	}
+	avail_in := C.size_t(0)
+	for {
+		next_in := (*C.uint8_t)(unsafe.Pointer(&mself.buffer[0])) // only if size == 0, in which case it won't be read
+		avail_out := C.size_t(len(mself.buffer))
+		next_out := &mself.buffer[0]
+		ret := C.BrCompressStream(
+			mself.state,
+			op,
+			&avail_in,
+			(*C.uint8_t)(next_in),
+			&avail_out,
+			(*C.uint8_t)(next_out),
+			nil,
+		)
+		to_copy := C.size_t(len(mself.buffer)) - avail_out
+		if to_copy != 0 {
+			_, err := mself.downstream.Write(mself.buffer[:to_copy])
+			if err != nil {
+				return err
+			}
+		}
+		if ret == 0 {
+			err := errors.New("Error compressing data")
+			C.BrotliEncoderDestroyInstance(mself.state)
+			mself.state = nil
+
+			return err
+		}
+		if to_copy == 0 {
+			break
+		}
+	}
+	if op == BROTLI_OPERATION_FINISH {
+		C.BrotliEncoderDestroyInstance(mself.state)
+		mself.state = nil
+	}
+	return nil
+}
+
+func (mself *CompressionWriter) Write(data []byte) (int, error) {
+	if mself.state == nil {
+		return 0, errors.New("Write on closed CompressionWriter")
+	}
+	if len(data) == 0 {
+		return 0, nil
+	}
+	avail_in := C.size_t(len(data))
+	for {
+		last_start := C.size_t(len(data)) - avail_in
+		next_in := (*C.uint8_t)(unsafe.Pointer(&mself.buffer[0])) // only if size == 0, in which case it won't be read
+		if avail_in != 0 {
+			next_in = (*C.uint8_t)(unsafe.Pointer(&data[last_start]))
+		}
+		avail_out := C.size_t(len(mself.buffer))
+		next_out := &mself.buffer[0]
+		ret := C.BrCompressStream(
+			mself.state,
+			BROTLI_OPERATION_PROCESS,
+			&avail_in,
+			(*C.uint8_t)(next_in),
+			&avail_out,
+			(*C.uint8_t)(next_out),
+			nil,
+		)
+		to_copy := C.size_t(len(mself.buffer)) - avail_out
+		if to_copy != 0 {
+			_, err := mself.downstream.Write(mself.buffer[:to_copy])
+			if err != nil {
+				return int(last_start), err
+			}
+		}
+		if ret == 0 {
+			err := errors.New("Error compressing data")
+			C.BrotliEncoderDestroyInstance(mself.state)
+			mself.state = nil
+
+			return 0, err
+		}
+		if avail_in == 0 {
+			break
+		}
+	}
+	return len(data), nil
+}
+
+/**
+ * Absorb all the data and when close is called, compress that data
+ * on a number of threads equal to options.NumThreads
+ */
 func NewMultiCompressionWriter(
 	downstream io.Writer,
 	options CompressionOptions,

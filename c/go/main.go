@@ -82,10 +82,17 @@ func main() {
 				os.Stdout,
 			)
 		} else {
-			writer = brotli.NewMultiCompressionWriter(
-				os.Stdout,
-				options,
-			)
+			if options.NumThreads == 1 {
+				writer = brotli.NewCompressionWriter(
+					os.Stdout,
+					options,
+				)
+			} else {
+				writer = brotli.NewMultiCompressionWriter(
+					os.Stdout,
+					options,
+				)
+			}
 		}
 		for {
 			var buffer [65536]byte
@@ -114,10 +121,17 @@ func main() {
 				os.Stdin,
 			)
 		} else {
-			reader = brotli.NewMultiCompressionReader(
-				os.Stdin,
-				options,
-			)
+			if options.NumThreads == 1 {
+				reader = brotli.NewCompressionReader(
+					os.Stdin,
+					options,
+				)
+			} else {
+				reader = brotli.NewMultiCompressionReader(
+					os.Stdin,
+					options,
+				)
+			}
 		}
 		for {
 			var buffer [65536]byte
