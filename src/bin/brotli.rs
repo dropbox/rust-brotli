@@ -524,7 +524,15 @@ fn main() {
           use_work_pool = false;
           continue;
       }
-      
+      if (argument == "-bytealign" || argument == "--bytealign") && !double_dash {
+          params.byte_align = true;
+          continue;
+      }
+      if (argument == "-bare" || argument == "--bare") && !double_dash {
+          params.bare_stream = true;
+          params.byte_align = true;
+          continue;
+      }
       if (argument == "-appendable" || argument == "--appendable") && !double_dash {
           params.appendable = true;
           continue;
@@ -745,6 +753,14 @@ fn main() {
          continue;
       }
       panic!("Unknown Argument {:}", argument);
+   }
+   if params.bare_stream && !params.appendable {
+      println_stderr!("bare streams only supported when catable or appendable!");
+      return;
+   }
+   if params.byte_align && !params.appendable {
+      println_stderr!("byte aligned streams only supported when catable or appendable!");
+      return;
    }
    if filenames[0] != "" {
       let mut input = match File::open(&Path::new(&filenames[0])) {

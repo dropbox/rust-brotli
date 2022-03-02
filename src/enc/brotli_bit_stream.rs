@@ -2765,16 +2765,49 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>
   }
 }
 
-
 pub fn BrotliStoreSyncMetaBlock(storage_ix: &mut usize, storage: &mut [u8]) {
-  BrotliWriteBits(6, 6, storage_ix, storage);
+  BrotliWriteBits(6u8, 6u64, storage_ix, storage);
   JumpToByteBoundary(storage_ix, storage);
+}
+
+pub fn BrotliWritePaddingMetaBlock(storage_ix: &mut usize, storage: &mut [u8]) {
+  if *storage_ix & 7 != 0 {
+    BrotliWriteBits(6u8, 6u64, storage_ix, storage);
+    JumpToByteBoundary(storage_ix, storage);
+  }
 }
 
 pub fn BrotliWriteEmptyLastMetaBlock(storage_ix: &mut usize, storage: &mut [u8]) {
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     BrotliWriteBits(1u8, 1u64, storage_ix, storage);
     JumpToByteBoundary(storage_ix, storage);
+}
+
+pub fn BrotliWriteRawMetadataMetaBlock(storage_ix: &mut usize, storage: &mut [u8], len: usize, data: &mut [u8]) {
+    BrotliWriteBits(1u8, 0u64, storage_ix, storage); // not last
+    BrotliWriteBits(2u8, 3u64, storage_ix, storage); // MNIBBLES = 0 (pattern 1,1)
+    BrotliWriteBits(1u8, 0u64, storage_ix, storage); // reserved
+    if len > 16777215 {
+        panic!("metadata too large");
+    } else if len > 65535 {
+        BrotliWriteBits(2u8, 3u64, storage_ix, storage);
+        BrotliWriteBits(8u8, ((len >> 16) & 255) as u64, storage_ix, storage);
+        BrotliWriteBits(8u8, ((len >> 8) & 255) as u64, storage_ix, storage);
+        BrotliWriteBits(8u8, (len & 255) as u64, storage_ix, storage);
+    } else if len > 255 {
+        BrotliWriteBits(2u8, 2u64, storage_ix, storage);
+        BrotliWriteBits(8u8, ((len >> 8) & 255) as u64, storage_ix, storage);
+        BrotliWriteBits(8u8, (len & 255) as u64, storage_ix, storage);
+    } else if len == 0 {
+        BrotliWriteBits(2u8, 0u64, storage_ix, storage);
+    } else {
+        BrotliWriteBits(2u8, 1u64, storage_ix, storage);
+        BrotliWriteBits(8u8, (len & 255) as u64, storage_ix, storage);
+    }
+    JumpToByteBoundary(storage_ix, storage);
+    for index in 0..len {
+        BrotliWriteBits(8u8, data[index] as u64, storage_ix, storage);
+    }
 }
 
 const MAX_SIZE_ENCODING:usize = 10;
