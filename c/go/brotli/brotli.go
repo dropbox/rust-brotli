@@ -69,6 +69,7 @@ type CompressionOptions struct {
 	NumPostfix                    uint32
 	LiteralByteScore              uint32
 	AvoidDistancePrefixSearch     bool
+	MaxBytesBeforeFlush           int
 }
 
 func BrotliEncoderVersion() uint32 {
@@ -327,9 +328,11 @@ func makeCompressionOptionsStreams(options CompressionOptions,
 }
 
 type CompressionWriter struct {
-	downstream io.Writer
-	state      *C.BrotliEncoderState
-	buffer     [BufferSize]byte
+	downstream                  io.Writer
+	state                       *C.BrotliEncoderState
+	buffer                      [BufferSize]byte
+	bytesWrittenSinceLastOutput int
+	maxBytesBeforeFlush         int
 }
 
 /**
@@ -343,15 +346,10 @@ func NewCompressionWriter(downstream io.Writer, options CompressionOptions) *Com
 		C.BrotliEncoderSetParameter(state, param, values[index])
 	}
 	return &CompressionWriter{
-		downstream: downstream,
-		state:      state,
+		downstream:          downstream,
+		state:               state,
+		maxBytesBeforeFlush: options.MaxBytesBeforeFlush,
 	}
-}
-
-type MultiCompressionWriter struct {
-	options    CompressionOptions
-	buffer     []byte
-	downstream io.Writer
 }
 
 func (mself *CompressionWriter) Close() error {
@@ -393,6 +391,7 @@ func (mself *CompressionWriter) flushOrClose(op C.BrotliEncoderOperation) error 
 			if err != nil {
 				return err
 			}
+			mself.bytesWrittenSinceLastOutput = 0
 		}
 		if ret == 0 {
 			err := errors.New("Error compressing data")
@@ -419,6 +418,7 @@ func (mself *CompressionWriter) Write(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
+	mself.bytesWrittenSinceLastOutput += len(data)
 	avail_in := C.size_t(len(data))
 	for {
 		last_start := C.size_t(len(data)) - avail_in
@@ -443,6 +443,7 @@ func (mself *CompressionWriter) Write(data []byte) (int, error) {
 			if err != nil {
 				return int(last_start), err
 			}
+			mself.bytesWrittenSinceLastOutput = 0
 		}
 		if ret == 0 {
 			err := errors.New("Error compressing data")
@@ -455,7 +456,18 @@ func (mself *CompressionWriter) Write(data []byte) (int, error) {
 			break
 		}
 	}
+	if mself.maxBytesBeforeFlush != 0 {
+		if mself.bytesWrittenSinceLastOutput >= mself.maxBytesBeforeFlush {
+			return len(data), mself.Flush()
+		}
+	}
 	return len(data), nil
+}
+
+type MultiCompressionWriter struct {
+	options    CompressionOptions
+	buffer     []byte
+	downstream io.Writer
 }
 
 /**

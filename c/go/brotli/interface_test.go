@@ -118,6 +118,118 @@ func helpTestCompressRoundtrip(t *testing.T, useMultiWriter bool) {
 	}
 }
 
+func TestCompressFlushRoundtrip(t *testing.T) {
+	tmp := testData()
+	data := tmp[:len(tmp)-17]
+	outBuffer := bytes.NewBuffer(nil)
+	var options = CompressionOptions{
+		NumThreads: 1,
+		Quality:    9,
+		Catable:    true,
+		Appendable: true,
+		Magic:      true,
+	}
+	writer := NewCompressionWriter(
+		NewDecompressionWriter(
+			outBuffer,
+		),
+		options,
+	)
+	hasFlushed := false
+	delta := 15
+	for dataIndex := 0; dataIndex < len(data); dataIndex += delta {
+		end := dataIndex + delta
+		if end > len(data) {
+			end = len(data)
+		}
+		_, err := writer.Write(data[dataIndex:end])
+		if err != nil {
+			panic(err)
+		}
+		if dataIndex%255 == 0 {
+			err = writer.Flush()
+			hasFlushed = true
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+	if !hasFlushed {
+		panic("test didn't trigger flush")
+	}
+	err := writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
+}
+
+type CounterWriteCloser struct {
+	downstream io.WriteCloser
+	count      int
+}
+
+func (mself *CounterWriteCloser) Write(data []byte) (int, error) {
+	mself.count += len(data)
+	return mself.downstream.Write(data)
+}
+func (mself *CounterWriteCloser) Close() error {
+	return mself.downstream.Close()
+}
+func TestCompressAutoFlushRoundtrip(t *testing.T) {
+	tmp := testData()
+	data := tmp[:len(tmp)-17]
+	outBuffer := bytes.NewBuffer(nil)
+	var options = CompressionOptions{
+		NumThreads:          1,
+		Quality:             9,
+		Catable:             true,
+		Appendable:          true,
+		Magic:               true,
+		MaxBytesBeforeFlush: 255,
+	}
+	counterWriter := &CounterWriteCloser{NewDecompressionWriter(
+		outBuffer,
+	), 0}
+	writer := NewCompressionWriter(
+		counterWriter,
+		options,
+	)
+	delta := 15
+	lastDownstreamWriteCount := -1
+	for dataIndex := 0; dataIndex < len(data); dataIndex += delta {
+		end := dataIndex + delta
+		if end > len(data) {
+			end = len(data)
+		}
+		_, err := writer.Write(data[dataIndex:end])
+		if err != nil {
+			panic(err)
+		}
+		if dataIndex%255 == 0 {
+			if lastDownstreamWriteCount == counterWriter.count {
+				panic("Did not successfully flush between last write and 255 bytes")
+			}
+			lastDownstreamWriteCount = counterWriter.count
+		}
+	}
+	err := writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	if len(outBuffer.Bytes()) == 0 {
+		panic("Zero output buffer")
+	}
+	if !bytes.Equal(outBuffer.Bytes(), data[:]) {
+		panic(fmt.Sprintf("Bytes not equal %d, %d", len(outBuffer.Bytes()), len(data)))
+	}
+}
+
 func TestCompressRoundtripMulti(*testing.T) {
 	tmp := testData()
 	data := tmp[:len(tmp)-17]
