@@ -43,17 +43,17 @@ pub enum BrotliEncoderMode {
 
 #[derive(Clone,Copy, Debug, PartialEq)]
 pub struct BrotliHasherParams {
-  // type of hasher to use (default: type 6, but others have tradeoffs of speed/memory)
+  /// type of hasher to use (default: type 6, but others have tradeoffs of speed/memory)
   pub type_: i32,
-  // number of the number of buckets to have in the hash table (defaults to quality - 1)
+  /// number of the number of buckets to have in the hash table (defaults to quality - 1)
   pub bucket_bits: i32,
-  // number of potential matches to hold per bucket (hash collisions)
+  /// number of potential matches to hold per bucket (hash collisions)
   pub block_bits: i32,
-  // number of bytes of a potential match to hash
+  /// number of bytes of a potential match to hash
   pub hash_len: i32,
-  // number of previous distance matches to check for future matches (defaults to 16)
+  /// number of previous distance matches to check for future matches (defaults to 16)
   pub num_last_distances_to_check: i32,
-  // how much to weigh distance vs an extra byte of copy match when comparing possible copy srcs
+  /// how much to weigh distance vs an extra byte of copy match when comparing possible copy srcs
   pub literal_byte_score: i32,
 }
 
@@ -61,46 +61,49 @@ pub struct BrotliHasherParams {
 #[derive(Clone, Debug)]
 pub struct BrotliEncoderParams {
   pub dist: BrotliDistanceParams,
-  // if this brotli file is generic, font or specifically text
+  /// if this brotli file is generic, font or specifically text
   pub mode: BrotliEncoderMode,
-  // quality param between 0 and 11 (11 is smallest but takes longest to encode)
+  /// quality param between 0 and 11 (11 is smallest but takes longest to encode)
   pub quality: i32,
   pub q9_5: bool,
-  // log of how big the ring buffer should be for copying prior data
+  /// log of how big the ring buffer should be for copying prior data
   pub lgwin: i32,
-  // log of how often metablocks should be serialized
+  /// log of how often metablocks should be serialized
   pub lgblock: i32,
-  // how big the source file is (or 0 if no hint is provided)
+  /// how big the source file is (or 0 if no hint is provided)
   pub size_hint: usize,
-  // avoid serializing out priors for literal sections in the favor of decode speed
+  /// avoid serializing out priors for literal sections in the favor of decode speed
   pub disable_literal_context_modeling: i32,
   pub hasher: BrotliHasherParams,
-  // produce an IR of the compression file
+  /// produce an IR of the compression file
   pub log_meta_block: bool,
-  // attempt to detect how many bytes before the current byte generates the best prediction of it
-  pub stride_detection_quality: u8, // 0 = off (stride 1 always) 1 = on per 16th of a file 2 = on per block type switch
-  // if nonzero, will search for high entropy strings and log them differently to the IR
-  pub high_entropy_detection_quality: u8, // search for high entropy literal strings and annotate them differently
-  // if nonzero it will search for the temporal locality and effectiveness of the priors
-  // for literals. The best adaptation and forgetfulness will be logged per metablock to the IR
+  /// attempt to detect how many bytes before the current byte generates the best prediction of it
+  /// * 0 = off (stride 1 always)
+  /// * 1 = on per 16th of a file
+  /// * 2 = on per block type switch
+  pub stride_detection_quality: u8,
+  /// if nonzero, will search for high entropy strings and log them differently to the IR
+  pub high_entropy_detection_quality: u8,
+  /// if nonzero it will search for the temporal locality and effectiveness of the priors
+  /// for literals. The best adaptation and forgetfulness will be logged per metablock to the IR
   pub cdf_adaptation_detection: u8,
-  // whether to search for whether the previous byte or the context_map are better predictors on a per-context-map basis
+  /// whether to search for whether the previous byte or the context_map are better predictors on a per-context-map basis
   pub prior_bitmask_detection: u8,
-  // for prior bitmask detection: stride_low, stride_speed, cm_low, cm_speed
+  /// for prior bitmask detection: stride_low, stride_speed, cm_low, cm_speed
   pub literal_adaptation:[(u16, u16); 4],
   pub large_window: bool,
-  // avoid search for the best ndirect vs npostfix parameters for distance
+  /// avoid search for the best ndirect vs npostfix parameters for distance
   pub avoid_distance_prefix_search: bool,
-  // construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
+  /// construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
   pub catable: bool,
-  // can use the dictionary (default yes unless catable is set)
+  /// can use the dictionary (default yes unless catable is set)
   pub use_dictionary: bool,
-  // construct brotli in such a way that another concatable brotli file may be appended
+  /// construct brotli in such a way that another concatable brotli file may be appended
   pub appendable: bool,
-  // include a magic number and version number and size_hint at the beginning
+  /// include a magic number and version number and size_hint at the beginning
   pub magic_number: bool,
-  // prefer to compute the map of previously seen strings
-  // just once for all the threads at the beginning, since they overlap significantly
+  /// prefer to compute the map of previously seen strings
+  /// just once for all the threads at the beginning, since they overlap significantly
   pub favor_cpu_efficiency: bool,
 }
 
