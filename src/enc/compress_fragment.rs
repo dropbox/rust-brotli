@@ -945,7 +945,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
                    mlen_storage_ix,
                    storage);
         code_block_selection = CodeBlockState::EMIT_COMMANDS;
-        continue 'continue_to_next_block;;
+        continue 'continue_to_next_block;
       }
       if next_emit < ip_end {
         let insert: usize = ip_end.wrapping_sub(next_emit);
