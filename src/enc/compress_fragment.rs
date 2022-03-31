@@ -712,7 +712,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
                   storage_ix,
                   storage);
   let mut code_block_selection: CodeBlockState = CodeBlockState::EMIT_COMMANDS;
-  loop {
+  'continue_to_next_block: loop {
     let mut ip_index: usize;
     if code_block_selection == CodeBlockState::EMIT_COMMANDS {
       cmd_histo[..128].clone_from_slice(&kCmdHistoSeed[..]);
@@ -806,7 +806,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
               input_index = base;
               next_emit = input_index;
               code_block_selection = CodeBlockState::NEXT_BLOCK;
-              break;
+              continue 'continue_to_next_block;
             } else {
               EmitLongInsertLen(insert,
                                 cmd_depth,
@@ -849,7 +849,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
             next_emit = ip_index;
             if ip_index >= ip_limit {
               code_block_selection = CodeBlockState::EMIT_REMAINDER;
-              break;
+              continue 'continue_to_next_block;
             }
             {
               assert!(ip_index >= 3);
@@ -896,7 +896,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
             next_emit = ip_index;
             if ip_index >= ip_limit {
               code_block_selection = CodeBlockState::EMIT_REMAINDER;
-              break;
+              continue 'continue_to_next_block;
             }
             {
               assert!(ip_index >= 3);
@@ -929,7 +929,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
         }
       }
       code_block_selection = CodeBlockState::EMIT_REMAINDER;
-      continue;
+      continue 'continue_to_next_block;
     } else if code_block_selection as i32 == CodeBlockState::EMIT_REMAINDER as i32 {
       input_index = input_index.wrapping_add(block_size);
       input_size = input_size.wrapping_sub(block_size);
@@ -945,7 +945,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
                    mlen_storage_ix,
                    storage);
         code_block_selection = CodeBlockState::EMIT_COMMANDS;
-        continue;
+        continue 'continue_to_next_block;;
       }
       if next_emit < ip_end {
         let insert: usize = ip_end.wrapping_sub(next_emit);
@@ -987,6 +987,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
       }
       next_emit = ip_end;
       code_block_selection = CodeBlockState::NEXT_BLOCK;
+      continue 'continue_to_next_block;
     } else if code_block_selection as i32 == CodeBlockState::NEXT_BLOCK as i32 {
       if input_size > 0 {
         metablock_start = input_index;
@@ -1008,7 +1009,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT:alloc::Allocator<HuffmanTree>>(m: &mut
                                        storage_ix,
                                        storage);
         code_block_selection = CodeBlockState::EMIT_COMMANDS;
-        continue;
+        continue 'continue_to_next_block;
       }
       break;
     }
