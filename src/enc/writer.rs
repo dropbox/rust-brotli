@@ -2,7 +2,8 @@
 use core;
 use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
                     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
-                    BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
+                    BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished,
+                    BrotliEncoderHasMoreOutput};
 use super::backward_references::BrotliEncoderParams;
 use brotli_decompressor::CustomWrite;
 use super::interface;
@@ -207,6 +208,9 @@ CompressorWriterCustomIo<ErrType, W, BufferType, Alloc>
               return Err(self.error_if_invalid_data.take().unwrap());
            }
            if let BrotliEncoderOperation::BROTLI_OPERATION_FLUSH = op {
+              if BrotliEncoderHasMoreOutput(&mut self.state) != 0 {
+                 continue;
+              }
               return Ok(());
            }
            if BrotliEncoderIsFinished(&mut self.state) != 0 {
