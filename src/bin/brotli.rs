@@ -663,10 +663,6 @@ fn main() {
           buffer_size = argument.trim_matches('-').trim_matches('b').trim_matches('s').trim_matches('=').parse::<usize>().unwrap();
           continue;
       }
-      if argument.starts_with("-l") && !double_dash {
-          params.lgblock = argument.trim_matches('-').trim_matches('l').parse::<i32>().unwrap();
-          continue;
-      }
       if argument.starts_with("-findprior") && !double_dash {
           params.prior_bitmask_detection = 1;
           continue;
