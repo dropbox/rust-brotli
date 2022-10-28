@@ -82,7 +82,7 @@ impl<'a, InputType:Read+'a> Read for ShaReader<'a, InputType> {
         match self.reader.read(data) {
             Err(e) => Err(e),
             Ok(size) => {
-                self.checksum.input(&data[..size]);
+                self.checksum.update(&data[..size]);
                 Ok(size)
             },
         }
@@ -99,8 +99,8 @@ fn make_sha_reader<InputType:Read>(r:&mut InputType) -> ShaReader<InputType> {
 #[cfg(feature="validation")]
 fn sha_ok<InputType:Read>(writer: &mut ShaWriter, reader: &mut ShaReader<InputType>) -> bool {
     core::mem::replace(&mut writer.0,
-                       Checksum::default()).result() == core::mem::replace(&mut reader.checksum,
-                                                                           Checksum::default()).result()
+                       Checksum::default()).finalize() == core::mem::replace(&mut reader.checksum,
+                                                                           Checksum::default()).finalize()
 }
 #[cfg(feature="validation")]
 #[derive(Default)]
@@ -108,7 +108,7 @@ struct ShaWriter(Checksum);
 #[cfg(feature="validation")]
 impl Write for ShaWriter {
     fn write(&mut self, data:&[u8]) -> Result<usize, io::Error> {
-        self.0.input(data);
+        self.0.update(data);
         Ok(data.len())
     }
     fn flush(&mut self) -> Result<(), io::Error> {
