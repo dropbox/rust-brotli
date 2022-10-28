@@ -30,7 +30,7 @@ incremental=false
 "brotli-decompressor" = {version="~2.3", default-features=false}
 "alloc-stdlib" = {version="~0.2", optional=true}
 "packed_simd_2" = {version="0.3", optional=true}
-"sha2" = {version="~0.8", optional=true}
+"sha2" = {version="~0.10", optional=true}
 
 [features]
 default=["std", "ffi-api"]
