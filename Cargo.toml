@@ -32,6 +32,9 @@ incremental=false
 "packed_simd_2" = {version="0.3", optional=true}
 "sha2" = {version="~0.8", optional=true}
 
+[build-dependencies]
+man = "0.3.0"
+
 [features]
 default=["std", "ffi-api"]
 validation=["sha2"]
