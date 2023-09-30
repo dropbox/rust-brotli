@@ -1161,7 +1161,7 @@ pub fn HasherSetup<Alloc:alloc::Allocator<u16> + alloc::Allocator<u32>>(m16: &mu
       HowPrepared::ALREADY_PREPARED => {}
       HowPrepared::NEWLY_PREPARED => {
         if position == 0usize {
-          let mut common = handle.GetHasherCommon();
+          let common = handle.GetHasherCommon();
           (*common).dict_num_lookups = 0usize;
           (*common).dict_num_matches = 0usize;
         }
