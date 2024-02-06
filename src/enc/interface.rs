@@ -1,9 +1,9 @@
+use super::histogram;
+pub use super::input_pair::{InputPair, InputReference, InputReferenceMut};
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
-use alloc::{SliceWrapper, Allocator, SliceWrapperMut};
-pub use super::input_pair::{InputPair,InputReference, InputReferenceMut};
-use super::histogram;
-#[derive(Debug,Copy,Clone,Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct BlockSwitch(pub u8);
 // Commands that can instantiate as a no-op should implement this.
 pub trait Nop<T> {
@@ -21,7 +21,7 @@ impl BlockSwitch {
     }
 }
 
-#[derive(Debug,Copy,Clone,Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct LiteralBlockSwitch(pub BlockSwitch, pub u8);
 
 impl LiteralBlockSwitch {
@@ -79,13 +79,13 @@ impl LiteralPredictionModeNibble {
         LiteralPredictionModeNibble(LITERAL_PREDICTION_MODE_LSB6)
     }
     #[inline(always)]
-    pub fn to_context_enum(&self) -> Result<histogram::ContextType, ()>{
+    pub fn to_context_enum(&self) -> Result<histogram::ContextType, ()> {
         match self.0 {
-          LITERAL_PREDICTION_MODE_LSB6 => Ok(histogram::ContextType::CONTEXT_LSB6),
-          LITERAL_PREDICTION_MODE_MSB6 => Ok(histogram::ContextType::CONTEXT_MSB6),
-          LITERAL_PREDICTION_MODE_UTF8 => Ok(histogram::ContextType::CONTEXT_UTF8),
-          LITERAL_PREDICTION_MODE_SIGN => Ok(histogram::ContextType::CONTEXT_SIGNED),
-          _ => Err(()),
+            LITERAL_PREDICTION_MODE_LSB6 => Ok(histogram::ContextType::CONTEXT_LSB6),
+            LITERAL_PREDICTION_MODE_MSB6 => Ok(histogram::ContextType::CONTEXT_MSB6),
+            LITERAL_PREDICTION_MODE_UTF8 => Ok(histogram::ContextType::CONTEXT_UTF8),
+            LITERAL_PREDICTION_MODE_SIGN => Ok(histogram::ContextType::CONTEXT_SIGNED),
+            _ => Err(()),
         }
     }
 }
@@ -96,36 +96,43 @@ pub const RESERVED_OFFSET: usize = 3;
 pub const ADV_CONTEXT_MAP_OFFSET: usize = 2;
 pub const MIXING_MATH_OFFSET: usize = 1;
 pub const PREDMODE_OFFSET: usize = 0;
-pub const MIXING_OFFSET:usize = NUM_PREDMODE_SETUP_VALUES + PREDMODE_OFFSET;
+pub const MIXING_OFFSET: usize = NUM_PREDMODE_SETUP_VALUES + PREDMODE_OFFSET;
 pub const SPEED_OFFSET: usize = MIXING_OFFSET + NUM_MIXING_VALUES;
 pub const DISTANCE_CONTEXT_MAP_OFFSET: usize = SPEED_OFFSET + NUM_SPEED_VALUES;
-pub const MAX_PREDMODE_SPEED_AND_DISTANCE_CONTEXT_MAP_SIZE: usize = DISTANCE_CONTEXT_MAP_OFFSET + 256 * 4;
+pub const MAX_PREDMODE_SPEED_AND_DISTANCE_CONTEXT_MAP_SIZE: usize =
+    DISTANCE_CONTEXT_MAP_OFFSET + 256 * 4;
 pub const MAX_LITERAL_CONTEXT_MAP_SIZE: usize = 256 * 64;
 pub const MAX_ADV_LITERAL_CONTEXT_MAP_SIZE: usize = 256 * 64 * 2;
 #[derive(Debug)]
-pub struct PredictionModeContextMap<SliceType:SliceWrapper<u8>> {
+pub struct PredictionModeContextMap<SliceType: SliceWrapper<u8>> {
     pub literal_context_map: SliceType,
     pub predmode_speed_and_distance_context_map: SliceType,
 }
-impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<SliceType> {
+impl<SliceType: SliceWrapper<u8> + SliceWrapperMut<u8>> PredictionModeContextMap<SliceType> {
     #[inline]
     pub fn distance_context_map_mut(&mut self) -> &mut [u8] {
-        self.predmode_speed_and_distance_context_map.slice_mut().split_at_mut(DISTANCE_CONTEXT_MAP_OFFSET).1
+        self.predmode_speed_and_distance_context_map
+            .slice_mut()
+            .split_at_mut(DISTANCE_CONTEXT_MAP_OFFSET)
+            .1
     }
     #[inline]
-    pub fn set_stride_context_speed(&mut self, speed_max: [(u16, u16);2]) {
+    pub fn set_stride_context_speed(&mut self, speed_max: [(u16, u16); 2]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
         for high in 0..2 {
-          cm_slice[Self::stride_context_speed_offset()+high] = Self::u16_to_f8(speed_max[high].0);
-          cm_slice[Self::stride_context_speed_max_offset()+high] = Self::u16_to_f8(speed_max[high].1);
+            cm_slice[Self::stride_context_speed_offset() + high] =
+                Self::u16_to_f8(speed_max[high].0);
+            cm_slice[Self::stride_context_speed_max_offset() + high] =
+                Self::u16_to_f8(speed_max[high].1);
         }
     }
     #[inline]
-    pub fn set_context_map_speed(&mut self, speed_max: [(u16, u16);2]) {
+    pub fn set_context_map_speed(&mut self, speed_max: [(u16, u16); 2]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
         for high in 0..2 {
-          cm_slice[Self::context_map_speed_offset()+high] = Self::u16_to_f8(speed_max[high].0);
-          cm_slice[Self::context_map_speed_max_offset()+high] = Self::u16_to_f8(speed_max[high].1);
+            cm_slice[Self::context_map_speed_offset() + high] = Self::u16_to_f8(speed_max[high].0);
+            cm_slice[Self::context_map_speed_max_offset() + high] =
+                Self::u16_to_f8(speed_max[high].1);
         }
     }
     pub fn set_mixing_math(&mut self, math_enum: u8) {
@@ -139,7 +146,8 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
     #[inline]
     pub fn set_mixing_values(&mut self, mixing_mask: &[u8; NUM_MIXING_VALUES]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
-        cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)].clone_from_slice(&mixing_mask[..]);
+        cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
+            .clone_from_slice(&mixing_mask[..]);
     }
     #[inline]
     pub fn get_mixing_values_mut(&mut self) -> &mut [u8] {
@@ -147,11 +155,13 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
         &mut cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
     }
     #[inline]
-    pub fn set_combined_stride_context_speed(&mut self, speed_max: [(u16, u16);2]) {
+    pub fn set_combined_stride_context_speed(&mut self, speed_max: [(u16, u16); 2]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
         for high in 0..2 {
-          cm_slice[Self::combined_stride_context_speed_offset()+high] = Self::u16_to_f8(speed_max[high].0);
-          cm_slice[Self::combined_stride_context_speed_max_offset()+high] = Self::u16_to_f8(speed_max[high].1);
+            cm_slice[Self::combined_stride_context_speed_offset() + high] =
+                Self::u16_to_f8(speed_max[high].0);
+            cm_slice[Self::combined_stride_context_speed_max_offset() + high] =
+                Self::u16_to_f8(speed_max[high].1);
         }
     }
     pub fn set_literal_prediction_mode(&mut self, val: LiteralPredictionModeNibble) {
@@ -159,12 +169,19 @@ impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> PredictionModeContextMap<Sl
         cm_slice[PREDMODE_OFFSET] = val.0;
     }
 }
-impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
+impl<SliceType: SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     #[inline]
-    pub fn from_mut<Other:SliceWrapper<u8>>(other: PredictionModeContextMap<Other>) -> PredictionModeContextMap<SliceType> where SliceType: From<Other>{
-        PredictionModeContextMap::<SliceType>{
-            literal_context_map:SliceType::from(other.literal_context_map),
-            predmode_speed_and_distance_context_map: SliceType::from(other.predmode_speed_and_distance_context_map),
+    pub fn from_mut<Other: SliceWrapper<u8>>(
+        other: PredictionModeContextMap<Other>,
+    ) -> PredictionModeContextMap<SliceType>
+    where
+        SliceType: From<Other>,
+    {
+        PredictionModeContextMap::<SliceType> {
+            literal_context_map: SliceType::from(other.literal_context_map),
+            predmode_speed_and_distance_context_map: SliceType::from(
+                other.predmode_speed_and_distance_context_map,
+            ),
         }
     }
     #[inline]
@@ -173,7 +190,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
         &cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
     }
     #[inline]
-    pub fn get_mixing_math(&self) ->u8 {
+    pub fn get_mixing_math(&self) -> u8 {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         if cm_slice.len() <= MIXING_MATH_OFFSET {
             return 1;
@@ -194,7 +211,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     }
     #[inline]
     pub fn size_of_combined_array(distance_context_map_size: usize) -> usize {
-       distance_context_map_size + DISTANCE_CONTEXT_MAP_OFFSET
+        distance_context_map_size + DISTANCE_CONTEXT_MAP_OFFSET
     }
     #[inline]
     pub fn context_speeds_standard_len(&self) -> usize {
@@ -202,11 +219,15 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     }
     #[inline]
     pub fn context_speeds_f8(&self) -> &[u8] {
-        &self.predmode_speed_and_distance_context_map.slice()[SPEED_OFFSET..DISTANCE_CONTEXT_MAP_OFFSET]
+        &self.predmode_speed_and_distance_context_map.slice()
+            [SPEED_OFFSET..DISTANCE_CONTEXT_MAP_OFFSET]
     }
     #[inline]
     pub fn distance_context_map(&self) -> &[u8] {
-        self.predmode_speed_and_distance_context_map.slice().split_at(DISTANCE_CONTEXT_MAP_OFFSET).1
+        self.predmode_speed_and_distance_context_map
+            .slice()
+            .split_at(DISTANCE_CONTEXT_MAP_OFFSET)
+            .1
     }
     #[inline]
     pub fn f8_to_u16(data: u8) -> u16 {
@@ -244,28 +265,34 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     pub fn literal_prediction_mode(&self) -> LiteralPredictionModeNibble {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         if PREDMODE_OFFSET < cm_slice.len() {
-           LiteralPredictionModeNibble(cm_slice[PREDMODE_OFFSET])
+            LiteralPredictionModeNibble(cm_slice[PREDMODE_OFFSET])
         } else {
-           LiteralPredictionModeNibble::default()
+            LiteralPredictionModeNibble::default()
         }
     }
-    pub fn stride_context_speed(&self) -> [(u16, u16);2] {
-       let v = self.stride_context_speed_f8();
-       [(self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
-        (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1))]
+    pub fn stride_context_speed(&self) -> [(u16, u16); 2] {
+        let v = self.stride_context_speed_f8();
+        [
+            (self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
+            (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1)),
+        ]
     }
-    pub fn context_map_speed(&self) -> [(u16, u16);2] {
-       let v = self.context_map_speed_f8();
-       [(self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
-        (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1))]
+    pub fn context_map_speed(&self) -> [(u16, u16); 2] {
+        let v = self.context_map_speed_f8();
+        [
+            (self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
+            (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1)),
+        ]
     }
-    pub fn combined_stride_context_speed(&self) -> [(u16, u16);2] {
-       let v = self.combined_stride_context_speed_f8();
-       [(self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
-        (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1))]
+    pub fn combined_stride_context_speed(&self) -> [(u16, u16); 2] {
+        let v = self.combined_stride_context_speed_f8();
+        [
+            (self::u8_to_speed(v[0].0), self::u8_to_speed(v[0].1)),
+            (self::u8_to_speed(v[1].0), self::u8_to_speed(v[1].1)),
+        ]
     }
     #[inline]
-    pub fn stride_context_speed_f8(&self) -> [(u8, u8);2] {
+    pub fn stride_context_speed_f8(&self) -> [(u8, u8); 2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         let low_speed = cm_slice[Self::stride_context_speed_offset()];
         let high_speed = cm_slice[Self::stride_context_speed_offset() + 1];
@@ -274,7 +301,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
         [(low_speed, low_max), (high_speed, high_max)]
     }
     #[inline]
-    pub fn combined_stride_context_speed_f8(&self) -> [(u8, u8);2] {
+    pub fn combined_stride_context_speed_f8(&self) -> [(u8, u8); 2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         let low_speed = cm_slice[Self::combined_stride_context_speed_offset()];
         let high_speed = cm_slice[Self::combined_stride_context_speed_offset() + 1];
@@ -283,7 +310,7 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
         [(low_speed, low_max), (high_speed, high_max)]
     }
     #[inline]
-    pub fn context_map_speed_f8(&self) -> [(u8, u8);2] {
+    pub fn context_map_speed_f8(&self) -> [(u8, u8); 2] {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice();
         let low_speed = cm_slice[Self::context_map_speed_offset()];
         let high_speed = cm_slice[Self::context_map_speed_offset() + 1];
@@ -293,20 +320,20 @@ impl<SliceType:SliceWrapper<u8>> PredictionModeContextMap<SliceType> {
     }
 }
 
-impl<SliceType:SliceWrapper<u8>+Clone> Clone for PredictionModeContextMap<SliceType> {
-   #[inline(always)]
-   fn clone(&self) -> Self {
-      PredictionModeContextMap::<SliceType> {
-         literal_context_map:self.literal_context_map.clone(),
-         predmode_speed_and_distance_context_map:self.predmode_speed_and_distance_context_map.clone(),
-      }
-   }
+impl<SliceType: SliceWrapper<u8> + Clone> Clone for PredictionModeContextMap<SliceType> {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        PredictionModeContextMap::<SliceType> {
+            literal_context_map: self.literal_context_map.clone(),
+            predmode_speed_and_distance_context_map: self
+                .predmode_speed_and_distance_context_map
+                .clone(),
+        }
+    }
 }
-impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for PredictionModeContextMap<SliceType> {
-}
+impl<SliceType: SliceWrapper<u8> + Clone + Copy> Copy for PredictionModeContextMap<SliceType> {}
 
-
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct CopyCommand {
     pub distance: u32,
     pub num_bytes: u32,
@@ -317,12 +344,12 @@ impl Nop<CopyCommand> for CopyCommand {
     fn nop() -> Self {
         CopyCommand {
             distance: 1,
-            num_bytes: 0
+            num_bytes: 0,
         }
     }
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct DictCommand {
     pub word_size: u8,
     pub transform: u8,
@@ -339,83 +366,81 @@ impl Nop<DictCommand> for DictCommand {
             transform: 0,
             final_size: 0,
             empty: 1,
-            word_id: 0
+            word_id: 0,
         }
     }
 }
 
 #[derive(Debug)]
-#[cfg(not(feature="external-literal-probability"))]
-pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(core::marker::PhantomData<SliceType>);
+#[cfg(not(feature = "external-literal-probability"))]
+pub struct FeatureFlagSliceType<SliceType: SliceWrapper<u8>>(core::marker::PhantomData<SliceType>);
 
-#[cfg(not(feature="external-literal-probability"))]
-impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
-   fn slice(&self) -> &[u8] {
-       &[]
-   }
+#[cfg(not(feature = "external-literal-probability"))]
+impl<SliceType: SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
+    fn slice(&self) -> &[u8] {
+        &[]
+    }
 }
 
-#[cfg(not(feature="external-literal-probability"))]
-impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceType> {
+#[cfg(not(feature = "external-literal-probability"))]
+impl<SliceType: SliceWrapper<u8> + Default> Default for FeatureFlagSliceType<SliceType> {
     fn default() -> Self {
         FeatureFlagSliceType::<SliceType>(core::marker::PhantomData::<SliceType>::default())
     }
 }
 
-
-
 #[derive(Debug)]
-#[cfg(feature="external-literal-probability")]
-pub struct FeatureFlagSliceType<SliceType:SliceWrapper<u8> >(pub SliceType);
+#[cfg(feature = "external-literal-probability")]
+pub struct FeatureFlagSliceType<SliceType: SliceWrapper<u8>>(pub SliceType);
 
-#[cfg(feature="external-literal-probability")]
-impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
+#[cfg(feature = "external-literal-probability")]
+impl<SliceType: SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<SliceType> {
     #[inline(always)]
-   fn slice(&self) -> &[u8] {
-       self.0.slice()
-   }
+    fn slice(&self) -> &[u8] {
+        self.0.slice()
+    }
 }
 
-#[cfg(feature="external-literal-probability")]
-impl<SliceType:SliceWrapper<u8>+Default> Default for FeatureFlagSliceType<SliceType> {
+#[cfg(feature = "external-literal-probability")]
+impl<SliceType: SliceWrapper<u8> + Default> Default for FeatureFlagSliceType<SliceType> {
     #[inline(always)]
     fn default() -> Self {
         FeatureFlagSliceType::<SliceType>(SliceType::default())
     }
 }
 
-
-
-impl<SliceType:SliceWrapper<u8>+Clone> Clone for FeatureFlagSliceType<SliceType> {
+impl<SliceType: SliceWrapper<u8> + Clone> Clone for FeatureFlagSliceType<SliceType> {
     #[inline(always)]
     fn clone(&self) -> Self {
-       FeatureFlagSliceType::<SliceType>(self.0.clone())
+        FeatureFlagSliceType::<SliceType>(self.0.clone())
     }
 }
-impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for FeatureFlagSliceType<SliceType> {
-}
-
+impl<SliceType: SliceWrapper<u8> + Clone + Copy> Copy for FeatureFlagSliceType<SliceType> {}
 
 #[derive(Debug)]
-pub struct LiteralCommand<SliceType:SliceWrapper<u8>> {
+pub struct LiteralCommand<SliceType: SliceWrapper<u8>> {
     pub data: SliceType,
     pub prob: FeatureFlagSliceType<SliceType>,
     pub high_entropy: bool, // this block of bytes is high entropy with a few patterns never seen again; adapt slower
 }
-impl<SliceType:SliceWrapper<u8>> SliceWrapper<u8> for LiteralCommand<SliceType> {
+impl<SliceType: SliceWrapper<u8>> SliceWrapper<u8> for LiteralCommand<SliceType> {
     #[inline(always)]
     fn slice(&self) -> &[u8] {
         self.data.slice()
     }
 }
-impl<SliceType:SliceWrapper<u8>+SliceWrapperMut<u8>> SliceWrapperMut<u8> for LiteralCommand<SliceType> {
+impl<SliceType: SliceWrapper<u8> + SliceWrapperMut<u8>> SliceWrapperMut<u8>
+    for LiteralCommand<SliceType>
+{
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [u8] {
         self.data.slice_mut()
     }
 }
 
-impl<SliceType:SliceWrapper<u8>+Default> Nop<LiteralCommand<SliceType>> for LiteralCommand<SliceType> {
+impl<SliceType: SliceWrapper<u8> + Default> Nop<LiteralCommand<SliceType>>
+    for LiteralCommand<SliceType>
+{
     #[inline(always)]
     fn nop() -> Self {
         LiteralCommand {
@@ -425,18 +450,20 @@ impl<SliceType:SliceWrapper<u8>+Default> Nop<LiteralCommand<SliceType>> for Lite
         }
     }
 }
-impl<SliceType:SliceWrapper<u8>+Clone> Clone for LiteralCommand<SliceType> {
+impl<SliceType: SliceWrapper<u8> + Clone> Clone for LiteralCommand<SliceType> {
     #[inline(always)]
-    fn clone(&self) -> LiteralCommand<SliceType>{
-        LiteralCommand::<SliceType>{data:self.data.clone(), prob:self.prob.clone(),high_entropy: self.high_entropy.clone(),}
+    fn clone(&self) -> LiteralCommand<SliceType> {
+        LiteralCommand::<SliceType> {
+            data: self.data.clone(),
+            prob: self.prob.clone(),
+            high_entropy: self.high_entropy.clone(),
+        }
     }
 }
-impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for LiteralCommand<SliceType> {
-}
-
+impl<SliceType: SliceWrapper<u8> + Clone + Copy> Copy for LiteralCommand<SliceType> {}
 
 #[derive(Debug)]
-pub enum Command<SliceType:SliceWrapper<u8> > {
+pub enum Command<SliceType: SliceWrapper<u8>> {
     Copy(CopyCommand),
     Dict(DictCommand),
     Literal(LiteralCommand<SliceType>),
@@ -445,77 +472,97 @@ pub enum Command<SliceType:SliceWrapper<u8> > {
     BlockSwitchDistance(BlockSwitch),
     PredictionMode(PredictionModeContextMap<SliceType>),
 }
-impl<SliceType:SliceWrapper<u8>+Default> Command<SliceType> {
+impl<SliceType: SliceWrapper<u8> + Default> Command<SliceType> {
     #[inline]
-    pub fn free_array<F>(&mut self, apply_func: &mut F) where F: FnMut(SliceType) {
-       match self {
-          &mut Command::Literal(ref mut lit) => {
-             apply_func(core::mem::replace(&mut lit.data, SliceType::default()))
-          },
-          &mut Command::PredictionMode(ref mut pm) => {
-             apply_func(core::mem::replace(&mut pm.literal_context_map, SliceType::default()));
-             apply_func(core::mem::replace(&mut pm.predmode_speed_and_distance_context_map, SliceType::default()));
-          },
-          _ => {},
-       }
+    pub fn free_array<F>(&mut self, apply_func: &mut F)
+    where
+        F: FnMut(SliceType),
+    {
+        match self {
+            &mut Command::Literal(ref mut lit) => {
+                apply_func(core::mem::replace(&mut lit.data, SliceType::default()))
+            }
+            &mut Command::PredictionMode(ref mut pm) => {
+                apply_func(core::mem::replace(
+                    &mut pm.literal_context_map,
+                    SliceType::default(),
+                ));
+                apply_func(core::mem::replace(
+                    &mut pm.predmode_speed_and_distance_context_map,
+                    SliceType::default(),
+                ));
+            }
+            _ => {}
+        }
     }
 }
 
-
-impl<SliceType:SliceWrapper<u8>> Default for Command<SliceType> {
+impl<SliceType: SliceWrapper<u8>> Default for Command<SliceType> {
     #[inline(always)]
     fn default() -> Self {
         Command::<SliceType>::nop()
     }
 }
 
-impl<SliceType:SliceWrapper<u8>> Nop<Command<SliceType>> for Command<SliceType> {
+impl<SliceType: SliceWrapper<u8>> Nop<Command<SliceType>> for Command<SliceType> {
     #[inline(always)]
     fn nop() -> Command<SliceType> {
         Command::Copy(CopyCommand::nop())
     }
 }
 
-impl<SliceType:SliceWrapper<u8>+Clone> Clone for Command<SliceType> {
+impl<SliceType: SliceWrapper<u8> + Clone> Clone for Command<SliceType> {
     #[inline]
-    fn clone(&self) -> Command<SliceType>{
+    fn clone(&self) -> Command<SliceType> {
         match self {
             &Command::Copy(ref copy) => Command::Copy(copy.clone()),
             &Command::Dict(ref dict) => Command::Dict(dict.clone()),
             &Command::Literal(ref literal) => Command::Literal(literal.clone()),
             &Command::BlockSwitchCommand(ref switch) => Command::BlockSwitchCommand(switch.clone()),
             &Command::BlockSwitchLiteral(ref switch) => Command::BlockSwitchLiteral(switch.clone()),
-            &Command::BlockSwitchDistance(ref switch) => Command::BlockSwitchDistance(switch.clone()),
+            &Command::BlockSwitchDistance(ref switch) => {
+                Command::BlockSwitchDistance(switch.clone())
+            }
             &Command::PredictionMode(ref pm) => Command::PredictionMode(pm.clone()),
         }
     }
 }
 
-impl<SliceType:SliceWrapper<u8>+Clone+Copy> Copy for Command<SliceType> {
-}
-
-
+impl<SliceType: SliceWrapper<u8> + Clone + Copy> Copy for Command<SliceType> {}
 
 #[inline(always)]
-pub fn free_cmd_inline<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
-       match *xself {
-          Command::Literal(ref mut lit) => {
-             m8.free_cell(core::mem::replace(&mut lit.data, SliceTypeAllocator::AllocatedMemory::default()))
-          },
-          Command::PredictionMode(ref mut pm) => {
-             m8.free_cell(core::mem::replace(&mut pm.literal_context_map, SliceTypeAllocator::AllocatedMemory::default()));
-             m8.free_cell(core::mem::replace(&mut pm.predmode_speed_and_distance_context_map, SliceTypeAllocator::AllocatedMemory::default()));
-          },
-          Command::Dict(_) |
-          Command::Copy(_) |
-          Command::BlockSwitchCommand(_) |
-          Command::BlockSwitchLiteral(_) |
-          Command::BlockSwitchDistance(_) => {},
+pub fn free_cmd_inline<SliceTypeAllocator: Allocator<u8>>(
+    xself: &mut Command<SliceTypeAllocator::AllocatedMemory>,
+    m8: &mut SliceTypeAllocator,
+) {
+    match *xself {
+        Command::Literal(ref mut lit) => m8.free_cell(core::mem::replace(
+            &mut lit.data,
+            SliceTypeAllocator::AllocatedMemory::default(),
+        )),
+        Command::PredictionMode(ref mut pm) => {
+            m8.free_cell(core::mem::replace(
+                &mut pm.literal_context_map,
+                SliceTypeAllocator::AllocatedMemory::default(),
+            ));
+            m8.free_cell(core::mem::replace(
+                &mut pm.predmode_speed_and_distance_context_map,
+                SliceTypeAllocator::AllocatedMemory::default(),
+            ));
+        }
+        Command::Dict(_)
+        | Command::Copy(_)
+        | Command::BlockSwitchCommand(_)
+        | Command::BlockSwitchLiteral(_)
+        | Command::BlockSwitchDistance(_) => {}
     }
 }
 
 #[inline(never)]
-pub fn free_cmd<SliceTypeAllocator:Allocator<u8>> (xself: &mut Command<SliceTypeAllocator::AllocatedMemory>, m8: &mut SliceTypeAllocator) {
+pub fn free_cmd<SliceTypeAllocator: Allocator<u8>>(
+    xself: &mut Command<SliceTypeAllocator::AllocatedMemory>,
+    m8: &mut SliceTypeAllocator,
+) {
     free_cmd_inline(xself, m8)
 }
 
@@ -546,27 +593,34 @@ impl<'a> From<InputReference<'a>> for SliceOffset {
 }
 impl Unfreezable for SliceOffset {
     fn thaw<'a>(&self, data: &'a [u8]) -> InputReference<'a> {
-        InputReference{
+        InputReference {
             data: data.split_at(self.0).1.split_at(self.1 as usize).0,
             orig_offset: self.0,
         }
     }
     fn thaw_mut<'a>(&self, data: &'a mut [u8]) -> InputReferenceMut<'a> {
-        InputReferenceMut{
+        InputReferenceMut {
             data: data.split_at_mut(self.0).1.split_at_mut(self.1 as usize).0,
             orig_offset: self.0,
         }
     }
     fn thaw_pair<'a>(&self, pair: &InputPair<'a>) -> Result<InputReference<'a>, ()> {
         if self.0 >= pair.1.orig_offset {
-            return Ok(InputReference{
-                data: pair.1.data.split_at(self.0 - pair.1.orig_offset).1.split_at(self.1 as usize).0,
+            return Ok(InputReference {
+                data: pair
+                    .1
+                    .data
+                    .split_at(self.0 - pair.1.orig_offset)
+                    .1
+                    .split_at(self.1 as usize)
+                    .0,
                 orig_offset: self.0,
             });
         }
         let offset = self.0 - pair.0.orig_offset;
-        if offset + self.1 as usize <= pair.0.data.len() { // overlap
-            Ok(InputReference{
+        if offset + self.1 as usize <= pair.0.data.len() {
+            // overlap
+            Ok(InputReference {
                 data: pair.0.data.split_at(offset).1.split_at(self.1 as usize).0,
                 orig_offset: self.0,
             })
@@ -587,153 +641,120 @@ impl SliceOffset {
     }
 }
 
-
-
 pub type StaticCommand = Command<SliceOffset>;
 
-
 pub trait CommandProcessor<'a> {
-   fn push(&mut self,
-           val: Command<InputReference<'a> >);
-   fn push_literals(&mut self, data:&InputPair<'a>) {
+    fn push(&mut self, val: Command<InputReference<'a>>);
+    fn push_literals(&mut self, data: &InputPair<'a>) {
         if data.0.len() != 0 {
-            self.push(Command::Literal(LiteralCommand{
+            self.push(Command::Literal(LiteralCommand {
                 data: data.0,
-                prob:FeatureFlagSliceType::<InputReference>::default(),
+                prob: FeatureFlagSliceType::<InputReference>::default(),
                 high_entropy: false,
             }));
         }
         if data.1.len() != 0 {
-            self.push(Command::Literal(LiteralCommand{
+            self.push(Command::Literal(LiteralCommand {
                 data: data.1,
-                prob:FeatureFlagSliceType::<InputReference>::default(),
+                prob: FeatureFlagSliceType::<InputReference>::default(),
                 high_entropy: false,
             }));
         }
-   }
-   fn push_rand_literals(&mut self, data:&InputPair<'a>) {
+    }
+    fn push_rand_literals(&mut self, data: &InputPair<'a>) {
         if data.0.len() != 0 {
-            self.push(Command::Literal(LiteralCommand{
-                data:data.0,
-                prob:FeatureFlagSliceType::<InputReference>::default(),
+            self.push(Command::Literal(LiteralCommand {
+                data: data.0,
+                prob: FeatureFlagSliceType::<InputReference>::default(),
                 high_entropy: true,
             }));
         }
         if data.1.len() != 0 {
-            self.push(Command::Literal(LiteralCommand{
-                data:data.1,
-                prob:FeatureFlagSliceType::<InputReference>::default(),
+            self.push(Command::Literal(LiteralCommand {
+                data: data.1,
+                prob: FeatureFlagSliceType::<InputReference>::default(),
                 high_entropy: true,
             }));
         }
-   }
-   fn push_block_switch_literal(&mut self, block_type: u8) {
-       self.push(Command::BlockSwitchLiteral(LiteralBlockSwitch::new(block_type, 0)))
-   }
-}
-
-
-pub fn thaw_pair<'a, SliceType: Unfreezable + SliceWrapper<u8>>(xself: &Command<SliceType>, data: &InputPair<'a>) -> Command<InputReference<'a>> {
-    match *xself {
-        Command::Literal(ref lit) => {
-            Command::Literal(LiteralCommand{
-                data:lit.data.thaw_pair(data).unwrap(),
-                prob:FeatureFlagSliceType::default(),
-                high_entropy: lit.high_entropy,
-            })
-        },
-        Command::PredictionMode(ref pm) => {
-            Command::PredictionMode(PredictionModeContextMap{
-                literal_context_map:pm.literal_context_map.thaw_pair(data).unwrap(),
-                predmode_speed_and_distance_context_map:pm.predmode_speed_and_distance_context_map.thaw_pair(data).unwrap(),
-            })
-        },
-        Command::Dict(ref d) => {
-            Command::Dict(d.clone())
-        },
-        Command::Copy(ref c) => {
-            Command::Copy(c.clone())
-        },
-        Command::BlockSwitchCommand(ref c) => {
-            Command::BlockSwitchCommand(c.clone())
-        },
-        Command::BlockSwitchLiteral(ref c) => {
-            Command::BlockSwitchLiteral(c.clone())
-        },
-        Command::BlockSwitchDistance(ref c) => {
-            Command::BlockSwitchDistance(c.clone())
-        },
+    }
+    fn push_block_switch_literal(&mut self, block_type: u8) {
+        self.push(Command::BlockSwitchLiteral(LiteralBlockSwitch::new(
+            block_type, 0,
+        )))
     }
 }
 
-pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(xself: &Command<SliceType>, data: &'a[u8]) -> Command<InputReference<'a>> {
+pub fn thaw_pair<'a, SliceType: Unfreezable + SliceWrapper<u8>>(
+    xself: &Command<SliceType>,
+    data: &InputPair<'a>,
+) -> Command<InputReference<'a>> {
     match *xself {
-        Command::Literal(ref lit) => {
-            Command::Literal(LiteralCommand{
-                data:lit.data.thaw(data),
-                prob:FeatureFlagSliceType::default(),
-                high_entropy: lit.high_entropy,
-            })
-        },
-        Command::PredictionMode(ref pm) => {
-            Command::PredictionMode(PredictionModeContextMap{
-                literal_context_map:pm.literal_context_map.thaw(data),
-                predmode_speed_and_distance_context_map:pm.predmode_speed_and_distance_context_map.thaw(data),
-            })
-        },
-        Command::Dict(ref d) => {
-            Command::Dict(d.clone())
-        },
-        Command::Copy(ref c) => {
-            Command::Copy(c.clone())
-        },
-        Command::BlockSwitchCommand(ref c) => {
-            Command::BlockSwitchCommand(c.clone())
-        },
-        Command::BlockSwitchLiteral(ref c) => {
-            Command::BlockSwitchLiteral(c.clone())
-        },
-        Command::BlockSwitchDistance(ref c) => {
-            Command::BlockSwitchDistance(c.clone())
-        },
+        Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+            data: lit.data.thaw_pair(data).unwrap(),
+            prob: FeatureFlagSliceType::default(),
+            high_entropy: lit.high_entropy,
+        }),
+        Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+            literal_context_map: pm.literal_context_map.thaw_pair(data).unwrap(),
+            predmode_speed_and_distance_context_map: pm
+                .predmode_speed_and_distance_context_map
+                .thaw_pair(data)
+                .unwrap(),
+        }),
+        Command::Dict(ref d) => Command::Dict(d.clone()),
+        Command::Copy(ref c) => Command::Copy(c.clone()),
+        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(c.clone()),
+        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(c.clone()),
+        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(c.clone()),
     }
 }
 
-impl <SliceType:SliceWrapper<u8>+Freezable> Command<SliceType> {
+pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(
+    xself: &Command<SliceType>,
+    data: &'a [u8],
+) -> Command<InputReference<'a>> {
+    match *xself {
+        Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+            data: lit.data.thaw(data),
+            prob: FeatureFlagSliceType::default(),
+            high_entropy: lit.high_entropy,
+        }),
+        Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+            literal_context_map: pm.literal_context_map.thaw(data),
+            predmode_speed_and_distance_context_map: pm
+                .predmode_speed_and_distance_context_map
+                .thaw(data),
+        }),
+        Command::Dict(ref d) => Command::Dict(d.clone()),
+        Command::Copy(ref c) => Command::Copy(c.clone()),
+        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(c.clone()),
+        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(c.clone()),
+        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(c.clone()),
+    }
+}
+
+impl<SliceType: SliceWrapper<u8> + Freezable> Command<SliceType> {
     pub fn freeze(&self) -> Command<SliceOffset> {
-       match *self {
-          Command::Literal(ref lit) => {
-              Command::Literal(LiteralCommand{
-                  data:lit.data.freeze(),
-                  prob:FeatureFlagSliceType::default(),
-                  high_entropy: lit.high_entropy,
-              })
-          },
-          Command::PredictionMode(ref pm) => {
-              Command::PredictionMode(PredictionModeContextMap{
-                  literal_context_map:pm.literal_context_map.freeze(),
-                  predmode_speed_and_distance_context_map:pm.predmode_speed_and_distance_context_map.freeze(),
-              })
-          },
-          Command::Dict(ref d) => {
-               Command::Dict(d.clone())
-          },
-          Command::Copy(ref c) => {
-               Command::Copy(c.clone())
-          },
-          Command::BlockSwitchCommand(ref c) => {
-               Command::BlockSwitchCommand(c.clone())
-          },
-          Command::BlockSwitchLiteral(ref c) => {
-               Command::BlockSwitchLiteral(c.clone())
-          },
-          Command::BlockSwitchDistance(ref c) => {
-               Command::BlockSwitchDistance(c.clone())
-          },
-       }
+        match *self {
+            Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+                data: lit.data.freeze(),
+                prob: FeatureFlagSliceType::default(),
+                high_entropy: lit.high_entropy,
+            }),
+            Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+                literal_context_map: pm.literal_context_map.freeze(),
+                predmode_speed_and_distance_context_map: pm
+                    .predmode_speed_and_distance_context_map
+                    .freeze(),
+            }),
+            Command::Dict(ref d) => Command::Dict(d.clone()),
+            Command::Copy(ref c) => Command::Copy(c.clone()),
+            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(c.clone()),
+            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(c.clone()),
+            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(c.clone()),
+        }
     }
 }
-
 
 #[inline(always)]
 pub fn speed_to_u8(data: u16) -> u8 {
