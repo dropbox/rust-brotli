@@ -1,19 +1,15 @@
 extern crate brotli;
-#[cfg(not(feature="std"))]
+#[cfg(not(feature = "std"))]
 fn main() {
     panic!("For no-stdlib examples please see the tests")
 }
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 fn main() {
     use std::io;
     use std::io::{Read, Write};
     let stdout = &mut io::stdout();
     {
-        let mut writer = brotli::CompressorWriter::new(
-            stdout,
-            4096,
-            11,
-            22);
+        let mut writer = brotli::CompressorWriter::new(stdout, 4096, 11, 22);
         let mut buf = [0u8; 4096];
         loop {
             match io::stdin().read(&mut buf[..]) {
@@ -37,7 +33,7 @@ fn main() {
                     }
                     match writer.write_all(&buf[..size]) {
                         Err(e) => panic!("{}", e),
-                        Ok(_) => {},
+                        Ok(_) => {}
                     }
                 }
             }

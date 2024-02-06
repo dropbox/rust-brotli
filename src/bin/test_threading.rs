@@ -1,24 +1,35 @@
 #![cfg(test)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
-extern crate core;
 extern crate brotli_decompressor;
+extern crate core;
+use super::brotli::enc::{
+    compress_multi, compress_multi_no_threadpool, BrotliEncoderMaxCompressedSizeMulti,
+    BrotliEncoderParams, UnionHasher,
+};
 use super::new_brotli_heap_alloc;
-use brotli_decompressor::{SliceWrapperMut, SliceWrapper};
-use super::brotli::enc::{UnionHasher, BrotliEncoderParams, BrotliEncoderMaxCompressedSizeMulti, compress_multi, compress_multi_no_threadpool};
-use brotli::enc::threading::{SendAlloc,Owned};
+use brotli::enc::threading::{Owned, SendAlloc};
+use brotli_decompressor::{SliceWrapper, SliceWrapperMut};
 
 use super::integration_tests::UnlimitedBuffer;
-static RANDOM_THEN_UNICODE : &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
-static ALICE: &'static[u8]  = include_bytes!("../../testdata/alice29.txt");
+static RANDOM_THEN_UNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
+static ALICE: &'static [u8] = include_bytes!("../../testdata/alice29.txt");
 use super::Rebox;
 
-struct SliceRef<'a> (&'a [u8]);
+struct SliceRef<'a>(&'a [u8]);
 impl<'a> SliceWrapper<u8> for SliceRef<'a> {
-    fn slice(&self) -> &[u8] { self.0 }
+    fn slice(&self) -> &[u8] {
+        self.0
+    }
 }
 
-fn multi_threaded_split_compression_test(input_data: &'static[u8], num_threads: usize, quality: i32, catable: bool, expected_size: usize) {
+fn multi_threaded_split_compression_test(
+    input_data: &'static [u8],
+    num_threads: usize,
+    quality: i32,
+    catable: bool,
+    expected_size: usize,
+) {
     let mut params = BrotliEncoderParams::default();
     params.quality = quality;
     params.magic_number = true;
@@ -26,7 +37,13 @@ fn multi_threaded_split_compression_test(input_data: &'static[u8], num_threads: 
         params.catable = true;
         params.use_dictionary = false;
     }
-    let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input_data.len(), num_threads)]);
+    let mut output = Rebox::from(vec![
+        0u8;
+        BrotliEncoderMaxCompressedSizeMulti(
+            input_data.len(),
+            num_threads
+        )
+    ]);
     let mut alloc_per_thread = [
         SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
         SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
@@ -44,7 +61,11 @@ fn multi_threaded_split_compression_test(input_data: &'static[u8], num_threads: 
         SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
     ];
     if num_threads > alloc_per_thread.len() {
-        panic!("Too many threads requested {} > {}", num_threads, alloc_per_thread.len());
+        panic!(
+            "Too many threads requested {} > {}",
+            num_threads,
+            alloc_per_thread.len()
+        );
     }
     let res = compress_multi(
         &params,
@@ -94,7 +115,6 @@ fn multi_threaded_split_compression_test_1b5() {
     multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..1], 5, 9, false, 139125)
 }
 
-
 #[test]
 fn multi_threaded_split_compression_test_0b1() {
     multi_threaded_split_compression_test(&[], 5, 9, false, 139125)
@@ -104,10 +124,13 @@ fn multi_threaded_split_compression_test_0b5() {
     multi_threaded_split_compression_test(&[], 5, 9, false, 139125)
 }
 
-
-
-
-fn thread_spawn_per_job_split_compression_test(input_data: &'static[u8], num_threads: usize, quality: i32, catable: bool, expected_size: usize) {
+fn thread_spawn_per_job_split_compression_test(
+    input_data: &'static [u8],
+    num_threads: usize,
+    quality: i32,
+    catable: bool,
+    expected_size: usize,
+) {
     let mut params = BrotliEncoderParams::default();
     params.quality = quality;
     params.magic_number = true;
@@ -116,7 +139,13 @@ fn thread_spawn_per_job_split_compression_test(input_data: &'static[u8], num_thr
         params.use_dictionary = false;
     }
     params.favor_cpu_efficiency = true; // this should test both paths
-    let mut output = Rebox::from(vec![0u8;BrotliEncoderMaxCompressedSizeMulti(input_data.len(), num_threads)]);
+    let mut output = Rebox::from(vec![
+        0u8;
+        BrotliEncoderMaxCompressedSizeMulti(
+            input_data.len(),
+            num_threads
+        )
+    ]);
     let mut alloc_per_thread = [
         SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
         SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
@@ -134,7 +163,11 @@ fn thread_spawn_per_job_split_compression_test(input_data: &'static[u8], num_thr
         SendAlloc::new(new_brotli_heap_alloc(), UnionHasher::Uninit),
     ];
     if num_threads > alloc_per_thread.len() {
-        panic!("Too many threads requested {} > {}", num_threads, alloc_per_thread.len());
+        panic!(
+            "Too many threads requested {} > {}",
+            num_threads,
+            alloc_per_thread.len()
+        );
     }
     let res = compress_multi_no_threadpool(
         &params,

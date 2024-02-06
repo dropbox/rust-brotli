@@ -1,38 +1,38 @@
 extern crate brotli;
 extern crate core;
 use std::env;
+use std::fs::File;
 use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::fs::File;
 
 use brotli::concat::{BroCatli, BroCatliResult};
 fn usage() {
-    writeln!(&mut ::std::io::stderr(), "Usage: [-w<window_size>] filename0 filename1 filename2...").unwrap();
+    writeln!(
+        &mut ::std::io::stderr(),
+        "Usage: [-w<window_size>] filename0 filename1 filename2..."
+    )
+    .unwrap();
 }
-fn read_no_interrupt<R:Read>(r: &mut R, buf: &mut [u8]) -> Result<usize, io::Error> {
+fn read_no_interrupt<R: Read>(r: &mut R, buf: &mut [u8]) -> Result<usize, io::Error> {
     loop {
         match r.read(buf) {
-          Err(e) => {
-              match e.kind() {
-                  io::ErrorKind::Interrupted => continue,
-                  _ => return Err(e),
-              }
-          }
+            Err(e) => match e.kind() {
+                io::ErrorKind::Interrupted => continue,
+                _ => return Err(e),
+            },
             Ok(cur_read) => return Ok(cur_read),
         }
     }
 }
 
-fn write_no_interrupt<W:Write>(w: &mut W, mut buf: &[u8]) -> Result<usize, io::Error> {
+fn write_no_interrupt<W: Write>(w: &mut W, mut buf: &[u8]) -> Result<usize, io::Error> {
     let mut total_read = 0usize;
     loop {
         match w.write(buf) {
-            Err(e) => {
-                match e.kind() {
-                    io::ErrorKind::Interrupted => continue,
-                    _ => return Err(e),
-                }
+            Err(e) => match e.kind() {
+                io::ErrorKind::Interrupted => continue,
+                _ => return Err(e),
             },
             Ok(cur_read) => {
                 buf = &buf[cur_read..];
@@ -40,11 +40,10 @@ fn write_no_interrupt<W:Write>(w: &mut W, mut buf: &[u8]) -> Result<usize, io::E
                 if buf.len() == 0 {
                     return Ok(total_read);
                 }
-            },
+            }
         }
     }
 }
-
 
 fn main() {
     let mut window_size: Option<u8> = None;
@@ -55,11 +54,22 @@ fn main() {
     if env::args_os().len() > 1 {
         for argument in env::args().skip(1) {
             if argument.starts_with("-w") && !double_dash {
-                window_size = Some(argument.trim_matches('-').trim_matches('w').parse::<i32>().unwrap() as u8);
+                window_size = Some(
+                    argument
+                        .trim_matches('-')
+                        .trim_matches('w')
+                        .parse::<i32>()
+                        .unwrap() as u8,
+                );
                 continue;
             }
             if argument.starts_with("-bs") && !double_dash {
-                buffer_size = argument.trim_matches('-').trim_matches('b').trim_matches('s').parse::<usize>().unwrap();
+                buffer_size = argument
+                    .trim_matches('-')
+                    .trim_matches('b')
+                    .trim_matches('s')
+                    .parse::<usize>()
+                    .unwrap();
                 continue;
             }
             if argument == "--" {
@@ -95,26 +105,34 @@ fn main() {
                         break;
                     }
                     loop {
-                        match bro_cat_li.stream(&ibuffer[..cur_read], &mut ioffset,
-                                                &mut obuffer[..], &mut ooffset) {
+                        match bro_cat_li.stream(
+                            &ibuffer[..cur_read],
+                            &mut ioffset,
+                            &mut obuffer[..],
+                            &mut ooffset,
+                        ) {
                             BroCatliResult::NeedsMoreOutput => {
                                 match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
                                     Err(why) => panic!("couldn't write: {:}", why),
-                                    Ok(count) => {assert_eq!(count, ooffset);},
+                                    Ok(count) => {
+                                        assert_eq!(count, ooffset);
+                                    }
                                 }
                                 ooffset = 0;
-                            },
+                            }
                             BroCatliResult::NeedsMoreInput => {
                                 break;
-                            },
+                            }
                             BroCatliResult::Success => {
                                 panic!("Unexpected state: Success when streaming before finish");
                             }
                             failure => {
-                                panic!("Failed to concatenate files on {:} {:?}", filename, failure);
-                            },
+                                panic!(
+                                    "Failed to concatenate files on {:} {:?}",
+                                    filename, failure
+                                );
+                            }
                         }
-                        
                     }
                 }
             }
@@ -125,18 +143,22 @@ fn main() {
             BroCatliResult::NeedsMoreOutput => {
                 match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
                     Err(why) => panic!("couldn't write: {:}", why),
-                    Ok(count) => {assert_eq!(count, ooffset);},
+                    Ok(count) => {
+                        assert_eq!(count, ooffset);
+                    }
                 }
                 ooffset = 0;
-            },
+            }
             BroCatliResult::NeedsMoreInput => {
                 panic!("Unexpected EOF");
-            },
+            }
             BroCatliResult::Success => {
                 if ooffset != 0 {
                     match write_no_interrupt(&mut ostream, &obuffer[..ooffset]) {
                         Err(why) => panic!("couldn't write: {:}", why),
-                        Ok(count) => {assert_eq!(count, ooffset);},
+                        Ok(count) => {
+                            assert_eq!(count, ooffset);
+                        }
                     }
                 }
                 break;

@@ -1,59 +1,50 @@
-#![cfg_attr(not(feature="std"), allow(unused_imports))]
+#![cfg_attr(not(feature = "std"), allow(unused_imports))]
 
-use super::combined_alloc::BrotliAlloc;
-use super::encode::{BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-                    BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderOperation,
-                    BrotliEncoderStateStruct, BrotliEncoderCompressStream, BrotliEncoderIsFinished};
 use super::backward_references::BrotliEncoderParams;
+use super::combined_alloc::BrotliAlloc;
+use super::encode::{
+    BrotliEncoderCompressStream, BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
+    BrotliEncoderIsFinished, BrotliEncoderOperation, BrotliEncoderParameter,
+    BrotliEncoderSetParameter, BrotliEncoderStateStruct,
+};
 use super::interface;
 use brotli_decompressor::CustomRead;
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 pub use alloc_stdlib::StandardAlloc;
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 use std::io;
 
-#[cfg(feature="std")]
-use std::io::{Read, Error, ErrorKind};
+#[cfg(feature = "std")]
+use std::io::{Error, ErrorKind, Read};
 
+#[cfg(feature = "std")]
+pub struct CompressorReaderCustomAlloc<R: Read, BufferType: SliceWrapperMut<u8>, Alloc: BrotliAlloc>(
+    CompressorReaderCustomIo<io::Error, IntoIoReader<R>, BufferType, Alloc>,
+);
 
-
-#[cfg(feature="std")]
-pub struct CompressorReaderCustomAlloc<R: Read,
-                                       BufferType : SliceWrapperMut<u8>,
-                                       Alloc: BrotliAlloc> (
-    CompressorReaderCustomIo<io::Error,
-                             IntoIoReader<R>,
-                             BufferType,
-                             Alloc>);
-
-
-#[cfg(feature="std")]
-impl<R: Read,
-     BufferType : SliceWrapperMut<u8>,
-     Alloc: BrotliAlloc>
+#[cfg(feature = "std")]
+impl<R: Read, BufferType: SliceWrapperMut<u8>, Alloc: BrotliAlloc>
     CompressorReaderCustomAlloc<R, BufferType, Alloc>
-    {
-
-    pub fn new(r: R, buffer : BufferType,
-               alloc: Alloc,
-               q: u32,
-               lgwin: u32) -> Self {
-        CompressorReaderCustomAlloc::<R, BufferType, Alloc>(
-          CompressorReaderCustomIo::<Error,
-                                 IntoIoReader<R>,
-                                 BufferType,
-                                 Alloc>::new(
-              IntoIoReader::<R>(r),
-              buffer,
-              alloc,
-              Error::new(ErrorKind::InvalidData,
-                         "Invalid Data"),
-              q, lgwin))
+{
+    pub fn new(r: R, buffer: BufferType, alloc: Alloc, q: u32, lgwin: u32) -> Self {
+        CompressorReaderCustomAlloc::<R, BufferType, Alloc>(CompressorReaderCustomIo::<
+            Error,
+            IntoIoReader<R>,
+            BufferType,
+            Alloc,
+        >::new(
+            IntoIoReader::<R>(r),
+            buffer,
+            alloc,
+            Error::new(ErrorKind::InvalidData, "Invalid Data"),
+            q,
+            lgwin,
+        ))
     }
 
     pub fn get_ref(&self) -> &R {
@@ -64,109 +55,110 @@ impl<R: Read,
     }
 }
 
-#[cfg(feature="std")]
-impl<R: Read,
-     BufferType: SliceWrapperMut<u8>,
-     Alloc: BrotliAlloc>
-    Read for CompressorReaderCustomAlloc<R, BufferType,
-                                         Alloc> {
-  	fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-       self.0.read(buf)
+#[cfg(feature = "std")]
+impl<R: Read, BufferType: SliceWrapperMut<u8>, Alloc: BrotliAlloc> Read
+    for CompressorReaderCustomAlloc<R, BufferType, Alloc>
+{
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        self.0.read(buf)
     }
 }
 
-#[cfg(feature="std")]
-pub struct CompressorReader<R: Read>(CompressorReaderCustomAlloc<R,
-                                     <StandardAlloc as Allocator<u8>>::AllocatedMemory,
-                                     StandardAlloc>);
+#[cfg(feature = "std")]
+pub struct CompressorReader<R: Read>(
+    CompressorReaderCustomAlloc<
+        R,
+        <StandardAlloc as Allocator<u8>>::AllocatedMemory,
+        StandardAlloc,
+    >,
+);
 
-
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl<R: Read> CompressorReader<R> {
-  pub fn new(r: R, buffer_size: usize, q: u32, lgwin: u32) -> Self {
-    let mut alloc = StandardAlloc::default();
-    let buffer = <StandardAlloc as Allocator<u8>>::alloc_cell(&mut alloc,
-                                                              if buffer_size == 0 { 4096} else {buffer_size});
-    CompressorReader::<R>(CompressorReaderCustomAlloc::new(r,
-                                                           buffer,
-                                                           alloc,
-                                                           q,
-                                                           lgwin))
-  }
+    pub fn new(r: R, buffer_size: usize, q: u32, lgwin: u32) -> Self {
+        let mut alloc = StandardAlloc::default();
+        let buffer = <StandardAlloc as Allocator<u8>>::alloc_cell(
+            &mut alloc,
+            if buffer_size == 0 { 4096 } else { buffer_size },
+        );
+        CompressorReader::<R>(CompressorReaderCustomAlloc::new(r, buffer, alloc, q, lgwin))
+    }
 
-  pub fn with_params(r: R, buffer_size: usize, params: &BrotliEncoderParams) -> Self {
-    let mut reader = Self::new(r, buffer_size, params.quality as u32, params.lgwin as u32);
-    (reader.0).0.state.0.params = params.clone();
-    reader
-  }
+    pub fn with_params(r: R, buffer_size: usize, params: &BrotliEncoderParams) -> Self {
+        let mut reader = Self::new(r, buffer_size, params.quality as u32, params.lgwin as u32);
+        (reader.0).0.state.0.params = params.clone();
+        reader
+    }
 
-  pub fn get_ref(&self) -> &R {
-      self.0.get_ref()
-  }
-  pub fn into_inner(self) -> R {
-    self.0.into_inner()
-  }
+    pub fn get_ref(&self) -> &R {
+        self.0.get_ref()
+    }
+    pub fn into_inner(self) -> R {
+        self.0.into_inner()
+    }
 }
 
-
-
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl<R: Read> Read for CompressorReader<R> {
-  fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-    self.0.read(buf)
-  }
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        self.0.read(buf)
+    }
 }
 
-pub struct CompressorReaderCustomIo<ErrType,
-                                    R: CustomRead<ErrType>,
-                                    BufferType: SliceWrapperMut<u8>,
-                                    Alloc: BrotliAlloc>
-{
-  input_buffer: BufferType,
-  total_out: Option<usize>,
-  input_offset: usize,
-  input_len: usize,
-  input: R,
-  input_eof: bool,
-  error_if_invalid_data: Option<ErrType>,
-  state: StateWrapper<Alloc>,
+pub struct CompressorReaderCustomIo<
+    ErrType,
+    R: CustomRead<ErrType>,
+    BufferType: SliceWrapperMut<u8>,
+    Alloc: BrotliAlloc,
+> {
+    input_buffer: BufferType,
+    total_out: Option<usize>,
+    input_offset: usize,
+    input_len: usize,
+    input: R,
+    input_eof: bool,
+    error_if_invalid_data: Option<ErrType>,
+    state: StateWrapper<Alloc>,
 }
-struct StateWrapper<Alloc:BrotliAlloc>(BrotliEncoderStateStruct<Alloc>);
+struct StateWrapper<Alloc: BrotliAlloc>(BrotliEncoderStateStruct<Alloc>);
 
-impl<Alloc: BrotliAlloc> Drop for StateWrapper <Alloc> {
+impl<Alloc: BrotliAlloc> Drop for StateWrapper<Alloc> {
     fn drop(&mut self) {
         BrotliEncoderDestroyInstance(&mut self.0);
     }
 }
 
-impl<ErrType,
-     R: CustomRead<ErrType>,
-     BufferType : SliceWrapperMut<u8>,
-     Alloc: BrotliAlloc>
-CompressorReaderCustomIo<ErrType, R, BufferType, Alloc>
+impl<ErrType, R: CustomRead<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: BrotliAlloc>
+    CompressorReaderCustomIo<ErrType, R, BufferType, Alloc>
 {
-
-    pub fn new(r: R, buffer : BufferType,
-                              alloc : Alloc,
-               invalid_data_error_type : ErrType,
-               q: u32,
-               lgwin: u32) -> Self {
-        let mut ret = CompressorReaderCustomIo{
-            input_buffer : buffer,
-            total_out : Some(0),
-            input_offset : 0,
-            input_len : 0,
-            input_eof : false,
+    pub fn new(
+        r: R,
+        buffer: BufferType,
+        alloc: Alloc,
+        invalid_data_error_type: ErrType,
+        q: u32,
+        lgwin: u32,
+    ) -> Self {
+        let mut ret = CompressorReaderCustomIo {
+            input_buffer: buffer,
+            total_out: Some(0),
+            input_offset: 0,
+            input_len: 0,
+            input_eof: false,
             input: r,
-            state : StateWrapper(BrotliEncoderCreateInstance(alloc)),
-            error_if_invalid_data : Some(invalid_data_error_type),
+            state: StateWrapper(BrotliEncoderCreateInstance(alloc)),
+            error_if_invalid_data: Some(invalid_data_error_type),
         };
-        BrotliEncoderSetParameter(&mut ret.state.0,
-                                  BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
-                                  q as (u32));
-        BrotliEncoderSetParameter(&mut ret.state.0,
-                                  BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
-                                  lgwin as (u32));
+        BrotliEncoderSetParameter(
+            &mut ret.state.0,
+            BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
+            q as (u32),
+        );
+        BrotliEncoderSetParameter(
+            &mut ret.state.0,
+            BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
+            lgwin as (u32),
+        );
 
         ret
     }
@@ -175,58 +167,66 @@ CompressorReaderCustomIo<ErrType, R, BufferType, Alloc>
         if self.input_offset == self.input_buffer.slice_mut().len() {
             self.input_offset = 0;
             self.input_len = 0;
-        } else if self.input_offset + 256 > self.input_buffer.slice_mut().len() && avail_in < self.input_offset {
-            let (first, second) = self.input_buffer.slice_mut().split_at_mut(self.input_offset);
+        } else if self.input_offset + 256 > self.input_buffer.slice_mut().len()
+            && avail_in < self.input_offset
+        {
+            let (first, second) = self
+                .input_buffer
+                .slice_mut()
+                .split_at_mut(self.input_offset);
             first[0..avail_in].clone_from_slice(&second[0..avail_in]);
             self.input_len -= self.input_offset;
             self.input_offset = 0;
         }
     }
-    pub fn into_inner(self) -> R{
-      match self {
-        CompressorReaderCustomIo {
-          input_buffer:_ib,
-          total_out:_to,
-          input_offset: _io,
-          input_len: _len,
-          input,
-          input_eof:_ieof,
-          error_if_invalid_data: _eiid,
-          state: _state,
-        } => {
-          input
+    pub fn into_inner(self) -> R {
+        match self {
+            CompressorReaderCustomIo {
+                input_buffer: _ib,
+                total_out: _to,
+                input_offset: _io,
+                input_len: _len,
+                input,
+                input_eof: _ieof,
+                error_if_invalid_data: _eiid,
+                state: _state,
+            } => input,
         }
-      }
     }
     pub fn get_ref(&self) -> &R {
         &self.input
     }
 }
-impl<ErrType,
-     R: CustomRead<ErrType>,
-     BufferType : SliceWrapperMut<u8>,
-     Alloc: BrotliAlloc> CustomRead<ErrType> for
-CompressorReaderCustomIo<ErrType, R, BufferType, Alloc> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ErrType > {
-        let mut nop_callback = |_data:&mut interface::PredictionModeContextMap<interface::InputReferenceMut>,
-                              _cmds: &mut [interface::StaticCommand],
-                              _mb: interface::InputPair, _mfv: &mut Alloc|();
-        let mut output_offset : usize = 0;
+impl<ErrType, R: CustomRead<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: BrotliAlloc>
+    CustomRead<ErrType> for CompressorReaderCustomIo<ErrType, R, BufferType, Alloc>
+{
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ErrType> {
+        let mut nop_callback =
+            |_data: &mut interface::PredictionModeContextMap<interface::InputReferenceMut>,
+             _cmds: &mut [interface::StaticCommand],
+             _mb: interface::InputPair,
+             _mfv: &mut Alloc| ();
+        let mut output_offset: usize = 0;
         let mut avail_out = buf.len();
         let mut avail_in = self.input_len - self.input_offset;
         while output_offset == 0 {
             if self.input_len < self.input_buffer.slice_mut().len() && !self.input_eof {
-                match self.input.read(&mut self.input_buffer.slice_mut()[self.input_len..]) {
+                match self
+                    .input
+                    .read(&mut self.input_buffer.slice_mut()[self.input_len..])
+                {
                     Err(e) => return Err(e),
-                    Ok(size) => if size == 0 {
-                        self.input_eof = true;
-                    }else {
-                        self.input_len += size;
-                        avail_in = self.input_len - self.input_offset;
-                    },
+                    Ok(size) => {
+                        if size == 0 {
+                            self.input_eof = true;
+                        } else {
+                            self.input_len += size;
+                            avail_in = self.input_len - self.input_offset;
+                        }
+                    }
                 }
             }
-            let op : BrotliEncoderOperation;
+            let op: BrotliEncoderOperation;
             if avail_in == 0 {
                 op = BrotliEncoderOperation::BROTLI_OPERATION_FINISH;
             } else {
@@ -242,7 +242,8 @@ CompressorReaderCustomIo<ErrType, R, BufferType, Alloc> {
                 buf,
                 &mut output_offset,
                 &mut self.total_out,
-                &mut nop_callback);
+                &mut nop_callback,
+            );
             if avail_in == 0 {
                 self.copy_to_front();
             }
@@ -257,5 +258,3 @@ CompressorReaderCustomIo<ErrType, R, BufferType, Alloc> {
         Ok(output_offset)
     }
 }
-
-
