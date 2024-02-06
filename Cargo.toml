@@ -8,6 +8,7 @@ documentation = "https://docs.rs/brotli/"
 homepage = "https://github.com/dropbox/rust-brotli"
 repository = "https://github.com/dropbox/rust-brotli"
 keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
+categories = ["compression", "no-std"]
 readme = "README.md"
 autobins = false
 
@@ -15,32 +16,31 @@ autobins = false
 doc = false
 name = "brotli"
 
-
-
 [[bin]]
 doc = false
 name = "catbrotli"
 
 [profile.release]
-lto=true
-incremental=false
+lto = true
+incremental = false
 
 [dependencies]
-"alloc-no-stdlib" = {version="2.0"}
-"brotli-decompressor" = {version="~2.5", default-features=false}
-"alloc-stdlib" = {version="~0.2", optional=true}
-# Uncomment once this packed_simd "packed_simd_2" = {version="0.3", optional=true}
-"sha2" = {version="~0.10", optional=true}
+"alloc-no-stdlib" = { version = "2.0" }
+"alloc-stdlib" = { version = "~0.2", optional = true }
+"brotli-decompressor" = { version = "~2.5", default-features = false }
+"sha2" = { version = "~0.10", optional = true }
+# Uncomment once this packed_simd
+# "packed_simd_2" = {version="0.3", optional=true}
 
 [features]
-default=["std", "ffi-api"]
-validation=["sha2"]
+default = ["std", "ffi-api"]
+benchmark = ["brotli-decompressor/benchmark"]
+disable-timer = ["brotli-decompressor/disable-timer"]
+external-literal-probability = []
+ffi-api = []
+pass-through-ffi-panics = []
 seccomp = ["brotli-decompressor/seccomp"]
 std = ["alloc-stdlib", "brotli-decompressor/std"]
-external-literal-probability = []
-disable-timer = ["brotli-decompressor/disable-timer"]
-benchmark = ["brotli-decompressor/benchmark"]
+validation = ["sha2"]
 vector_scratch_space = []
-#simd = ["packed_simd_2/into_bits"]
-pass-through-ffi-panics = []
-ffi-api = []
+# simd = ["packed_simd_2/into_bits"]

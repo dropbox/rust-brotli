@@ -8,25 +8,26 @@ documentation = "https://github.com/dropbox/rust-brotli/blob/master/README.md"
 homepage = "https://github.com/dropbox/rust-brotli"
 repository = "https://github.com/dropbox/rust-brotli"
 keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
+categories = ["compression", "no-std", "external-ffi-bindings"]
 readme = "README.md"
 autobins = false
 
 [lib]
-path="src/lib.rs"
-crate-type=["cdylib", "staticlib", "rlib"]
+path = "src/lib.rs"
+crate-type = ["cdylib", "staticlib", "rlib"]
 
 [profile.release]
-lto=true
+lto = true
 
 [dependencies]
-"brotli" = {version="~3.3", default-features=false, features=["ffi-api"]}
+"brotli" = { version = "~3.3", default-features = false, features = ["ffi-api"] }
 
 [features]
-validation=["brotli/validation"]
-default=["std"]
-seccomp = ["brotli/seccomp"]
-std = ["brotli/std"]
-disable-timer = ["brotli/disable-timer"]
+default = ["std"]
 benchmark = ["brotli/benchmark"]
-vector_scratch_space = ["brotli/vector_scratch_space"]
+disable-timer = ["brotli/disable-timer"]
+seccomp = ["brotli/seccomp"]
 simd = ["brotli/simd"]
+std = ["brotli/std"]
+validation = ["brotli/validation"]
+vector_scratch_space = ["brotli/vector_scratch_space"]
