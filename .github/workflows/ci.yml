@@ -9,10 +9,6 @@ on:
     types: [ published ]
   workflow_dispatch:
 
-  release:
-    types: [ published ]
-  workflow_dispatch:
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -22,6 +18,7 @@ defaults:
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: taiki-e/install-action@v2
@@ -49,5 +46,4 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.metadata.outputs.rust-version }}
-          components: clippy,rustfmt
       - run: just ci-test-msrv
