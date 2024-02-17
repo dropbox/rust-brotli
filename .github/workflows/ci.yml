@@ -9,17 +9,45 @@ on:
     types: [ published ]
   workflow_dispatch:
 
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --verbose
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - run: just ci-test
+
+  msrv:
+    name: Test MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - name: Read crate metadata
+        id: metadata
+        run: echo "rust-version=$(sed -ne 's/rust-version *= *\"\(.*\)\"/\1/p' Cargo.toml)" >> $GITHUB_OUTPUT
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.metadata.outputs.rust-version }}
+          components: clippy,rustfmt
+      - run: just ci-test-msrv
