@@ -93,7 +93,7 @@ impl<
 {
     fn drop(&mut self) {
         {
-            let &(ref lock, ref cvar) = &*self.queue.0;
+            let (lock, cvar) = &*self.queue.0;
             let mut local_queue = lock.lock().unwrap();
             local_queue.immediate_shutdown = true;
             cvar.notify_all();
@@ -122,7 +122,7 @@ impl<
                 // after the destructor that decrefs possible_job
                 let possible_job;
                 {
-                    let &(ref lock, ref cvar) = &*queue;
+                    let (lock, cvar) = &*queue;
                     let mut local_queue = lock.lock().unwrap();
                     if local_queue.immediate_shutdown {
                         break;
@@ -156,7 +156,7 @@ impl<
                 };
             }
             {
-                let &(ref lock, ref cvar) = &*queue;
+                let (lock, cvar) = &*queue;
                 let mut local_queue = lock.lock().unwrap();
                 local_queue.num_in_progress -= 1;
                 local_queue.results.push(ret).unwrap();
@@ -165,7 +165,7 @@ impl<
         }
     }
     fn _push_job(&mut self, job: JobRequest<ReturnValue, ExtraInput, Alloc, U>) {
-        let &(ref lock, ref cvar) = &*self.queue.0;
+        let (lock, cvar) = &*self.queue.0;
         let mut local_queue = lock.lock().unwrap();
         loop {
             if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size()
@@ -182,7 +182,7 @@ impl<
         &mut self,
         job: JobRequest<ReturnValue, ExtraInput, Alloc, U>,
     ) -> Result<(), JobRequest<ReturnValue, ExtraInput, Alloc, U>> {
-        let &(ref lock, ref cvar) = &*self.queue.0;
+        let (lock, cvar) = &*self.queue.0;
         let mut local_queue = lock.lock().unwrap();
         if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size()
             < MAX_THREADS
@@ -322,7 +322,7 @@ impl<
     for WorkerJoinable<ReturnValue, ExtraInput, Alloc, U>
 {
     fn join(self) -> Result<ReturnValue, BrotliEncoderThreadError> {
-        let &(ref lock, ref cvar) = &*self.queue.0;
+        let (lock, cvar) = &*self.queue.0;
         let mut local_queue = lock.lock().unwrap();
         loop {
             match local_queue
@@ -370,7 +370,7 @@ where
         f: fn(ExtraInput, usize, usize, &U, Alloc) -> ReturnValue,
     ) {
         assert!(num_threads <= MAX_THREADS);
-        let &(ref lock, ref cvar) = &*self.queue.0;
+        let (lock, cvar) = &*self.queue.0;
         let mut local_queue = lock.lock().unwrap();
         loop {
             if local_queue.jobs.size() + local_queue.num_in_progress + local_queue.results.size()

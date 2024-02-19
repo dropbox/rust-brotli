@@ -515,15 +515,13 @@ impl<SliceType: SliceWrapper<u8> + Clone> Clone for Command<SliceType> {
     #[inline]
     fn clone(&self) -> Command<SliceType> {
         match self {
-            &Command::Copy(ref copy) => Command::Copy(copy.clone()),
-            &Command::Dict(ref dict) => Command::Dict(dict.clone()),
-            &Command::Literal(ref literal) => Command::Literal(literal.clone()),
-            &Command::BlockSwitchCommand(ref switch) => Command::BlockSwitchCommand(switch.clone()),
-            &Command::BlockSwitchLiteral(ref switch) => Command::BlockSwitchLiteral(switch.clone()),
-            &Command::BlockSwitchDistance(ref switch) => {
-                Command::BlockSwitchDistance(switch.clone())
-            }
-            &Command::PredictionMode(ref pm) => Command::PredictionMode(pm.clone()),
+            Command::Copy(copy) => Command::Copy(copy.clone()),
+            Command::Dict(dict) => Command::Dict(dict.clone()),
+            Command::Literal(literal) => Command::Literal(literal.clone()),
+            Command::BlockSwitchCommand(switch) => Command::BlockSwitchCommand(switch.clone()),
+            Command::BlockSwitchLiteral(switch) => Command::BlockSwitchLiteral(switch.clone()),
+            Command::BlockSwitchDistance(switch) => Command::BlockSwitchDistance(switch.clone()),
+            Command::PredictionMode(pm) => Command::PredictionMode(pm.clone()),
         }
     }
 }
