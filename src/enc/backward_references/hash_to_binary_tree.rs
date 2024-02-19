@@ -274,7 +274,7 @@ where
     #[inline(always)]
     fn HashBytes(&self, data: &[u8]) -> usize {
         let h = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kHashMul32);
-        (h >> 32i32 - BUCKET_BITS as i32) as usize
+        (h >> (32i32 - BUCKET_BITS as i32)) as usize
     }
     #[inline(always)]
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {

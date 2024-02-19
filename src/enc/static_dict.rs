@@ -49,7 +49,7 @@ pub fn BROTLI_UNALIGNED_LOAD32(sl: &[u8]) -> u32 {
 #[inline(always)]
 pub fn Hash(data: &[u8]) -> u32 {
     let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kDictHashMul32);
-    h >> 32i32 - kDictNumBits
+    h >> (32i32 - kDictNumBits)
 }
 #[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD64(sl: &[u8]) -> u64 {

@@ -694,7 +694,7 @@ pub fn BrotliConvertBitDepthsToSymbols(depth: &[u8], len: usize, bits: &mut [u16
     i = 1usize;
     while i < MAX_HUFFMAN_BITS {
         {
-            code = code + bl_count[i.wrapping_sub(1usize)] as (i32) << 1i32;
+            code = (code + bl_count[i.wrapping_sub(1usize)] as (i32)) << 1i32;
             next_code[i] = code as (u16);
         }
         i = i.wrapping_add(1 as (usize));

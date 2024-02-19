@@ -719,10 +719,10 @@ fn EncodeWindowBits(
             *last_bytes = 1i32 as (u16);
             *last_bytes_bits = 7i32 as (u8);
         } else if lgwin > 17i32 {
-            *last_bytes = (lgwin - 17i32 << 1i32 | 1i32) as (u16);
+            *last_bytes = ((lgwin - 17i32) << 1i32 | 1i32) as (u16);
             *last_bytes_bits = 4i32 as (u8);
         } else {
-            *last_bytes = (lgwin - 8i32 << 4i32 | 1i32) as (u16);
+            *last_bytes = ((lgwin - 8i32) << 4i32 | 1i32) as (u16);
             *last_bytes_bits = 7i32 as (u8);
         }
     }
@@ -1178,7 +1178,7 @@ fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
             bucket_size_: 1u32 << params.hasher.bucket_bits,
             block_bits_: params.hasher.block_bits,
             block_mask_: block_size.wrapping_sub(1) as u32,
-            hash_mask: 0xffffffffffffffffu64 >> 64i32 - 8i32 * params.hasher.hash_len,
+            hash_mask: 0xffffffffffffffffu64 >> (64i32 - 8i32 * params.hasher.hash_len),
             hash_shift_: 64i32 - params.hasher.bucket_bits,
         },
     })
