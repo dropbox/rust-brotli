@@ -1,3 +1,10 @@
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core::marker::PhantomData;
+use core::ops::Range;
+use core::{any, mem};
+#[cfg(feature = "std")]
+use std;
+
 use super::backward_references::{AnyHasher, BrotliEncoderParams, CloneWithAlloc, UnionHasher};
 use super::encode::{
     BrotliEncoderCompressStream, BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
@@ -5,14 +12,8 @@ use super::encode::{
     BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher, HasherSetup, SanitizeParams,
 };
 use super::BrotliAlloc;
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use concat::{BroCatli, BroCatliResult};
-use core::any;
-use core::marker::PhantomData;
-use core::mem;
-use core::ops::Range;
-#[cfg(feature = "std")]
-use std;
+use crate::concat::{BroCatli, BroCatliResult};
+
 pub type PoisonedThreadError = ();
 
 #[cfg(feature = "std")]
@@ -493,10 +494,10 @@ where
         let (alloc, _extra) = alloc_per_thread[num_threads - 1].replace_with_default();
         compression_last_thread_result = spawner_and_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> CompressionThreadResult<Alloc> {
         compress_part(hasher,
-                      num_threads - 1,
-                      num_threads,
-                      input_and_params,
-                      alloc,
+          num_threads - 1,
+          num_threads,
+          input_and_params,
+          alloc,
         )
       });
     } else {
@@ -514,10 +515,10 @@ where
         let (alloc, _extra) = alloc_per_thread[num_threads - 1].replace_with_default();
         compression_last_thread_result = spawner_and_input.view(move |input_and_params:&(SliceW, BrotliEncoderParams)| -> CompressionThreadResult<Alloc> {
         compress_part(UnionHasher::Uninit,
-                      num_threads - 1,
-                      num_threads,
-                      input_and_params,
-                      alloc,
+          num_threads - 1,
+          num_threads,
+          input_and_params,
+          alloc,
         )
       });
     }

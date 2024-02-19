@@ -2,20 +2,17 @@
 use alloc::{Allocator, SliceWrapper};
 use core::marker::PhantomData;
 use core::mem;
-use enc::backward_references::UnionHasher;
-use enc::threading::{
+// in-place thread create
+use std::sync::{Arc, RwLock};
+use std::thread::JoinHandle;
+
+use super::backward_references::UnionHasher;
+use super::threading::{
     AnyBoxConstructor, BatchSpawnable, BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti,
     CompressionThreadResult, InternalOwned, InternalSendAlloc, Joinable, Owned, OwnedRetriever,
     PoisonedThreadError, SendAlloc,
 };
-use enc::BrotliAlloc;
-use enc::BrotliEncoderParams;
-use std;
-use std::thread::JoinHandle;
-
-// in-place thread create
-
-use std::sync::RwLock;
+use super::{BrotliAlloc, BrotliEncoderParams};
 
 pub struct MultiThreadedJoinable<T: Send + 'static, U: Send + 'static>(
     JoinHandle<T>,
@@ -62,10 +59,10 @@ fn spawn_work<
     extra_input: ExtraInput,
     index: usize,
     num_threads: usize,
-    locked_input: std::sync::Arc<RwLock<U>>,
+    locked_input: Arc<RwLock<U>>,
     alloc: Alloc,
     f: F,
-) -> std::thread::JoinHandle<ReturnValue>
+) -> JoinHandle<ReturnValue>
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {
@@ -89,9 +86,9 @@ where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {
     type JoinHandle = MultiThreadedJoinable<ReturnValue, BrotliEncoderThreadError>;
-    type FinalJoinHandle = std::sync::Arc<RwLock<U>>;
+    type FinalJoinHandle = Arc<RwLock<U>>;
     fn make_spawner(&mut self, input: &mut Owned<U>) -> Self::FinalJoinHandle {
-        std::sync::Arc::<RwLock<U>>::new(RwLock::new(
+        Arc::<RwLock<U>>::new(RwLock::new(
             mem::replace(input, Owned(InternalOwned::Borrowed)).unwrap(),
         ))
     }

@@ -11,6 +11,7 @@ keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
 categories = ["compression", "no-std"]
 readme = "README.md"
 autobins = false
+edition = "2018"
 rust-version = "1.56.0"
 
 [[bin]]
@@ -26,6 +27,8 @@ lto = true
 incremental = false
 
 [dependencies]
+# TODO:  Would it make sense to alias it here like this?
+# "alloc" = { package = "alloc-no-stdlib", version = "2.0" }
 "alloc-no-stdlib" = { version = "2.0" }
 "alloc-stdlib" = { version = "~0.2", optional = true }
 "brotli-decompressor" = { version = "~2.5", default-features = false }

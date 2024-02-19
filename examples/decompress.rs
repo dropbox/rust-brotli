@@ -1,11 +1,12 @@
-extern crate brotli;
 #[cfg(not(feature = "std"))]
 fn main() {
     panic!("For no-stdlib examples please see the tests")
 }
+
 #[cfg(feature = "std")]
 fn main() {
     use std::io;
+
     let stdin = &mut io::stdin();
     {
         use std::io::{Read, Write};

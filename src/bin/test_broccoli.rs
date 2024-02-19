@@ -1,12 +1,14 @@
 #![cfg(test)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
-extern crate brotli_decompressor;
-extern crate core;
-use super::brotli::concat::{BroCatli, BroCatliResult};
-use super::brotli::enc::BrotliEncoderParams;
-use super::integration_tests::UnlimitedBuffer;
+
+use brotli::concat::{BroCatli, BroCatliResult};
+use brotli::enc::BrotliEncoderParams;
 use brotli_decompressor::{CustomRead, CustomWrite};
+
+use super::Rebox;
+use crate::integration_tests::UnlimitedBuffer;
+
 static RANDOM_THEN_UNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
 static ALICE: &'static [u8] = include_bytes!("../../testdata/alice29.txt");
 static UKKONOOA: &'static [u8] = include_bytes!("../../testdata/ukkonooa");
@@ -17,7 +19,7 @@ static RANDOM10K: &'static [u8] = include_bytes!("../../testdata/random_org_10k.
 static RANDOMTHENUNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
 static QUICKFOX: &'static [u8] = include_bytes!("../../testdata/quickfox_repeated");
 static EMPTY: &'static [u8] = &[];
-use super::Rebox;
+
 fn concat(
     files: &mut [UnlimitedBuffer],
     brotli_files: &mut [UnlimitedBuffer],

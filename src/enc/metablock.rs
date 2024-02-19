@@ -1,6 +1,8 @@
 #![allow(dead_code)]
-use super::super::alloc;
-use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core;
+
 use super::backward_references::BrotliEncoderParams;
 use super::bit_cost::{BitsEntropy, BrotliPopulationCost};
 use super::block_split::BlockSplit;
@@ -24,7 +26,6 @@ use super::histogram::{
     HistogramLiteral,
 };
 use super::util::{brotli_max_size_t, brotli_min_size_t};
-use core;
 
 pub fn BrotliInitDistanceParams(params: &mut BrotliEncoderParams, npostfix: u32, ndirect: u32) {
     let dist_params = &mut params.dist;

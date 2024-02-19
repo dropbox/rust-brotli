@@ -1,19 +1,10 @@
 #![cfg(test)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
-extern crate brotli_decompressor;
-extern crate core;
-#[allow(unused_imports)]
-use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::brotli::BrotliResult;
-use super::brotli::BrotliState;
-#[cfg(feature = "std")]
-use super::brotli::{CompressorReader, CompressorWriter};
-#[cfg(feature = "std")]
-use super::brotli_decompressor::{Decompressor, DecompressorWriter};
-use super::HeapAllocator;
-use super::Rebox;
-use brotli::BrotliDecompressStream;
+
+#[cfg(feature = "benchmark")]
+extern crate test;
+
 use core::cmp;
 use std::io;
 #[cfg(feature = "std")]
@@ -22,10 +13,18 @@ use std::time::Duration;
 #[cfg(not(feature = "disable-timer"))]
 use std::time::SystemTime;
 
+#[allow(unused_imports)]
+use alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
+use brotli::enc::{BrotliEncoderInitParams, BrotliEncoderParams};
+use brotli::{BrotliDecompressStream, BrotliResult, BrotliState};
+#[cfg(feature = "std")]
+use brotli::{CompressorReader, CompressorWriter};
+#[cfg(feature = "std")]
+use brotli_decompressor::{Decompressor, DecompressorWriter};
 #[cfg(feature = "benchmark")]
-extern crate test;
-#[cfg(feature = "benchmark")]
-use self::test::Bencher;
+use test::Bencher;
+
+use crate::{HeapAllocator, Rebox};
 
 pub struct Buffer {
     data: Vec<u8>,
@@ -286,7 +285,7 @@ fn test_roundtrip_64x() {
     let mut output = UnlimitedBuffer::new(&[]);
     let q: i32 = 9;
     let lgwin: i32 = 16;
-    let mut params = super::brotli::enc::BrotliEncoderInitParams();
+    let mut params = BrotliEncoderInitParams();
     params.quality = q;
     params.lgwin = lgwin;
     match super::compress(&mut input, &mut compressed, 65536, &params, &[], 1) {
@@ -306,7 +305,7 @@ fn test_roundtrip_64x() {
 }
 
 fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32, q9_5: bool) -> usize {
-    let mut params = super::brotli::enc::BrotliEncoderInitParams();
+    let mut params = BrotliEncoderInitParams();
     params.quality = q;
     params.q9_5 = q9_5;
     params.lgwin = lgwin;
@@ -915,7 +914,7 @@ fn benchmark_helper<Run: Runner>(
     quality: i32,
     q9_5: bool,
 ) {
-    let mut params = super::brotli::enc::BrotliEncoderInitParams();
+    let mut params = BrotliEncoderInitParams();
     params.quality = quality;
     params.q9_5 = q9_5;
     params.large_window = true;
@@ -1413,7 +1412,7 @@ impl io::Read for SoonErrorReader {
 #[test]
 fn test_error_returned() {
     static onetwothreefourfive: [u8; 5] = [1, 2, 3, 4, 5];
-    let params = super::brotli::enc::BrotliEncoderParams::default();
+    let params = BrotliEncoderParams::default();
     let mut erroring = SoonErrorReader(&onetwothreefourfive[..], true);
     let mut br = UnlimitedBuffer::new(&[]);
     let dict = &[];

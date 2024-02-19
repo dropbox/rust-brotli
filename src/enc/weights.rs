@@ -1,4 +1,5 @@
 use core;
+
 pub type Prob = u16;
 
 pub const BLEND_FIXED_POINT_PRECISION: i8 = 15;

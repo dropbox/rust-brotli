@@ -1,4 +1,9 @@
 #![allow(dead_code, unused_imports)]
+
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+
+use {alloc, core};
+
 use super::hash_to_binary_tree::{
     kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, InitBackwardMatch,
     StoreAndFindMatchesH10, Union1, ZopfliNode, H10,
@@ -7,24 +12,19 @@ use super::{
     kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
     kInvalidMatch, AnyHasher, BrotliEncoderParams, BrotliHasherParams,
 };
-use alloc;
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use core;
-use enc::command::{
+use crate::enc::command::{
     BrotliDistanceParams, CombineLengthCodes, Command, CommandCopyLen, ComputeDistanceCode,
     GetCopyLengthCode, GetInsertLengthCode, InitCommand, PrefixEncodeCopyDistance,
 };
-use enc::constants::{kCopyExtra, kInsExtra};
-use enc::dictionary_hash::kStaticDictionaryHash;
-use enc::encode;
-use enc::literal_cost::BrotliEstimateBitCostsForLiterals;
-use enc::static_dict::{
+use crate::enc::constants::{kCopyExtra, kInsExtra};
+use crate::enc::dictionary_hash::kStaticDictionaryHash;
+use crate::enc::encode;
+use crate::enc::literal_cost::BrotliEstimateBitCostsForLiterals;
+use crate::enc::static_dict::{
     kBrotliEncDictionary, BrotliDictionary, BrotliFindAllStaticDictionaryMatches,
-};
-use enc::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
-use enc::util::{brotli_max_size_t, floatX, FastLog2, FastLog2f64, Log2FloorNonZero};
+use crate::enc::util::{brotli_max_size_t, floatX, FastLog2, FastLog2f64, Log2FloorNonZero};
 
 const BROTLI_WINDOW_GAP: usize = 16;
 const BROTLI_MAX_STATIC_DICTIONARY_MATCH_LEN: usize = 37;

@@ -1,9 +1,12 @@
 #![allow(dead_code)]
-use super::backward_references::BrotliEncoderParams;
-use super::vectorization::{sum8i, v256, v256i, Mem256f};
 
-use super::super::alloc;
-use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core;
+
+#[cfg(feature = "simd")]
+use packed_simd_2::IntoBits;
+
+use super::backward_references::BrotliEncoderParams;
 use super::bit_cost::BrotliPopulationCost;
 use super::block_split::BlockSplit;
 use super::cluster::{BrotliHistogramBitCostDistance, BrotliHistogramCombine, HistogramPair};
@@ -13,9 +16,8 @@ use super::histogram::{
     HistogramClear, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
 use super::util::{brotli_max_uint8_t, brotli_min_size_t, FastLog2};
-use core;
-#[cfg(feature = "simd")]
-use packed_simd_2::IntoBits;
+use super::vectorization::{sum8i, v256, v256i, Mem256f};
+
 static kMaxLiteralHistograms: usize = 100usize;
 
 static kMaxCommandHistograms: usize = 50usize;

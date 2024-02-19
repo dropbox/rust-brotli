@@ -1,6 +1,9 @@
 use core::marker::PhantomData;
 use core::mem;
 use std;
+use std::collections::BTreeMap;
+use std::fmt;
+use std::sync::RwLock;
 use std::thread::JoinHandle;
 
 use alloc_no_stdlib::{Allocator, SliceWrapper};
@@ -13,9 +16,8 @@ use brotli::enc::threading::{
 };
 use brotli::enc::BrotliAlloc;
 use brotli::interface;
+use brotli::interface::LiteralPredictionModeNibble;
 use brotli::transform::TransformDictionaryWord;
-use std::collections::BTreeMap;
-use std::fmt;
 
 struct HexSlice<'a>(&'a [u8]);
 
@@ -59,9 +61,7 @@ macro_rules! println_stderr(
     } }
 );
 
-fn prediction_mode_str(
-    prediction_mode_nibble: interface::LiteralPredictionModeNibble,
-) -> &'static str {
+fn prediction_mode_str(prediction_mode_nibble: LiteralPredictionModeNibble) -> &'static str {
     match prediction_mode_nibble.prediction_mode() {
         interface::LITERAL_PREDICTION_MODE_SIGN => "sign",
         interface::LITERAL_PREDICTION_MODE_LSB6 => "lsb6",
@@ -183,8 +183,6 @@ pub fn write_one<T: SliceWrapper<u8>>(cmd: &interface::Command<T>) {
 }
 
 // in-place thread create
-
-use std::sync::RwLock;
 
 pub struct MTJoinable<T: Send + 'static, U: Send + 'static>(JoinHandle<T>, PhantomData<U>);
 #[cfg(not(feature = "std"))]

@@ -1,12 +1,14 @@
 #![allow(unknown_lints)]
 #![allow(unused_macros)]
 
-use enc::util::FastLog2;
-use enc::{s8, v8};
+use super::util::FastLog2;
+use super::{s8, v8};
+
 pub type Mem256f = v8;
 pub type Mem256i = s8;
 pub type v256 = v8;
 pub type v256i = s8;
+
 pub fn sum8(x: v256) -> f32 {
     x.extract(0)
         + x.extract(1)

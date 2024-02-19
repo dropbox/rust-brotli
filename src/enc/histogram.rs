@@ -1,13 +1,14 @@
 #![allow(dead_code)]
 
-use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use alloc::{SliceWrapper, SliceWrapperMut};
+use core;
+use core::cmp::min;
+
 use super::block_split::BlockSplit;
 use super::command::{Command, CommandCopyLen, CommandDistanceContext};
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::vectorization::Mem256i;
-use core;
-use core::cmp::min;
+
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;

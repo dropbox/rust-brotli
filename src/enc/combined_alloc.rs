@@ -1,17 +1,17 @@
-use super::cluster::HistogramPair;
-use super::command::Command;
-use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
-use super::interface::StaticCommand;
-use super::s16;
-use super::util::floatX;
-use super::v8;
-use super::PDF;
 pub use alloc::Allocator;
 
-use super::entropy_encode::HuffmanTree;
-use super::hash_to_binary_tree::ZopfliNode;
 #[cfg(feature = "std")]
 use alloc_stdlib::StandardAlloc;
+
+use super::cluster::HistogramPair;
+use super::command::Command;
+use super::entropy_encode::HuffmanTree;
+use super::hash_to_binary_tree::ZopfliNode;
+use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
+use super::interface::StaticCommand;
+use super::util::floatX;
+use super::{s16, v8, PDF};
+
 /*
 struct CombiningAllocator<T1, T2, AllocT1:Allocator<T1>, AllocT2:Allocator<T2>>(AllocT1, AllocT2);
 

@@ -1,15 +1,16 @@
-use super::super::alloc;
-use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::backward_references::BrotliEncoderParams;
-use super::find_stride;
-use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use super::interface;
-use super::ir_interpret::{push_base, IRInterpreter};
-use super::util::{floatX, FastLog2u16};
-use super::{s16, v8};
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
+
 #[cfg(feature = "simd")]
 use packed_simd_2::IntoBits;
+
+use super::backward_references::BrotliEncoderParams;
+use super::input_pair::{InputPair, InputReference, InputReferenceMut};
+use super::interface::LiteralPredictionModeNibble;
+use super::ir_interpret::{push_base, IRInterpreter};
+use super::util::{floatX, FastLog2u16};
+use super::{find_stride, interface, s16, v8};
+
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;
 pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * 2;
@@ -860,7 +861,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
         self.context_map.literal_context_map.slice()
     }
     #[inline]
-    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
+    fn prediction_mode(&self) -> LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
     #[inline]

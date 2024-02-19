@@ -1,12 +1,12 @@
-use super::super::alloc;
-use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::find_stride;
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core;
+
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use super::interface;
 pub use super::ir_interpret::{push_base, Context, IRInterpreter};
 use super::util::{floatX, FastLog2u16};
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
-use core;
+use super::{find_stride, interface};
+use crate::interface::LiteralPredictionModeNibble;
 
 const DEFAULT_CM_SPEED_INDEX: usize = 8;
 const NUM_SPEEDS_TO_TRY: usize = 16;
@@ -541,7 +541,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
     fn literal_context_map(&self) -> &[u8] {
         self.context_map.literal_context_map.slice()
     }
-    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
+    fn prediction_mode(&self) -> LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
     fn update_cost(

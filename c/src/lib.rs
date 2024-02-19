@@ -1,14 +1,16 @@
 #![no_std]
 #![cfg_attr(not(feature = "std"), feature(lang_items))]
+
 #[cfg(feature = "std")]
 extern crate std;
 
-pub extern crate brotli;
+// FIXME: Big issue here, should not pub use with a wildcard, especially that they conflict with each other
 pub use brotli::ffi::compressor::*;
 pub use brotli::ffi::decompressor::*;
 pub use brotli::ffi::multicompress::*;
 pub use brotli::*;
 use core::ptr::null_mut;
+
 #[cfg(feature = "std")]
 unsafe fn std_only_functions() {
     let _ =

@@ -1,6 +1,5 @@
-pub use brotli_decompressor::ffi;
 pub use brotli_decompressor::ffi::interface::{brotli_alloc_func, brotli_free_func, c_void};
-pub use brotli_decompressor::{BrotliDecoderReturnInfo, HuffmanCode};
+pub use brotli_decompressor::{ffi, BrotliDecoderReturnInfo, HuffmanCode};
 
 pub unsafe extern "C" fn CBrotliDecoderCreateInstance(
     alloc_func: brotli_alloc_func,

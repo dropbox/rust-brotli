@@ -1,4 +1,8 @@
 #![allow(dead_code)]
+
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core;
+
 use super::backward_references::{
     AdvHashSpecialization, AdvHasher, AnyHasher, BasicHasher, BrotliCreateBackwardReferences,
     BrotliEncoderMode, BrotliEncoderParams, BrotliHasherParams, H2Sub, H3Sub, H4Sub, H54Sub, H5Sub,
@@ -16,36 +20,32 @@ use super::brotli_bit_stream::{
     MetaBlockSplit, RecoderState,
 };
 use super::combined_alloc::BrotliAlloc;
+use super::command::{BrotliDistanceParams, Command, GetLengthCode};
+use super::compress_fragment::BrotliCompressFragmentFast;
+use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 use super::constants::{
     BROTLI_CONTEXT, BROTLI_CONTEXT_LUT, BROTLI_MAX_NDIRECT, BROTLI_MAX_NPOSTFIX,
     BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_WINDOW_GAP,
 };
-use super::hash_to_binary_tree::InitializeH10;
-use super::interface;
-pub use super::parameters::BrotliEncoderParameter;
-use alloc::Allocator;
-
-use super::super::alloc;
-use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-use super::command::{BrotliDistanceParams, Command, GetLengthCode};
-use super::compress_fragment::BrotliCompressFragmentFast;
-use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
 #[allow(unused_imports)]
 use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
 };
+use super::hash_to_binary_tree::InitializeH10;
 use super::histogram::{
     ContextType, CostAccessors, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
+use super::input_pair::InputReferenceMut;
+use super::interface;
 use super::metablock::{
     BrotliBuildMetaBlock, BrotliBuildMetaBlockGreedy, BrotliInitDistanceParams,
     BrotliOptimizeHistograms,
 };
+pub use super::parameters::BrotliEncoderParameter;
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
-use core;
-use enc::input_pair::InputReferenceMut;
+
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
 //                                          dictionary: &[BrotliDictionary],
 //                                          num_bytes: usize,

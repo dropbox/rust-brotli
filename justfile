@@ -26,6 +26,10 @@ fmt *ARGS:
     cargo fmt --all -- {{ ARGS }}
     cd c && cargo fmt --all -- {{ ARGS }}
 
+# Run Nightly cargo fmt, ordering imports by groups
+fmt2:
+    cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
+
 # Run cargo clippy
 clippy:
     cargo clippy -- -D warnings

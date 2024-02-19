@@ -1,12 +1,13 @@
-extern crate brotli;
 #[cfg(not(feature = "std"))]
 fn main() {
     panic!("For no-stdlib examples please see the tests")
 }
+
 #[cfg(feature = "std")]
 fn main() {
     use std::io;
     use std::io::{Read, Write};
+
     let stdout = &mut io::stdout();
     {
         let mut writer = brotli::CompressorWriter::new(stdout, 4096, 11, 22);

@@ -1,8 +1,11 @@
 #![cfg(test)]
 #![cfg(feature = "std")]
-use super::*;
+
 use core;
-use enc::encode::BrotliEncoderParameter;
+
+use super::*;
+use crate::enc::encode::BrotliEncoderParameter;
+
 #[test]
 fn test_compress_workpool() {
     let input = [

@@ -1,4 +1,5 @@
 use core;
+
 pub const MAX_THREADS: usize = 16;
 
 pub struct FixedQueue<T: Sized> {

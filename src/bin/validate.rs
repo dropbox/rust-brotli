@@ -1,12 +1,15 @@
-use super::{HeapAllocator, IoWriterWrapper, Rebox};
+#[cfg(feature = "validation")]
+use core;
+use std::io::{self, Error, ErrorKind, Read, Write};
+
 use alloc_no_stdlib::{Allocator, SliceWrapper};
 use brotli::enc::BrotliEncoderParams;
 use brotli::{CustomWrite, DecompressorWriterCustomIo};
 #[cfg(feature = "validation")]
-use core;
-#[cfg(feature = "validation")]
 use sha2::{Digest, Sha256};
-use std::io::{self, Error, ErrorKind, Read, Write};
+
+use super::{HeapAllocator, IoWriterWrapper, Rebox};
+
 #[cfg(feature = "validation")]
 type Checksum = Sha256;
 

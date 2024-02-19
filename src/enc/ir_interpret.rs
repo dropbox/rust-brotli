@@ -1,9 +1,11 @@
-use super::super::alloc::SliceWrapper;
+use alloc::SliceWrapper;
+
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::histogram::ContextType;
 use super::input_pair::InputReference;
 use super::interface;
 use super::interface::LiteralPredictionModeNibble;
+
 pub trait IRInterpreter {
     fn inc_local_byte_offset(&mut self, inc: usize);
     fn local_byte_offset(&self) -> usize;
@@ -11,7 +13,7 @@ pub trait IRInterpreter {
     fn block_type(&self) -> u8;
     fn literal_data_at_offset(&self, index: usize) -> u8;
     fn literal_context_map(&self) -> &[u8];
-    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble;
+    fn prediction_mode(&self) -> LiteralPredictionModeNibble;
     fn update_cost(
         &mut self,
         stride_prior: [u8; 8],

@@ -1,15 +1,17 @@
 #![cfg(test)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
-extern crate brotli_decompressor;
-extern crate core;
-use super::brotli::concat::{BroCatli, BroCatliResult};
-use super::brotli::enc::BrotliEncoderParams;
-use super::integration_tests::UnlimitedBuffer;
+
 use std::io::{Read, Write};
+
+use brotli::concat::{BroCatli, BroCatliResult};
+use brotli::enc::BrotliEncoderParams;
+
+use super::Rebox;
+use crate::integration_tests::UnlimitedBuffer;
+
 static RANDOM_THEN_UNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
 static ALICE: &'static [u8] = include_bytes!("../../testdata/alice29.txt");
-use super::Rebox;
 
 #[test]
 fn test_custom_dict() {

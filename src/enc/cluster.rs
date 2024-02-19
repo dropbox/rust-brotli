@@ -1,13 +1,15 @@
 #![allow(dead_code)]
+
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+
+use {alloc, core};
+
 use super::bit_cost::BrotliPopulationCost;
 use super::histogram::{
     CostAccessors, HistogramAddHistogram, HistogramClear, HistogramSelfAddHistogram,
 };
-use super::util::brotli_min_size_t;
-use super::util::FastLog2;
-use alloc;
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use core;
+use super::util::{brotli_min_size_t, FastLog2};
+
 #[derive(Clone, Copy)]
 pub struct HistogramPair {
     pub idx1: u32,

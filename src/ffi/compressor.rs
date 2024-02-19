@@ -5,15 +5,17 @@ use std::io::Write;
 #[cfg(feature = "std")]
 use std::{io, panic, thread};
 
-use super::alloc_util::BrotliSubclassableAllocator;
-use brotli_decompressor::ffi::alloc_util;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
 use brotli_decompressor::ffi::interface::{
     brotli_alloc_func, brotli_free_func, c_void, CAllocator,
 };
-use brotli_decompressor::ffi::{slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut};
-use core;
-use enc::encode::BrotliEncoderStateStruct;
+use brotli_decompressor::ffi::{
+    alloc_util, slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut,
+};
+use encode::BrotliEncoderStateStruct;
+
+use super::alloc_util::BrotliSubclassableAllocator;
+use crate::enc::encode;
 
 #[repr(C)]
 pub enum BrotliEncoderOperation {
@@ -79,9 +81,9 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
         };
         let to_box = BrotliEncoderState {
             custom_allocator: allocators.clone(),
-            compressor: ::enc::encode::BrotliEncoderCreateInstance(
-                BrotliSubclassableAllocator::new(SubclassableAllocator::new(allocators.clone())),
-            ),
+            compressor: encode::BrotliEncoderCreateInstance(BrotliSubclassableAllocator::new(
+                SubclassableAllocator::new(allocators.clone()),
+            )),
         };
         if let Some(alloc) = alloc_func {
             if free_func.is_none() {
@@ -110,10 +112,10 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
 #[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderSetParameter(
     state_ptr: *mut BrotliEncoderState,
-    param: ::enc::encode::BrotliEncoderParameter,
+    param: encode::BrotliEncoderParameter,
     value: u32,
 ) -> i32 {
-    ::enc::encode::BrotliEncoderSetParameter(&mut (*state_ptr).compressor, param, value)
+    encode::BrotliEncoderSetParameter(&mut (*state_ptr).compressor, param, value)
 }
 
 #[no_mangle]
@@ -121,7 +123,7 @@ pub unsafe extern "C" fn BrotliEncoderDestroyInstance(state_ptr: *mut BrotliEnco
     if state_ptr.is_null() {
         return;
     }
-    ::enc::encode::BrotliEncoderDestroyInstance(&mut (*state_ptr).compressor);
+    encode::BrotliEncoderDestroyInstance(&mut (*state_ptr).compressor);
     if (*state_ptr).custom_allocator.alloc_func.is_some() {
         if let Some(free_fn) = (*state_ptr).custom_allocator.free_func {
             let _to_free = core::ptr::read(state_ptr);
@@ -132,14 +134,15 @@ pub unsafe extern "C" fn BrotliEncoderDestroyInstance(state_ptr: *mut BrotliEnco
         free_compressor_no_custom_alloc(state_ptr);
     }
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderIsFinished(state_ptr: *mut BrotliEncoderState) -> i32 {
-    ::enc::encode::BrotliEncoderIsFinished(&mut (*state_ptr).compressor)
+    encode::BrotliEncoderIsFinished(&mut (*state_ptr).compressor)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderHasMoreOutput(state_ptr: *mut BrotliEncoderState) -> i32 {
-    ::enc::encode::BrotliEncoderHasMoreOutput(&mut (*state_ptr).compressor)
+    encode::BrotliEncoderHasMoreOutput(&mut (*state_ptr).compressor)
 }
 
 #[no_mangle]
@@ -150,11 +153,7 @@ pub unsafe extern "C" fn BrotliEncoderSetCustomDictionary(
 ) {
     if let Err(panic_err) = catch_panic(|| {
         let dict_slice = slice_from_raw_parts_or_nil(dict, size);
-        ::enc::encode::BrotliEncoderSetCustomDictionary(
-            &mut (*state_ptr).compressor,
-            size,
-            dict_slice,
-        );
+        encode::BrotliEncoderSetCustomDictionary(&mut (*state_ptr).compressor, size, dict_slice);
         0
     }) {
         error_print(panic_err);
@@ -166,15 +165,15 @@ pub unsafe extern "C" fn BrotliEncoderTakeOutput(
     state_ptr: *mut BrotliEncoderState,
     size: *mut usize,
 ) -> *const u8 {
-    ::enc::encode::BrotliEncoderTakeOutput(&mut (*state_ptr).compressor, &mut *size).as_ptr()
+    encode::BrotliEncoderTakeOutput(&mut (*state_ptr).compressor, &mut *size).as_ptr()
 }
 #[no_mangle]
 pub extern "C" fn BrotliEncoderVersion() -> u32 {
-    ::enc::encode::BrotliEncoderVersion()
+    encode::BrotliEncoderVersion()
 }
 #[no_mangle]
 pub extern "C" fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
-    ::enc::encode::BrotliEncoderMaxCompressedSize(input_size)
+    encode::BrotliEncoderMaxCompressedSize(input_size)
 }
 #[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderCompress(
@@ -196,25 +195,25 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
         };
         let translated_mode = match mode {
             BrotliEncoderMode::BROTLI_MODE_GENERIC => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_GENERIC
+                crate::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_GENERIC
             }
             BrotliEncoderMode::BROTLI_MODE_TEXT => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_TEXT
+                crate::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_TEXT
             }
             BrotliEncoderMode::BROTLI_MODE_FONT => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_FONT
+                crate::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_FONT
             }
             BrotliEncoderMode::BROTLI_MODE_FORCE_LSB_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR
+                crate::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR
             }
             BrotliEncoderMode::BROTLI_MODE_FORCE_MSB_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR
+                crate::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR
             }
             BrotliEncoderMode::BROTLI_MODE_FORCE_UTF8_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR
+                crate::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR
             }
             BrotliEncoderMode::BROTLI_MODE_FORCE_SIGNED_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR
+                crate::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR
             }
         };
         let mut m8 =
@@ -222,7 +221,7 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
         let empty_m8 =
             BrotliSubclassableAllocator::new(SubclassableAllocator::new(allocators.clone()));
 
-        ::enc::encode::BrotliEncoderCompress(
+        encode::BrotliEncoderCompress(
             empty_m8,
             &mut m8,
             quality,
@@ -279,16 +278,16 @@ pub unsafe extern "C" fn BrotliEncoderCompressStream(
         let result;
         let translated_op = match op {
             BrotliEncoderOperation::BROTLI_OPERATION_PROCESS => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_PROCESS
+                encode::BrotliEncoderOperation::BROTLI_OPERATION_PROCESS
             }
             BrotliEncoderOperation::BROTLI_OPERATION_FLUSH => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FLUSH
+                encode::BrotliEncoderOperation::BROTLI_OPERATION_FLUSH
             }
             BrotliEncoderOperation::BROTLI_OPERATION_FINISH => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FINISH
+                encode::BrotliEncoderOperation::BROTLI_OPERATION_FINISH
             }
             BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA
+                encode::BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA
             }
         };
         {
@@ -309,7 +308,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressStream(
                 (&mut [], false)
             };
             let mut to = Some(0usize);
-            result = ::enc::encode::BrotliEncoderCompressStream(
+            result = encode::BrotliEncoderCompressStream(
                 &mut (*state_ptr).compressor,
                 translated_op,
                 &mut *available_in,

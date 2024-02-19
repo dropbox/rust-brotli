@@ -11,6 +11,7 @@ keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
 categories = ["compression", "no-std", "external-ffi-bindings"]
 readme = "README.md"
 autobins = false
+edition = "2021"
 
 [lib]
 path = "src/lib.rs"

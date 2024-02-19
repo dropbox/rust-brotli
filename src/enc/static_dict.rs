@@ -1,5 +1,4 @@
 use core;
-pub const kNumDistanceCacheEntries: usize = 4;
 
 use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
@@ -7,6 +6,8 @@ use super::super::dictionary::{
 use super::static_dict_lut::{
     kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets, kStaticDictionaryWords, DictWord,
 };
+
+pub const kNumDistanceCacheEntries: usize = 4;
 #[allow(unused)]
 static kUppercaseFirst: u8 = 10i32 as (u8);
 

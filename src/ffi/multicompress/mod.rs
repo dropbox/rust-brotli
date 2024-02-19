@@ -1,29 +1,32 @@
 #![cfg(not(feature = "safe"))]
+mod test;
+
+use alloc::SliceWrapper;
+use core;
 #[cfg(feature = "std")]
 use std::io::Write;
 #[cfg(feature = "std")]
 use std::{io, panic, thread};
-mod test;
-use super::compressor;
-#[allow(unused_imports)]
+
+#[cfg(feature = "std")]
 use brotli_decompressor;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
 use brotli_decompressor::ffi::interface::{
     brotli_alloc_func, brotli_free_func, c_void, CAllocator,
 };
 use brotli_decompressor::ffi::{slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut};
-use core;
-use enc::encode::{
-    BrotliEncoderCompressStream, BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-    BrotliEncoderIsFinished, BrotliEncoderOperation, BrotliEncoderSetParameter,
-};
 
 use super::alloc_util::BrotliSubclassableAllocator;
-use alloc::SliceWrapper;
-use enc;
-use enc::backward_references::{BrotliEncoderParams, UnionHasher};
-use enc::encode::{set_parameter, BrotliEncoderParameter};
-use enc::threading::{Owned, SendAlloc};
+use super::compressor;
+use crate::enc;
+use crate::enc::backward_references::{BrotliEncoderParams, UnionHasher};
+use crate::enc::encode::{
+    set_parameter, BrotliEncoderCompressStream, BrotliEncoderCreateInstance,
+    BrotliEncoderDestroyInstance, BrotliEncoderIsFinished, BrotliEncoderOperation,
+    BrotliEncoderParameter, BrotliEncoderSetParameter,
+};
+use crate::enc::threading::{Owned, SendAlloc};
+
 pub const MAX_THREADS: usize = 16;
 
 struct SliceRef<'a>(&'a [u8]);
@@ -50,7 +53,7 @@ pub extern "C" fn BrotliEncoderMaxCompressedSizeMulti(
     input_size: usize,
     num_threads: usize,
 ) -> usize {
-    ::enc::encode::BrotliEncoderMaxCompressedSizeMulti(input_size, num_threads)
+    enc::encode::BrotliEncoderMaxCompressedSizeMulti(input_size, num_threads)
 }
 
 fn help_brotli_encoder_compress_single(

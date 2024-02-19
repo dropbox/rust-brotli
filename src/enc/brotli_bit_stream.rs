@@ -2,26 +2,18 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_macros)]
-use super::combined_alloc::BrotliAlloc;
-use super::prior_eval;
-use super::stride_eval;
-use super::util::floatX;
-use super::{s16, v8};
+
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 #[cfg(feature = "std")]
-use std::io::Write;
-use VERSION;
+use std::io::Write as _;
 
-use super::block_split::BlockSplit;
-use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use enc::backward_references::BrotliEncoderParams;
-
-use super::super::alloc;
-use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::super::core;
 use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
 };
 use super::super::transform::TransformDictionaryWord;
+use super::backward_references::BrotliEncoderParams;
+use super::block_split::BlockSplit;
+use super::combined_alloc::BrotliAlloc;
 use super::command::{
     Command, CommandDistanceIndexAndOffset, GetCopyLengthCode, GetInsertLengthCode,
 };
@@ -38,15 +30,18 @@ use super::entropy_encode::{
     BrotliWriteHuffmanTree, HuffmanComparator, HuffmanTree, InitHuffmanTree, NewHuffmanTree,
     SortHuffmanTreeItems,
 };
-use super::find_stride;
 use super::histogram::{
     ContextType, HistogramAddItem, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
-use super::interface;
-use super::interface::{CommandProcessor, StaticCommand};
+use super::input_pair::{InputPair, InputReference, InputReferenceMut};
+use super::interface::{CommandProcessor, LiteralPredictionModeNibble, StaticCommand};
 use super::pdf::PDF;
 use super::static_dict::kNumDistanceCacheEntries;
+use super::util::floatX;
 use super::vectorization::Mem256f;
+use super::{find_stride, interface, prior_eval, s16, stride_eval, v8};
+use crate::VERSION;
+
 pub struct PrefixCodeRange {
     pub offset: u32,
     pub nbits: u32,
@@ -66,9 +61,7 @@ fn context_type_str(context_type: ContextType) -> &'static str {
     }
 }
 
-fn prediction_mode_str(
-    prediction_mode_nibble: interface::LiteralPredictionModeNibble,
-) -> &'static str {
+fn prediction_mode_str(prediction_mode_nibble: LiteralPredictionModeNibble) -> &'static str {
     match prediction_mode_nibble.prediction_mode() {
         interface::LITERAL_PREDICTION_MODE_SIGN => "sign",
         interface::LITERAL_PREDICTION_MODE_LSB6 => "lsb6",
@@ -228,7 +221,7 @@ impl<'a, Alloc: BrotliAlloc> interface::CommandProcessor<'a> for CommandQueue<'a
 
 #[cfg(feature = "std")]
 fn warn_on_missing_free() {
-    let _err = ::std::io::stderr()
+    let _err = std::io::stderr()
         .write(b"Need to free entropy_tally_scratch before dropping CommandQueue\n");
 }
 #[cfg(not(feature = "std"))]
@@ -544,7 +537,7 @@ fn LogMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
         params.literal_adaptation[1],
     ]);
 
-    prediction_mode.set_literal_prediction_mode(interface::LiteralPredictionModeNibble(
+    prediction_mode.set_literal_prediction_mode(LiteralPredictionModeNibble(
         context_type.unwrap_or(ContextType::CONTEXT_LSB6) as u8,
     ));
     let mut entropy_tally_scratch;

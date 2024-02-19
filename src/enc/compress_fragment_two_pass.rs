@@ -1,7 +1,9 @@
 #![allow(dead_code)]
+
+use core;
+
+//use alloc::{SliceWrapper, SliceWrapperMut};
 use super::backward_references::kHashMul32;
-//use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-use super::super::alloc;
 use super::bit_cost::BitsEntropy;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
 use super::entropy_encode::{
@@ -12,7 +14,7 @@ use super::static_dict::{
     BROTLI_UNALIGNED_STORE64,
 };
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
-use core;
+
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as (usize);
 
 // returns number of commands inserted

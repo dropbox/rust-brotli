@@ -1,20 +1,18 @@
 #![cfg(feature = "std")]
-use core::mem;
-use std;
 
 use alloc::{Allocator, SliceWrapper};
-use enc::backward_references::UnionHasher;
-use enc::fixed_queue::{FixedQueue, MAX_THREADS};
-use enc::threading::{
+use core::mem;
+// in-place thread create
+use std::sync::RwLock;
+use std::sync::{Arc, Condvar, Mutex};
+
+use super::backward_references::UnionHasher;
+use super::fixed_queue::{FixedQueue, MAX_THREADS};
+use super::threading::{
     BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti, CompressionThreadResult,
     InternalOwned, InternalSendAlloc, Joinable, Owned, SendAlloc,
 };
-use enc::BrotliAlloc;
-use enc::BrotliEncoderParams;
-use std::sync::{Arc, Condvar, Mutex};
-// in-place thread create
-
-use std::sync::RwLock;
+use super::{BrotliAlloc, BrotliEncoderParams};
 
 struct JobReply<T: Send + 'static> {
     result: T,

@@ -1,5 +1,6 @@
 use super::encode::BROTLI_NUM_DISTANCE_SHORT_CODES;
 use super::util::Log2FloorNonZero;
+
 #[derive(Copy, Clone, Debug)]
 pub struct BrotliDistanceParams {
     pub distance_postfix_bits: u32,

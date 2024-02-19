@@ -3,18 +3,19 @@ mod benchmark;
 pub mod hash_to_binary_tree;
 pub mod hq;
 mod test;
-use super::super::alloc;
-use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core;
+
 use super::command::{BrotliDistanceParams, Command, ComputeDistanceCode, InitCommand};
 use super::dictionary_hash::kStaticDictionaryHash;
 use super::hash_to_binary_tree::{H10Buckets, H10DefaultParams, ZopfliNode, H10};
-use super::static_dict::BrotliDictionary;
 use super::static_dict::{
-    FindMatchLengthWithLimit, FindMatchLengthWithLimitMin4, BROTLI_UNALIGNED_LOAD32,
-    BROTLI_UNALIGNED_LOAD64,
+    BrotliDictionary, FindMatchLengthWithLimit, FindMatchLengthWithLimitMin4,
+    BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use super::util::{brotli_max_size_t, floatX, Log2FloorNonZero};
-use core;
+
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;

@@ -1,20 +1,24 @@
 #![cfg_attr(feature = "benchmark", feature(test))]
 
+extern crate core;
+#[allow(unused_imports)]
+#[macro_use]
+extern crate alloc_no_stdlib;
+
 pub mod integration_tests;
 mod test_broccoli;
 mod test_custom_dict;
 mod test_threading;
 mod tests;
 mod util;
+mod validate;
 
-extern crate brotli;
-extern crate brotli_decompressor;
-extern crate core;
-#[cfg(feature = "validation")]
-extern crate sha2;
-#[allow(unused_imports)]
-#[macro_use]
-extern crate alloc_no_stdlib;
+use core::ops;
+use std::env;
+use std::fs::File;
+use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::path::Path;
+
 #[allow(unused_imports)]
 use alloc_no_stdlib::{
     bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
@@ -30,12 +34,6 @@ use brotli::enc::{
 use brotli::CustomRead;
 #[allow(unused_imports)]
 use brotli::HuffmanCode;
-use core::ops;
-mod validate;
-use std::env;
-
-use std::fs::File;
-use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 
 const MAX_THREADS: usize = 16;
 
@@ -86,7 +84,7 @@ impl<T> alloc_no_stdlib::SliceWrapperMut<T> for Rebox<T> {
 #[derive(Clone, Copy, Default)]
 pub struct HeapAllocator {}
 
-impl<T: core::clone::Clone + Default> alloc_no_stdlib::Allocator<T> for HeapAllocator {
+impl<T: Clone + Default> alloc_no_stdlib::Allocator<T> for HeapAllocator {
     type AllocatedMemory = Rebox<T>;
     fn alloc_cell(self: &mut HeapAllocator, len: usize) -> Rebox<T> {
         let v: Vec<T> = vec![T::default(); len];
@@ -124,8 +122,6 @@ macro_rules! println_stderr(
         writeln!(&mut ::std::io::stderr(), $($val)*).unwrap();
     } }
 );
-
-use std::path::Path;
 
 // declare_stack_allocator_struct!(MemPool, 4096, global);
 
@@ -964,9 +960,9 @@ fn main() {
                     }
                 } else {
                     match decompress(&mut input, &mut io::stdout(), buffer_size, custom_dictionary.into()) {
-            Ok(_) => {}
+                        Ok(_) => {}
             Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
-          }
+                    }
                 }
             }
             drop(input);
@@ -1012,9 +1008,9 @@ fn main() {
                 }
             } else {
                 match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
-          Ok(_) => return,
+                    Ok(_) => return,
           Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
-        }
+                }
             }
         }
     } else {
@@ -1022,6 +1018,6 @@ fn main() {
         match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
       Ok(_) => (),
       Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
-    }
+        }
     }
 }

@@ -1,4 +1,17 @@
 #![cfg_attr(not(feature = "std"), allow(unused_imports))]
+
+pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
+#[cfg(feature = "std")]
+use std::io;
+#[cfg(feature = "std")]
+use std::io::{Error, ErrorKind, Write};
+
+#[cfg(feature = "std")]
+pub use alloc_stdlib::StandardAlloc;
+use brotli_decompressor::CustomWrite;
+#[cfg(feature = "std")]
+pub use brotli_decompressor::{IntoIoWriter, IoWriterWrapper};
+
 use super::backward_references::BrotliEncoderParams;
 use super::combined_alloc::BrotliAlloc;
 use super::encode::{
@@ -7,18 +20,6 @@ use super::encode::{
     BrotliEncoderParameter, BrotliEncoderSetParameter, BrotliEncoderStateStruct,
 };
 use super::interface;
-pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-#[cfg(feature = "std")]
-pub use alloc_stdlib::StandardAlloc;
-use brotli_decompressor::CustomWrite;
-#[cfg(feature = "std")]
-pub use brotli_decompressor::{IntoIoWriter, IoWriterWrapper};
-
-#[cfg(feature = "std")]
-use std::io;
-
-#[cfg(feature = "std")]
-use std::io::{Error, ErrorKind, Write};
 
 #[cfg(feature = "std")]
 pub struct CompressorWriterCustomAlloc<
