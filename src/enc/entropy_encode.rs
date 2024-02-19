@@ -25,11 +25,11 @@ impl Default for HuffmanTree {
 }
 
 pub fn NewHuffmanTree(count: u32, left: i16, right: i16) -> HuffmanTree {
-    return HuffmanTree {
+    HuffmanTree {
         total_count_: count,
         index_left_: left,
         index_right_or_value_: right,
-    };
+    }
 }
 pub fn InitHuffmanTree(xself: &mut HuffmanTree, count: u32, left: i16, right: i16) {
     *xself = NewHuffmanTree(count, left, right);

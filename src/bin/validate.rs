@@ -14,7 +14,7 @@ struct Tee<OutputA: Write, OutputB: Write>(OutputA, OutputB);
 impl<OutputA: Write, OutputB: Write> Write for Tee<OutputA, OutputB> {
     fn write(&mut self, data: &[u8]) -> Result<usize, io::Error> {
         match self.0.write(data) {
-            Err(err) => return Err(err),
+            Err(err) => Err(err),
             Ok(size) => match self.1.write_all(&data[..size]) {
                 Ok(_) => Ok(size),
                 Err(err) => Err(err),
@@ -23,7 +23,7 @@ impl<OutputA: Write, OutputB: Write> Write for Tee<OutputA, OutputB> {
     }
     fn flush(&mut self) -> Result<(), io::Error> {
         match self.0.flush() {
-            Err(err) => return Err(err),
+            Err(err) => Err(err),
             Ok(_) => loop {
                 match self.1.flush() {
                     Err(e) => match e.kind() {
@@ -167,9 +167,9 @@ pub fn compress_validate<InputType: Read, OutputType: Write>(
     match ret {
         Ok(_ret) => {
             if sha_ok(&mut sha_writer, &mut sha_reader) {
-                return Ok(());
+                Ok(())
             } else {
-                return Err(Error::new(ErrorKind::InvalidData, VALIDATION_FAILED));
+                Err(Error::new(ErrorKind::InvalidData, VALIDATION_FAILED))
             }
         }
         Err(e) => Err(e),

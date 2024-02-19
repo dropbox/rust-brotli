@@ -21,21 +21,21 @@ pub struct HistogramLiteral {
 impl Clone for HistogramLiteral {
     #[inline(always)]
     fn clone(&self) -> HistogramLiteral {
-        return HistogramLiteral {
+        HistogramLiteral {
             data_: self.data_,
             total_count_: self.total_count_,
             bit_cost_: self.bit_cost_,
-        };
+        }
     }
 }
 impl Default for HistogramLiteral {
     #[inline(always)]
     fn default() -> HistogramLiteral {
-        return HistogramLiteral {
+        HistogramLiteral {
             data_: [0; 256],
             total_count_: 0,
             bit_cost_: 3.402e+38 as super::util::floatX,
-        };
+        }
     }
 }
 //#[derive(Clone)] clone is broken for arrays > 32
@@ -47,21 +47,21 @@ pub struct HistogramCommand {
 impl Clone for HistogramCommand {
     #[inline(always)]
     fn clone(&self) -> HistogramCommand {
-        return HistogramCommand {
+        HistogramCommand {
             data_: self.data_,
             total_count_: self.total_count_,
             bit_cost_: self.bit_cost_,
-        };
+        }
     }
 }
 impl Default for HistogramCommand {
     #[inline(always)]
     fn default() -> HistogramCommand {
-        return HistogramCommand {
+        HistogramCommand {
             data_: [0; 704],
             total_count_: 0,
             bit_cost_: 3.402e+38 as super::util::floatX,
-        };
+        }
     }
 }
 //#[derive(Clone)] // #derive is broken for arrays > 32
@@ -78,20 +78,20 @@ pub struct HistogramDistance {
 }
 impl Clone for HistogramDistance {
     fn clone(&self) -> HistogramDistance {
-        return HistogramDistance {
+        HistogramDistance {
             data_: self.data_,
             total_count_: self.total_count_,
             bit_cost_: self.bit_cost_,
-        };
+        }
     }
 }
 impl Default for HistogramDistance {
     fn default() -> HistogramDistance {
-        return HistogramDistance {
+        HistogramDistance {
             data_: [0; BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS],
             total_count_: 0,
             bit_cost_: 3.402e+38 as super::util::floatX,
-        };
+        }
     }
 }
 
@@ -106,52 +106,52 @@ pub trait CostAccessors {
 impl SliceWrapper<u32> for HistogramLiteral {
     #[inline(always)]
     fn slice(&self) -> &[u32] {
-        return &self.data_[..];
+        &self.data_[..]
     }
 }
 impl SliceWrapperMut<u32> for HistogramLiteral {
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [u32] {
-        return &mut self.data_[..];
+        &mut self.data_[..]
     }
 }
 pub struct Array264i([Mem256i; 33]);
 impl SliceWrapperMut<Mem256i> for Array264i {
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
-        return &mut self.0[..];
+        &mut self.0[..]
     }
 }
 
 impl SliceWrapper<Mem256i> for Array264i {
     #[inline(always)]
     fn slice(&self) -> &[Mem256i] {
-        return &self.0[..];
+        &self.0[..]
     }
 }
 impl Default for Array264i {
     #[inline(always)]
     fn default() -> Array264i {
-        return Array264i([Mem256i::default().clone(); 33]);
+        Array264i([Mem256i::default().clone(); 33])
     }
 }
 pub struct Array528i([Mem256i; 66]);
 impl SliceWrapperMut<Mem256i> for Array528i {
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
-        return &mut self.0[..];
+        &mut self.0[..]
     }
 }
 impl SliceWrapper<Mem256i> for Array528i {
     #[inline(always)]
     fn slice(&self) -> &[Mem256i] {
-        return &self.0[..];
+        &self.0[..]
     }
 }
 impl Default for Array528i {
     #[inline(always)]
     fn default() -> Array528i {
-        return Array528i([Mem256i::default(); 66]);
+        Array528i([Mem256i::default(); 66])
     }
 }
 
@@ -159,19 +159,19 @@ pub struct Array712i([Mem256i; 89]);
 impl SliceWrapperMut<Mem256i> for Array712i {
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
-        return &mut self.0[..];
+        &mut self.0[..]
     }
 }
 impl SliceWrapper<Mem256i> for Array712i {
     #[inline(always)]
     fn slice(&self) -> &[Mem256i] {
-        return &self.0[..];
+        &self.0[..]
     }
 }
 impl Default for Array712i {
     #[inline(always)]
     fn default() -> Array712i {
-        return Array712i([Mem256i::default(); 89]);
+        Array712i([Mem256i::default(); 89])
     }
 }
 
@@ -180,20 +180,20 @@ pub struct EmptyIVec {}
 impl SliceWrapperMut<Mem256i> for EmptyIVec {
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [Mem256i] {
-        return &mut [];
+        &mut []
     }
 }
 impl SliceWrapper<Mem256i> for EmptyIVec {
     #[inline(always)]
     fn slice(&self) -> &[Mem256i] {
-        return &[];
+        &[]
     }
 }
 
 impl Default for EmptyIVec {
     #[inline(always)]
     fn default() -> EmptyIVec {
-        return EmptyIVec {};
+        EmptyIVec {}
     }
 }
 
@@ -206,15 +206,15 @@ pub type HistogramLiteralScratch = EmptyIVec;
 impl CostAccessors for HistogramLiteral {
     type i32vec = HistogramLiteralScratch;
     fn make_nnz_storage() -> Self::i32vec {
-        return HistogramLiteralScratch::default();
+        HistogramLiteralScratch::default()
     }
     #[inline(always)]
     fn total_count(&self) -> usize {
-        return self.total_count_;
+        self.total_count_
     }
     #[inline(always)]
     fn bit_cost(&self) -> super::util::floatX {
-        return self.bit_cost_;
+        self.bit_cost_
     }
     #[inline(always)]
     fn set_bit_cost(&mut self, data: super::util::floatX) {
@@ -229,13 +229,13 @@ impl CostAccessors for HistogramLiteral {
 impl SliceWrapper<u32> for HistogramCommand {
     #[inline(always)]
     fn slice(&self) -> &[u32] {
-        return &self.data_[..];
+        &self.data_[..]
     }
 }
 impl SliceWrapperMut<u32> for HistogramCommand {
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [u32] {
-        return &mut self.data_[..];
+        &mut self.data_[..]
     }
 }
 
@@ -248,15 +248,15 @@ pub type HistogramCommandScratch = EmptyIVec;
 impl CostAccessors for HistogramCommand {
     type i32vec = HistogramCommandScratch;
     fn make_nnz_storage() -> Self::i32vec {
-        return HistogramCommandScratch::default();
+        HistogramCommandScratch::default()
     }
     #[inline(always)]
     fn total_count(&self) -> usize {
-        return self.total_count_;
+        self.total_count_
     }
     #[inline(always)]
     fn bit_cost(&self) -> super::util::floatX {
-        return self.bit_cost_;
+        self.bit_cost_
     }
     #[inline(always)]
     fn set_bit_cost(&mut self, data: super::util::floatX) {
@@ -271,13 +271,13 @@ impl CostAccessors for HistogramCommand {
 impl SliceWrapper<u32> for HistogramDistance {
     #[inline(always)]
     fn slice(&self) -> &[u32] {
-        return &self.data_[..];
+        &self.data_[..]
     }
 }
 impl SliceWrapperMut<u32> for HistogramDistance {
     #[inline(always)]
     fn slice_mut(&mut self) -> &mut [u32] {
-        return &mut self.data_[..];
+        &mut self.data_[..]
     }
 }
 
@@ -290,16 +290,16 @@ pub type HistogramDistanceScratch = EmptyIVec;
 impl CostAccessors for HistogramDistance {
     type i32vec = HistogramDistanceScratch;
     fn make_nnz_storage() -> Self::i32vec {
-        return HistogramDistanceScratch::default();
+        HistogramDistanceScratch::default()
     }
 
     #[inline(always)]
     fn total_count(&self) -> usize {
-        return self.total_count_;
+        self.total_count_
     }
     #[inline(always)]
     fn bit_cost(&self) -> super::util::floatX {
-        return self.bit_cost_;
+        self.bit_cost_
     }
     #[inline(always)]
     fn set_bit_cost(&mut self, data: super::util::floatX) {

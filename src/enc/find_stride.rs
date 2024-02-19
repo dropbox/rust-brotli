@@ -784,7 +784,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyTally<AllocU32> {
                 best_entropy = cur;
             }
         }
-        return best_stride;
+        best_stride
     }
     pub fn peek(&mut self) -> &mut EntropyBucketPopulation<AllocU32> {
         &mut self.pop[0]

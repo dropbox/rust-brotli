@@ -119,8 +119,8 @@ fn GetNextOutInternal<'a>(
     tiny_buf: &'a mut [u8; 16],
 ) -> &'a mut [u8] {
     match next_out {
-        &NextOut::DynamicStorage(offset) => return &mut storage[offset as usize..],
-        &NextOut::TinyBuf(offset) => return &mut tiny_buf[offset as usize..],
+        &NextOut::DynamicStorage(offset) => &mut storage[offset as usize..],
+        &NextOut::TinyBuf(offset) => &mut tiny_buf[offset as usize..],
         &NextOut::None => &mut [],
     }
 }
@@ -131,10 +131,8 @@ macro_rules! GetNextOut {
 }
 fn NextOutIncrement(next_out: &NextOut, inc: i32) -> NextOut {
     match next_out {
-        &NextOut::DynamicStorage(offset) => {
-            return NextOut::DynamicStorage((offset as i32 + inc) as u32)
-        }
-        &NextOut::TinyBuf(offset) => return NextOut::TinyBuf((offset as i32 + inc) as u32),
+        &NextOut::DynamicStorage(offset) => NextOut::DynamicStorage((offset as i32 + inc) as u32),
+        &NextOut::TinyBuf(offset) => NextOut::TinyBuf((offset as i32 + inc) as u32),
         &NextOut::None => NextOut::None,
     }
 }
@@ -376,7 +374,7 @@ pub fn BROTLI_DISTANCE_ALPHABET_SIZE(NPOSTFIX: u32, NDIRECT: u32, MAXNBITS: u32)
 pub const BROTLI_NUM_DISTANCE_SYMBOLS: usize = 1128;
 
 pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
-    return BrotliEncoderParams {
+    BrotliEncoderParams {
         dist: BrotliDistanceParams {
             distance_postfix_bits: 0,
             num_direct_distance_codes: 0,
@@ -411,7 +409,7 @@ pub fn BrotliEncoderInitParams() -> BrotliEncoderParams {
             num_last_distances_to_check: 16,
             literal_byte_score: 0,
         },
-    };
+    }
 }
 
 fn ExtendLastCommand<Alloc: BrotliAlloc>(
@@ -462,7 +460,7 @@ fn ExtendLastCommand<Alloc: BrotliAlloc>(
 }
 
 fn RingBufferInit<AllocU8: alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
-    return RingBuffer {
+    RingBuffer {
         size_: 0,
         mask_: 0, // 0xff??
         tail_size_: 0,
@@ -472,7 +470,7 @@ fn RingBufferInit<AllocU8: alloc::Allocator<u8>>() -> RingBuffer<AllocU8> {
         pos_: 0,
         data_mo: AllocU8::AllocatedMemory::default(),
         buffer_index: 0usize,
-    };
+    }
 }
 
 pub fn BrotliEncoderCreateInstance<Alloc: BrotliAlloc>(
@@ -1225,7 +1223,7 @@ fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
         return UnionHasher::H10(InitializeH10(m, false, params, 0));
     }
     // since we don't support all of these, fall back to something sane
-    return InitializeH6(m, params);
+    InitializeH6(m, params)
 
     //  return UnionHasher::Uninit;
 }
@@ -1501,7 +1499,7 @@ fn ChooseContextMode(
     if (params.quality >= 10 && BrotliIsMostlyUTF8(data, pos, mask, length, kMinUTF8Ratio) == 0) {
         return ContextType::CONTEXT_SIGNED;
     }
-    return ContextType::CONTEXT_UTF8;
+    ContextType::CONTEXT_UTF8
 }
 
 #[derive(PartialEq, Eq, Copy, Clone)]
@@ -2012,7 +2010,7 @@ fn ShouldUseComplexStaticContextMap(
     //BROTLI_UNUSED(quality);
     /* Try the more complex static context map only for long data. */
     if (size_hint < (1 << 20)) {
-        return false;
+        false
     } else {
         let end_pos = start_pos + length;
         /* To make entropy calculations faster and to fit on the stack, we collect
@@ -2061,11 +2059,11 @@ fn ShouldUseComplexStaticContextMap(
         ratio is improved. Note however that this heuristics might be too strict
         for some cases and could be tuned further. */
         if (entropy[2] > 3.0 || entropy[1] - entropy[2] < 0.2) {
-            return false;
+            false
         } else {
             *num_literal_contexts = 13;
             *literal_context_map = &kStaticContextMapComplexUTF8;
-            return true;
+            true
         }
     }
 }

@@ -14,7 +14,7 @@ impl Buffer {
             read_offset: 0,
         };
         ret.data.extend(buf);
-        return ret;
+        ret
     }
 }
 impl io::Read for Buffer {
@@ -25,16 +25,16 @@ impl io::Read for Buffer {
                 .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
         }
         self.read_offset += bytes_to_read;
-        return Ok(bytes_to_read);
+        Ok(bytes_to_read)
     }
 }
 impl io::Write for Buffer {
     fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
         self.data.extend(buf);
-        return Ok(buf.len());
+        Ok(buf.len())
     }
     fn flush(self: &mut Self) -> io::Result<()> {
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -68,7 +68,7 @@ fn copy_from_to<R: io::Read, W: io::Write>(mut r: R, mut w: W) -> io::Result<usi
             }
         }
     }
-    return Ok(out_size);
+    Ok(out_size)
 }
 
 #[test]
