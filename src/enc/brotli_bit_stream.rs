@@ -332,7 +332,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
                 // we have to divide some:
                 let (in_a, in_b) = tmp_inserts.split_at(btypel_sub as usize);
                 if in_a.len() != 0 {
-                    if let Some(_) = context_type {
+                    if context_type.is_some() {
                         command_queue.push_literals(&in_a);
                     } else if params.high_entropy_detection_quality == 0 {
                         command_queue.push_literals(&in_a);
@@ -351,7 +351,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
                     btypel_sub = 1u32 << 31;
                 }
             }
-            if let Some(_) = context_type {
+            if context_type.is_some() {
                 command_queue.push_literals(&tmp_inserts);
             } else if params.high_entropy_detection_quality == 0 {
                 command_queue.push_literals(&tmp_inserts);
