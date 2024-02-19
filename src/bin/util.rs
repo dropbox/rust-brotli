@@ -76,9 +76,7 @@ struct SliceU8Ref<'a>(pub &'a [u8]);
 impl<'a> fmt::LowerHex for SliceU8Ref<'a> {
     fn fmt(&self, fmtr: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         for item in self.0 {
-            if let Err(e) = fmtr.write_fmt(format_args!("{:02x}", item)) {
-                return Err(e);
-            }
+            fmtr.write_fmt(format_args!("{:02x}", item))?
         }
         Ok(())
     }

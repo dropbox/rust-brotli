@@ -581,9 +581,7 @@ where
         }
         thread.0 = InternalSendAlloc::A(cur_result.alloc, UnionHasher::Uninit);
     }
-    if let Err(e) = compression_result {
-        return Err(e);
-    }
+    compression_result?;
     match bro_cat_li.finish(output, &mut out_file_size) {
         BroCatliResult::Success => compression_result = Ok(out_file_size),
         err => {
