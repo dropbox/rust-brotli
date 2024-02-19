@@ -321,9 +321,7 @@ where
                     match w.write(&mut output_buffer[next_out_offset..lim]) {
                         Err(e) => {
                             BrotliEncoderDestroyInstance(s);
-                            if let Err(err) = read_err {
-                                return Err(err);
-                            }
+                            read_err?;
                             return Err(e);
                         }
                         Ok(size) => {
@@ -346,8 +344,6 @@ where
         }
         BrotliEncoderDestroyInstance(s);
     }
-    if let Err(err) = read_err {
-        return Err(err);
-    }
+    read_err?;
     Ok(total_out.unwrap())
 }

@@ -330,9 +330,7 @@ pub fn compress_multi<InputType: Read, OutputType: Write>(
     >,
 ) -> Result<usize, io::Error> {
     let mut input: Vec<u8> = Vec::<u8>::new();
-    if let Err(err) = r.read_to_end(&mut input) {
-        return Err(err);
-    }
+    r.read_to_end(&mut input)?;
     let mut output = Rebox::from(vec![
         0u8;
         BrotliEncoderMaxCompressedSizeMulti(
