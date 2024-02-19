@@ -80,7 +80,7 @@ impl<'a> core::cmp::PartialEq for InputPair<'a> {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 impl<'a> core::ops::Index<usize> for InputPair<'a> {

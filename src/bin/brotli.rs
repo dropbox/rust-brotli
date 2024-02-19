@@ -1030,7 +1030,7 @@ fn main() {
     } else {
         assert_eq!(num_benchmarks, 1);
         match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
-      Ok(_) => return,
+      Ok(_) => (),
       Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
     }
     }

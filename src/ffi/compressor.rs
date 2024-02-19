@@ -347,12 +347,12 @@ pub unsafe extern "C" fn BrotliEncoderMallocU8(
     size: usize,
 ) -> *mut u8 {
     if let Some(alloc_fn) = (*state_ptr).custom_allocator.alloc_func {
-        return core::mem::transmute::<*mut c_void, *mut u8>(alloc_fn(
+        core::mem::transmute::<*mut c_void, *mut u8>(alloc_fn(
             (*state_ptr).custom_allocator.opaque,
             size,
-        ));
+        ))
     } else {
-        return alloc_util::alloc_stdlib(size);
+        alloc_util::alloc_stdlib(size)
     }
 }
 
@@ -378,12 +378,12 @@ pub unsafe extern "C" fn BrotliEncoderMallocUsize(
     size: usize,
 ) -> *mut usize {
     if let Some(alloc_fn) = (*state_ptr).custom_allocator.alloc_func {
-        return core::mem::transmute::<*mut c_void, *mut usize>(alloc_fn(
+        core::mem::transmute::<*mut c_void, *mut usize>(alloc_fn(
             (*state_ptr).custom_allocator.opaque,
             size * core::mem::size_of::<usize>(),
-        ));
+        ))
     } else {
-        return alloc_util::alloc_stdlib(size);
+        alloc_util::alloc_stdlib(size)
     }
 }
 #[no_mangle]

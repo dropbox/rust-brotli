@@ -128,7 +128,7 @@ fn ComputeDistanceCost(
     }
 
     *cost = BrotliPopulationCost(&histo, scratch) as f64 + extra_bits;
-    return true;
+    true
 }
 
 pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
@@ -478,7 +478,7 @@ fn InitBlockSplitter<
     HistogramClear(&mut histograms.slice_mut()[0]);
     xself.last_histogram_ix_[0] = 0;
     xself.last_histogram_ix_[1] = 0;
-    return xself;
+    xself
 }
 fn InitContextBlockSplitter<
     Alloc: alloc::Allocator<u8> + alloc::Allocator<u32> + alloc::Allocator<HistogramLiteral>,
@@ -563,7 +563,7 @@ fn InitContextBlockSplitter<
     ClearHistograms(&mut histograms.slice_mut()[(0usize)..], num_contexts);
     xself.last_histogram_ix_[0] = 0;
     xself.last_histogram_ix_[1] = 0;
-    return xself;
+    xself
 }
 
 fn BlockSplitterFinishBlock<

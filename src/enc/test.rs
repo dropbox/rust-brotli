@@ -222,7 +222,7 @@ fn oneshot_compress(
         BrotliEncoderDestroyInstance(s);
     }
 
-    return (1, next_out_offset);
+    (1, next_out_offset)
 }
 
 fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
@@ -255,7 +255,7 @@ fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult
         &mut written,
         &mut brotli_state,
     );
-    return (result, input_offset, output_offset);
+    (result, input_offset, output_offset)
 }
 
 fn oneshot(
@@ -281,7 +281,7 @@ fn oneshot(
         //return (BrotliResult::ResultFailure, 0, 0);
         available_in = compressed.len();
     }
-    return oneshot_decompress(&mut compressed[..available_in], output);
+    oneshot_decompress(&mut compressed[..available_in], output)
 }
 
 #[test]

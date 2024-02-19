@@ -303,7 +303,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
     }
     #[inline(always)]
     fn GetHasherCommon(&mut self) -> &mut Struct1 {
-        return &mut self.GetHasherCommon;
+        &mut self.GetHasherCommon
     }
     #[inline(always)]
     fn HashBytes(&self, data: &[u8]) -> usize {
@@ -707,7 +707,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
     }
     #[inline(always)]
     fn GetHasherCommon(&mut self) -> &mut Struct1 {
-        return &mut self.dict_search_stats_;
+        &mut self.dict_search_stats_
     }
     #[inline(always)]
     fn HashBytes(&self, data: &[u8]) -> usize {
@@ -967,16 +967,15 @@ impl AdvHashSpecialization for HQ5Sub {
     #[inline(always)]
     fn get_hash_mask(&self) -> u64 {
         //return 0xffffffffffffffffu64;
-        return 0xffffffffu64; // make it 32 bit
+        0xffffffffu64 // make it 32 bit
     }
     #[inline(always)]
     fn get_k_hash_mul(&self) -> u64 {
-        return kHashMul32 as u64;
+        kHashMul32 as u64
     }
     #[inline(always)]
     fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-        return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul())
-            & self.get_hash_mask();
+        (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask()
     }
     #[inline(always)]
     fn set_hash_mask(&mut self, _params_hash_len: i32) {}
@@ -1015,16 +1014,15 @@ impl AdvHashSpecialization for HQ7Sub {
     #[inline(always)]
     fn get_hash_mask(&self) -> u64 {
         //return 0xffffffffffffffffu64;
-        return 0xffffffffu64; // make it 32 bit
+        0xffffffffu64 // make it 32 bit
     }
     #[inline(always)]
     fn get_k_hash_mul(&self) -> u64 {
-        return kHashMul32 as u64;
+        kHashMul32 as u64
     }
     #[inline(always)]
     fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-        return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul())
-            & self.get_hash_mask();
+        (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask()
     }
     #[inline(always)]
     fn set_hash_mask(&mut self, _params_hash_len: i32) {}
@@ -1048,10 +1046,10 @@ pub struct H5Sub {
 impl AdvHashSpecialization for H5Sub {
     #[inline(always)]
     fn hash_shift(&self) -> i32 {
-        return self.hash_shift_;
+        self.hash_shift_
     }
     fn bucket_size(&self) -> u32 {
-        return self.bucket_size_;
+        self.bucket_size_
     }
     fn block_bits(&self) -> i32 {
         self.block_bits_
@@ -1060,18 +1058,17 @@ impl AdvHashSpecialization for H5Sub {
         1 << self.block_bits_
     }
     fn block_mask(&self) -> u32 {
-        return self.block_mask_;
+        self.block_mask_
     }
     fn get_hash_mask(&self) -> u64 {
         //return 0xffffffffffffffffu64;
-        return 0xffffffffu64; // make it 32 bit
+        0xffffffffu64 // make it 32 bit
     }
     fn get_k_hash_mul(&self) -> u64 {
-        return kHashMul32 as u64;
+        kHashMul32 as u64
     }
     fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-        return (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul())
-            & self.get_hash_mask();
+        (BROTLI_UNALIGNED_LOAD32(data) as u64 * self.get_k_hash_mul()) & self.get_hash_mask()
     }
     #[allow(unused_variables)]
     fn set_hash_mask(&mut self, params_hash_len: i32) {}
@@ -1095,11 +1092,11 @@ pub struct H6Sub {
 impl AdvHashSpecialization for H6Sub {
     #[inline(always)]
     fn hash_shift(&self) -> i32 {
-        return self.hash_shift_;
+        self.hash_shift_
     }
     #[inline(always)]
     fn bucket_size(&self) -> u32 {
-        return self.bucket_size_;
+        self.bucket_size_
     }
     fn block_bits(&self) -> i32 {
         self.block_bits_
@@ -1109,7 +1106,7 @@ impl AdvHashSpecialization for H6Sub {
     }
     #[inline(always)]
     fn block_mask(&self) -> u32 {
-        return self.block_mask_;
+        self.block_mask_
     }
     #[inline(always)]
     fn get_hash_mask(&self) -> u64 {
@@ -1125,8 +1122,7 @@ impl AdvHashSpecialization for H6Sub {
     }
     #[inline(always)]
     fn load_and_mix_word(&self, data: &[u8]) -> u64 {
-        return (BROTLI_UNALIGNED_LOAD64(data) & self.get_hash_mask())
-            .wrapping_mul(self.get_k_hash_mul());
+        (BROTLI_UNALIGNED_LOAD64(data) & self.get_hash_mask()).wrapping_mul(self.get_k_hash_mul())
     }
     #[inline(always)]
     fn HashTypeLength(&self) -> usize {
@@ -2223,28 +2219,28 @@ macro_rules! match_all_hashers {
 }
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for UnionHasher<Alloc> {
     fn Opts(&self) -> H9Opts {
-        return match_all_hashers!(self, Opts,);
+        match_all_hashers!(self, Opts,)
     }
     fn GetHasherCommon(&mut self) -> &mut Struct1 {
-        return match_all_hashers_mut!(self, GetHasherCommon,);
+        match_all_hashers_mut!(self, GetHasherCommon,)
     } /*
       fn GetH10Tree(&mut self) -> Option<&mut H10<AllocU32, H10Buckets, H10DefaultParams>> {
         return match_all_hashers_mut!(self, GetH10Tree,);
       }*/
     fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
-        return match_all_hashers_mut!(self, Prepare, one_shot, input_size, data);
+        match_all_hashers_mut!(self, Prepare, one_shot, input_size, data)
     }
     fn HashBytes(&self, data: &[u8]) -> usize {
-        return match_all_hashers!(self, HashBytes, data);
+        match_all_hashers!(self, HashBytes, data)
     }
     fn HashTypeLength(&self) -> usize {
-        return match_all_hashers!(self, HashTypeLength,);
+        match_all_hashers!(self, HashTypeLength,)
     }
     fn StoreLookahead(&self) -> usize {
-        return match_all_hashers!(self, StoreLookahead,);
+        match_all_hashers!(self, StoreLookahead,)
     }
     fn PrepareDistanceCache(&self, distance_cache: &mut [i32]) {
-        return match_all_hashers!(self, PrepareDistanceCache, distance_cache);
+        match_all_hashers!(self, PrepareDistanceCache, distance_cache)
     }
     fn StitchToPreviousBlock(
         &mut self,
@@ -2253,14 +2249,14 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for UnionHa
         ringbuffer: &[u8],
         ringbuffer_mask: usize,
     ) {
-        return match_all_hashers_mut!(
+        match_all_hashers_mut!(
             self,
             StitchToPreviousBlock,
             num_bytes,
             position,
             ringbuffer,
             ringbuffer_mask
-        );
+        )
     }
     fn FindLongestMatch(
         &mut self,
@@ -2276,7 +2272,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for UnionHa
         max_distance: usize,
         out: &mut HasherSearchResult,
     ) -> bool {
-        return match_all_hashers_mut!(
+        match_all_hashers_mut!(
             self,
             FindLongestMatch,
             dictionary,
@@ -2290,16 +2286,16 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for UnionHa
             gap,
             max_distance,
             out
-        );
+        )
     }
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-        return match_all_hashers_mut!(self, Store, data, mask, ix);
+        match_all_hashers_mut!(self, Store, data, mask, ix)
     }
     fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-        return match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end);
+        match_all_hashers_mut!(self, StoreRange, data, mask, ix_start, ix_end)
     }
     fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-        return match_all_hashers_mut!(self, BulkStoreRange, data, mask, ix_start, ix_end);
+        match_all_hashers_mut!(self, BulkStoreRange, data, mask, ix_start, ix_end)
     }
 }
 

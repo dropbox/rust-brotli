@@ -43,14 +43,14 @@ fn now() -> Duration {
 }
 #[cfg(not(feature = "disable-timer"))]
 fn now() -> SystemTime {
-    return SystemTime::now();
+    SystemTime::now()
 }
 
 #[cfg(not(feature = "disable-timer"))]
 fn elapsed(start: SystemTime) -> (Duration, bool) {
     match start.elapsed() {
-        Ok(delta) => return (delta, false),
-        _ => return (Duration::new(0, 0), true),
+        Ok(delta) => (delta, false),
+        _ => (Duration::new(0, 0), true),
     }
 }
 
@@ -204,7 +204,7 @@ impl Buffer {
             read_offset: 0,
         };
         ret.data.extend(buf);
-        return ret;
+        ret
     }
 }
 impl UnlimitedBuffer {
@@ -214,7 +214,7 @@ impl UnlimitedBuffer {
             read_offset: 0,
         };
         ret.data.extend(buf);
-        return ret;
+        ret
     }
     pub fn reset_read(&mut self) {
         self.read_offset = 0;
@@ -234,7 +234,7 @@ impl io::Read for Buffer {
                 .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
         }
         self.read_offset += bytes_to_read;
-        return Ok(bytes_to_read);
+        Ok(bytes_to_read)
     }
 }
 impl io::Write for Buffer {
@@ -243,10 +243,10 @@ impl io::Write for Buffer {
             return Ok(buf.len());
         }
         self.data.extend(buf);
-        return Ok(buf.len());
+        Ok(buf.len())
     }
     fn flush(self: &mut Self) -> io::Result<()> {
-        return Ok(());
+        Ok(())
     }
 }
 impl io::Read for UnlimitedBuffer {
@@ -257,17 +257,17 @@ impl io::Read for UnlimitedBuffer {
                 .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
         }
         self.read_offset += bytes_to_read;
-        return Ok(bytes_to_read);
+        Ok(bytes_to_read)
     }
 }
 
 impl io::Write for UnlimitedBuffer {
     fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
         self.data.extend(buf);
-        return Ok(buf.len());
+        Ok(buf.len())
     }
     fn flush(self: &mut Self) -> io::Result<()> {
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -332,7 +332,7 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32, q9_5: bool) -> usize {
     }
     assert_eq!(output.data.len(), input.data.len());
     assert_eq!(input.read_offset, in_buf.len());
-    return compressed.data[..].len();
+    compressed.data[..].len()
 }
 
 fn total_roundtrip_helper(data: &[u8]) {
@@ -884,7 +884,7 @@ impl<'a> io::Read for LimitedBuffer<'a> {
                 .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
         }
         self.read_offset += bytes_to_read;
-        return Ok(bytes_to_read);
+        Ok(bytes_to_read)
     }
 }
 
@@ -901,7 +901,7 @@ impl<'a> io::Write for LimitedBuffer<'a> {
         Ok(bytes_to_write)
     }
     fn flush(self: &mut Self) -> io::Result<()> {
-        return Ok(());
+        Ok(())
     }
 }
 

@@ -56,7 +56,7 @@ impl LiteralPredictionModeNibble {
         if prediction_mode < 16 {
             return Ok(LiteralPredictionModeNibble(prediction_mode));
         }
-        return Err(());
+        Err(())
     }
     #[inline(always)]
     pub fn prediction_mode(&self) -> u8 {

@@ -38,13 +38,13 @@ pub static kBrotliEncDictionary: BrotliDictionary = BrotliDictionary {
 
 #[inline(always)]
 pub fn BrotliGetDictionary() -> &'static BrotliDictionary {
-    return &kBrotliEncDictionary;
+    &kBrotliEncDictionary
 }
 #[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD32(sl: &[u8]) -> u32 {
     let mut p = [0u8; 4];
     p[..].clone_from_slice(&sl.split_at(4).0);
-    return (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24);
+    (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24)
 }
 #[inline(always)]
 pub fn Hash(data: &[u8]) -> u32 {
@@ -55,14 +55,14 @@ pub fn Hash(data: &[u8]) -> u32 {
 pub fn BROTLI_UNALIGNED_LOAD64(sl: &[u8]) -> u64 {
     let mut p = [0u8; 8];
     p[..].clone_from_slice(sl.split_at(8).0);
-    return (p[0] as u64)
+    (p[0] as u64)
         | ((p[1] as u64) << 8)
         | ((p[2] as u64) << 16)
         | ((p[3] as u64) << 24)
         | ((p[4] as u64) << 32)
         | ((p[5] as u64) << 40)
         | ((p[6] as u64) << 48)
-        | ((p[7] as u64) << 56);
+        | ((p[7] as u64) << 56)
 }
 #[inline(always)]
 pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
@@ -129,7 +129,7 @@ pub fn SlowerFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usi
             return index;
         }
     }
-    return limit;
+    limit
 }
 // factor of 5 slower (example takes 90 seconds)
 #[allow(unused)]
@@ -139,7 +139,7 @@ pub fn FindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
             return index;
         }
     }
-    return limit;
+    limit
 }
 #[allow(unused)]
 pub fn FindMatchLengthWithLimitMin4(s1: &[u8], s2: &[u8], limit: usize) -> usize {
@@ -154,7 +154,7 @@ pub fn FindMatchLengthWithLimitMin4(s1: &[u8], s2: &[u8], limit: usize) -> usize
     if limit <= 4 || beyond_ok {
         return core::cmp::min(limit, 4);
     }
-    return ComplexFindMatchLengthWithLimit(s1_rest, s2_rest, limit - 5) + 5;
+    ComplexFindMatchLengthWithLimit(s1_rest, s2_rest, limit - 5) + 5
 }
 #[inline]
 pub fn ComplexFindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: usize) -> usize {
@@ -348,7 +348,7 @@ pub fn slowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize
             return index;
         }
     }
-    return limit;
+    limit
 }
 
 pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_length: usize) -> i32 {

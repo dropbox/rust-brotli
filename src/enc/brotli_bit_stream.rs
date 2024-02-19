@@ -79,7 +79,7 @@ fn prediction_mode_str(
 }
 
 fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality: u8) -> bool {
-    return match high_entropy_detection_quality {
+    match high_entropy_detection_quality {
         0 => false,
         1 => false,
         2 => len >= 128,
@@ -93,7 +93,7 @@ fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality: u8) -
         10 => len >= 4,
         11 => len >= 1,
         _ => len >= 8,
-    };
+    }
 }
 const COMMAND_BUFFER_SIZE: usize = 4096;
 
@@ -1069,7 +1069,7 @@ pub struct SimpleSortHuffmanTree {}
 
 impl HuffmanComparator for SimpleSortHuffmanTree {
     fn Cmp(self: &Self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
-        return (*v0).total_count_ < (*v1).total_count_;
+        (*v0).total_count_ < (*v1).total_count_
     }
 }
 
@@ -1344,7 +1344,7 @@ impl<
     > MetaBlockSplit<Alloc>
 {
     pub fn new() -> Self {
-        return MetaBlockSplit {
+        MetaBlockSplit {
             literal_split: BlockSplit::<Alloc>::new(),
             command_split: BlockSplit::<Alloc>::new(),
             distance_split: BlockSplit::<Alloc>::new(),
@@ -1359,7 +1359,7 @@ impl<
             distance_histograms: <Alloc as Allocator<HistogramDistance>>::AllocatedMemory::default(
             ),
             distance_histograms_size: 0,
-        };
+        }
     }
     pub fn destroy(&mut self, alloc: &mut Alloc) {
         self.literal_split.destroy(alloc);
@@ -1499,10 +1499,10 @@ fn StoreCompressedMetaBlockHeader(
 }
 
 fn NewBlockTypeCodeCalculator() -> BlockTypeCodeCalculator {
-    return BlockTypeCodeCalculator {
+    BlockTypeCodeCalculator {
         last_type: 1,
         second_last_type: 0,
-    };
+    }
 }
 
 fn NewBlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
@@ -1518,7 +1518,7 @@ fn NewBlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
     } else {
         block_len = 0;
     }
-    return BlockEncoder::<Alloc> {
+    BlockEncoder::<Alloc> {
         histogram_length_: histogram_length,
         num_block_types_: num_block_types,
         block_types_: block_types,
@@ -1536,7 +1536,7 @@ fn NewBlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
         entropy_ix_: 0,
         depths_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
         bits_: <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-    };
+    }
 }
 
 fn NextBlockTypeCode(calculator: &mut BlockTypeCodeCalculator, type_: u8) -> usize {
@@ -2306,20 +2306,16 @@ fn StoreCommandExtra(cmd: &Command, storage_ix: &mut usize, storage: &mut [u8]) 
 
 fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
     match mode {
-        ContextType::CONTEXT_LSB6 => {
-            return (p1 as (i32) & 0x3fi32) as (u8);
-        }
-        ContextType::CONTEXT_MSB6 => {
-            return (p1 as (i32) >> 2i32) as (u8);
-        }
+        ContextType::CONTEXT_LSB6 => (p1 as (i32) & 0x3fi32) as (u8),
+        ContextType::CONTEXT_MSB6 => (p1 as (i32) >> 2i32) as (u8),
         ContextType::CONTEXT_UTF8 => {
-            return (kUTF8ContextLookup[p1 as (usize)] as (i32)
+            (kUTF8ContextLookup[p1 as (usize)] as (i32)
                 | kUTF8ContextLookup[(p2 as (i32) + 256i32) as (usize)] as (i32))
-                as (u8);
+                as (u8)
         }
         ContextType::CONTEXT_SIGNED => {
-            return ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32)
-                + kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8);
+            ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32)
+                + kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8)
         }
     }
     //  0i32 as (u8)
@@ -2924,7 +2920,7 @@ struct MetaBlockSplitRefs<'a> {
 }
 
 fn block_split_nop() -> MetaBlockSplitRefs<'static> {
-    return MetaBlockSplitRefs::default();
+    MetaBlockSplitRefs::default()
 }
 
 fn block_split_reference<'a, Alloc: BrotliAlloc>(
@@ -3201,7 +3197,7 @@ fn InputPairFromMaskedInput<'a>(
             &input[0..len.wrapping_sub(len1)],
         );
     }
-    return (&input[masked_pos..masked_pos + len], &[]);
+    (&input[masked_pos..masked_pos + len], &[])
 }
 pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>(
     alloc: &mut Alloc,
