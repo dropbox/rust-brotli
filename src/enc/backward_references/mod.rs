@@ -473,8 +473,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
 impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H2Sub<AllocU32> {
     fn HashBytes(&self, data: &[u8]) -> u32 {
         let h: u64 =
-            (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
-        (h >> 64i32 - 16i32) as (u32)
+            (BROTLI_UNALIGNED_LOAD64(data) << (64i32 - 8i32 * 5i32)).wrapping_mul(kHashMul64);
+        (h >> (64i32 - 16i32)) as (u32)
     }
     fn BUCKET_BITS(&self) -> i32 {
         16
@@ -521,8 +521,8 @@ impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H3Sub<AllocU32> {
     }
     fn HashBytes(&self, data: &[u8]) -> u32 {
         let h: u64 =
-            (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
-        (h >> 64i32 - 16i32) as (u32)
+            (BROTLI_UNALIGNED_LOAD64(data) << (64i32 - 8i32 * 5i32)).wrapping_mul(kHashMul64);
+        (h >> (64i32 - 16i32)) as (u32)
     }
 }
 pub struct H4Sub<AllocU32: alloc::Allocator<u32>> {
@@ -540,8 +540,8 @@ impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H4Sub<AllocU32> {
     }
     fn HashBytes(&self, data: &[u8]) -> u32 {
         let h: u64 =
-            (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 5i32).wrapping_mul(kHashMul64);
-        (h >> 64i32 - 17i32) as (u32)
+            (BROTLI_UNALIGNED_LOAD64(data) << (64i32 - 8i32 * 5i32)).wrapping_mul(kHashMul64);
+        (h >> (64i32 - 17i32)) as (u32)
     }
 }
 impl<AllocU32: alloc::Allocator<u32>> SliceWrapperMut<u32> for H4Sub<AllocU32> {
@@ -569,8 +569,8 @@ impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H54Sub<AllocU32> {
     }
     fn HashBytes(&self, data: &[u8]) -> u32 {
         let h: u64 =
-            (BROTLI_UNALIGNED_LOAD64(data) << 64i32 - 8i32 * 7i32).wrapping_mul(kHashMul64);
-        (h >> 64i32 - 20i32) as (u32)
+            (BROTLI_UNALIGNED_LOAD64(data) << (64i32 - 8i32 * 7i32)).wrapping_mul(kHashMul64);
+        (h >> (64i32 - 20i32)) as (u32)
     }
 }
 
@@ -1112,7 +1112,7 @@ impl AdvHashSpecialization for H6Sub {
     }
     #[inline(always)]
     fn set_hash_mask(&mut self, params_hash_len: i32) {
-        self.hash_mask = !(0u32 as (u64)) >> 64i32 - 8i32 * params_hash_len;
+        self.hash_mask = !(0u32 as (u64)) >> (64i32 - 8i32 * params_hash_len);
     }
     #[inline(always)]
     fn get_k_hash_mul(&self) -> u64 {
@@ -1889,7 +1889,7 @@ fn BackwardReferenceScore(
 
 fn Hash14(data: &[u8]) -> u32 {
     let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kHashMul32);
-    h >> 32i32 - 14i32
+    h >> (32i32 - 14i32)
 }
 
 fn TestStaticDictionaryItem(

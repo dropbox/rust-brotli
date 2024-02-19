@@ -37,7 +37,7 @@ fn get_stride_cdf_low(
         * (cm_prior as usize
             | ((stride_prior as usize & 0xf) << 8)
             | ((high_nibble as usize) << 12));
-    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4)
+    data.split_at_mut((NUM_SPEEDS_TO_TRY * index) << 4)
         .1
         .split_at_mut(16 * NUM_SPEEDS_TO_TRY)
         .0
@@ -45,7 +45,7 @@ fn get_stride_cdf_low(
 
 fn get_stride_cdf_high(data: &mut [u16], stride_prior: u8, cm_prior: usize) -> &mut [u16] {
     let index: usize = 2 * (cm_prior as usize | ((stride_prior as usize) << 8));
-    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4)
+    data.split_at_mut((NUM_SPEEDS_TO_TRY * index) << 4)
         .1
         .split_at_mut(16 * NUM_SPEEDS_TO_TRY)
         .0
@@ -53,7 +53,7 @@ fn get_stride_cdf_high(data: &mut [u16], stride_prior: u8, cm_prior: usize) -> &
 
 fn get_cm_cdf_low(data: &mut [u16], cm_prior: usize, high_nibble: u8) -> &mut [u16] {
     let index: usize = (high_nibble as usize + 1) + 17 * cm_prior as usize;
-    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4)
+    data.split_at_mut((NUM_SPEEDS_TO_TRY * index) << 4)
         .1
         .split_at_mut(16 * NUM_SPEEDS_TO_TRY)
         .0
@@ -61,7 +61,7 @@ fn get_cm_cdf_low(data: &mut [u16], cm_prior: usize, high_nibble: u8) -> &mut [u
 
 fn get_cm_cdf_high(data: &mut [u16], cm_prior: usize) -> &mut [u16] {
     let index: usize = 17 * cm_prior as usize;
-    data.split_at_mut(NUM_SPEEDS_TO_TRY * index << 4)
+    data.split_at_mut((NUM_SPEEDS_TO_TRY * index) << 4)
         .1
         .split_at_mut(16 * NUM_SPEEDS_TO_TRY)
         .0

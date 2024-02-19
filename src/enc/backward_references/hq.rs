@@ -298,7 +298,7 @@ fn InitStartPosQueue() -> StartPosQueue {
 #[inline(always)]
 fn HashBytesH10(data: &[u8]) -> u32 {
     let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kHashMul32);
-    h >> 32i32 - 17i32
+    h >> (32i32 - 17i32)
 }
 
 #[inline(always)]
