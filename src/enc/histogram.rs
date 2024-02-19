@@ -132,7 +132,7 @@ impl SliceWrapper<Mem256i> for Array264i {
 impl Default for Array264i {
     #[inline(always)]
     fn default() -> Array264i {
-        return Array264i([Mem256i::default().clone(); 33]);
+        return Array264i([Mem256i::default(); 33]);
     }
 }
 pub struct Array528i([Mem256i; 66]);

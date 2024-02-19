@@ -287,7 +287,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
     params: &BrotliEncoderParams,
     context_type: Option<ContextType>,
 ) -> RecoderState {
-    let mut input_iter = input.clone();
+    let mut input_iter = input;
     let mut local_dist_cache = [0i32; kNumDistanceCacheEntries];
     local_dist_cache.clone_from_slice(&dist_cache[..]);
     let mut btypel_counter = 0usize;
@@ -1153,8 +1153,8 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                     let mut k: i32;
                     SortHuffmanTreeItems(tree.slice_mut(), n as (usize), SimpleSortHuffmanTree {});
                     sentinel = NewHuffmanTree(!(0u32), -1i16, -1i16);
-                    tree.slice_mut()[(node_index.wrapping_add(1u32) as (usize))] = sentinel.clone();
-                    tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
+                    tree.slice_mut()[(node_index.wrapping_add(1u32) as (usize))] = sentinel;
+                    tree.slice_mut()[(node_index as (usize))] = sentinel;
                     node_index = node_index.wrapping_add(2u32);
                     k = n - 1i32;
                     while k > 0i32 {
@@ -1186,7 +1186,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                             (tree.slice_mut()[tree_ind]).total_count_ = sum_total;
                             (tree.slice_mut()[tree_ind]).index_left_ = left as (i16);
                             (tree.slice_mut()[tree_ind]).index_right_or_value_ = right as (i16);
-                            tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
+                            tree.slice_mut()[(node_index as (usize))] = sentinel;
                             node_index = node_index.wrapping_add(1u32);
                         }
                         k = k - 1;
@@ -2586,7 +2586,7 @@ pub fn BrotliStoreMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
     i = 0usize;
     while i < n_commands {
         {
-            let cmd: Command = commands[(i as (usize))].clone();
+            let cmd: Command = commands[(i as (usize))];
             let cmd_code: usize = cmd.cmd_prefix_ as (usize);
             StoreSymbol(&mut command_enc, cmd_code, storage_ix, storage);
             StoreCommandExtra(&cmd, storage_ix, storage);
@@ -2680,7 +2680,7 @@ fn BuildHistograms(
     i = 0usize;
     while i < n_commands {
         {
-            let cmd: Command = commands[(i as (usize))].clone();
+            let cmd: Command = commands[(i as (usize))];
             let mut j: usize;
             HistogramAddItem(cmd_histo, cmd.cmd_prefix_ as (usize));
             j = cmd.insert_len_ as (usize);
@@ -2719,7 +2719,7 @@ fn StoreDataWithHuffmanCodes(
     i = 0usize;
     while i < n_commands {
         {
-            let cmd: Command = commands[(i as (usize))].clone();
+            let cmd: Command = commands[(i as (usize))];
             let cmd_code: usize = cmd.cmd_prefix_ as (usize);
             let mut j: usize;
             BrotliWriteBits(
@@ -3054,7 +3054,7 @@ pub fn BrotliStoreMetaBlockFast<Cb, Alloc: BrotliAlloc>(
         i = 0usize;
         while i < n_commands {
             {
-                let cmd: Command = commands[(i as (usize))].clone();
+                let cmd: Command = commands[(i as (usize))];
                 let mut j: usize;
                 j = cmd.insert_len_ as (usize);
                 while j != 0usize {
