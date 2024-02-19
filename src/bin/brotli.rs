@@ -437,8 +437,8 @@ where
     brotli::BrotliCompressCustomIoCustomDict(
         &mut IoReaderWrapper::<InputType>(r),
         &mut IoWriterWrapper::<OutputType>(w),
-        &mut input_buffer.slice_mut(),
-        &mut output_buffer.slice_mut(),
+        input_buffer.slice_mut(),
+        output_buffer.slice_mut(),
         params,
         new_brotli_heap_alloc(),
         &mut log,

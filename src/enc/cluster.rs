@@ -143,11 +143,11 @@ fn BrotliCompareAndPushToQueue<
 pub fn BrotliHistogramCombine<
     HistogramType: SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors + Clone,
 >(
-    mut out: &mut [HistogramType],
+    out: &mut [HistogramType],
     cluster_size: &mut [u32],
     symbols: &mut [u32],
     clusters: &mut [u32],
-    mut pairs: &mut [HistogramPair],
+    pairs: &mut [HistogramPair],
     mut num_clusters: usize,
     symbols_size: usize,
     max_clusters: usize,
@@ -201,7 +201,7 @@ pub fn BrotliHistogramCombine<
         /* Take the best pair from the top of heap. */
         best_idx1 = (pairs[(0usize)]).idx1;
         best_idx2 = (pairs[(0usize)]).idx2;
-        HistogramSelfAddHistogram(&mut out, (best_idx1 as (usize)), (best_idx2 as (usize)));
+        HistogramSelfAddHistogram(out, (best_idx1 as (usize)), (best_idx2 as (usize)));
         (out[(best_idx1 as (usize))]).set_bit_cost((pairs[(0usize)]).cost_combo);
         {
             let _rhs = cluster_size[(best_idx2 as (usize))];
@@ -275,7 +275,7 @@ pub fn BrotliHistogramCombine<
                     clusters[(i as (usize))],
                     max_num_pairs,
                     scratch_space,
-                    &mut pairs,
+                    pairs,
                     &mut num_pairs,
                 );
             }

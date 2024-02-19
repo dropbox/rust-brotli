@@ -246,7 +246,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
 {
     fn drop(&mut self) {
         <Alloc as Allocator<floatX>>::free_cell(
-            &mut self.alloc,
+            self.alloc,
             core::mem::replace(
                 &mut self.score,
                 <Alloc as Allocator<floatX>>::AllocatedMemory::default(),
@@ -254,7 +254,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         );
         for i in 0..8 {
             <Alloc as Allocator<u16>>::free_cell(
-                &mut self.alloc,
+                self.alloc,
                 core::mem::replace(
                     &mut self.stride_priors[i],
                     <Alloc as Allocator<u16>>::AllocatedMemory::default(),

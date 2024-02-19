@@ -786,7 +786,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
             }
         }
         if max_length >= 4 && cur_ix_masked.wrapping_add(best_len) <= ring_buffer_mask {
-            let key = self.HashBytes(&data.split_at(cur_ix_masked).1);
+            let key = self.HashBytes(data.split_at(cur_ix_masked).1);
             let bucket = &mut self
                 .buckets_
                 .slice_mut()
@@ -819,8 +819,8 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
                 }
                 {
                     let len = FindMatchLengthWithLimit(
-                        &data.split_at(prev_ix).1,
-                        &data.split_at((cur_ix_masked as usize)).1,
+                        data.split_at(prev_ix).1,
+                        data.split_at((cur_ix_masked as usize)).1,
                         max_length,
                     );
                     if (len >= 4) {
@@ -1710,7 +1710,7 @@ impl<
                     }
                     let prev_data = data.split_at(prev_ix).1;
 
-                    let len: usize = FindMatchLengthWithLimit(&prev_data, &cur_data, max_length);
+                    let len: usize = FindMatchLengthWithLimit(prev_data, cur_data, max_length);
                     if len >= 3usize || len == 2usize && (i < 2usize) {
                         let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
                         if best_score < score {
@@ -1771,7 +1771,7 @@ impl<
                         break;
                     }
                     let prev_data = data.split_at(prev_ix as usize).1;
-                    let len = FindMatchLengthWithLimitMin4(&prev_data, &cur_data, max_length);
+                    let len = FindMatchLengthWithLimitMin4(prev_data, cur_data, max_length);
                     if len != 0 {
                         let score: u64 = BackwardReferenceScore(len, backward, opts);
                         if best_score < score {

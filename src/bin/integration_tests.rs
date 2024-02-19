@@ -163,10 +163,10 @@ where
             result = BrotliDecompressStream(
                 &mut available_in,
                 &mut input_offset,
-                &input.slice(),
+                input.slice(),
                 &mut available_out,
                 &mut output_offset,
-                &mut output.slice_mut(),
+                output.slice_mut(),
                 &mut written,
                 &mut brotli_state,
             );
@@ -315,7 +315,7 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32, q9_5: bool) -> usize {
     } else {
         in_buf.len()
     };
-    let mut input = UnlimitedBuffer::new(&in_buf);
+    let mut input = UnlimitedBuffer::new(in_buf);
     let mut compressed = UnlimitedBuffer::new(&[]);
     let mut output = UnlimitedBuffer::new(&[]);
     match super::compress(&mut input, &mut compressed, 4096, &params, &[], 1) {
@@ -466,7 +466,7 @@ fn test_roundtrip_as_you_lik() {
 fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
     let original_buf = in_buf;
     let mut cmp = [0u8; 259];
-    let mut input = UnlimitedBuffer::new(&in_buf);
+    let mut input = UnlimitedBuffer::new(in_buf);
     {
         let renc = CompressorReader::new(&mut input, 255, q, lgwin);
         let mut rdec = Decompressor::new(renc, 257);
@@ -486,7 +486,7 @@ fn reader_helper(mut in_buf: &[u8], q: u32, lgwin: u32) {
         let _inner_inner_item = inner_item.into_inner();
     }
     in_buf = original_buf;
-    input = UnlimitedBuffer::new(&in_buf);
+    input = UnlimitedBuffer::new(in_buf);
     let mut r2enc = CompressorReader::new(&mut input, 255, q, lgwin);
     let mut compressed_size = 0usize;
     loop {

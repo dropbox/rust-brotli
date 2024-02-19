@@ -507,7 +507,7 @@ pub fn memcpy<T: Sized + Clone>(
 fn BuildAndStoreCommandPrefixCode(
     histogram: &[u32],
     depth: &mut [u8],
-    mut bits: &mut [u16],
+    bits: &mut [u16],
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
@@ -558,30 +558,12 @@ fn BuildAndStoreCommandPrefixCode(
         8usize,
     );
     BrotliConvertBitDepthsToSymbols(&mut cmd_depth[..], 64usize, &mut cmd_bits[..]);
-    memcpy(&mut bits, 0, &cmd_bits[..], 24i32 as (usize), 16usize);
-    memcpy(&mut bits, (8usize), &cmd_bits[..], 40i32 as (usize), 8usize);
-    memcpy(
-        &mut bits,
-        (16usize),
-        &cmd_bits[..],
-        56i32 as (usize),
-        8usize,
-    );
-    memcpy(&mut bits, (24usize), &cmd_bits[..], 0, 48usize);
-    memcpy(
-        &mut bits,
-        (48usize),
-        &cmd_bits[..],
-        32i32 as (usize),
-        8usize,
-    );
-    memcpy(
-        &mut bits,
-        (56usize),
-        &cmd_bits[..],
-        48i32 as (usize),
-        8usize,
-    );
+    memcpy(bits, 0, &cmd_bits[..], 24i32 as (usize), 16usize);
+    memcpy(bits, (8usize), &cmd_bits[..], 40i32 as (usize), 8usize);
+    memcpy(bits, (16usize), &cmd_bits[..], 56i32 as (usize), 8usize);
+    memcpy(bits, (24usize), &cmd_bits[..], 0, 48usize);
+    memcpy(bits, (48usize), &cmd_bits[..], 32i32 as (usize), 8usize);
+    memcpy(bits, (56usize), &cmd_bits[..], 48i32 as (usize), 8usize);
     BrotliConvertBitDepthsToSymbols(&mut depth[(64usize)..], 64usize, &mut bits[(64usize)..]);
     {
         let mut i: usize;

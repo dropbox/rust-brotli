@@ -744,7 +744,7 @@ fn ContextBlockSplitterFinishBlock<
                 let curr_histo_ix: usize = (*xself).curr_histogram_ix_.wrapping_add(i);
                 let mut j: usize;
                 entropy[i] = BitsEntropy(
-                    &(histograms[(curr_histo_ix as (usize))]).slice(),
+                    (histograms[(curr_histo_ix as (usize))]).slice(),
                     (*xself).alphabet_size_,
                 );
                 j = 0usize;
@@ -1046,7 +1046,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             BlockSplitterAddSymbol(
                 &mut cmd_blocks,
                 &mut (*mb).command_split,
-                &mut (*mb).command_histograms.slice_mut(),
+                (*mb).command_histograms.slice_mut(),
                 &mut (*mb).command_histograms_size,
                 cmd.cmd_prefix_ as (usize),
             );
@@ -1058,7 +1058,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
                         &mut LitBlocks::plain(ref mut lit_blocks_plain) => BlockSplitterAddSymbol(
                             lit_blocks_plain,
                             &mut (*mb).literal_split,
-                            &mut (*mb).literal_histograms.slice_mut(),
+                            (*mb).literal_histograms.slice_mut(),
                             &mut (*mb).literal_histograms_size,
                             literal as (usize),
                         ),
@@ -1069,7 +1069,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
                                 lit_blocks_ctx,
                                 alloc,
                                 &mut (*mb).literal_split,
-                                &mut (*mb).literal_histograms.slice_mut(),
+                                (*mb).literal_histograms.slice_mut(),
                                 &mut (*mb).literal_histograms_size,
                                 literal as (usize),
                                 static_context_map[(context as (usize))] as (usize),
@@ -1090,7 +1090,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
                     BlockSplitterAddSymbol(
                         &mut dist_blocks,
                         &mut (*mb).distance_split,
-                        &mut (*mb).distance_histograms.slice_mut(),
+                        (*mb).distance_histograms.slice_mut(),
                         &mut (*mb).distance_histograms_size,
                         cmd.dist_prefix_ as (usize) & 0x3ff,
                     );
@@ -1103,7 +1103,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
         &mut LitBlocks::plain(ref mut lit_blocks_plain) => BlockSplitterFinishBlock(
             lit_blocks_plain,
             &mut (*mb).literal_split,
-            &mut (*mb).literal_histograms.slice_mut(),
+            (*mb).literal_histograms.slice_mut(),
             &mut (*mb).literal_histograms_size,
             1i32,
         ),
@@ -1111,7 +1111,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             lit_blocks_ctx,
             alloc,
             &mut (*mb).literal_split,
-            &mut (*mb).literal_histograms.slice_mut(),
+            (*mb).literal_histograms.slice_mut(),
             &mut (*mb).literal_histograms_size,
             1i32,
         ),
@@ -1119,14 +1119,14 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
     BlockSplitterFinishBlock(
         &mut cmd_blocks,
         &mut (*mb).command_split,
-        &mut (*mb).command_histograms.slice_mut(),
+        (*mb).command_histograms.slice_mut(),
         &mut (*mb).command_histograms_size,
         1i32,
     );
     BlockSplitterFinishBlock(
         &mut dist_blocks,
         &mut (*mb).distance_split,
-        &mut (*mb).distance_histograms.slice_mut(),
+        (*mb).distance_histograms.slice_mut(),
         &mut (*mb).distance_histograms_size,
         1i32,
     );
