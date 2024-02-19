@@ -1425,57 +1425,56 @@ fn ShouldCompress(
     num_literals: usize,
     num_commands: usize,
 ) -> i32 {
-    if num_commands < (bytes >> 8i32).wrapping_add(2usize) {
-        if num_literals as (super::util::floatX)
+    if num_commands < (bytes >> 8i32).wrapping_add(2usize)
+        && num_literals as (super::util::floatX)
             > 0.99 as super::util::floatX * bytes as (super::util::floatX)
-        {
-            let mut literal_histo: [u32; 256] = [
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-                0u32, 0u32, 0u32, 0u32,
-            ];
-            static kSampleRate: u32 = 13u32;
-            static kMinEntropy: super::util::floatX = 7.92 as super::util::floatX;
-            let bit_cost_threshold: super::util::floatX =
-                bytes as (super::util::floatX) * kMinEntropy / kSampleRate as (super::util::floatX);
-            let t: usize = bytes
-                .wrapping_add(kSampleRate as (usize))
-                .wrapping_sub(1usize)
-                .wrapping_div(kSampleRate as (usize));
-            let mut pos: u32 = last_flush_pos as (u32);
-            let mut i: usize;
-            i = 0usize;
-            while i < t {
+    {
+        let mut literal_histo: [u32; 256] = [
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+            0u32, 0u32, 0u32, 0u32,
+        ];
+        static kSampleRate: u32 = 13u32;
+        static kMinEntropy: super::util::floatX = 7.92 as super::util::floatX;
+        let bit_cost_threshold: super::util::floatX =
+            bytes as (super::util::floatX) * kMinEntropy / kSampleRate as (super::util::floatX);
+        let t: usize = bytes
+            .wrapping_add(kSampleRate as (usize))
+            .wrapping_sub(1usize)
+            .wrapping_div(kSampleRate as (usize));
+        let mut pos: u32 = last_flush_pos as (u32);
+        let mut i: usize;
+        i = 0usize;
+        while i < t {
+            {
                 {
-                    {
-                        let _rhs = 1;
-                        let _lhs = &mut literal_histo
-                            [data[((pos as (usize) & mask) as (usize))] as (usize)];
-                        *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
-                    }
-                    pos = pos.wrapping_add(kSampleRate);
+                    let _rhs = 1;
+                    let _lhs =
+                        &mut literal_histo[data[((pos as (usize) & mask) as (usize))] as (usize)];
+                    *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
                 }
-                i = i.wrapping_add(1 as (usize));
+                pos = pos.wrapping_add(kSampleRate);
             }
-            if BitsEntropy(&literal_histo[..], 256usize) > bit_cost_threshold {
-                return 0i32;
-            }
+            i = i.wrapping_add(1 as (usize));
+        }
+        if BitsEntropy(&literal_histo[..], 256usize) > bit_cost_threshold {
+            return 0i32;
         }
     }
     1i32
@@ -1841,10 +1840,8 @@ fn GetHashTableInternal<'a, AllocI32: alloc::Allocator<i32>>(
     let max_table_size: usize = MaxHashTableSize(quality);
     let mut htsize: usize = HashTableSize(max_table_size, input_size);
     let table: &mut [i32];
-    if quality == 0i32 {
-        if htsize & 0xaaaaausize == 0usize {
-            htsize = htsize << 1i32;
-        }
+    if quality == 0i32 && htsize & 0xaaaaausize == 0usize {
+        htsize = htsize << 1i32;
     }
     if htsize <= small_table_.len() {
         table = &mut small_table_[..];
@@ -3226,43 +3223,41 @@ pub fn BrotliEncoderCompressStream<
         if (*s).available_out_ == 0usize
             && ((*s).stream_state_ as (i32)
                 == BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING as (i32))
+            && (remaining_block_size == 0usize
+                || op as (i32) != BrotliEncoderOperation::BROTLI_OPERATION_PROCESS as (i32))
         {
-            if remaining_block_size == 0usize
-                || op as (i32) != BrotliEncoderOperation::BROTLI_OPERATION_PROCESS as (i32)
+            let is_last: i32 = if !!(*available_in == 0usize
+                && (op as (i32) == BrotliEncoderOperation::BROTLI_OPERATION_FINISH as (i32)))
             {
-                let is_last: i32 = if !!(*available_in == 0usize
-                    && (op as (i32) == BrotliEncoderOperation::BROTLI_OPERATION_FINISH as (i32)))
+                1i32
+            } else {
+                0i32
+            };
+            let force_flush: i32 = if !!(*available_in == 0usize
+                && (op as (i32) == BrotliEncoderOperation::BROTLI_OPERATION_FLUSH as (i32)))
+            {
+                1i32
+            } else {
+                0i32
+            };
+            let result: i32;
+            UpdateSizeHint(s, *available_in);
+            let mut avail_out = (*s).available_out_;
+            result = EncodeData(s, is_last, force_flush, &mut avail_out, metablock_callback);
+            (*s).available_out_ = avail_out;
+            //this function set next_out to &storage[0]
+            if result == 0 {
+                return 0i32;
+            }
+            if force_flush != 0 {
+                (*s).stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
+            }
+            if is_last != 0 {
+                (*s).stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FINISHED;
+            }
+            {
                 {
-                    1i32
-                } else {
-                    0i32
-                };
-                let force_flush: i32 = if !!(*available_in == 0usize
-                    && (op as (i32) == BrotliEncoderOperation::BROTLI_OPERATION_FLUSH as (i32)))
-                {
-                    1i32
-                } else {
-                    0i32
-                };
-                let result: i32;
-                UpdateSizeHint(s, *available_in);
-                let mut avail_out = (*s).available_out_;
-                result = EncodeData(s, is_last, force_flush, &mut avail_out, metablock_callback);
-                (*s).available_out_ = avail_out;
-                //this function set next_out to &storage[0]
-                if result == 0 {
-                    return 0i32;
-                }
-                if force_flush != 0 {
-                    (*s).stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
-                }
-                if is_last != 0 {
-                    (*s).stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FINISHED;
-                }
-                {
-                    {
-                        continue;
-                    }
+                    continue;
                 }
             }
         }
