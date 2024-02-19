@@ -65,7 +65,7 @@ impl<'a> From<&'a InputReferenceMut<'a>> for InputReference<'a> {
 pub struct InputPair<'a>(pub InputReference<'a>, pub InputReference<'a>);
 
 impl<'a> core::cmp::PartialEq for InputPair<'a> {
-    fn eq<'b>(&self, other: &InputPair<'b>) -> bool {
+    fn eq(&self, other: &InputPair<'_>) -> bool {
         if self.0.len() + self.1.len() != other.0.len() + other.1.len() {
             return false;
         }

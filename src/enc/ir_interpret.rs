@@ -22,9 +22,9 @@ pub trait IRInterpreter {
     );
 }
 
-pub fn push_base<'a, Interpreter: IRInterpreter>(
+pub fn push_base<Interpreter: IRInterpreter>(
     xself: &mut Interpreter,
-    val: interface::Command<InputReference<'a>>,
+    val: interface::Command<InputReference<'_>>,
 ) {
     match val {
         interface::Command::BlockSwitchCommand(_)
