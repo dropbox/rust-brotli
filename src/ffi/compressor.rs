@@ -122,7 +122,7 @@ pub unsafe extern "C" fn BrotliEncoderDestroyInstance(state_ptr: *mut BrotliEnco
         return;
     }
     ::enc::encode::BrotliEncoderDestroyInstance(&mut (*state_ptr).compressor);
-    if let Some(_) = (*state_ptr).custom_allocator.alloc_func {
+    if (*state_ptr).custom_allocator.alloc_func.is_some() {
         if let Some(free_fn) = (*state_ptr).custom_allocator.free_func {
             let _to_free = core::ptr::read(state_ptr);
             let ptr = core::mem::transmute::<*mut BrotliEncoderState, *mut c_void>(state_ptr);

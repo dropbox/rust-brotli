@@ -335,7 +335,7 @@ where
                 next_out_offset = 0;
             }
             if result <= 0 {
-                if let Ok(_) = read_err {
+                if read_err.is_ok() {
                     read_err = Err(unexpected_eof_error_constant);
                 }
                 break;
