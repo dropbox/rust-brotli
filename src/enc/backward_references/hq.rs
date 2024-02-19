@@ -626,7 +626,7 @@ fn EvaluateNode<AllocF: Allocator<floatX>>(
     ));
     if node_cost <= ZopfliCostModelGetLiteralCosts(model, 0usize, pos) {
         let mut posdata = PosData {
-            pos: pos,
+            pos,
             cost: node_cost,
             costdiff: node_cost - ZopfliCostModelGetLiteralCosts(model, 0usize, pos),
             distance_cache: [0; 4],

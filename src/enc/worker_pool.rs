@@ -384,16 +384,16 @@ where
                     .push(JobRequest {
                         func: f,
                         extra_input: local_extra,
-                        index: index,
+                        index,
                         thread_size: num_threads,
                         data: locked_input.clone(),
                         alloc: local_alloc,
-                        work_id: work_id,
+                        work_id,
                     })
                     .unwrap();
                 *work = SendAlloc(InternalSendAlloc::Join(WorkerJoinable {
                     queue: GuardedQueue(self.queue.0.clone()),
-                    work_id: work_id,
+                    work_id,
                 }));
                 cvar.notify_all();
                 break;

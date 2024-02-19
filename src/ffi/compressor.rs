@@ -73,9 +73,9 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
 ) -> *mut BrotliEncoderState {
     match catch_panic_cstate(|| {
         let allocators = CAllocator {
-            alloc_func: alloc_func,
-            free_func: free_func,
-            opaque: opaque,
+            alloc_func,
+            free_func,
+            opaque,
         };
         let to_box = BrotliEncoderState {
             custom_allocator: allocators.clone(),

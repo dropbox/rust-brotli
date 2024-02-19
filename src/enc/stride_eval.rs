@@ -87,7 +87,7 @@ impl<'a> CDF<'a> {
 impl<'a> From<&'a mut [u16]> for CDF<'a> {
     fn from(cdf: &'a mut [u16]) -> CDF<'a> {
         assert_eq!(cdf.len(), 16);
-        CDF { cdf: cdf }
+        CDF { cdf }
     }
 }
 
@@ -159,16 +159,16 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
             ]
         };
         let mut ret = StrideEval::<Alloc> {
-            input: input,
+            input,
             context_map: prediction_mode,
             block_type: 0,
-            alloc: alloc,
+            alloc,
             cur_stride: 1,
             cur_score_epoch: 0,
             local_byte_offset: 0,
-            stride_priors: stride_priors,
-            score: score,
-            stride_speed: stride_speed,
+            stride_priors,
+            score,
+            stride_speed,
         };
         for stride_prior in ret.stride_priors.iter_mut() {
             local_init_cdfs(stride_prior.slice_mut());

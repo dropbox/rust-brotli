@@ -116,8 +116,8 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
         let output_slice = slice_from_raw_parts_or_nil_mut(encoded, *encoded_size);
         if num_threads == 1 {
             let allocators = CAllocator {
-                alloc_func: alloc_func,
-                free_func: free_func,
+                alloc_func,
+                free_func,
                 opaque: if alloc_opaque_per_thread.is_null() {
                     core::ptr::null_mut()
                 } else {
@@ -248,9 +248,9 @@ pub unsafe extern "C" fn BrotliEncoderCreateWorkPool(
 ) -> *mut BrotliEncoderWorkPool {
     match catch_panic_wstate(|| {
         let allocators = CAllocator {
-            alloc_func: alloc_func,
-            free_func: free_func,
-            opaque: opaque,
+            alloc_func,
+            free_func,
+            opaque,
         };
         let to_box = BrotliEncoderWorkPool {
             custom_allocator: allocators.clone(),
