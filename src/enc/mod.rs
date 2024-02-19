@@ -256,11 +256,11 @@ where
     InputType: CustomRead<ErrType>,
     OutputType: CustomWrite<ErrType>,
 {
-    assert!(input_buffer.len() != 0);
-    assert!(output_buffer.len() != 0);
+    assert!(!input_buffer.is_empty());
+    assert!(!output_buffer.is_empty());
     let mut s_orig = BrotliEncoderCreateInstance(alloc);
     s_orig.params = params.clone();
-    if dict.len() != 0 {
+    if !dict.is_empty() {
         BrotliEncoderSetCustomDictionary(&mut s_orig, dict.len(), dict);
     }
     let mut next_in_offset: usize = 0;

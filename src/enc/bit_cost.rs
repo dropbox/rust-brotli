@@ -28,7 +28,7 @@ pub fn ShannonEntropy(
     let mut sum: usize = 0usize;
     let mut retval: super::util::floatX = 0i32 as super::util::floatX;
     let mut p: usize;
-    if size & 1usize != 0 && population.len() != 0 {
+    if size & 1usize != 0 && !population.is_empty() {
         p = population[0] as usize;
         population = population.split_at(1).1;
         sum = sum.wrapping_add(p);

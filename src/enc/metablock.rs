@@ -429,7 +429,7 @@ fn InitBlockSplitter<
     };
     {
         if (*split).types.slice().len() < max_num_blocks {
-            let mut _new_size: usize = if (*split).types.slice().len() == 0usize {
+            let mut _new_size: usize = if (*split).types.slice().is_empty() {
                 max_num_blocks
             } else {
                 (*split).types.slice().len()
@@ -439,7 +439,7 @@ fn InitBlockSplitter<
                 _new_size = _new_size.wrapping_mul(2usize);
             }
             new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
-            if ((*split).types.slice().len() != 0usize) {
+            if (!(*split).types.slice().is_empty()) {
                 new_array.slice_mut()[..(*split).types.slice().len()]
                     .clone_from_slice((*split).types.slice());
             }
@@ -451,7 +451,7 @@ fn InitBlockSplitter<
     }
     {
         if (*split).lengths.slice().len() < max_num_blocks {
-            let mut _new_size: usize = if (*split).lengths.slice().len() == 0usize {
+            let mut _new_size: usize = if (*split).lengths.slice().is_empty() {
                 max_num_blocks
             } else {
                 (*split).lengths.slice().len()
@@ -516,7 +516,7 @@ fn InitContextBlockSplitter<
     max_num_types = brotli_min_size_t(max_num_blocks, xself.max_block_types_.wrapping_add(1usize));
     {
         if (*split).types.slice().len() < max_num_blocks {
-            let mut _new_size: usize = if (*split).types.slice().len() == 0usize {
+            let mut _new_size: usize = if (*split).types.slice().is_empty() {
                 max_num_blocks
             } else {
                 (*split).types.slice().len()
@@ -525,7 +525,7 @@ fn InitContextBlockSplitter<
                 _new_size = _new_size.wrapping_mul(2usize);
             }
             let mut new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
-            if ((*split).types.slice().len() != 0usize) {
+            if (!(*split).types.slice().is_empty()) {
                 new_array.slice_mut()[..(*split).types.slice().len()]
                     .clone_from_slice((*split).types.slice());
             }
@@ -537,7 +537,7 @@ fn InitContextBlockSplitter<
     }
     {
         if (*split).lengths.slice().len() < max_num_blocks {
-            let mut _new_size: usize = if (*split).lengths.slice().len() == 0usize {
+            let mut _new_size: usize = if (*split).lengths.slice().is_empty() {
                 max_num_blocks
             } else {
                 (*split).lengths.slice().len()
@@ -546,7 +546,7 @@ fn InitContextBlockSplitter<
                 _new_size = _new_size.wrapping_mul(2usize);
             }
             let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
-            if ((*split).lengths.slice().len() != 0usize) {
+            if (!(*split).lengths.slice().is_empty()) {
                 new_array.slice_mut()[..(*split).lengths.slice().len()]
                     .clone_from_slice((*split).lengths.slice());
             }

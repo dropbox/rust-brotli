@@ -37,7 +37,7 @@ fn write_no_interrupt<W: Write>(w: &mut W, mut buf: &[u8]) -> Result<usize, io::
             Ok(cur_read) => {
                 buf = &buf[cur_read..];
                 total_read += cur_read;
-                if buf.len() == 0 {
+                if buf.is_empty() {
                     return Ok(total_read);
                 }
             }
