@@ -1222,9 +1222,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                         if depth[(symbols[j as usize] as (usize))] as (i32)
                             < depth[(symbols[i as usize] as (usize)) as usize] as (i32)
                         {
-                            let brotli_swap_tmp: u64 = symbols[j as usize];
-                            symbols[j as usize] = symbols[i as usize];
-                            symbols[i as usize] = brotli_swap_tmp;
+                            symbols.swap(j as usize, i as usize);
                         }
                     }
                     j = j.wrapping_add(1);
@@ -1605,9 +1603,7 @@ fn StoreSimpleHuffmanTree(
                         if depths[(symbols[(j as (usize))] as (usize))] as (i32)
                             < depths[(symbols[(i as (usize))] as (usize))] as (i32)
                         {
-                            let mut __brotli_swap_tmp: usize = symbols[(j as (usize))];
-                            symbols[(j as (usize))] = symbols[(i as (usize))];
-                            symbols[(i as (usize))] = __brotli_swap_tmp;
+                            symbols.swap((j as (usize)), (i as (usize)));
                         }
                     }
                     j = j.wrapping_add(1 as (usize));
