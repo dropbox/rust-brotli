@@ -1,5 +1,8 @@
 #![allow(dead_code)]
+#![allow(clippy::excessive_precision)]
+
 use core;
+
 #[cfg(feature = "float64")]
 pub type floatX = f64;
 

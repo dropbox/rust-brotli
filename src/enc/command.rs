@@ -31,12 +31,12 @@ impl Default for Command {
     }
 }
 pub fn CommandCopyLen(xself: &Command) -> u32 {
-    (*xself).copy_len_ & 0x1ffffffi32 as (u32)
+    xself.copy_len_ & 0x1ffffffi32 as (u32)
 }
 
 pub fn CommandDistanceContext(xself: &Command) -> u32 {
-    let r: u32 = ((*xself).cmd_prefix_ as (i32) >> 6i32) as (u32);
-    let c: u32 = ((*xself).cmd_prefix_ as (i32) & 7i32) as (u32);
+    let r: u32 = (xself.cmd_prefix_ as (i32) >> 6i32) as (u32);
+    let c: u32 = (xself.cmd_prefix_ as (i32) & 7i32) as (u32);
     if (r == 0i32 as (u32) || r == 2i32 as (u32) || r == 4i32 as (u32) || r == 7i32 as (u32))
         && (c <= 2i32 as (u32))
     {
@@ -170,14 +170,14 @@ pub fn PrefixEncodeCopyDistance(
     }
 }
 pub fn CommandRestoreDistanceCode(xself: &Command, dist: &BrotliDistanceParams) -> u32 {
-    if ((*xself).dist_prefix_ as (i32) & 0x3ff)
+    if (xself.dist_prefix_ as (i32) & 0x3ff)
         < BROTLI_NUM_DISTANCE_SHORT_CODES as i32 + dist.num_direct_distance_codes as i32
     {
-        (*xself).dist_prefix_ as (u32) & 0x3ff
+        xself.dist_prefix_ as (u32) & 0x3ff
     } else {
         let dcode = xself.dist_prefix_ as u32 & 0x3ff;
-        let nbits: u32 = u32::from((*xself).dist_prefix_ >> 10);
-        let extra: u32 = (*xself).dist_extra_;
+        let nbits: u32 = u32::from(xself.dist_prefix_ >> 10);
+        let extra: u32 = xself.dist_extra_;
         let postfix_mask = (1u32 << dist.distance_postfix_bits) - 1;
         let hcode = dcode
             .wrapping_sub(dist.num_direct_distance_codes)
@@ -381,13 +381,13 @@ pub fn RecomputeDistancePrefixes(
     while i < num_commands {
         {
             let cmd: &mut Command = &mut cmds[(i as (usize))];
-            if CommandCopyLen(cmd) != 0 && ((*cmd).cmd_prefix_ as (i32) >= 128i32) {
+            if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
                 PrefixEncodeCopyDistance(
                     CommandRestoreDistanceCode(cmd, dist) as (usize),
                     num_direct_distance_codes as (usize),
                     distance_postfix_bits as (u64),
-                    &mut (*cmd).dist_prefix_,
-                    &mut (*cmd).dist_extra_,
+                    &mut cmd.dist_prefix_,
+                    &mut cmd.dist_extra_,
                 );
             }
         }

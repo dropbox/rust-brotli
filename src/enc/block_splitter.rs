@@ -128,7 +128,7 @@ fn CountLiterals(cmds: &[Command], num_commands: usize) -> usize {
 }
 
 fn CommandCopyLen(xself: &Command) -> u32 {
-    (*xself).copy_len_ & 0xffffffu32
+    xself.copy_len_ & 0xffffffu32
 }
 
 fn CopyLiteralsToByteArray(
@@ -866,10 +866,10 @@ fn ClusterBlocks<
             }
             let mut new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
             new_array.slice_mut()[..(*split).types_alloc_size()]
-                .clone_from_slice(&(*split).types.slice()[..(*split).types_alloc_size()]);
+                .clone_from_slice(&split.types.slice()[..(*split).types_alloc_size()]);
             <Alloc as Allocator<u8>>::free_cell(
                 alloc,
-                core::mem::replace(&mut (*split).types, new_array),
+                core::mem::replace(&mut split.types, new_array),
             );
         }
     }
@@ -885,10 +885,10 @@ fn ClusterBlocks<
             }
             let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
             new_array.slice_mut()[..(*split).lengths_alloc_size()]
-                .clone_from_slice((*split).lengths.slice());
+                .clone_from_slice(split.lengths.slice());
             <Alloc as Allocator<u32>>::free_cell(
                 alloc,
-                core::mem::replace(&mut (*split).lengths, new_array),
+                core::mem::replace(&mut split.lengths, new_array),
             );
         }
     }
@@ -907,8 +907,8 @@ fn ClusterBlocks<
                     let id: u8 = new_index.slice()
                         [(histogram_symbols.slice()[(i as (usize))] as (usize))]
                         as (u8);
-                    (*split).types.slice_mut()[(block_idx as (usize))] = id;
-                    (*split).lengths.slice_mut()[(block_idx as (usize))] = cur_length;
+                    split.types.slice_mut()[(block_idx as (usize))] = id;
+                    split.lengths.slice_mut()[(block_idx as (usize))] = cur_length;
                     max_type = brotli_max_uint8_t(max_type, id);
                     cur_length = 0u32;
                     block_idx = block_idx.wrapping_add(1 as (usize));
@@ -916,8 +916,8 @@ fn ClusterBlocks<
             }
             i = i.wrapping_add(1 as (usize));
         }
-        (*split).num_blocks = block_idx;
-        (*split).num_types = (max_type as (usize)).wrapping_add(1usize);
+        split.num_blocks = block_idx;
+        split.num_types = (max_type as (usize)).wrapping_add(1usize);
     }
     <Alloc as Allocator<u32>>::free_cell(alloc, new_index);
     <Alloc as Allocator<u32>>::free_cell(alloc, block_lengths);
@@ -956,52 +956,52 @@ fn SplitByteVector<
         num_histograms = max_histograms;
     }
     if length == 0usize {
-        (*split).num_types = 1usize;
+        split.num_types = 1usize;
         return;
     } else if length < kMinLengthForBlockSplitting {
         {
-            if (*split).types_alloc_size() < (*split).num_blocks.wrapping_add(1usize) {
+            if (*split).types_alloc_size() < split.num_blocks.wrapping_add(1usize) {
                 let mut _new_size: usize = if (*split).types_alloc_size() == 0usize {
-                    (*split).num_blocks.wrapping_add(1usize)
+                    split.num_blocks.wrapping_add(1usize)
                 } else {
                     (*split).types_alloc_size()
                 };
 
-                while _new_size < (*split).num_blocks.wrapping_add(1usize) {
+                while _new_size < split.num_blocks.wrapping_add(1usize) {
                     _new_size = _new_size.wrapping_mul(2usize);
                 }
                 let mut new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
                 new_array.slice_mut()[..(*split).types_alloc_size()]
-                    .clone_from_slice(&(*split).types.slice()[..(*split).types_alloc_size()]);
+                    .clone_from_slice(&split.types.slice()[..(*split).types_alloc_size()]);
                 <Alloc as Allocator<u8>>::free_cell(
                     alloc,
-                    core::mem::replace(&mut (*split).types, new_array),
+                    core::mem::replace(&mut split.types, new_array),
                 );
             }
         }
         {
-            if (*split).lengths_alloc_size() < (*split).num_blocks.wrapping_add(1usize) {
+            if (*split).lengths_alloc_size() < split.num_blocks.wrapping_add(1usize) {
                 let mut _new_size: usize = if (*split).lengths_alloc_size() == 0usize {
-                    (*split).num_blocks.wrapping_add(1usize)
+                    split.num_blocks.wrapping_add(1usize)
                 } else {
                     (*split).lengths_alloc_size()
                 };
-                while _new_size < (*split).num_blocks.wrapping_add(1usize) {
+                while _new_size < split.num_blocks.wrapping_add(1usize) {
                     _new_size = _new_size.wrapping_mul(2usize);
                 }
                 let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
                 new_array.slice_mut()[..(*split).lengths_alloc_size()]
-                    .clone_from_slice(&(*split).lengths.slice()[..(*split).lengths_alloc_size()]);
+                    .clone_from_slice(&split.lengths.slice()[..(*split).lengths_alloc_size()]);
                 <Alloc as Allocator<u32>>::free_cell(
                     alloc,
-                    core::mem::replace(&mut (*split).lengths, new_array),
+                    core::mem::replace(&mut split.lengths, new_array),
                 );
             }
         }
-        (*split).num_types = 1usize;
-        (*split).types.slice_mut()[((*split).num_blocks as (usize))] = 0i32 as (u8);
-        (*split).lengths.slice_mut()[((*split).num_blocks as (usize))] = length as (u32);
-        (*split).num_blocks = (*split).num_blocks.wrapping_add(1 as (usize));
+        split.num_types = 1usize;
+        split.types.slice_mut()[(split.num_blocks as (usize))] = 0i32 as (u8);
+        split.lengths.slice_mut()[(split.num_blocks as (usize))] = length as (u32);
+        split.num_blocks = split.num_blocks.wrapping_add(1 as (usize));
         return;
     }
     let mut histograms = <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, num_histograms);
@@ -1033,7 +1033,7 @@ fn SplitByteVector<
         let mut switch_signal =
             <Alloc as Allocator<u8>>::alloc_cell(alloc, length.wrapping_mul(bitmaplen));
         let mut new_id = <Alloc as Allocator<u16>>::alloc_cell(alloc, num_histograms);
-        let iters: usize = (if (*params).quality <= 11 { 3i32 } else { 10i32 }) as (usize);
+        let iters: usize = (if params.quality <= 11 { 3i32 } else { 10i32 }) as (usize);
         let mut i: usize;
         i = 0usize;
         while i < iters {
@@ -1157,12 +1157,12 @@ pub fn BrotliSplitBlock<
         while i < num_commands {
             {
                 let cmd = &cmds[(i as (usize))];
-                if CommandCopyLen(cmd) != 0 && ((*cmd).cmd_prefix_ as (i32) >= 128i32) {
+                if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
                     distance_prefixes.slice_mut()[({
                         let _old = j;
                         j = j.wrapping_add(1 as (usize));
                         _old
-                    } as (usize))] = (*cmd).dist_prefix_ & 0x3ff;
+                    } as (usize))] = cmd.dist_prefix_ & 0x3ff;
                 }
             }
             i = i.wrapping_add(1 as (usize));
