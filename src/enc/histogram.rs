@@ -517,9 +517,8 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
             j = (*cmd).insert_len_ as (usize);
             while j != 0usize {
                 {
-                    let context: usize;
                     BlockSplitIteratorNext(&mut literal_it);
-                    context = if context_modes.len() != 0 {
+                    let context: usize = if context_modes.len() != 0 {
                         (literal_it.type_ << 6i32).wrapping_add(Context(
                             prev_byte,
                             prev_byte2,
@@ -544,9 +543,8 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
                 prev_byte2 = ringbuffer[((pos.wrapping_sub(2usize) & mask) as (usize))];
                 prev_byte = ringbuffer[((pos.wrapping_sub(1usize) & mask) as (usize))];
                 if (*cmd).cmd_prefix_ as (i32) >= 128i32 {
-                    let context: usize;
                     BlockSplitIteratorNext(&mut dist_it);
-                    context = (dist_it.type_ << 2i32)
+                    let context: usize = (dist_it.type_ << 2i32)
                         .wrapping_add(CommandDistanceContext(cmd) as (usize));
                     HistogramAddItem(
                         &mut copy_dist_histograms[(context as (usize))],

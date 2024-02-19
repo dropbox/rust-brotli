@@ -1147,12 +1147,12 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                 }
                 {
                     let n: i32 = node_index as (i32);
-                    let sentinel: HuffmanTree;
+
                     let mut i: i32 = 0i32;
                     let mut j: i32 = n + 1i32;
                     let mut k: i32;
                     SortHuffmanTreeItems(tree.slice_mut(), n as (usize), SimpleSortHuffmanTree {});
-                    sentinel = NewHuffmanTree(!(0u32), -1i16, -1i16);
+                    let sentinel: HuffmanTree = NewHuffmanTree(!(0u32), -1i16, -1i16);
                     tree.slice_mut()[(node_index.wrapping_add(1u32) as (usize))] = sentinel.clone();
                     tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
                     node_index = node_index.wrapping_add(2u32);

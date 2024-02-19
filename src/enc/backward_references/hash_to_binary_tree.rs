@@ -477,8 +477,8 @@ where
             }
             {
                 let cur_len: usize = core::cmp::min(best_len_left, best_len_right);
-                let len: usize;
-                len = cur_len.wrapping_add(FindMatchLengthWithLimit(
+
+                let len: usize = cur_len.wrapping_add(FindMatchLengthWithLimit(
                     &data[(cur_ix_masked.wrapping_add(cur_len) as (usize))..],
                     &data[(prev_ix_masked.wrapping_add(cur_len) as (usize))..],
                     max_length.wrapping_sub(cur_len),

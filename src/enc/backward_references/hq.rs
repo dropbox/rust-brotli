@@ -904,9 +904,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                             let dist_code: usize = dist.wrapping_add(16usize).wrapping_sub(1usize);
                             let mut dist_symbol: u16 = 0;
                             let mut distextra: u32 = 0;
-                            let distnumextra: u32;
-                            let dist_cost: floatX;
-                            let max_match_len: usize;
+
                             PrefixEncodeCopyDistance(
                                 dist_code,
                                 (*params).dist.num_direct_distance_codes as (usize),
@@ -914,14 +912,14 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                 &mut dist_symbol,
                                 &mut distextra,
                             );
-                            distnumextra = u32::from(dist_symbol) >> 10;
-                            dist_cost = base_cost
+                            let distnumextra: u32 = u32::from(dist_symbol) >> 10;
+                            let dist_cost: floatX = base_cost
                                 + distnumextra as (floatX)
                                 + ZopfliCostModelGetDistanceCost(
                                     model,
                                     (dist_symbol as (i32) & 0x3ff) as (usize),
                                 );
-                            max_match_len = BackwardMatchLength(&mut match_);
+                            let max_match_len: usize = BackwardMatchLength(&mut match_);
                             if len < max_match_len
                                 && (is_dictionary_match != 0 || max_match_len > max_zopfli_len)
                             {
@@ -1211,8 +1209,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
 fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cost: &mut [floatX]) {
     let mut sum: u64 = 0;
     let mut missing_symbol_sum: u64;
-    let log2sum: floatX;
-    let missing_symbol_cost: floatX;
+
     let mut i: usize;
     i = 0usize;
     while i < histogram_size {
@@ -1221,7 +1218,7 @@ fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cos
         }
         i = i.wrapping_add(1 as (usize));
     }
-    log2sum = FastLog2(sum) as (floatX);
+    let log2sum: floatX = FastLog2(sum) as (floatX);
     missing_symbol_sum = sum;
     if literal_histogram == 0 {
         i = 0usize;
@@ -1234,7 +1231,8 @@ fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cos
             i = i.wrapping_add(1 as (usize));
         }
     }
-    missing_symbol_cost = FastLog2f64(missing_symbol_sum) as (floatX) + 2i32 as (floatX);
+    let missing_symbol_cost: floatX =
+        FastLog2f64(missing_symbol_sum) as (floatX) + 2i32 as (floatX);
     i = 0usize;
     while i < histogram_size {
         'continue56: loop {
@@ -1485,10 +1483,9 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
     };
     let mut cur_match_pos: usize = 0usize;
     let mut i: usize;
-    let orig_num_literals: usize;
-    let orig_last_insert_len: usize;
+
     let mut orig_dist_cache = [0i32; 4];
-    let orig_num_commands: usize;
+
     let mut model: ZopfliCostModel<Alloc>;
     let mut nodes: <Alloc as Allocator<ZopfliNode>>::AllocatedMemory;
     let mut matches: <Alloc as Allocator<u64>>::AllocatedMemory = if matches_size > 0usize {
@@ -1504,8 +1501,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
             let pos: usize = position.wrapping_add(i);
             let max_distance: usize = brotli_min_size_t(pos, max_backward_limit);
             let max_length: usize = num_bytes.wrapping_sub(i);
-            let num_found_matches: usize;
-            let cur_match_end: usize;
+
             let mut j: usize;
             {
                 if matches_size
@@ -1560,7 +1556,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
             if !(0i32 == 0) {
                 return;
             }
-            num_found_matches = FindAllMatchesH10(
+            let num_found_matches: usize = FindAllMatchesH10(
                 hasher,
                 dictionary, //&(*params).dictionary ,
                 ringbuffer,
@@ -1572,7 +1568,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                 params,
                 &mut matches.slice_mut()[(cur_match_pos.wrapping_add(shadow_matches) as (usize))..],
             );
-            cur_match_end = cur_match_pos.wrapping_add(num_found_matches);
+            let cur_match_end: usize = cur_match_pos.wrapping_add(num_found_matches);
             j = cur_match_pos;
             while j.wrapping_add(1usize) < cur_match_end {
                 {}
@@ -1616,8 +1612,8 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
         }
         i = i.wrapping_add(1 as (usize));
     }
-    orig_num_literals = *num_literals;
-    orig_last_insert_len = *last_insert_len;
+    let orig_num_literals: usize = *num_literals;
+    let orig_last_insert_len: usize = *last_insert_len;
     for (i, j) in orig_dist_cache
         .split_at_mut(4)
         .0
@@ -1626,7 +1622,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
     {
         *i = *j;
     }
-    orig_num_commands = *num_commands;
+    let orig_num_commands: usize = *num_commands;
     nodes = if num_bytes.wrapping_add(1usize) > 0usize {
         <Alloc as Allocator<ZopfliNode>>::alloc_cell(alloc, num_bytes.wrapping_add(1))
     } else {

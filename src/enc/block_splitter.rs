@@ -565,7 +565,7 @@ fn ClusterBlocks<
     let mut pairs = <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity);
     let mut pos: usize = 0usize;
     let mut clusters: <Alloc as Allocator<u32>>::AllocatedMemory;
-    let num_final_clusters: usize;
+
     static kInvalidIndex: u32 = !(0u32);
     let mut i: usize;
     let mut sizes: [u32; 64] = [0; 64];
@@ -598,7 +598,7 @@ fn ClusterBlocks<
     while i < num_blocks {
         {
             let num_to_combine: usize = brotli_min_size_t(num_blocks.wrapping_sub(i), 64usize);
-            let num_new_clusters: usize;
+
             let mut j: usize;
             j = 0usize;
             while j < num_to_combine {
@@ -632,7 +632,7 @@ fn ClusterBlocks<
                 }
                 j = j.wrapping_add(1 as (usize));
             }
-            num_new_clusters = BrotliHistogramCombine(
+            let num_new_clusters: usize = BrotliHistogramCombine(
                 histograms.slice_mut(),
                 &mut sizes[..],
                 &mut symbols[..],
@@ -743,7 +743,7 @@ fn ClusterBlocks<
         *item = i as u32;
         i = i.wrapping_add(1 as (usize));
     }
-    num_final_clusters = BrotliHistogramCombine(
+    let num_final_clusters: usize = BrotliHistogramCombine(
         all_histograms.slice_mut(),
         cluster_size.slice_mut(),
         histogram_symbols.slice_mut(),
