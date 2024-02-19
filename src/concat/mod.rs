@@ -104,11 +104,11 @@ fn detect_varlen_offset(bytes_so_far: &[u8]) -> Result<(usize), ()> {
         offset += 1;
         let mskipbytes = bytes & ((1 << 2) - 1);
         offset += 2;
-        offset += usize::from(mskipbytes as usize) * 8; // next item is byte aligned
+        offset += (mskipbytes as usize) * 8; // next item is byte aligned
         return Ok(offset);
     }
     mnibbles += 4;
-    offset += usize::from(mnibbles as usize) * 4;
+    offset += (mnibbles as usize) * 4;
     bytes >>= mnibbles * 4;
     offset += 1;
     if (bytes & 1) == 0 {
@@ -355,7 +355,7 @@ impl BroCatli {
                 }
                 bytes_so_far >>= window_offset; // mask out the window size
                 bytes_so_far &= (1u64 << (varlen_offset - window_offset)) - 1;
-                let var_len_bytes = ((usize::from(varlen_offset - window_offset) + 7) / 8);
+                let var_len_bytes = (((varlen_offset - window_offset) + 7) / 8);
                 for byte_index in 0..var_len_bytes {
                     let cur_byte = (bytes_so_far >> (byte_index * 8));
                     realigned_header[byte_index] |=

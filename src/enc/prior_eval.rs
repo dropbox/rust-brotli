@@ -338,9 +338,9 @@ impl<'a> CDF<'a> {
     #[inline(always)]
     pub fn cost(&self, nibble_u8: u8) -> floatX {
         let nibble = nibble_u8 as usize & 0xf;
-        let mut pdf = self.cdf.extract(usize::from(nibble));
+        let mut pdf = self.cdf.extract(nibble);
         if nibble_u8 != 0 {
-            pdf -= self.cdf.extract(usize::from(nibble - 1));
+            pdf -= self.cdf.extract((nibble - 1));
         }
         FastLog2u16(self.cdf.extract(15) as u16) - FastLog2u16(pdf as u16)
     }
