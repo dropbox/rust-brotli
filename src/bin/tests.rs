@@ -18,7 +18,7 @@ impl Buffer {
     }
 }
 impl io::Read for Buffer {
-    fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
         if bytes_to_read > 0 {
             buf[0..bytes_to_read]
@@ -29,11 +29,11 @@ impl io::Read for Buffer {
     }
 }
 impl io::Write for Buffer {
-    fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.data.extend(buf);
         return Ok(buf.len());
     }
-    fn flush(self: &mut Self) -> io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         return Ok(());
     }
 }

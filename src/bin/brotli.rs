@@ -134,7 +134,7 @@ pub struct IoWriterWrapper<'a, OutputType: Write + 'a>(&'a mut OutputType);
 pub struct IoReaderWrapper<'a, OutputType: Read + 'a>(&'a mut OutputType);
 
 impl<'a, OutputType: Write> brotli::CustomWrite<io::Error> for IoWriterWrapper<'a, OutputType> {
-    fn flush(self: &mut Self) -> Result<(), io::Error> {
+    fn flush(&mut self) -> Result<(), io::Error> {
         loop {
             match self.0.flush() {
                 Err(e) => match e.kind() {
@@ -145,7 +145,7 @@ impl<'a, OutputType: Write> brotli::CustomWrite<io::Error> for IoWriterWrapper<'
             }
         }
     }
-    fn write(self: &mut Self, buf: &[u8]) -> Result<usize, io::Error> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
         loop {
             match self.0.write(buf) {
                 Err(e) => match e.kind() {
@@ -159,7 +159,7 @@ impl<'a, OutputType: Write> brotli::CustomWrite<io::Error> for IoWriterWrapper<'
 }
 
 impl<'a, InputType: Read> brotli::CustomRead<io::Error> for IoReaderWrapper<'a, InputType> {
-    fn read(self: &mut Self, buf: &mut [u8]) -> Result<usize, io::Error> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         loop {
             match self.0.read(buf) {
                 Err(e) => match e.kind() {
@@ -175,7 +175,7 @@ impl<'a, InputType: Read> brotli::CustomRead<io::Error> for IoReaderWrapper<'a, 
 struct IntoIoReader<OutputType: Read>(OutputType);
 
 impl<InputType: Read> brotli::CustomRead<io::Error> for IntoIoReader<InputType> {
-    fn read(self: &mut Self, buf: &mut [u8]) -> Result<usize, io::Error> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         loop {
             match self.0.read(buf) {
                 Err(e) => match e.kind() {

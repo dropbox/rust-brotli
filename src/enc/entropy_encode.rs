@@ -70,11 +70,11 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
 }
 
 pub trait HuffmanComparator {
-    fn Cmp(self: &Self, a: &HuffmanTree, b: &HuffmanTree) -> bool;
+    fn Cmp(&self, a: &HuffmanTree, b: &HuffmanTree) -> bool;
 }
 pub struct SortHuffmanTree {}
 impl HuffmanComparator for SortHuffmanTree {
-    fn Cmp(self: &Self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
+    fn Cmp(&self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
         if (*v0).total_count_ != (*v1).total_count_ {
             if !!((*v0).total_count_ < (*v1).total_count_) {
                 true
