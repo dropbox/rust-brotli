@@ -3,6 +3,8 @@ pub use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
+use std::mem::take;
+
 #[derive(Debug, Copy, Clone, Default)]
 pub struct BlockSwitch(pub u8);
 // Commands that can instantiate as a no-op should implement this.
@@ -479,18 +481,10 @@ impl<SliceType: SliceWrapper<u8> + Default> Command<SliceType> {
         F: FnMut(SliceType),
     {
         match self {
-            &mut Command::Literal(ref mut lit) => {
-                apply_func(core::mem::replace(&mut lit.data, SliceType::default()))
-            }
+            &mut Command::Literal(ref mut lit) => apply_func(take(&mut lit.data)),
             &mut Command::PredictionMode(ref mut pm) => {
-                apply_func(core::mem::replace(
-                    &mut pm.literal_context_map,
-                    SliceType::default(),
-                ));
-                apply_func(core::mem::replace(
-                    &mut pm.predmode_speed_and_distance_context_map,
-                    SliceType::default(),
-                ));
+                apply_func(take(&mut pm.literal_context_map));
+                apply_func(take(&mut pm.predmode_speed_and_distance_context_map));
             }
             _ => {}
         }
@@ -536,19 +530,10 @@ pub fn free_cmd_inline<SliceTypeAllocator: Allocator<u8>>(
     m8: &mut SliceTypeAllocator,
 ) {
     match *xself {
-        Command::Literal(ref mut lit) => m8.free_cell(core::mem::replace(
-            &mut lit.data,
-            SliceTypeAllocator::AllocatedMemory::default(),
-        )),
+        Command::Literal(ref mut lit) => m8.free_cell(take(&mut lit.data)),
         Command::PredictionMode(ref mut pm) => {
-            m8.free_cell(core::mem::replace(
-                &mut pm.literal_context_map,
-                SliceTypeAllocator::AllocatedMemory::default(),
-            ));
-            m8.free_cell(core::mem::replace(
-                &mut pm.predmode_speed_and_distance_context_map,
-                SliceTypeAllocator::AllocatedMemory::default(),
-            ));
+            m8.free_cell(take(&mut pm.literal_context_map));
+            m8.free_cell(take(&mut pm.predmode_speed_and_distance_context_map));
         }
         Command::Dict(_)
         | Command::Copy(_)

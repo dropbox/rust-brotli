@@ -99,7 +99,7 @@ impl<
             cvar.notify_all();
         }
         for thread_handle in self.join.iter_mut() {
-            if let Some(th) = mem::replace(thread_handle, None) {
+            if let Some(th) = thread_handle.take() {
                 th.join().unwrap();
             }
         }

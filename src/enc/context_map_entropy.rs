@@ -7,6 +7,7 @@ pub use super::ir_interpret::{push_base, Context, IRInterpreter};
 use super::util::{floatX, FastLog2u16};
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
 use core;
+use std::mem::take;
 
 const DEFAULT_CM_SPEED_INDEX: usize = 8;
 const NUM_SPEEDS_TO_TRY: usize = 16;
@@ -424,20 +425,8 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         ret
     }
     pub fn free(&mut self, alloc: &mut Alloc) {
-        <Alloc as Allocator<u16>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut self.cm_priors,
-                <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-            ),
-        );
-        <Alloc as Allocator<u16>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut self.stride_priors,
-                <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<u16>>::free_cell(alloc, take(&mut self.cm_priors));
+        <Alloc as Allocator<u16>>::free_cell(alloc, take(&mut self.stride_priors));
     }
     fn update_cost_base(
         &mut self,

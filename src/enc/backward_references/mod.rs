@@ -15,6 +15,8 @@ use super::static_dict::{
 };
 use super::util::{brotli_max_size_t, floatX, Log2FloorNonZero};
 use core;
+use std::mem::take;
+
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -2307,120 +2309,36 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> UnionHasher<Alloc> {
     pub fn free(&mut self, alloc: &mut Alloc) {
         match self {
             &mut UnionHasher::H2(ref mut hasher) => {
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets_.buckets_,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets_.buckets_));
             }
             &mut UnionHasher::H3(ref mut hasher) => {
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets_.buckets_,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets_.buckets_));
             }
             &mut UnionHasher::H4(ref mut hasher) => {
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets_.buckets_,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets_.buckets_));
             }
             &mut UnionHasher::H54(ref mut hasher) => {
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets_.buckets_,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets_.buckets_));
             }
             &mut UnionHasher::H5q7(ref mut hasher) => {
-                <Alloc as Allocator<u16>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.num,
-                        <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-                    ),
-                );
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u16>>::free_cell(alloc, take(&mut hasher.num));
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets));
             }
             &mut UnionHasher::H5q5(ref mut hasher) => {
-                <Alloc as Allocator<u16>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.num,
-                        <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-                    ),
-                );
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u16>>::free_cell(alloc, take(&mut hasher.num));
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets));
             }
             &mut UnionHasher::H5(ref mut hasher) => {
-                <Alloc as Allocator<u16>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.num,
-                        <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-                    ),
-                );
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u16>>::free_cell(alloc, take(&mut hasher.num));
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets));
             }
             &mut UnionHasher::H6(ref mut hasher) => {
-                <Alloc as Allocator<u16>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.num,
-                        <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-                    ),
-                );
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u16>>::free_cell(alloc, take(&mut hasher.num));
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets));
             }
             &mut UnionHasher::H9(ref mut hasher) => {
-                <Alloc as Allocator<u16>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.num_,
-                        <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-                    ),
-                );
-                <Alloc as Allocator<u32>>::free_cell(
-                    alloc,
-                    core::mem::replace(
-                        &mut hasher.buckets_,
-                        <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-                    ),
-                );
+                <Alloc as Allocator<u16>>::free_cell(alloc, take(&mut hasher.num_));
+                <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut hasher.buckets_));
             }
             &mut UnionHasher::H10(ref mut hasher) => {
                 hasher.free(alloc);
@@ -2585,8 +2503,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                 new_commands_count += 1;
                 InitCommand(
                     {
-                        let (mut _old, new_commands) =
-                            core::mem::replace(&mut commands, &mut []).split_at_mut(1);
+                        let (mut _old, new_commands) = take(&mut commands).split_at_mut(1);
                         commands = new_commands;
                         &mut _old[0]
                     },

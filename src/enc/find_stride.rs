@@ -4,8 +4,10 @@ use super::input_pair::{InputPair, InputReference};
 use super::interface;
 use super::util::FastLog2;
 use core::cmp;
-use core::mem;
+
 use core::ops::{Index, IndexMut, Range};
+use std::mem::take;
+
 // float32 doesn't have enough resolution for blocks of data more than 3.5 megs
 pub type floatY = f64;
 // the cost of storing a particular population of data including the approx
@@ -43,10 +45,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
         }
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
-        m32.free_cell(mem::replace(
-            &mut self.bucket_populations,
-            AllocU32::AllocatedMemory::default(),
-        ));
+        m32.free_cell(take(&mut self.bucket_populations));
     }
     fn clone_from(&mut self, other: &EntropyBucketPopulation<AllocU32>) {
         self.bucket_populations
@@ -883,10 +882,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyTally<AllocU32> {
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
         for item in self.pop.iter_mut() {
-            m32.free_cell(mem::replace(
-                &mut item.bucket_populations,
-                AllocU32::AllocatedMemory::default(),
-            ))
+            m32.free_cell(take(&mut item.bucket_populations))
         }
     }
     pub fn is_free(&mut self) -> bool {

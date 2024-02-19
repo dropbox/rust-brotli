@@ -25,6 +25,7 @@ use enc::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use enc::util::{brotli_max_size_t, floatX, FastLog2, FastLog2f64, Log2FloorNonZero};
+use std::mem::take;
 
 const BROTLI_WINDOW_GAP: usize = 16;
 const BROTLI_MAX_STATIC_DICTIONARY_MATCH_LEN: usize = 37;
@@ -971,16 +972,10 @@ fn CleanupZopfliCostModel<AllocF: Allocator<floatX>>(
     xself: &mut ZopfliCostModel<AllocF>,
 ) {
     {
-        m.free_cell(core::mem::replace(
-            &mut xself.literal_costs_,
-            AllocF::AllocatedMemory::default(),
-        ));
+        m.free_cell(take(&mut xself.literal_costs_));
     }
     {
-        m.free_cell(core::mem::replace(
-            &mut xself.cost_dist_,
-            AllocF::AllocatedMemory::default(),
-        ));
+        m.free_cell(take(&mut xself.cost_dist_));
     }
 }
 
@@ -1198,13 +1193,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
         num_literals,
     );
     {
-        <Alloc as Allocator<ZopfliNode>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut nodes,
-                <Alloc as Allocator<ZopfliNode>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<ZopfliNode>>::free_cell(alloc, take(&mut nodes));
     }
 }
 
@@ -1545,13 +1534,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                         }
                     }
                     {
-                        <Alloc as Allocator<u64>>::free_cell(
-                            alloc,
-                            core::mem::replace(
-                                &mut matches,
-                                <Alloc as Allocator<u64>>::AllocatedMemory::default(),
-                            ),
-                        );
+                        <Alloc as Allocator<u64>>::free_cell(alloc, take(&mut matches));
                     }
                     matches = new_array;
                     matches_size = new_size;

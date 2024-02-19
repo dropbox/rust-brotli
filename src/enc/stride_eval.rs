@@ -7,6 +7,8 @@ use super::ir_interpret::{push_base, IRInterpreter};
 use super::prior_eval::DEFAULT_SPEED;
 use super::util::{floatX, FastLog2u16};
 use core;
+use std::mem::take;
+
 const NIBBLE_PRIOR_SIZE: usize = 16;
 pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * NIBBLE_PRIOR_SIZE * 2;
 
@@ -245,21 +247,9 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
     for StrideEval<'a, Alloc>
 {
     fn drop(&mut self) {
-        <Alloc as Allocator<floatX>>::free_cell(
-            &mut self.alloc,
-            core::mem::replace(
-                &mut self.score,
-                <Alloc as Allocator<floatX>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<floatX>>::free_cell(&mut self.alloc, take(&mut self.score));
         for i in 0..8 {
-            <Alloc as Allocator<u16>>::free_cell(
-                &mut self.alloc,
-                core::mem::replace(
-                    &mut self.stride_priors[i],
-                    <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-                ),
-            );
+            <Alloc as Allocator<u16>>::free_cell(&mut self.alloc, take(&mut self.stride_priors[i]));
         }
     }
 }

@@ -36,6 +36,7 @@ use std::env;
 
 use std::fs::File;
 use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::mem::take;
 
 const MAX_THREADS: usize = 16;
 
@@ -863,7 +864,7 @@ fn main() {
                     };
                 for i in 0..num_benchmarks {
                     if do_validate {
-                        let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+                        let dict = take(&mut custom_dictionary);
                         if num_benchmarks > 0 {
                             custom_dictionary = dict.clone();
                         }
@@ -917,7 +918,7 @@ fn main() {
                             }
                         }
                     } else {
-                        let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+                        let dict = take(&mut custom_dictionary);
                         if num_benchmarks > 0 {
                             custom_dictionary = dict.clone();
                         }

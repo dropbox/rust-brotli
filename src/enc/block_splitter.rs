@@ -16,6 +16,7 @@ use super::util::{brotli_max_uint8_t, brotli_min_size_t, FastLog2};
 use core;
 #[cfg(feature = "simd")]
 use packed_simd_2::IntoBits;
+use std::mem::take;
 static kMaxLiteralHistograms: usize = 100usize;
 
 static kMaxCommandHistograms: usize = 50usize;
@@ -716,13 +717,7 @@ fn ClusterBlocks<
         }
         i = i.wrapping_add(64usize);
     }
-    <Alloc as Allocator<HistogramType>>::free_cell(
-        alloc,
-        core::mem::replace(
-            &mut histograms,
-            <Alloc as Allocator<HistogramType>>::AllocatedMemory::default(),
-        ),
-    );
+    <Alloc as Allocator<HistogramType>>::free_cell(alloc, take(&mut histograms));
     max_num_pairs = brotli_min_size_t(
         (64usize).wrapping_mul(num_clusters),
         num_clusters.wrapping_div(2usize).wrapping_mul(num_clusters),
@@ -755,20 +750,8 @@ fn ClusterBlocks<
         max_num_pairs,
         scratch_space,
     );
-    <Alloc as Allocator<HistogramPair>>::free_cell(
-        alloc,
-        core::mem::replace(
-            &mut pairs,
-            <Alloc as Allocator<HistogramPair>>::AllocatedMemory::default(),
-        ),
-    );
-    <Alloc as Allocator<u32>>::free_cell(
-        alloc,
-        core::mem::replace(
-            &mut cluster_size,
-            <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-        ),
-    );
+    <Alloc as Allocator<HistogramPair>>::free_cell(alloc, take(&mut pairs));
+    <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut cluster_size));
 
     let mut new_index = <Alloc as Allocator<u32>>::alloc_cell(alloc, num_clusters);
     for item in new_index.slice_mut().iter_mut() {
@@ -840,20 +823,8 @@ fn ClusterBlocks<
             i = i.wrapping_add(1 as (usize));
         }
     }
-    <Alloc as Allocator<u32>>::free_cell(
-        alloc,
-        core::mem::replace(
-            &mut clusters,
-            <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-        ),
-    );
-    <Alloc as Allocator<HistogramType>>::free_cell(
-        alloc,
-        core::mem::replace(
-            &mut all_histograms,
-            <Alloc as Allocator<HistogramType>>::AllocatedMemory::default(),
-        ),
-    );
+    <Alloc as Allocator<u32>>::free_cell(alloc, take(&mut clusters));
+    <Alloc as Allocator<HistogramType>>::free_cell(alloc, take(&mut all_histograms));
     {
         if (*split).types_alloc_size() < num_blocks {
             let mut _new_size: usize = if (*split).types_alloc_size() == 0usize {
