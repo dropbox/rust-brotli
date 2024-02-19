@@ -41,7 +41,10 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Read rust-version from Cargo.toml
         id: metadata
-        run: echo "rust-version=$(sed -ne 's/rust-version *= *\"\(.*\)\"/\1/p' Cargo.toml)" >> $GITHUB_OUTPUT
+        run: |
+          MSRV="$(just read-msrv)"
+          echo "rust-version=$MSRV" >> $GITHUB_OUTPUT
+          echo "Detected MSRV $MSRV"
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:

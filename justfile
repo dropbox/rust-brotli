@@ -56,6 +56,10 @@ sys-info:
     cargo --version
     {{ just_executable() }} --version
 
+# Get MSRV (Minimum Supported Rust Version) for the brotli crate
+read-msrv:
+    cargo metadata --no-deps --format-version 1 | jq -r -e '.packages[] | select(.name == "brotli").rust_version'
+
 # All tests to run for CI (TODO: add clippy)
 ci-test: sys-info (fmt "--check") build test test-doc
 
