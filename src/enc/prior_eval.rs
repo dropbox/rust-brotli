@@ -362,7 +362,7 @@ impl<'a> CDF<'a> {
 impl<'a> From<&'a mut s16> for CDF<'a> {
     #[inline(always)]
     fn from(cdf: &'a mut s16) -> CDF<'a> {
-        CDF { cdf: cdf }
+        CDF { cdf }
     }
 }
 
@@ -431,7 +431,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
             stride_speed[1] = stride_speed[0];
         }
         let mut ret = PriorEval::<Alloc> {
-            input: input,
+            input,
             context_map: prediction_mode,
             block_type: 0,
             cur_stride: 1,
@@ -487,8 +487,8 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
             } else {
                 <Alloc as Allocator<v8>>::AllocatedMemory::default()
             },
-            cm_speed: cm_speed,
-            stride_speed: stride_speed,
+            cm_speed,
+            stride_speed,
         };
         init_cdfs(ret.cm_priors.slice_mut());
         init_cdfs(ret.slow_cm_priors.slice_mut());

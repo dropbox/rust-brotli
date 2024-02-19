@@ -177,7 +177,7 @@ impl BroCatli {
             last_byte_bit_offset: buffer[10],
             any_bytes_emitted: (buffer[9] & (1 << 5)) != 0,
             window_size: buffer[11],
-            new_stream_pending: new_stream_pending,
+            new_stream_pending,
         };
         if ret.last_bytes.len() > 8 {
             return Err(());
@@ -245,8 +245,8 @@ impl BroCatli {
             last_bytes_len = 2;
         }
         BroCatli {
-            last_bytes: last_bytes,
-            last_bytes_len: last_bytes_len,
+            last_bytes,
+            last_bytes_len,
             last_byte_bit_offset: 0,
             last_byte_sanitized: false,
             any_bytes_emitted: false,

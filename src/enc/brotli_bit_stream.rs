@@ -134,17 +134,17 @@ impl<'a, Alloc: BrotliAlloc> CommandQueue<'a, Alloc> {
             <Alloc as Allocator<StaticCommand>>::alloc_cell(alloc, num_commands * 17 / 16 + 4);
         CommandQueue {
             mc: alloc,
-            queue: queue, // always need a spare command in case the ring buffer splits a literal into two
-            pred_mode: pred_mode,
-            mb: mb,
+            queue, // always need a spare command in case the ring buffer splits a literal into two
+            pred_mode,
+            mb,
             mb_byte_offset: 0,
             loc: 0,
             best_strides_per_block_type: best_strides,
-            entropy_tally_scratch: entropy_tally_scratch,
-            entropy_pyramid: entropy_pyramid,
-            stride_detection_quality: stride_detection_quality,
-            high_entropy_detection_quality: high_entropy_detection_quality,
-            context_map_entropy: context_map_entropy,
+            entropy_tally_scratch,
+            entropy_pyramid,
+            stride_detection_quality,
+            high_entropy_detection_quality,
+            context_map_entropy,
             block_type_literal: 0,
             best_stride_index: 0,
             overfull: false,

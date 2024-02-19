@@ -27,9 +27,9 @@ fn test_bulk_store_range() {
     let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
 
     let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets,
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num,
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,
@@ -52,9 +52,9 @@ fn test_bulk_store_range() {
     assert!(hasher_a == hasher_b);
     let mut hasher_e = hasher_a.clone_with_alloc(&mut alloc);
     let mut hasher_c = AdvHasher::<HQ7Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets,
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num,
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,
@@ -129,9 +129,9 @@ fn test_bulk_store_range_off_spec() {
     let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
 
     let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets,
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num,
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,
@@ -153,9 +153,9 @@ fn test_bulk_store_range_off_spec() {
     let mut hasher_b = hasher_a.clone_with_alloc(&mut alloc);
     assert!(hasher_a == hasher_b);
     let mut hasher_c = AdvHasher::<HQ7Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets,
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num,
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,
@@ -217,9 +217,9 @@ fn test_bulk_store_range_pow2() {
     let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
 
     let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets,
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num,
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,
@@ -242,9 +242,9 @@ fn test_bulk_store_range_pow2() {
     assert!(hasher_a == hasher_b);
     let mut hasher_e = hasher_a.clone_with_alloc(&mut alloc);
     let mut hasher_c = AdvHasher::<HQ7Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets,
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num,
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,

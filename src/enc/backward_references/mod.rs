@@ -2096,8 +2096,8 @@ impl<
         AdvHasher::<Special, Alloc> {
             GetHasherCommon: self.GetHasherCommon.clone(),
             specialization: self.specialization.clone(),
-            num: num,
-            buckets: buckets,
+            num,
+            buckets,
             h9_opts: self.h9_opts.clone(),
         }
     }

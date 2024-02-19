@@ -301,7 +301,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
     ) -> Self {
         let cdf_detect = cdf_detection_quality != 0;
         let mut ret = ContextMapEntropy::<Alloc> {
-            input: input,
+            input,
             context_map: prediction_mode,
             block_type: 0,
             cur_stride: 1,

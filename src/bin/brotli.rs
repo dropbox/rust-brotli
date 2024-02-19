@@ -55,7 +55,7 @@ impl<T> core::default::Default for Rebox<T> {
     fn default() -> Self {
         let v: Vec<T> = Vec::new();
         let b = v.into_boxed_slice();
-        Rebox::<T> { b: b }
+        Rebox::<T> { b }
     }
 }
 
@@ -91,7 +91,7 @@ impl<T: core::clone::Clone + Default> alloc_no_stdlib::Allocator<T> for HeapAllo
     fn alloc_cell(self: &mut HeapAllocator, len: usize) -> Rebox<T> {
         let v: Vec<T> = vec![T::default(); len];
         let b = v.into_boxed_slice();
-        Rebox::<T> { b: b }
+        Rebox::<T> { b }
     }
     fn free_cell(self: &mut HeapAllocator, _data: Rebox<T>) {}
 }
