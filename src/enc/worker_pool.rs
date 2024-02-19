@@ -131,13 +131,11 @@ impl<
                         cvar.notify_all();
                         local_queue.num_in_progress += 1;
                         res
+                    } else if local_queue.shutdown {
+                        break;
                     } else {
-                        if local_queue.shutdown {
-                            break;
-                        } else {
-                            let _ = cvar.wait(local_queue); // unlock immediately, unfortunately
-                            continue;
-                        }
+                        let _ = cvar.wait(local_queue); // unlock immediately, unfortunately
+                        continue;
                     };
                 }
                 ret = if let Ok(job_data) = possible_job.data.read() {

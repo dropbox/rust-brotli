@@ -711,20 +711,18 @@ fn EncodeWindowBits(
     if large_window {
         *last_bytes = (((lgwin & 0x3F) << 8) | 0x11) as u16;
         *last_bytes_bits = 14;
+    } else if lgwin == 16i32 {
+        *last_bytes = 0i32 as (u16);
+        *last_bytes_bits = 1i32 as (u8);
+    } else if lgwin == 17i32 {
+        *last_bytes = 1i32 as (u16);
+        *last_bytes_bits = 7i32 as (u8);
+    } else if lgwin > 17i32 {
+        *last_bytes = (lgwin - 17i32 << 1i32 | 1i32) as (u16);
+        *last_bytes_bits = 4i32 as (u8);
     } else {
-        if lgwin == 16i32 {
-            *last_bytes = 0i32 as (u16);
-            *last_bytes_bits = 1i32 as (u8);
-        } else if lgwin == 17i32 {
-            *last_bytes = 1i32 as (u16);
-            *last_bytes_bits = 7i32 as (u8);
-        } else if lgwin > 17i32 {
-            *last_bytes = (lgwin - 17i32 << 1i32 | 1i32) as (u16);
-            *last_bytes_bits = 4i32 as (u8);
-        } else {
-            *last_bytes = (lgwin - 8i32 << 4i32 | 1i32) as (u16);
-            *last_bytes_bits = 7i32 as (u8);
-        }
+        *last_bytes = (lgwin - 8i32 << 4i32 | 1i32) as (u16);
+        *last_bytes_bits = 7i32 as (u8);
     }
 }
 
