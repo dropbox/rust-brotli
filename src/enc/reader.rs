@@ -152,12 +152,12 @@ impl<ErrType, R: CustomRead<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: Br
         BrotliEncoderSetParameter(
             &mut ret.state.0,
             BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
-            q as (u32),
+            q,
         );
         BrotliEncoderSetParameter(
             &mut ret.state.0,
             BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
-            lgwin as (u32),
+            lgwin,
         );
 
         ret

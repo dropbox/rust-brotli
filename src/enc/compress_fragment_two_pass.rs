@@ -157,8 +157,7 @@ fn IsMatch(p1: &[u8], p2: &[u8], length: usize) -> i32 {
         if length == 4 {
             return 1;
         }
-        return ((p1[(4usize)] as (i32) == p2[(4usize)] as (i32))
-            && (p1[(5usize)] as (i32) == p2[(5usize)] as (i32))) as i32;
+        return ((p1[4] as i32) == (p2[4] as i32) && (p1[5] as i32) == (p2[5] as i32)) as i32;
     }
     0
 }
@@ -194,9 +193,9 @@ fn CreateCommands(
         let mut goto_emit_remainder: i32 = 0i32;
         next_hash = Hash(
             &base_ip[({
-                ip_index = ip_index.wrapping_add(1 as (usize));
+                ip_index = ip_index.wrapping_add(1);
                 ip_index
-            } as (usize))..],
+            })..],
             shift,
             min_match,
         );
@@ -212,7 +211,7 @@ fn CreateCommands(
                             let hash: u32 = next_hash;
                             let bytes_between_hash_lookups: u32 = ({
                                 let _old = skip;
-                                skip = skip.wrapping_add(1 as (u32));
+                                skip = skip.wrapping_add(1);
                                 _old
                             }) >> 5i32;
                             ip_index = next_ip;
@@ -226,14 +225,10 @@ fn CreateCommands(
                                     }
                                 }
                             }
-                            next_hash = Hash(&base_ip[(next_ip as (usize))..], shift, min_match);
+                            next_hash = Hash(&base_ip[next_ip..], shift, min_match);
                             0i32;
                             candidate = ip_index.wrapping_sub(last_distance as (usize));
-                            if IsMatch(
-                                &base_ip[(ip_index as (usize))..],
-                                &base_ip[(candidate as (usize))..],
-                                min_match,
-                            ) != 0
+                            if IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) != 0
                                 && candidate < ip_index
                             {
                                 table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
@@ -248,12 +243,7 @@ fn CreateCommands(
                             0i32;
                             table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
                         }
-                        if !(IsMatch(
-                            &base_ip[(ip_index as (usize))..],
-                            &base_ip[(candidate as (usize))..],
-                            min_match,
-                        ) == 0)
-                        {
+                        if !(IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) == 0) {
                             break;
                         }
                     }
@@ -273,8 +263,8 @@ fn CreateCommands(
             {
                 let base: usize = ip_index;
                 let matched: usize = min_match.wrapping_add(FindMatchLengthWithLimit(
-                    &base_ip[(candidate as (usize) + min_match)..],
-                    &base_ip[(ip_index as (usize) + min_match)..],
+                    &base_ip[(candidate + min_match)..],
+                    &base_ip[(ip_index + min_match)..],
                     ip_end.wrapping_sub(ip_index).wrapping_sub(min_match),
                 ));
                 let distance: i32 = base.wrapping_sub(candidate) as (i32);
@@ -282,9 +272,8 @@ fn CreateCommands(
                 ip_index = ip_index.wrapping_add(matched);
                 0i32;
                 *num_commands += EmitInsertLen(insert as (u32), commands);
-                (*literals)[..(insert as usize)].clone_from_slice(
-                    &base_ip[(next_emit as usize)..(next_emit + insert as usize)],
-                );
+                (*literals)[..(insert as usize)]
+                    .clone_from_slice(&base_ip[next_emit..(next_emit + insert as usize)]);
                 *num_literals += insert as usize;
                 let new_literals = core::mem::take(literals);
                 let _ = core::mem::replace(literals, &mut new_literals[(insert as usize)..]);
@@ -312,8 +301,7 @@ fn CreateCommands(
                     let mut prev_hash: u32;
                     let cur_hash: u32;
                     if min_match == 4 {
-                        input_bytes =
-                            BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 3)..]);
+                        input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index - 3)..]);
                         cur_hash = HashBytesAtOffset(input_bytes, 3i32, shift, min_match);
                         prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
@@ -324,8 +312,7 @@ fn CreateCommands(
                     } else {
                         assert!(ip_index >= 5);
                         // could this be off the end FIXME
-                        input_bytes =
-                            BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 5)..]);
+                        input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index - 5)..]);
                         prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(5usize) as (i32);
                         prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
@@ -333,8 +320,7 @@ fn CreateCommands(
                         prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
                         assert!(ip_index >= 2);
-                        input_bytes =
-                            BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 2)..]);
+                        input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index - 2)..]);
                         cur_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
                         prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
@@ -347,16 +333,12 @@ fn CreateCommands(
             }
             while ip_index.wrapping_sub(candidate)
                 <= (1usize << 18i32).wrapping_sub(16usize) as (isize) as (usize)
-                && (IsMatch(
-                    &base_ip[(ip_index as (usize))..],
-                    &base_ip[(candidate as (usize))..],
-                    min_match,
-                ) != 0)
+                && (IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) != 0)
             {
                 let base_index: usize = ip_index;
                 let matched: usize = min_match.wrapping_add(FindMatchLengthWithLimit(
-                    &base_ip[(candidate as (usize) + min_match)..],
-                    &base_ip[(ip_index as (usize) + min_match)..],
+                    &base_ip[(candidate + min_match)..],
+                    &base_ip[(ip_index + min_match)..],
                     ip_end.wrapping_sub(ip_index).wrapping_sub(min_match),
                 ));
                 ip_index = ip_index.wrapping_add(matched);
@@ -380,8 +362,7 @@ fn CreateCommands(
                     let cur_hash: u32;
                     let mut prev_hash: u32;
                     if min_match == 4 {
-                        input_bytes =
-                            BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 3)..]);
+                        input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index - 3)..]);
                         cur_hash = HashBytesAtOffset(input_bytes, 3i32, shift, min_match);
                         prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
@@ -390,8 +371,7 @@ fn CreateCommands(
                         prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(1usize) as (i32);
                     } else {
-                        input_bytes =
-                            BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 5)..]);
+                        input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index - 5)..]);
                         prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(5usize) as (i32);
                         prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift, min_match);
@@ -399,8 +379,7 @@ fn CreateCommands(
                         prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(3usize) as (i32);
                         assert!(ip_index >= 2);
-                        input_bytes =
-                            BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index as (usize) - 2)..]);
+                        input_bytes = BROTLI_UNALIGNED_LOAD64(&base_ip[(ip_index - 2)..]);
                         cur_hash = HashBytesAtOffset(input_bytes, 2i32, shift, min_match);
                         prev_hash = HashBytesAtOffset(input_bytes, 0i32, shift, min_match);
                         table[(prev_hash as (usize))] = ip_index.wrapping_sub(2usize) as (i32);
@@ -414,9 +393,9 @@ fn CreateCommands(
             if goto_emit_remainder == 0 {
                 next_hash = Hash(
                     &base_ip[({
-                        ip_index = ip_index.wrapping_add(1 as (usize));
+                        ip_index = ip_index.wrapping_add(1);
                         ip_index
-                    } as (usize))..],
+                    })..],
                     shift,
                     min_match,
                 );
@@ -428,7 +407,7 @@ fn CreateCommands(
         let insert: u32 = ip_end.wrapping_sub(next_emit) as (u32);
         *num_commands += EmitInsertLen(insert, commands);
         literals[..insert as usize]
-            .clone_from_slice(&base_ip[(next_emit as (usize))..(next_emit + insert as usize)]);
+            .clone_from_slice(&base_ip[next_emit..(next_emit + insert as usize)]);
         let mut xliterals = core::mem::take(literals);
         *literals = &mut core::mem::take(&mut xliterals)[(insert as usize)..];
         *num_literals += insert as usize;
@@ -449,7 +428,7 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
         while i < input_size {
             {
                 let _rhs = 1;
-                let _lhs = &mut literal_histo[input[(i as (usize))] as (usize)];
+                let _lhs = &mut literal_histo[input[i] as usize];
                 *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
             i = i.wrapping_add(43usize);
@@ -463,7 +442,7 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
 }
 
 pub fn BrotliWriteBits(n_bits: usize, bits: u64, pos: &mut usize, array: &mut [u8]) {
-    let p = &mut array[((*pos >> 3i32) as (usize))..];
+    let p = &mut array[(*pos >> 3)..];
     let mut v: u64 = p[0] as (u64);
     v |= bits << (*pos & 7);
     BROTLI_UNALIGNED_STORE64(p, v);
@@ -514,11 +493,11 @@ fn BuildAndStoreCommandPrefixCode(
     let mut cmd_bits: [u16; 64] = [0; 64];
     BrotliCreateHuffmanTree(histogram, 64usize, 15i32, &mut tree[..], depth);
     BrotliCreateHuffmanTree(
-        &histogram[64usize..],
+        &histogram[64..],
         64usize,
         14i32,
         &mut tree[..],
-        &mut depth[64usize..],
+        &mut depth[64..],
     );
     /* We have to jump through a few hoops here in order to compute
     the command bits because the symbols are in a different order than in
@@ -555,14 +534,14 @@ fn BuildAndStoreCommandPrefixCode(
         (16usize),
         8usize,
     );
-    BrotliConvertBitDepthsToSymbols(&mut cmd_depth[..], 64usize, &mut cmd_bits[..]);
-    memcpy(bits, 0, &cmd_bits[..], 24i32 as (usize), 16usize);
-    memcpy(bits, (8usize), &cmd_bits[..], 40i32 as (usize), 8usize);
-    memcpy(bits, (16usize), &cmd_bits[..], 56i32 as (usize), 8usize);
-    memcpy(bits, (24usize), &cmd_bits[..], 0, 48usize);
-    memcpy(bits, (48usize), &cmd_bits[..], 32i32 as (usize), 8usize);
-    memcpy(bits, (56usize), &cmd_bits[..], 48i32 as (usize), 8usize);
-    BrotliConvertBitDepthsToSymbols(&mut depth[64usize..], 64usize, &mut bits[64usize..]);
+    BrotliConvertBitDepthsToSymbols(&mut cmd_depth[..], 64, &mut cmd_bits[..]);
+    memcpy(bits, 0, &cmd_bits[..], 24, 16);
+    memcpy(bits, 8, &cmd_bits[..], 40, 8);
+    memcpy(bits, 16, &cmd_bits[..], 56, 8);
+    memcpy(bits, 24, &cmd_bits[..], 0, 48);
+    memcpy(bits, 48, &cmd_bits[..], 32, 8);
+    memcpy(bits, 56, &cmd_bits[..], 48, 8);
+    BrotliConvertBitDepthsToSymbols(&mut depth[64..], 64, &mut bits[64..]);
     {
         let mut i: usize;
         for item in cmd_depth[..64].iter_mut() {
@@ -601,14 +580,13 @@ fn BuildAndStoreCommandPrefixCode(
         i = 0usize;
         while i < 8usize {
             {
-                cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] =
-                    depth[(i as (usize))];
+                cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] = depth[i];
                 cmd_depth[(256usize).wrapping_add((8usize).wrapping_mul(i))] =
                     depth[i.wrapping_add(8)];
                 cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] =
                     depth[i.wrapping_add(16)];
             }
-            i = i.wrapping_add(1 as (usize));
+            i = i.wrapping_add(1);
         }
         BrotliStoreHuffmanTree(
             &mut cmd_depth[..],
@@ -618,13 +596,7 @@ fn BuildAndStoreCommandPrefixCode(
             storage,
         );
     }
-    BrotliStoreHuffmanTree(
-        &mut depth[64usize..],
-        64usize,
-        &mut tree[..],
-        storage_ix,
-        storage,
-    );
+    BrotliStoreHuffmanTree(&mut depth[64..], 64, &mut tree[..], storage_ix, storage);
 }
 
 fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
@@ -662,10 +634,10 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
     while i < num_literals {
         {
             let _rhs = 1;
-            let _lhs = &mut lit_histo[literals[(i as (usize))] as (usize)];
-            *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
+            let _lhs = &mut lit_histo[literals[i] as usize];
+            *_lhs = (*_lhs).wrapping_add(_rhs as u32);
         }
-        i = i.wrapping_add(1 as (usize));
+        i = i.wrapping_add(1);
     }
     BrotliBuildAndStoreHuffmanTreeFast(
         mht,
@@ -680,7 +652,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
     i = 0usize;
     while i < num_commands {
         {
-            let code: u32 = commands[(i as (usize))] & 0xffu32;
+            let code: u32 = commands[i] & 0xffu32;
             0i32;
             {
                 let _rhs = 1;
@@ -688,26 +660,26 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
                 *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
         }
-        i = i.wrapping_add(1 as (usize));
+        i = i.wrapping_add(1);
     }
     {
         let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[1usize];
+        let _lhs = &mut cmd_histo[1];
         *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
     {
         let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[2usize];
+        let _lhs = &mut cmd_histo[2];
         *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
     {
         let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[64usize];
+        let _lhs = &mut cmd_histo[64];
         *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
     {
         let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[84usize];
+        let _lhs = &mut cmd_histo[84];
         *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
     }
     BuildAndStoreCommandPrefixCode(
@@ -720,7 +692,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
     i = 0usize;
     while i < num_commands {
         {
-            let cmd: u32 = commands[(i as (usize))];
+            let cmd: u32 = commands[i];
             let code: u32 = cmd & 0xffu32;
             let extra: u32 = cmd >> 8i32;
             0i32;
@@ -750,7 +722,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
                 literals = &literals[insert as usize..];
             }
         }
-        i = i.wrapping_add(1 as (usize));
+        i = i.wrapping_add(1);
     }
 }
 fn EmitUncompressedMetaBlock(
@@ -759,17 +731,11 @@ fn EmitUncompressedMetaBlock(
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
-    BrotliStoreMetaBlockHeader(input_size, 1i32, storage_ix, storage);
-    *storage_ix = (*storage_ix).wrapping_add(7u32 as (usize)) & !7u32 as (usize);
-    memcpy(
-        storage,
-        ((*storage_ix >> 3i32) as (usize)),
-        input,
-        0,
-        input_size,
-    );
-    *storage_ix = (*storage_ix).wrapping_add(input_size << 3i32);
-    storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
+    BrotliStoreMetaBlockHeader(input_size, 1, storage_ix, storage);
+    *storage_ix = storage_ix.wrapping_add(7) & !7u32 as usize;
+    memcpy(storage, *storage_ix >> 3, input, 0, input_size);
+    *storage_ix = storage_ix.wrapping_add(input_size << 3);
+    storage[*storage_ix >> 3] = 0;
 }
 #[allow(unused_variables)]
 #[inline(always)]
@@ -808,12 +774,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                 &mut num_commands,
             );
         }
-        if ShouldCompress(
-            &base_ip[(input_index as (usize))..],
-            block_size,
-            num_literals,
-        ) != 0
-        {
+        if ShouldCompress(&base_ip[input_index..], block_size, num_literals) != 0 {
             BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
             BrotliWriteBits(13usize, 0, storage_ix, storage);
             StoreCommands(
@@ -826,12 +787,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                 storage,
             );
         } else {
-            EmitUncompressedMetaBlock(
-                &base_ip[(input_index as (usize))..],
-                block_size,
-                storage_ix,
-                storage,
-            );
+            EmitUncompressedMetaBlock(&base_ip[input_index..], block_size, storage_ix, storage);
         }
         input_index = input_index.wrapping_add(block_size);
         input_size = input_size.wrapping_sub(block_size);
@@ -883,7 +839,7 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
     let mask: usize = (1u32 << bitpos).wrapping_sub(1u32) as (usize);
     {
         let _rhs = mask as (u8);
-        let _lhs = &mut storage[((new_storage_ix >> 3i32) as (usize))];
+        let _lhs = &mut storage[new_storage_ix >> 3];
         *_lhs = (*_lhs as (i32) & _rhs as (i32)) as (u8);
     }
     *storage_ix = new_storage_ix;

@@ -412,7 +412,7 @@ impl BroCatli {
             self.any_bytes_emitted = true;
         }
         new_stream_pending.num_bytes_written =
-            Some((new_stream_pending.num_bytes_written.unwrap() + to_copy as u8));
+            Some(new_stream_pending.num_bytes_written.unwrap() + to_copy as u8);
         if new_stream_pending.num_bytes_written.unwrap() != new_stream_pending.num_bytes_read {
             self.new_stream_pending = Some(new_stream_pending);
             return BroCatliResult::NeedsMoreOutput;

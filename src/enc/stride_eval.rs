@@ -23,12 +23,9 @@ fn stride_lookup_lin(
     high_nibble: Option<u8>,
 ) -> usize {
     if let Some(nibble) = high_nibble {
-        1 + 2
-            * (actual_context as usize
-                | ((stride_byte as usize & 0xf) << 8)
-                | ((nibble as usize) << 12))
+        1 + 2 * (actual_context | ((stride_byte as usize & 0xf) << 8) | ((nibble as usize) << 12))
     } else {
-        2 * (actual_context as usize | ((stride_byte as usize) << 8))
+        2 * (actual_context | ((stride_byte as usize) << 8))
     }
 }
 

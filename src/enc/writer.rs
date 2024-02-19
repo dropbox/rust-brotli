@@ -162,12 +162,12 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
         BrotliEncoderSetParameter(
             &mut ret.state,
             BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
-            q as (u32),
+            q,
         );
         BrotliEncoderSetParameter(
             &mut ret.state,
             BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
-            lgwin as (u32),
+            lgwin,
         );
 
         ret

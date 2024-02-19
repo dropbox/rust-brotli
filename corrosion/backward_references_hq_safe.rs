@@ -440,7 +440,7 @@ pub fn BrotliZopfliCreateCommands(
     mut num_literals : &mut [usize
 ]) {
     let mut pos : usize = 0usize;
-    let mut offset : u32 = (nodes[(0usize)]).u.next;
+    let mut offset : u32 = nodes[0].u.next;
     let mut i : usize;
     let mut gap : usize = 0usize;
     i = 0usize;
@@ -1799,8 +1799,8 @@ pub fn BrotliZopfliComputeShortestPath(
     let mut i : usize;
     let mut gap : usize = 0usize;
     let mut lz_matches_offset : usize = 0usize;
-    (nodes[(0usize)]).length = 0u32;
-    (nodes[(0usize)]).u.cost = 0i32 as (f32);
+    nodes[0].length = 0;
+    nodes[0].u.cost = 0.0;
     InitZopfliCostModel(
         m,
         &mut model ,
@@ -2219,9 +2219,9 @@ fn ZopfliIterate(
     let mut queue : StartPosQueue;
     let mut cur_match_pos : usize = 0usize;
     let mut i : usize;
-    (nodes[(0usize)]).length = 0u32;
-    (nodes[(0usize)]).u.cost = 0i32 as (f32);
-    InitStartPosQueue(&mut queue );
+    nodes[0].length = 0;
+    nodes[0].u.cost = 0.0;
+    InitStartPosQueue(&mut queue);
     i = 0usize;
     while i.wrapping_add(3usize) < num_bytes {
         {
