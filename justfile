@@ -42,9 +42,12 @@ sys-info:
     cargo --version
     {{ just_executable() }} --version
 
-# All tests to run for CI
+# All tests to run for CI (TODO: add clippy)
 ci-test: sys-info (fmt "--check") build test test-doc
-# TODO: clippy
 
 # All stable tests to run for CI with the earliest supported Rust version. Assumes the Rust version is already set by rustup.
 ci-test-msrv: sys-info build test
+
+# Test if changes are backwards compatible (patch), or need a new minor/major version
+semver-checks:
+    cargo semver-checks
