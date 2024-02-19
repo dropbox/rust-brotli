@@ -1845,8 +1845,8 @@ fn BuildAndStoreBlockSplitCode(
     }
 }
 
-fn BuildAndStoreBlockSwitchEntropyCodes<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
-    xself: &mut BlockEncoder<'a, Alloc>,
+fn BuildAndStoreBlockSwitchEntropyCodes<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
+    xself: &mut BlockEncoder<'_, Alloc>,
     tree: &mut [HuffmanTree],
     storage_ix: &mut usize,
     storage: &mut [u8],
@@ -2406,9 +2406,9 @@ pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
     storage[((*storage_ix >> 3i32) as (usize))] = 0i32 as (u8);
 }
 
-pub fn BrotliStoreMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
+pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
     alloc: &mut Alloc,
-    input: &'a [u8],
+    input: &[u8],
     start_pos: usize,
     length: usize,
     mask: usize,
@@ -2767,9 +2767,9 @@ fn StoreDataWithHuffmanCodes(
 }
 
 fn nop<'a>(_data: &[interface::Command<InputReference>]) {}
-pub fn BrotliStoreMetaBlockTrivial<'a, Alloc: BrotliAlloc, Cb>(
+pub fn BrotliStoreMetaBlockTrivial<Alloc: BrotliAlloc, Cb>(
     alloc: &mut Alloc,
-    input: &'a [u8],
+    input: &[u8],
     start_pos: usize,
     length: usize,
     mask: usize,
@@ -3187,12 +3187,12 @@ fn BrotliStoreUncompressedMetaBlockHeader(
     BrotliWriteBits(1, 1, storage_ix, storage);
 }
 
-fn InputPairFromMaskedInput<'a>(
-    input: &'a [u8],
+fn InputPairFromMaskedInput(
+    input: &[u8],
     position: usize,
     len: usize,
     mask: usize,
-) -> (&'a [u8], &'a [u8]) {
+) -> (&[u8], &[u8]) {
     let masked_pos: usize = position & mask;
     if masked_pos.wrapping_add(len) > mask.wrapping_add(1usize) {
         let len1: usize = mask.wrapping_add(1usize).wrapping_sub(masked_pos);

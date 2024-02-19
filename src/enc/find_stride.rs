@@ -165,7 +165,7 @@ pub struct BucketPopIndex {
 
 impl<AllocU32: alloc::Allocator<u32>> Index<BucketPopIndex> for EntropyBucketPopulation<AllocU32> {
     type Output = u32;
-    fn index<'a>(&'a self, index: BucketPopIndex) -> &'a u32 {
+    fn index(&self, index: BucketPopIndex) -> &u32 {
         &self.bucket_populations.slice()
             [index.val as usize + index.six_bits as usize * 256 + index.stride as usize * 256 * 64]
     }
@@ -173,7 +173,7 @@ impl<AllocU32: alloc::Allocator<u32>> Index<BucketPopIndex> for EntropyBucketPop
 impl<AllocU32: alloc::Allocator<u32>> IndexMut<BucketPopIndex>
     for EntropyBucketPopulation<AllocU32>
 {
-    fn index_mut<'a>(&'a mut self, index: BucketPopIndex) -> &'a mut u32 {
+    fn index_mut(&mut self, index: BucketPopIndex) -> &mut u32 {
         &mut self.bucket_populations.slice_mut()
             [index.val as usize + index.six_bits as usize * 256 + index.stride as usize * 256 * 64]
     }
