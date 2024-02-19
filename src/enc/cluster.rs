@@ -95,8 +95,8 @@ fn BrotliCompareAndPushToQueue<
                 cluster_size[idx1 as usize] as (usize),
                 cluster_size[idx2 as usize] as (usize),
             );
-        p.cost_diff = p.cost_diff - (out[idx1 as (usize)]).bit_cost();
-        p.cost_diff = p.cost_diff - (out[idx2 as (usize)]).bit_cost();
+        p.cost_diff -= (out[idx1 as (usize)]).bit_cost();
+        p.cost_diff -= (out[idx2 as (usize)]).bit_cost();
         if (out[idx1 as (usize)]).total_count() == 0i32 as (usize) {
             p.cost_combo = (out[idx2 as (usize)]).bit_cost();
             is_good_pair = 1i32;
@@ -122,7 +122,7 @@ fn BrotliCompareAndPushToQueue<
             }
         }
         if is_good_pair != 0 {
-            p.cost_diff = p.cost_diff + p.cost_combo;
+            p.cost_diff += p.cost_combo;
             if *num_pairs > 0i32 as (usize)
                 && (HistogramPairIsLess(&pairs[0i32 as (usize)], &p) != false)
             {

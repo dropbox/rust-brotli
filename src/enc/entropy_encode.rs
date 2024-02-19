@@ -43,7 +43,7 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
     stack[0usize] = -1i32;
     loop {
         if (pool[(p as (usize))]).index_left_ as (i32) >= 0i32 {
-            level = level + 1;
+            level += 1;
             if level > max_depth {
                 return false;
             }
@@ -59,7 +59,7 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
             depth[((pp).index_right_or_value_ as (usize))] = level as (u8);
         }
         while level >= 0i32 && (stack[level as (usize)] == -1i32) {
-            level = level - 1;
+            level -= 1;
         }
         if level < 0i32 {
             return true;
@@ -145,7 +145,7 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(
                     i = i.wrapping_add(1 as (usize));
                 }
             }
-            g = g + 1;
+            g += 1;
         }
     }
 }
@@ -532,7 +532,7 @@ fn BrotliWriteHuffmanTreeRepetitions(
             tree[(*tree_size as (usize))] = 16i32 as (u8);
             extra_bits_data[(*tree_size as (usize))] = (repetitions & 0x3usize) as (u8);
             *tree_size = (*tree_size).wrapping_add(1 as (usize));
-            repetitions = repetitions >> 2i32;
+            repetitions >>= 2i32;
             if repetitions == 0usize {
                 {
                     break;
@@ -575,7 +575,7 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(
             tree[(*tree_size as (usize))] = 17i32 as (u8);
             extra_bits_data[(*tree_size as (usize))] = (repetitions & 0x7usize) as (u8);
             *tree_size = (*tree_size).wrapping_add(1 as (usize));
-            repetitions = repetitions >> 3i32;
+            repetitions >>= 3i32;
             if repetitions == 0usize {
                 {
                     break;
@@ -662,13 +662,13 @@ fn BrotliReverseBits(num_bits: usize, mut bits: u16) -> u16 {
     i = 4usize;
     while i < num_bits {
         {
-            retval = retval << 4i32;
+            retval <<= 4i32;
             bits = (bits as (i32) >> 4i32) as (u16);
-            retval = retval | kLut[(bits as (i32) & 0xfi32) as (usize)];
+            retval |= kLut[(bits as (i32) & 0xfi32) as (usize)];
         }
         i = i.wrapping_add(4usize);
     }
-    retval = retval >> ((0usize).wrapping_sub(num_bits) & 0x3usize);
+    retval >>= ((0usize).wrapping_sub(num_bits) & 0x3usize);
     retval as (u16)
 }
 const MAX_HUFFMAN_BITS: usize = 16;

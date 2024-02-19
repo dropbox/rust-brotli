@@ -268,9 +268,8 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF: Allocator<floatX>>(
                 + literal_costs[(i.wrapping_add(1usize) as (usize))] as floatX;
             literal_costs[(i.wrapping_add(1usize) as (usize))] =
                 (literal_costs[(i as (usize))] as floatX + literal_carry) as floatX;
-            literal_carry = literal_carry
-                - (literal_costs[(i.wrapping_add(1usize) as (usize))] as floatX
-                    - literal_costs[(i as (usize))] as floatX);
+            literal_carry -= (literal_costs[(i.wrapping_add(1usize) as (usize))] as floatX
+                - literal_costs[(i as (usize))] as floatX);
         }
         i = i.wrapping_add(1 as (usize));
     }
@@ -402,7 +401,7 @@ where
                 if backward > max_backward {
                     break 'break14;
                 }
-                prev_ix = prev_ix & ring_buffer_mask;
+                prev_ix &= ring_buffer_mask;
                 if data[(cur_ix_masked as (usize))] as (i32) != data[(prev_ix as (usize))] as (i32)
                     || data[(cur_ix_masked.wrapping_add(1usize) as (usize))] as (i32)
                         != data[(prev_ix.wrapping_add(1usize) as (usize))] as (i32)
@@ -557,7 +556,7 @@ fn ComputeDistanceCache(
         let dist: usize = ZopfliNodeCopyDistance(&nodes[(p as (usize))]) as (usize);
         dist_cache[({
             let _old = idx;
-            idx = idx + 1;
+            idx += 1;
             _old
         } as (usize))] = dist as (i32);
         p = match (nodes[(p.wrapping_sub(clen).wrapping_sub(ilen) as (usize))]).u {
@@ -573,7 +572,7 @@ fn ComputeDistanceCache(
                 _old[0]
             };
         }
-        idx = idx + 1;
+        idx += 1;
     }
 }
 
@@ -678,7 +677,7 @@ fn ComputeMinimumCopyLength(
     {
         len = len.wrapping_add(1 as (usize));
         if len == next_len_offset {
-            min_cost = min_cost + 1.0 as floatX;
+            min_cost += 1.0 as floatX;
             next_len_offset = next_len_offset.wrapping_add(next_len_bucket);
             next_len_bucket = next_len_bucket.wrapping_mul(2usize);
         }
@@ -822,7 +821,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                 if prev_ix >= cur_ix {
                                     break 'continue30;
                                 }
-                                prev_ix = prev_ix & ringbuffer_mask;
+                                prev_ix &= ringbuffer_mask;
                                 if prev_ix.wrapping_add(best_len) > ringbuffer_mask
                                     || continuation as (i32)
                                         != ringbuffer[(prev_ix.wrapping_add(best_len) as (usize))]
@@ -1349,15 +1348,13 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
         i = 0usize;
         while i < num_bytes {
             {
-                literal_carry = literal_carry
-                    + cost_literal[(ringbuffer
-                        [((position.wrapping_add(i) & ringbuffer_mask) as (usize))]
-                        as (usize))] as floatX;
+                literal_carry += cost_literal[(ringbuffer
+                    [((position.wrapping_add(i) & ringbuffer_mask) as (usize))]
+                    as (usize))] as floatX;
                 literal_costs[(i.wrapping_add(1usize) as (usize))] =
                     (literal_costs[(i as (usize))] as floatX + literal_carry) as floatX;
-                literal_carry = literal_carry
-                    - (literal_costs[(i.wrapping_add(1usize) as (usize))] as floatX
-                        - literal_costs[(i as (usize))] as floatX);
+                literal_carry -= (literal_costs[(i.wrapping_add(1usize) as (usize))] as floatX
+                    - literal_costs[(i as (usize))] as floatX);
             }
             i = i.wrapping_add(1 as (usize));
         }

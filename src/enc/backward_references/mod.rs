@@ -372,7 +372,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         let mut is_match_found: i32 = 0i32;
         (*out).len_x_code = 0usize;
         if prev_ix < cur_ix {
-            prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+            prev_ix &= ring_buffer_mask as (u32) as (usize);
             if compare_char == data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
                 let len: usize = FindMatchLengthWithLimitMin4(
                     &data[(prev_ix as (usize))..],
@@ -402,7 +402,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
             prev_ix = (*self).buckets_.slice()[key as (usize)] as (usize);
             (*self).buckets_.slice_mut()[key as (usize)] = cur_ix as (u32);
             backward = cur_ix.wrapping_sub(prev_ix);
-            prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+            prev_ix &= ring_buffer_mask as (u32) as (usize);
             if compare_char != data[(prev_ix.wrapping_add(best_len_in) as (usize))] as (i32) {
                 return false;
             }
@@ -426,7 +426,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
             {
                 let mut prev_ix = *prev_ix_ref as usize;
                 let backward: usize = cur_ix.wrapping_sub(prev_ix);
-                prev_ix = prev_ix & ring_buffer_mask as (u32) as (usize);
+                prev_ix &= ring_buffer_mask as (u32) as (usize);
                 if compare_char != data[(prev_ix.wrapping_add(best_len) as (usize))] as (i32) {
                     continue;
                 }
@@ -1701,7 +1701,7 @@ impl<
                     if backward > max_backward {
                         break 'continue45;
                     }
-                    prev_ix = prev_ix & ring_buffer_mask;
+                    prev_ix &= ring_buffer_mask;
                     if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask
                         || prev_ix.wrapping_add(best_len) > ring_buffer_mask
                         || cur_data[best_len] != data[prev_ix.wrapping_add(best_len)])
@@ -1867,7 +1867,7 @@ pub struct H42 {
 fn unopt_ctzll(mut val: usize) -> u8 {
     let mut cnt: u8 = 0i32 as (u8);
     while val & 1usize == 0usize {
-        val = val >> 1i32;
+        val >>= 1i32;
         cnt = (cnt as (i32) + 1) as (u8);
     }
     cnt
@@ -2553,8 +2553,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                         insert_length = insert_length.wrapping_add(1 as (usize));
                         sr = sr2;
                         if {
-                            delayed_backward_references_in_row =
-                                delayed_backward_references_in_row + 1;
+                            delayed_backward_references_in_row += 1;
                             delayed_backward_references_in_row
                         } < 4i32
                             && (position.wrapping_add(hasher.HashTypeLength()) < pos_end)

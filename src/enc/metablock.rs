@@ -768,7 +768,7 @@ fn ContextBlockSplitterFinishBlock<
                                 - entropy[i]
                                 - (*xself).last_entropy_[(jx as (usize))];
                             let _lhs = &mut diff[j];
-                            *_lhs = *_lhs + _rhs;
+                            *_lhs += _rhs;
                         }
                     }
                     j = j.wrapping_add(1 as (usize));

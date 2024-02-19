@@ -1165,19 +1165,19 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                                 <= (tree.slice()[(j as (usize))]).total_count_
                             {
                                 left = i;
-                                i = i + 1;
+                                i += 1;
                             } else {
                                 left = j;
-                                j = j + 1;
+                                j += 1;
                             }
                             if (tree.slice()[(i as (usize))]).total_count_
                                 <= (tree.slice()[(j as (usize))]).total_count_
                             {
                                 right = i;
-                                i = i + 1;
+                                i += 1;
                             } else {
                                 right = j;
-                                j = j + 1;
+                                j += 1;
                             }
                             let sum_total = (tree.slice()[(left as (usize))])
                                 .total_count_
@@ -1189,7 +1189,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                             tree.slice_mut()[(node_index as (usize))] = sentinel.clone();
                             node_index = node_index.wrapping_add(1u32);
                         }
-                        k = k - 1;
+                        k -= 1;
                     }
                     if BrotliSetDepth(2i32 * n - 1i32, tree.slice_mut(), depth, 14i32) {
                         {
@@ -1444,7 +1444,7 @@ fn Log2FloorNonZero(mut n: u64) -> u32 {
     let mut result: u32 = 0u32;
     'loop1: loop {
         if {
-            n = n >> 1i32;
+            n >>= 1i32;
             n
         } != 0
         {
@@ -1719,7 +1719,7 @@ fn BuildAndStoreHuffmanTree(
     {
         let mut max_bits_counter: usize = alphabet_size.wrapping_sub(1usize);
         while max_bits_counter != 0 {
-            max_bits_counter = max_bits_counter >> 1i32;
+            max_bits_counter >>= 1i32;
             max_bits = max_bits.wrapping_add(1 as (usize));
         }
     }

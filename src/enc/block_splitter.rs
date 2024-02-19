@@ -417,10 +417,9 @@ where
                 }
             }
             if byte_ix < 2000usize {
-                block_switch_cost = block_switch_cost
-                    * (0.77 as super::util::floatX
-                        + 0.07 as super::util::floatX * byte_ix as (super::util::floatX)
-                            / 2000i32 as (super::util::floatX));
+                block_switch_cost *= (0.77 as super::util::floatX
+                    + 0.07 as super::util::floatX * byte_ix as (super::util::floatX)
+                        / 2000i32 as (super::util::floatX));
             }
             update_cost_and_signal(
                 num_histograms as u32,

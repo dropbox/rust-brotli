@@ -467,7 +467,7 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
 pub fn BrotliWriteBits(n_bits: usize, bits: u64, pos: &mut usize, array: &mut [u8]) {
     let p = &mut array[((*pos >> 3i32) as (usize))..];
     let mut v: u64 = p[0] as (u64);
-    v = v | bits << (*pos & 7);
+    v |= bits << (*pos & 7);
     BROTLI_UNALIGNED_STORE64(p, v);
     *pos = (*pos).wrapping_add(n_bits);
 }

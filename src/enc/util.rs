@@ -381,7 +381,7 @@ mod test {
     fn baseline_log2_floor_non_zero(mut n: u64) -> u32 {
         let mut result: u32 = 0u32;
         while {
-            n = n >> 1i32;
+            n >>= 1i32;
             n
         } != 0
         {

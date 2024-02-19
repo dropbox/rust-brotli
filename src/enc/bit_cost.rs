@@ -32,15 +32,15 @@ pub fn ShannonEntropy(
         p = population[0] as usize;
         population = population.split_at(1).1;
         sum = sum.wrapping_add(p);
-        retval = retval - p as super::util::floatX * FastLog2u16(p as u16);
+        retval -= p as super::util::floatX * FastLog2u16(p as u16);
     }
     for pop_iter in population.split_at((size >> 1) << 1).0 {
         p = *pop_iter as usize;
         sum = sum.wrapping_add(p);
-        retval = retval - p as super::util::floatX * FastLog2u16(p as u16);
+        retval -= p as super::util::floatX * FastLog2u16(p as u16);
     }
     if sum != 0 {
-        retval = retval + sum as super::util::floatX * FastLog2(sum as u64); // not sure it's 16 bit
+        retval += sum as super::util::floatX * FastLog2(sum as u64); // not sure it's 16 bit
     }
     *total = sum;
     retval
@@ -218,7 +218,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
         let log_counts = log2i(*nnz_data_item);
         let log2p = ymm_log2total - log_counts;
         let tmp = counts * log2p;
-        bits_cumulative = bits_cumulative + tmp;
+        bits_cumulative += tmp;
     }
     bits += sum8(bits_cumulative);
     if rem != 0 {
@@ -261,7 +261,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         {
             if (*histogram).slice()[i] > 0u32 {
                 s[count as (usize)] = i;
-                count = count + 1;
+                count += 1;
                 if count > 4i32 {
                     {
                         break 'break1;
@@ -358,8 +358,8 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                     let mut depth_histo_adds: u32 = 0;
                     while reps > 0u32 {
                         depth_histo_adds += 1;
-                        bits = bits + 3i32 as super::util::floatX;
-                        reps = reps >> 3i32;
+                        bits += 3i32 as super::util::floatX;
+                        reps >>= 3i32;
                     }
                     depth_histo[BROTLI_REPEAT_ZERO_CODE_LENGTH] += depth_histo_adds;
                 }
@@ -383,15 +383,15 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                         reps -= 2;
                         while reps > 0u32 {
                             depth_histo[17] += 1;
-                            bits = bits + 3 as super::util::floatX;
-                            reps = reps >> 3;
+                            bits += 3 as super::util::floatX;
+                            reps >>= 3;
                         }
                     }
                     reps = 0;
                 }
                 let log2p: super::util::floatX = log2total - FastLog2u16(*histo as (u16));
                 let mut depth: usize = (log2p + 0.5 as super::util::floatX) as (usize);
-                bits = bits + *histo as super::util::floatX * log2p;
+                bits += *histo as super::util::floatX * log2p;
                 depth = core::cmp::min(depth, 15);
                 max_depth = core::cmp::max(depth, max_depth);
                 depth_histo[depth] += 1;
@@ -399,9 +399,8 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 reps += 1;
             }
         }
-        bits =
-            bits + (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as super::util::floatX;
-        bits = bits + BitsEntropy(&depth_histo[..], 18usize);
+        bits += (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as super::util::floatX;
+        bits += BitsEntropy(&depth_histo[..], 18usize);
     }
     bits
 }

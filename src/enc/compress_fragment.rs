@@ -626,7 +626,7 @@ fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> i32 {
         i = 0usize;
         while i < 256usize {
             {
-                r = r - histo[i] as (super::util::floatX)
+                r -= histo[i] as (super::util::floatX)
                     * (depths[(i as (usize))] as (super::util::floatX) + FastLog2(histo[i] as u64));
             }
             i = i.wrapping_add(1 as (usize));
@@ -652,7 +652,7 @@ fn UpdateBits(mut n_bits: usize, mut bits: u32, mut pos: usize, array: &mut [u8]
         let changed_bits: u32 = bits & (1u32 << n_changed_bits).wrapping_sub(1u32);
         array[(byte_pos as (usize))] = (changed_bits << n_unchanged_bits | unchanged_bits) as (u8);
         n_bits = n_bits.wrapping_sub(n_changed_bits);
-        bits = bits >> n_changed_bits;
+        bits >>= n_changed_bits;
         pos = pos.wrapping_add(n_changed_bits);
     }
 }

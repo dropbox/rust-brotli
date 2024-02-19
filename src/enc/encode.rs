@@ -1695,7 +1695,7 @@ fn InjectBytePaddingBlock<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<A
     let destination: &mut [u8];
     (*s).last_bytes_ = 0;
     (*s).last_bytes_bits_ = 0;
-    seal = seal | 0x6u32 << seal_bits;
+    seal |= 0x6u32 << seal_bits;
     seal_bits = seal_bits.wrapping_add(6usize);
     if !IsNextOutNull(&(*s).next_out_) {
         destination = &mut GetNextOut!(*s)[((*s).available_out_ as (usize))..];
@@ -1813,7 +1813,7 @@ fn MaxHashTableSize(quality: i32) -> usize {
 fn HashTableSize(max_table_size: usize, input_size: usize) -> usize {
     let mut htsize: usize = 256usize;
     while htsize < max_table_size && (htsize < input_size) {
-        htsize = htsize << 1i32;
+        htsize <<= 1i32;
     }
     htsize
 }
@@ -1843,7 +1843,7 @@ fn GetHashTableInternal<'a, AllocI32: alloc::Allocator<i32>>(
     let table: &mut [i32];
     if quality == 0i32 {
         if htsize & 0xaaaaausize == 0usize {
-            htsize = htsize << 1i32;
+            htsize <<= 1i32;
         }
     }
     if htsize <= small_table_.len() {
@@ -1938,7 +1938,7 @@ fn ChooseContextMap(
                 &mut dummy,
             );
             let _lhs = &mut entropy[3usize];
-            *_lhs = *_lhs + _rhs;
+            *_lhs += _rhs;
         }
         i = i.wrapping_add(1 as (usize));
     }
@@ -1950,17 +1950,17 @@ fn ChooseContextMap(
     {
         let _rhs = entropy[0usize];
         let _lhs = &mut entropy[1usize];
-        *_lhs = *_lhs * _rhs;
+        *_lhs *= _rhs;
     }
     {
         let _rhs = entropy[0usize];
         let _lhs = &mut entropy[2usize];
-        *_lhs = *_lhs * _rhs;
+        *_lhs *= _rhs;
     }
     {
         let _rhs = entropy[0usize];
         let _lhs = &mut entropy[3usize];
-        *_lhs = *_lhs * _rhs;
+        *_lhs *= _rhs;
     }
     if quality < 7i32 {
         entropy[3usize] = entropy[1usize] * 10i32 as (super::util::floatX);

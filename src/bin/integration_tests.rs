@@ -175,7 +175,7 @@ where
             if err {
                 timing_error = true;
             }
-            total = total + delta;
+            total += delta;
             if output_offset != 0 {
                 _write_all(&mut w, &output.slice()[..output_offset]).unwrap();
                 output_offset = 0;
