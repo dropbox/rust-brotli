@@ -248,7 +248,7 @@ fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult
     let result = BrotliDecompressStream(
         &mut available_in,
         &mut input_offset,
-        &compressed[..],
+        compressed,
         &mut available_out,
         &mut output_offset,
         &mut output,

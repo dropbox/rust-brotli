@@ -248,7 +248,7 @@ pub fn ComplexFindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: 
 mod test {
     #[allow(unused)]
     fn construct_situation(seed: &[u8], mut output: &mut [u8], limit: usize, matchfor: usize) {
-        output[..].clone_from_slice(&seed[..]);
+        output[..].clone_from_slice(seed);
         if matchfor >= limit {
             return;
         }

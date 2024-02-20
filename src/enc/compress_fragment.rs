@@ -668,7 +668,7 @@ fn BuildAndStoreCommandPrefixCode(
     let mut cmd_depth: [u8; 704] = [0i32 as (u8); 704];
 
     let mut cmd_bits: [u16; 64] = [0; 64];
-    BrotliCreateHuffmanTree(&histogram[..], 64usize, 15i32, &mut tree[..], depth);
+    BrotliCreateHuffmanTree(histogram, 64usize, 15i32, &mut tree[..], depth);
     BrotliCreateHuffmanTree(
         &histogram[(64usize)..],
         64usize,

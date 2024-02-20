@@ -919,7 +919,7 @@ fn benchmark_helper<Run: Runner>(
     params.quality = quality;
     params.q9_5 = q9_5;
     params.large_window = true;
-    let mut input = UnlimitedBuffer::new(&input_slice[..]);
+    let mut input = UnlimitedBuffer::new(input_slice);
     let mut compressed_array = vec![0; input_slice.len() * 100 / 99];
     let mut rt_array = vec![0; input_slice.len() + 1];
     let mut compressed = LimitedBuffer::new(&mut compressed_array[..]);
@@ -1020,16 +1020,7 @@ static UKKONOOA: &'static [u8] = include_bytes!("../../testdata/ukkonooa");
 #[test]
 fn test_ukkonooa() {
     let td = UKKONOOA;
-    benchmark_helper(
-        &td[..],
-        65536,
-        65536,
-        true,
-        true,
-        &mut Passthrough {},
-        11,
-        false,
-    );
+    benchmark_helper(td, 65536, 65536, true, true, &mut Passthrough {}, 11, false);
 }
 
 #[cfg(feature = "benchmark")]

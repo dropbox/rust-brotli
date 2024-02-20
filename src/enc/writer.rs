@@ -266,7 +266,7 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
                 &mut self.state,
                 BrotliEncoderOperation::BROTLI_OPERATION_PROCESS,
                 &mut avail_in,
-                &buf[..],
+                buf,
                 &mut input_offset,
                 &mut avail_out,
                 self.output_buffer.slice_mut(),
