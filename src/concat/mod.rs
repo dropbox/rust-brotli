@@ -290,8 +290,8 @@ impl BroCatli {
             }
             index -= 1; // discard the final two bits
             last_bytes &= (1 << index) - 1; // mask them out
-            self.last_bytes[0] = last_bytes as u8 & 0xff; // reset the last_bytes pair
-            self.last_bytes[1] = (last_bytes >> 8) as u8 & 0xff;
+            self.last_bytes[0] = last_bytes as u8; // reset the last_bytes pair
+            self.last_bytes[1] = (last_bytes >> 8) as u8;
             if index >= 8 {
                 // if both bits and one useful bit were in the second block, then write that
                 if out_bytes.len() > *out_offset {
@@ -551,8 +551,8 @@ impl BroCatli {
         let mut last_bytes = self.last_bytes[0] as u16 | ((self.last_bytes[1] as u16) << 8);
         let bit_end = (self.last_bytes_len - 1) * 8 + self.last_byte_bit_offset;
         last_bytes |= 3 << bit_end;
-        self.last_bytes[0] = last_bytes as u8 & 0xff;
-        self.last_bytes[1] = (last_bytes >> 8) as u8 & 0xff;
+        self.last_bytes[0] = last_bytes as u8;
+        self.last_bytes[1] = (last_bytes >> 8) as u8;
         self.last_byte_sanitized = false;
         self.last_byte_bit_offset += 2;
         if self.last_byte_bit_offset >= 8 {

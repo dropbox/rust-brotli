@@ -227,6 +227,8 @@ fn update_cdf(cdfs: &mut [u16], nibble_u8: u8) {
 fn extract_single_cdf(cdf_bundle: &[u16], index: usize) -> [u16; 16] {
     assert_eq!(cdf_bundle.len(), 16 * NUM_SPEEDS_TO_TRY);
     assert!(index < NUM_SPEEDS_TO_TRY);
+
+    #[allow(clippy::identity_op)]
     [
         cdf_bundle[index + 0 * NUM_SPEEDS_TO_TRY],
         cdf_bundle[index + 1 * NUM_SPEEDS_TO_TRY],
