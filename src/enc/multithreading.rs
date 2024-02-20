@@ -107,7 +107,7 @@ where
         let ret = spawn_work(extra_input, index, num_threads, input.clone(), alloc, f);
         *work = SendAlloc(InternalSendAlloc::Join(MultiThreadedJoinable(
             ret,
-            PhantomData::default(),
+            PhantomData,
         )));
     }
 }

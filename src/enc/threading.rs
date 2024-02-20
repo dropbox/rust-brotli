@@ -135,7 +135,7 @@ where
     pub fn replace_with_default(&mut self) -> (Alloc, ExtraInput) {
         match mem::replace(
             &mut self.0,
-            InternalSendAlloc::SpawningOrJoining(PhantomData::default()),
+            InternalSendAlloc::SpawningOrJoining(PhantomData),
         ) {
             InternalSendAlloc::A(alloc, extra_input) => (alloc, extra_input),
             InternalSendAlloc::SpawningOrJoining(_) | InternalSendAlloc::Join(_) => {
@@ -534,7 +534,7 @@ where
         } else {
             match mem::replace(
                 &mut thread.0,
-                InternalSendAlloc::SpawningOrJoining(PhantomData::default()),
+                InternalSendAlloc::SpawningOrJoining(PhantomData),
             ) {
                 InternalSendAlloc::A(_, _) | InternalSendAlloc::SpawningOrJoining(_) => {
                     panic!("Thread not properly spawned")

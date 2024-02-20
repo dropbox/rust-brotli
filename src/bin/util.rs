@@ -294,10 +294,7 @@ where
             alloc,
             f,
         );
-        *work = SendAlloc(InternalSendAlloc::Join(MTJoinable(
-            ret,
-            PhantomData::default(),
-        )));
+        *work = SendAlloc(InternalSendAlloc::Join(MTJoinable(ret, PhantomData)));
     }
 }
 impl<

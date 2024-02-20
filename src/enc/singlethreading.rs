@@ -172,10 +172,10 @@ pub struct WorkerPool<A, B, C, D> {
 }
 pub fn new_work_pool<A, B, C, D>(_num_threads: usize) -> WorkerPool<A, B, C, D> {
     WorkerPool::<A, B, C, D> {
-        a: PhantomData::default(),
-        b: PhantomData::default(),
-        c: PhantomData::default(),
-        d: PhantomData::default(),
+        a: PhantomData,
+        b: PhantomData,
+        c: PhantomData,
+        d: PhantomData,
     }
 }
 

@@ -182,7 +182,7 @@ where
             dict_num_lookups: 0,
             dict_num_matches: 0,
         },
-        _params: core::marker::PhantomData::<H10DefaultParams>::default(),
+        _params: core::marker::PhantomData::<H10DefaultParams>,
         window_mask_: window_mask as usize,
         invalid_pos_: invalid_pos,
         buckets_: buckets,
@@ -221,7 +221,7 @@ where
             buckets_: Buckets::new_uninit(m),
             invalid_pos_: self.invalid_pos_,
             forest: <Alloc as Allocator<u32>>::alloc_cell(m, self.forest.len()),
-            _params: core::marker::PhantomData::<Params>::default(),
+            _params: core::marker::PhantomData::<Params>,
         };
         ret.buckets_
             .slice_mut()
