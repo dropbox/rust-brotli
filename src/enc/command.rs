@@ -8,7 +8,7 @@ pub struct BrotliDistanceParams {
     pub max_distance: usize,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Command {
     // stores copy_len in low 25 bits and copy_code - copy_len in high 7 bit
     pub insert_len_: u32,
@@ -19,17 +19,7 @@ pub struct Command {
     // stores distance code in low 10 bits and num extra bits in high 6 bits
     pub dist_prefix_: u16,
 }
-impl Default for Command {
-    fn default() -> Command {
-        Command {
-            insert_len_: 0,
-            copy_len_: 0,
-            dist_extra_: 0,
-            cmd_prefix_: 0,
-            dist_prefix_: 0,
-        }
-    }
-}
+
 pub fn CommandCopyLen(xself: &Command) -> u32 {
     xself.copy_len_ & 0x1ffffffi32 as (u32)
 }
