@@ -385,7 +385,7 @@ impl<SliceType: SliceWrapper<u8>> SliceWrapper<u8> for FeatureFlagSliceType<Slic
 #[cfg(not(feature = "external-literal-probability"))]
 impl<SliceType: SliceWrapper<u8> + Default> Default for FeatureFlagSliceType<SliceType> {
     fn default() -> Self {
-        FeatureFlagSliceType::<SliceType>(core::marker::PhantomData::<SliceType>::default())
+        FeatureFlagSliceType::<SliceType>(core::marker::PhantomData::<SliceType>)
     }
 }
 
