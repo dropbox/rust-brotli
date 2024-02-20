@@ -291,7 +291,7 @@ pub fn set_parameter(
         return 1i32;
     }
     if p as (i32) == BrotliEncoderParameter::BROTLI_METABLOCK_CALLBACK as (i32) {
-        params.log_meta_block = if value != 0 { true } else { false };
+        params.log_meta_block = value != 0;
         return 1i32;
     }
     if p as (i32) == BrotliEncoderParameter::BROTLI_PARAM_LGWIN as (i32) {
@@ -2163,7 +2163,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
     if params.appendable {
         is_last = 0;
     } else {
-        assert_eq!(params.catable, false); // Sanitize Params senforces this constraint
+        assert!(!params.catable); // Sanitize Params senforces this constraint
     }
     let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
     let last_bytes: u16;

@@ -48,15 +48,9 @@ fn brotli_max_double(a: super::util::floatX, b: super::util::floatX) -> super::u
 #[inline(always)]
 fn HistogramPairIsLess(p1: &HistogramPair, p2: &HistogramPair) -> bool {
     if (*p1).cost_diff != (*p2).cost_diff {
-        if !!((*p1).cost_diff > (*p2).cost_diff) {
-            true
-        } else {
-            false
-        }
-    } else if !!((*p1).idx2.wrapping_sub((*p1).idx1) > (*p2).idx2.wrapping_sub((*p2).idx1)) {
-        true
+        !!((*p1).cost_diff > (*p2).cost_diff)
     } else {
-        false
+        !!((*p1).idx2.wrapping_sub((*p1).idx1) > (*p2).idx2.wrapping_sub((*p2).idx1))
     }
 }
 
@@ -123,9 +117,7 @@ fn BrotliCompareAndPushToQueue<
         }
         if is_good_pair != 0 {
             p.cost_diff = p.cost_diff + p.cost_combo;
-            if *num_pairs > 0i32 as (usize)
-                && (HistogramPairIsLess(&pairs[0i32 as (usize)], &p) != false)
-            {
+            if *num_pairs > 0i32 as (usize) && HistogramPairIsLess(&pairs[0i32 as (usize)], &p) {
                 /* Replace the top of the queue if needed. */
                 if *num_pairs < max_num_pairs {
                     pairs[*num_pairs as (usize)] = pairs[0i32 as (usize)];
@@ -248,7 +240,7 @@ pub fn BrotliHistogramCombine<
                                 break 'continue12;
                             }
                         }
-                        if HistogramPairIsLess(&pairs[(0usize)], &p) != false {
+                        if HistogramPairIsLess(&pairs[(0usize)], &p) {
                             /* Replace the top of the queue if needed. */
                             let front: HistogramPair = pairs[(0usize)];
                             pairs[(0usize)] = p;

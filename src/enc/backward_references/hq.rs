@@ -461,7 +461,7 @@ where
                 &mut dict_matches[..],
             ) != 0
         {
-            assert_eq!(params.use_dictionary, true);
+            assert!(params.use_dictionary);
             let maxlen: usize = brotli_min_size_t(37usize, max_length);
             let mut l: usize;
             l = minlen;
