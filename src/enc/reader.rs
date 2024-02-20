@@ -236,7 +236,7 @@ impl<ErrType, R: CustomRead<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: Br
                 &mut self.state.0,
                 op,
                 &mut avail_in,
-                &self.input_buffer.slice_mut()[..],
+                self.input_buffer.slice_mut(),
                 &mut self.input_offset,
                 &mut avail_out,
                 buf,

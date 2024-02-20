@@ -88,23 +88,23 @@ fn multi_threaded_split_compression_test(
 }
 #[test]
 fn multi_threaded_split_compression_test_1() {
-    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 1, 3, false, 155808)
+    multi_threaded_split_compression_test(RANDOM_THEN_UNICODE, 1, 3, false, 155808)
 }
 #[test]
 fn multi_threaded_split_compression_test_2() {
-    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 2, 4, false, 151857)
+    multi_threaded_split_compression_test(RANDOM_THEN_UNICODE, 2, 4, false, 151857)
 }
 #[test]
 fn multi_threaded_split_compression_test_3() {
-    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 3, 5, false, 144325)
+    multi_threaded_split_compression_test(RANDOM_THEN_UNICODE, 3, 5, false, 144325)
 }
 #[test]
 fn multi_threaded_split_compression_test_4() {
-    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 4, 10, true, 136812)
+    multi_threaded_split_compression_test(RANDOM_THEN_UNICODE, 4, 10, true, 136812)
 }
 #[test]
 fn multi_threaded_split_compression_test_5() {
-    multi_threaded_split_compression_test(&RANDOM_THEN_UNICODE[..], 5, 9, false, 139126)
+    multi_threaded_split_compression_test(RANDOM_THEN_UNICODE, 5, 9, false, 139126)
 }
 #[test]
 fn multi_threaded_split_compression_test_1b1() {
@@ -190,11 +190,11 @@ fn thread_spawn_per_job_split_compression_test(
 }
 #[test]
 fn thread_spawn_per_job_split_compression_test_1() {
-    thread_spawn_per_job_split_compression_test(&RANDOM_THEN_UNICODE[..], 1, 3, false, 155808)
+    thread_spawn_per_job_split_compression_test(RANDOM_THEN_UNICODE, 1, 3, false, 155808)
 }
 #[test]
 fn thread_spawn_per_job_split_compression_test_3() {
-    thread_spawn_per_job_split_compression_test(&RANDOM_THEN_UNICODE[..], 3, 5, false, 144325)
+    thread_spawn_per_job_split_compression_test(RANDOM_THEN_UNICODE, 3, 5, false, 144325)
 }
 #[test]
 fn thread_spawn_per_job_split_compression_test_1b1() {
