@@ -23,9 +23,10 @@ pub fn HuffmanCost(population: &[u32]) -> floatY {
         sum += *pop as floatY;
         buckets += 1.0 as floatY;
     }
-    let cost = 16.0 as floatY * buckets + cost + sum * FastLog2(sum as u64) as floatY;
+
     //println!("Observed {} nonzero buckets with a sum of {}, hc={}", buckets, sum, cost);
-    cost
+
+    16.0 as floatY * buckets + cost + sum * FastLog2(sum as u64) as floatY
 }
 
 // this holds a population of data assuming 1 byte of prior for that data
@@ -377,9 +378,9 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
         scratch: &mut EntropyTally<AllocU32>,
     ) -> floatY {
         assert!(stride as usize <= NUM_STRIDES);
-        let cost = self.pop[self.byte_index_to_pyramid_index(start_index as usize, metablock_len)]
-            .bit_cost_of_data_subset(data0, stride, previous_bytes, &mut scratch.pop[0]);
-        cost
+
+        self.pop[self.byte_index_to_pyramid_index(start_index as usize, metablock_len)]
+            .bit_cost_of_data_subset(data0, stride, previous_bytes, &mut scratch.pop[0])
     }
     fn populate_entry_stride1(&mut self, input: InputPair, index: u32) {
         let mut prev_val = 0;
@@ -868,15 +869,15 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyTally<AllocU32> {
             }
         }
 
-        let best_stride = if stride_detection_quality > 1 {
+        //println!("ENTROPY PYRAMID {:?} selected {}", entropy_pyramid.stride, best_stride);
+
+        if stride_detection_quality > 1 {
             self.identify_best_population_and_update_cache() + 1
         } else {
             entropy_pyramid.stride[entropy_pyramid
                 .byte_index_to_pyramid_index(pyramid_byte_index, input0.len() + input1.len())]
                 + 1
-        };
-        //println!("ENTROPY PYRAMID {:?} selected {}", entropy_pyramid.stride, best_stride);
-        best_stride
+        }
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
         for item in self.pop.iter_mut() {

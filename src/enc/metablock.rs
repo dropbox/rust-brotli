@@ -188,9 +188,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
                 params.dist = new_params.dist;
                 ndirect_msb += 1;
             }
-            if ndirect_msb > 0 {
-                ndirect_msb -= 1;
-            }
+            ndirect_msb = ndirect_msb.saturating_sub(1);
             ndirect_msb /= 2;
         }
         if check_orig {
