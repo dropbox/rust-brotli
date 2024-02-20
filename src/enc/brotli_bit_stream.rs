@@ -1341,13 +1341,26 @@ impl<
             + alloc::Allocator<HistogramLiteral>
             + alloc::Allocator<HistogramCommand>
             + alloc::Allocator<HistogramDistance>,
+    > Default for MetaBlockSplit<Alloc>
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<
+        Alloc: alloc::Allocator<u8>
+            + alloc::Allocator<u32>
+            + alloc::Allocator<HistogramLiteral>
+            + alloc::Allocator<HistogramCommand>
+            + alloc::Allocator<HistogramDistance>,
     > MetaBlockSplit<Alloc>
 {
     pub fn new() -> Self {
         return MetaBlockSplit {
-            literal_split: BlockSplit::<Alloc>::new(),
-            command_split: BlockSplit::<Alloc>::new(),
-            distance_split: BlockSplit::<Alloc>::new(),
+            literal_split: BlockSplit::<Alloc>::default(),
+            command_split: BlockSplit::<Alloc>::default(),
+            distance_split: BlockSplit::<Alloc>::default(),
             literal_context_map: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
             literal_context_map_size: 0,
             distance_context_map: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
@@ -2994,8 +3007,8 @@ pub struct RecoderState {
     pub num_bytes_encoded: usize,
 }
 
-impl RecoderState {
-    pub fn new() -> Self {
+impl Default for RecoderState {
+    fn default() -> Self {
         RecoderState {
             num_bytes_encoded: 0,
         }

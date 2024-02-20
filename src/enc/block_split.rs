@@ -10,8 +10,8 @@ pub struct BlockSplit<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> {
     pub lengths: <Alloc as Allocator<u32>>::AllocatedMemory,
 }
 
-impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> BlockSplit<Alloc> {
-    pub fn new() -> BlockSplit<Alloc> {
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> Default for BlockSplit<Alloc> {
+    fn default() -> Self {
         BlockSplit {
             num_types: 0,
             num_blocks: 0,
@@ -19,6 +19,9 @@ impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> BlockSplit<Alloc> {
             lengths: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
         }
     }
+}
+
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> BlockSplit<Alloc> {
     pub fn destroy(&mut self, m: &mut Alloc) {
         <Alloc as Allocator<u8>>::free_cell(
             m,

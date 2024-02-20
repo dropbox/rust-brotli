@@ -521,7 +521,7 @@ pub fn BrotliEncoderCreateInstance<Alloc: BrotliAlloc>(
         literal_scratch_space: HistogramLiteral::make_nnz_storage(),
         command_scratch_space: HistogramCommand::make_nnz_storage(),
         distance_scratch_space: HistogramDistance::make_nnz_storage(),
-        recoder_state: RecoderState::new(),
+        recoder_state: RecoderState::default(),
         custom_dictionary: false,
     }
 }
