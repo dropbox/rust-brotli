@@ -8,20 +8,11 @@
 #![allow(dead_code)]
 use super::util::brotli_max_uint32_t;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct HuffmanTree {
     pub total_count_: u32,
     pub index_left_: i16,
     pub index_right_or_value_: i16,
-}
-impl Default for HuffmanTree {
-    fn default() -> HuffmanTree {
-        HuffmanTree {
-            total_count_: 0,
-            index_left_: 0,
-            index_right_or_value_: 0,
-        }
-    }
 }
 
 pub fn NewHuffmanTree(count: u32, left: i16, right: i16) -> HuffmanTree {

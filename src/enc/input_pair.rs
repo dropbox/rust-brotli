@@ -20,6 +20,7 @@ impl<'a> Freezable for InputReference<'a> {
     }
 }
 
+#[derive(Default)]
 pub struct InputReferenceMut<'a> {
     pub data: &'a mut [u8],
     pub orig_offset: usize, // offset into the original slice of data
@@ -35,14 +36,7 @@ impl<'a> SliceWrapperMut<u8> for InputReferenceMut<'a> {
         self.data
     }
 }
-impl<'a> Default for InputReferenceMut<'a> {
-    fn default() -> Self {
-        InputReferenceMut {
-            data: &mut [],
-            orig_offset: 0,
-        }
-    }
-}
+
 impl<'a> From<InputReferenceMut<'a>> for InputReference<'a> {
     fn from(val: InputReferenceMut<'a>) -> InputReference<'a> {
         InputReference {
