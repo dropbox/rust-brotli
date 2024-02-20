@@ -696,10 +696,10 @@ fn RingBufferSetup<AllocU8: alloc::Allocator<u8>>(
 ) {
     let window_bits: i32 = ComputeRbBits(params);
     let tail_bits: i32 = (*params).lgblock;
-    *(&mut (*rb).size_) = 1u32 << window_bits;
-    *(&mut (*rb).mask_) = (1u32 << window_bits).wrapping_sub(1u32);
-    *(&mut (*rb).tail_size_) = 1u32 << tail_bits;
-    *(&mut (*rb).total_size_) = (*rb).size_.wrapping_add((*rb).tail_size_);
+    (*rb).size_ = 1u32 << window_bits;
+    (*rb).mask_ = (1u32 << window_bits).wrapping_sub(1u32);
+    (*rb).tail_size_ = 1u32 << tail_bits;
+    (*rb).total_size_ = (*rb).size_.wrapping_add((*rb).tail_size_);
 }
 
 fn EncodeWindowBits(
