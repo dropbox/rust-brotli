@@ -78,8 +78,8 @@ pub unsafe extern "C" fn BroccoliConcatStream(
     let mut output_offset = 0usize;
     let mut bro_catli: BroCatli = (*state).into();
     let ret = bro_catli.stream(input_buf, &mut input_offset, output_buf, &mut output_offset);
-    *input_buf_ptr = (*input_buf_ptr).offset(input_offset as isize);
-    *output_buf_ptr = (*output_buf_ptr).offset(output_offset as isize);
+    *input_buf_ptr = (*input_buf_ptr).add(input_offset);
+    *output_buf_ptr = (*output_buf_ptr).add(output_offset);
     *available_in -= input_offset;
     *available_out -= output_offset;
     *state = BroccoliState::from(bro_catli);
@@ -113,7 +113,7 @@ pub unsafe extern "C" fn BroccoliConcatFinish(
     let mut output_offset = 0usize;
     let mut bro_catli: BroCatli = (*state).into();
     let ret = bro_catli.finish(output_buf, &mut output_offset);
-    *output_buf_ptr = (*output_buf_ptr).offset(output_offset as isize);
+    *output_buf_ptr = (*output_buf_ptr).add(output_offset);
     *available_out -= output_offset;
     *state = BroccoliState::from(bro_catli);
     ret

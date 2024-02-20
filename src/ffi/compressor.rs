@@ -325,10 +325,10 @@ pub unsafe extern "C" fn BrotliEncoderCompressStream(
                 *total_out = to.unwrap_or(0);
             }
             if input_any {
-                *input_buf_ptr = (*input_buf_ptr).offset(input_offset as isize);
+                *input_buf_ptr = (*input_buf_ptr).add(input_offset);
             }
             if output_any {
-                *output_buf_ptr = (*output_buf_ptr).offset(output_offset as isize);
+                *output_buf_ptr = (*output_buf_ptr).add(output_offset);
             }
         }
         result
