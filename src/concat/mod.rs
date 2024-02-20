@@ -64,7 +64,7 @@ fn parse_window_size(bytes_so_far: &[u8]) -> Result<(u8, usize), ()> {
         return Err(());
     }
     let ret = bytes_so_far[1] & 0x3f;
-    if ret < 10 || ret > 30 {
+    if !(10..=30).contains(&ret) {
         return Err(());
     }
     Ok((ret, 14))
