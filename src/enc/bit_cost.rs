@@ -6,7 +6,7 @@ use core;
 use super::util::{brotli_max_uint32_t, floatX, FastLog2, FastLog2u16};
 use super::vectorization::{cast_f32_to_i32, cast_i32_to_f32, log2i, sum8, v256, v256i, Mem256i};
 #[cfg(feature = "simd")]
-use packed_simd_2::IntoBits;
+use packed_simd::IntoBits;
 
 static kCopyBase: [u32; 24] = [
     2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70, 102, 134, 198, 326, 582, 1094, 2118,

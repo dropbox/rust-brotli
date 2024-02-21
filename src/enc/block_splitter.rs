@@ -15,7 +15,7 @@ use super::histogram::{
 use super::util::{brotli_max_uint8_t, brotli_min_size_t, FastLog2};
 use core;
 #[cfg(feature = "simd")]
-use packed_simd_2::IntoBits;
+use packed_simd::IntoBits;
 static kMaxLiteralHistograms: usize = 100usize;
 
 static kMaxCommandHistograms: usize = 50usize;

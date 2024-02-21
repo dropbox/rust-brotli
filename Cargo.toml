@@ -30,8 +30,7 @@ incremental = false
 "alloc-stdlib" = { version = "~0.2", optional = true }
 "brotli-decompressor" = { version = "~2.5", default-features = false }
 "sha2" = { version = "~0.10", optional = true }
-# Uncomment once this packed_simd
-# "packed_simd_2" = {version="0.3", optional=true}
+"packed_simd" = { git = "https://github.com/programingjd/packed_simd.git", rev = "53efe013875b7f23ecc1edd840a20c4cbce3f302", default-features = false, features = ["into_bits"], optional = true }
 
 [features]
 default = ["std", "ffi-api"]
@@ -44,4 +43,4 @@ seccomp = ["brotli-decompressor/seccomp"]
 std = ["alloc-stdlib", "brotli-decompressor/std"]
 validation = ["sha2"]
 vector_scratch_space = []
-# simd = ["packed_simd_2/into_bits"]
+simd = ["packed_simd/into_bits"]
