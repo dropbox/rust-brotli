@@ -85,8 +85,8 @@ fn test_10x_10y() {
     }
     let mut i: usize = 0;
     while i < 10 {
-        assert_eq!(output.data[i], 'X' as u8);
-        assert_eq!(output.data[i + 10], 'Y' as u8);
+        assert_eq!(output.data[i], b'X');
+        assert_eq!(output.data[i + 10], b'Y');
         i += 1;
     }
     assert_eq!(output.data.len(), 20);

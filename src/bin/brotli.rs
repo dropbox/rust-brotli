@@ -783,7 +783,7 @@ fn main() {
                     .trim_matches('e')
                     .trim_matches('d')
                     .trim_matches('=');
-                let split = comma_string.split(",");
+                let split = comma_string.split(',');
                 for (index, s) in split.enumerate() {
                     let data = s.parse::<u16>().unwrap();
                     if data > 16384 {
@@ -824,22 +824,22 @@ fn main() {
                 println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q9.5y or -q[0-11] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n\nThe -i parameter produces a cross human readdable IR representation of the file.\nThis can be ingested by other compressors.\nIR-specific options include:\n-findprior\n-speed=<inc,max,inc,max,inc,max,inc,max>");
                 return;
             }
-            if filenames[0] == "" {
+            if filenames[0].is_empty() {
                 filenames[0] = argument.clone();
                 continue;
             }
-            if filenames[1] == "" {
+            if filenames[1].is_empty() {
                 filenames[1] = argument.clone();
                 continue;
             }
             panic!("Unknown Argument {:}", argument);
         }
-        if filenames[0] != "" {
+        if !filenames[0].is_empty() {
             let mut input = match File::open(Path::new(&filenames[0])) {
                 Err(why) => panic!("couldn't open {:}\n{:}", filenames[0], why),
                 Ok(file) => file,
             };
-            if filenames[1] != "" {
+            if !filenames[1].is_empty() {
                 let mut output = match File::create(Path::new(&filenames[1])) {
                     Err(why) => panic!(
                         "couldn't open file for writing: {:}\n{:}",
