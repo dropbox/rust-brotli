@@ -8,11 +8,15 @@ clean:
     cargo clean
 
 # Build everything
-build: build-brotli build-ffi
+build: build-brotli build-simd build-ffi
 
 # Build the main crate
 build-brotli:
     RUSTFLAGS='-D warnings' cargo build --workspace --all-targets --bins --tests --lib --benches --examples
+
+# Build simd with nightly
+build-simd:
+    RUSTFLAGS='-D warnings' cargo +nightly build --features simd
 
 # Build the brotli-ffi crate (in ./c dir)
 build-ffi:
