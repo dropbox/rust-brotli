@@ -863,7 +863,7 @@ fn main() {
                     };
                 for i in 0..num_benchmarks {
                     if do_validate {
-                        let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+                        let dict = core::mem::take(&mut custom_dictionary);
                         if num_benchmarks > 0 {
                             custom_dictionary = dict.clone();
                         }
@@ -917,7 +917,7 @@ fn main() {
                             }
                         }
                     } else {
-                        let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+                        let dict = core::mem::take(&mut custom_dictionary);
                         if num_benchmarks > 0 {
                             custom_dictionary = dict.clone();
                         }

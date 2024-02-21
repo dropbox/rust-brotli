@@ -525,10 +525,7 @@ pub fn BrotliEncoderCreateInstance<Alloc: BrotliAlloc>(
 }
 
 fn RingBufferFree<AllocU8: alloc::Allocator<u8>>(m: &mut AllocU8, rb: &mut RingBuffer<AllocU8>) {
-    m.free_cell(core::mem::replace(
-        &mut rb.data_mo,
-        AllocU8::AllocatedMemory::default(),
-    ));
+    m.free_cell(core::mem::take(&mut rb.data_mo));
 }
 fn DestroyHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
     m16: &mut Alloc,
@@ -572,51 +569,21 @@ m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU
 
 fn BrotliEncoderCleanupState<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) {
     {
-        <Alloc as Allocator<u8>>::free_cell(
-            &mut s.m8,
-            core::mem::replace(
-                &mut (*s).storage_,
-                <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<u8>>::free_cell(&mut s.m8, core::mem::take(&mut (*s).storage_));
     }
     {
-        <Alloc as Allocator<Command>>::free_cell(
-            &mut s.m8,
-            core::mem::replace(
-                &mut (*s).commands_,
-                <Alloc as Allocator<Command>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<Command>>::free_cell(&mut s.m8, core::mem::take(&mut (*s).commands_));
     }
     RingBufferFree(&mut s.m8, &mut (*s).ringbuffer_);
     DestroyHasher(&mut s.m8, &mut (*s).hasher_);
     {
-        <Alloc as Allocator<i32>>::free_cell(
-            &mut s.m8,
-            core::mem::replace(
-                &mut (*s).large_table_,
-                <Alloc as Allocator<i32>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<i32>>::free_cell(&mut s.m8, core::mem::take(&mut (*s).large_table_));
     }
     {
-        <Alloc as Allocator<u32>>::free_cell(
-            &mut s.m8,
-            core::mem::replace(
-                &mut (*s).command_buf_,
-                <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<u32>>::free_cell(&mut s.m8, core::mem::take(&mut (*s).command_buf_));
     }
     {
-        <Alloc as Allocator<u8>>::free_cell(
-            &mut s.m8,
-            core::mem::replace(
-                &mut (*s).literal_buf_,
-                <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<u8>>::free_cell(&mut s.m8, core::mem::take(&mut (*s).literal_buf_));
     }
 }
 
@@ -818,10 +785,7 @@ fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(
         let lim: usize = ((2u32).wrapping_add((*rb).cur_size_) as (usize))
             .wrapping_add(kSlackForEightByteHashingEverywhere);
         new_data.slice_mut()[..lim].clone_from_slice(&(*rb).data_mo.slice()[..lim]);
-        m.free_cell(core::mem::replace(
-            &mut (*rb).data_mo,
-            AllocU8::AllocatedMemory::default(),
-        ));
+        m.free_cell(core::mem::take(&mut (*rb).data_mo));
     }
     let _ = core::mem::replace(&mut (*rb).data_mo, new_data);
     (*rb).cur_size_ = buflen;
@@ -1257,7 +1221,7 @@ pub fn HasherSetup<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
         //let alloc_size: usize;
         ChooseHasher(&mut (*params));
         //alloc_size = HasherSize(params, one_shot, input_size);
-        //xself = BrotliAllocate(m, alloc_size.wrapping_mul(::std::mem::size_of::<u8>()))
+        //xself = BrotliAllocate(m, alloc_size.wrapping_mul(::core::mem::size_of::<u8>()))
         *handle = BrotliMakeHasher(m16, params);
         handle.GetHasherCommon().params = (*params).hasher;
         HasherReset(handle); // this sets everything to zero, unlike in C
@@ -1788,13 +1752,7 @@ fn InputBlockSize<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -
 
 fn GetBrotliStorage<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>, size: usize) {
     if (*s).storage_size_ < size {
-        <Alloc as Allocator<u8>>::free_cell(
-            &mut (*s).m8,
-            core::mem::replace(
-                &mut (*s).storage_,
-                <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<u8>>::free_cell(&mut (*s).m8, core::mem::take(&mut (*s).storage_));
         (*s).storage_ = <Alloc as Allocator<u8>>::alloc_cell(&mut (*s).m8, size);
         (*s).storage_size_ = size;
     }
@@ -1850,10 +1808,7 @@ fn GetHashTableInternal<'a, AllocI32: alloc::Allocator<i32>>(
         if htsize > large_table_.slice().len() {
             //(*s).large_table_size_ = htsize;
             {
-                mi32.free_cell(core::mem::replace(
-                    large_table_,
-                    AllocI32::AllocatedMemory::default(),
-                ));
+                mi32.free_cell(core::mem::take(large_table_));
             }
             *large_table_ = mi32.alloc_cell(htsize);
         }
@@ -2333,7 +2288,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
         //memcpy(dist_cache,
         //     saved_dist_cache,
-        //     (4usize).wrapping_mul(::std::mem::size_of::<i32>()));
+        //     (4usize).wrapping_mul(::core::mem::size_of::<i32>()));
         storage[saved_byte_location] = last_bytes as u8;
         storage[saved_byte_location + 1] = (last_bytes >> 8) as u8;
         *storage_ix = last_bytes_bits as (usize);
@@ -2587,10 +2542,7 @@ where
                     .clone_from_slice(&(*s).commands_.slice()[..(*s).num_commands_]);
                 <Alloc as Allocator<Command>>::free_cell(
                     &mut s.m8,
-                    core::mem::replace(
-                        &mut (*s).commands_,
-                        <Alloc as Allocator<Command>>::AllocatedMemory::default(),
-                    ),
+                    core::mem::take(&mut (*s).commands_),
                 );
             }
             (*s).commands_ = new_commands;
@@ -2978,14 +2930,8 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
                 <Alloc as Allocator<u8>>::alloc_cell(&mut s.m8, kCompressFragmentTwoPassBlockSize);
         }
         if (*s).command_buf_.slice().len() != 0 {
-            command_buf = core::mem::replace(
-                &mut (*s).command_buf_,
-                <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-            );
-            literal_buf = core::mem::replace(
-                &mut (*s).literal_buf_,
-                <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-            );
+            command_buf = core::mem::take(&mut (*s).command_buf_);
+            literal_buf = core::mem::take(&mut (*s).literal_buf_);
         } else {
             command_buf = <Alloc as Allocator<u32>>::alloc_cell(&mut s.m8, buf_size);
             literal_buf = <Alloc as Allocator<u8>>::alloc_cell(&mut s.m8, buf_size);
@@ -3107,14 +3053,8 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
         && s.command_buf_.slice().len() == 0
     {
         // undo temporary aliasing of command_buf and literal_buf
-        (*s).command_buf_ = core::mem::replace(
-            &mut command_buf,
-            <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-        );
-        (*s).literal_buf_ = core::mem::replace(
-            &mut literal_buf,
-            <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-        );
+        (*s).command_buf_ = core::mem::take(&mut command_buf);
+        (*s).literal_buf_ = core::mem::take(&mut literal_buf);
     } else {
         <Alloc as Allocator<u32>>::free_cell(&mut s.m8, command_buf);
         <Alloc as Allocator<u8>>::free_cell(&mut s.m8, literal_buf);

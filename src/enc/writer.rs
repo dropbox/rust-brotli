@@ -13,7 +13,7 @@ pub use alloc_stdlib::StandardAlloc;
 use brotli_decompressor::CustomWrite;
 #[cfg(feature = "std")]
 pub use brotli_decompressor::{IntoIoWriter, IoWriterWrapper};
-use core;
+
 #[cfg(feature = "std")]
 use std::io;
 
@@ -231,7 +231,7 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
             Ok(_) => {}
             Err(_) => {}
         }
-        core::mem::replace(&mut self.output, None).unwrap()
+        self.output.take().unwrap()
     }
 }
 

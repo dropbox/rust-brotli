@@ -584,7 +584,7 @@ fn InitZopfliCostModel(
                                  BrotliAllocate(
                                      m,
                                      num_bytes.wrapping_add(2usize).wrapping_mul(
-                                         std::mem::size_of::<f32>()
+                                         core::mem::size_of::<f32>()
                                      )
                                  ) 
                              } else {
@@ -594,7 +594,7 @@ fn InitZopfliCostModel(
                              BrotliAllocate(
                                  m,
                                  ((*dist).alphabet_size as (usize)).wrapping_mul(
-                                     std::mem::size_of::<f32>()
+                                     core::mem::size_of::<f32>()
                                  )
                              ) 
                          } else {
@@ -605,8 +605,8 @@ fn InitZopfliCostModel(
 }
 
 fn FastLog2(mut v : usize) -> f64 {
-    if v < std::mem::size_of::<*const f32>().wrapping_div(
-               std::mem::size_of::<f32>()
+    if v < core::mem::size_of::<*const f32>().wrapping_div(
+               core::mem::size_of::<f32>()
            ) {
         return kLog2Table[(v as (usize)) ]as (f64);
     }
@@ -1087,7 +1087,7 @@ fn FindAllMatchesH10(
     }
     ((matches as (isize)).wrapping_sub(
          orig_matches as (isize)
-     ) / std::mem::size_of::<*mut BackwardMatch>(
+     ) / core::mem::size_of::<*mut BackwardMatch>(
          ) as (isize)) as (usize)
 }
 
@@ -1952,7 +1952,7 @@ pub fn BrotliCreateZopfliBackwardReferences(
                 BrotliAllocate(
                     m,
                     num_bytes.wrapping_add(1usize).wrapping_mul(
-                        std::mem::size_of::<ZopfliNode>()
+                        core::mem::size_of::<ZopfliNode>()
                     )
                 ) 
             } else {
@@ -2086,17 +2086,17 @@ fn ZopfliCostModelSetFromCommands(
     memset(
         histogram_literal ,
         0i32,
-        std::mem::size_of::<*mut u32>()
+        core::mem::size_of::<*mut u32>()
     );
     memset(
         histogram_cmd ,
         0i32,
-        std::mem::size_of::<*mut u32>()
+        core::mem::size_of::<*mut u32>()
     );
     memset(
         histogram_dist ,
         0i32,
-        std::mem::size_of::<*mut u32>()
+        core::mem::size_of::<*mut u32>()
     );
     i = 0usize;
     while i < num_commands {
@@ -2322,7 +2322,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
         = if num_bytes > 0usize {
               BrotliAllocate(
                   m,
-                  num_bytes.wrapping_mul(std::mem::size_of::<u32>())
+                  num_bytes.wrapping_mul(core::mem::size_of::<u32>())
               ) 
           } else {
               0i32  
@@ -2354,7 +2354,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
         = if matches_size > 0usize {
               BrotliAllocate(
                   m,
-                  matches_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
+                  matches_size.wrapping_mul(core::mem::size_of::<BackwardMatch>())
               ) 
           } else {
               0i32  
@@ -2403,7 +2403,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
                     new_array = if _new_size > 0usize {
                                     BrotliAllocate(
                                         m,
-                                        _new_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
+                                        _new_size.wrapping_mul(core::mem::size_of::<BackwardMatch>())
                                     ) 
                                 } else {
                                     0i32  
@@ -2412,7 +2412,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
                         memcpy(
                             new_array ,
                             matches ,
-                            matches_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
+                            matches_size.wrapping_mul(core::mem::size_of::<BackwardMatch>())
                         );
                     }
                     {
@@ -2479,7 +2479,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
                                   i.wrapping_add(1usize) as (usize)
                               ) ] ,
                         0i32,
-                        skip.wrapping_mul(std::mem::size_of::<u32>())
+                        skip.wrapping_mul(core::mem::size_of::<u32>())
                     );
                     i = i.wrapping_add(skip);
                 } else {
@@ -2494,7 +2494,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
     memcpy(
         orig_dist_cache ,
         dist_cache ,
-        (4usize).wrapping_mul(std::mem::size_of::<i32>())
+        (4usize).wrapping_mul(core::mem::size_of::<i32>())
     );
     orig_num_commands = *num_commands;
     nodes = if num_bytes.wrapping_add(
@@ -2503,7 +2503,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
                 BrotliAllocate(
                     m,
                     num_bytes.wrapping_add(1usize).wrapping_mul(
-                        std::mem::size_of::<ZopfliNode>()
+                        core::mem::size_of::<ZopfliNode>()
                     )
                 ) 
             } else {
@@ -2552,7 +2552,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences(
             memcpy(
                 dist_cache ,
                 orig_dist_cache ,
-                (4usize).wrapping_mul(std::mem::size_of::<i32>())
+                (4usize).wrapping_mul(core::mem::size_of::<i32>())
             );
             *num_commands = (*num_commands).wrapping_add(
                                 ZopfliIterate(

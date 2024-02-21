@@ -971,16 +971,10 @@ fn CleanupZopfliCostModel<AllocF: Allocator<floatX>>(
     xself: &mut ZopfliCostModel<AllocF>,
 ) {
     {
-        m.free_cell(core::mem::replace(
-            &mut xself.literal_costs_,
-            AllocF::AllocatedMemory::default(),
-        ));
+        m.free_cell(core::mem::take(&mut xself.literal_costs_));
     }
     {
-        m.free_cell(core::mem::replace(
-            &mut xself.cost_dist_,
-            AllocF::AllocatedMemory::default(),
-        ));
+        m.free_cell(core::mem::take(&mut xself.cost_dist_));
     }
 }
 
@@ -1198,13 +1192,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
         num_literals,
     );
     {
-        <Alloc as Allocator<ZopfliNode>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut nodes,
-                <Alloc as Allocator<ZopfliNode>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<ZopfliNode>>::free_cell(alloc, core::mem::take(&mut nodes));
     }
 }
 
@@ -1545,13 +1533,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                         }
                     }
                     {
-                        <Alloc as Allocator<u64>>::free_cell(
-                            alloc,
-                            core::mem::replace(
-                                &mut matches,
-                                <Alloc as Allocator<u64>>::AllocatedMemory::default(),
-                            ),
-                        );
+                        <Alloc as Allocator<u64>>::free_cell(alloc, core::mem::take(&mut matches));
                     }
                     matches = new_array;
                     matches_size = new_size;

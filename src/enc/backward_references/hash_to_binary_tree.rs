@@ -89,10 +89,7 @@ impl<AllocU32: Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32>
         H10Buckets::<AllocU32>(m.alloc_cell(1 << BUCKET_BITS))
     }
     fn free(&mut self, m: &mut AllocU32) {
-        m.free_cell(core::mem::replace(
-            &mut self.0,
-            AllocU32::AllocatedMemory::default(),
-        ));
+        m.free_cell(core::mem::take(&mut self.0));
     }
 }
 
@@ -199,10 +196,7 @@ where
     Buckets: PartialEq<Buckets>,
 {
     pub fn free(&mut self, m32: &mut AllocU32) {
-        m32.free_cell(core::mem::replace(
-            &mut self.forest,
-            AllocU32::AllocatedMemory::default(),
-        ));
+        m32.free_cell(core::mem::take(&mut self.forest));
         self.buckets_.free(m32);
     }
 }

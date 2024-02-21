@@ -584,7 +584,7 @@ unsafe extern fn InitZopfliCostModel(
                                  BrotliAllocate(
                                      m,
                                      num_bytes.wrapping_add(2i32 as (usize)).wrapping_mul(
-                                         std::mem::size_of::<f32>()
+                                         core::mem::size_of::<f32>()
                                      )
                                  ) as (*mut f32)
                              } else {
@@ -594,7 +594,7 @@ unsafe extern fn InitZopfliCostModel(
                              BrotliAllocate(
                                  m,
                                  ((*dist).alphabet_size as (usize)).wrapping_mul(
-                                     std::mem::size_of::<f32>()
+                                     core::mem::size_of::<f32>()
                                  )
                              ) as (*mut f32)
                          } else {
@@ -605,8 +605,8 @@ unsafe extern fn InitZopfliCostModel(
 }
 
 unsafe extern fn FastLog2(mut v : usize) -> f64 {
-    if v < std::mem::size_of::<*const f32>().wrapping_div(
-               std::mem::size_of::<f32>()
+    if v < core::mem::size_of::<*const f32>().wrapping_div(
+               core::mem::size_of::<f32>()
            ) {
         return *kLog2Table.offset(v as (isize)) as (f64);
     }
@@ -1087,7 +1087,7 @@ unsafe extern fn FindAllMatchesH10(
     }
     ((matches as (isize)).wrapping_sub(
          orig_matches as (isize)
-     ) / std::mem::size_of::<*mut BackwardMatch>(
+     ) / core::mem::size_of::<*mut BackwardMatch>(
          ) as (isize)) as (usize)
 }
 
@@ -1957,7 +1957,7 @@ pub unsafe extern fn BrotliCreateZopfliBackwardReferences(
                 BrotliAllocate(
                     m,
                     num_bytes.wrapping_add(1i32 as (usize)).wrapping_mul(
-                        std::mem::size_of::<ZopfliNode>()
+                        core::mem::size_of::<ZopfliNode>()
                     )
                 ) as (*mut ZopfliNode)
             } else {
@@ -2091,17 +2091,17 @@ unsafe extern fn ZopfliCostModelSetFromCommands(
     memset(
         histogram_literal as (*mut std::os::raw::c_void),
         0i32,
-        std::mem::size_of::<*mut u32>()
+        core::mem::size_of::<*mut u32>()
     );
     memset(
         histogram_cmd as (*mut std::os::raw::c_void),
         0i32,
-        std::mem::size_of::<*mut u32>()
+        core::mem::size_of::<*mut u32>()
     );
     memset(
         histogram_dist as (*mut std::os::raw::c_void),
         0i32,
-        std::mem::size_of::<*mut u32>()
+        core::mem::size_of::<*mut u32>()
     );
     i = 0i32 as (usize);
     while i < num_commands {
@@ -2328,7 +2328,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
         = if num_bytes > 0i32 as (usize) {
               BrotliAllocate(
                   m,
-                  num_bytes.wrapping_mul(std::mem::size_of::<u32>())
+                  num_bytes.wrapping_mul(core::mem::size_of::<u32>())
               ) as (*mut u32)
           } else {
               0i32 as (*mut std::os::raw::c_void) as (*mut u32)
@@ -2360,7 +2360,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
         = if matches_size > 0i32 as (usize) {
               BrotliAllocate(
                   m,
-                  matches_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
+                  matches_size.wrapping_mul(core::mem::size_of::<BackwardMatch>())
               ) as (*mut BackwardMatch)
           } else {
               0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch)
@@ -2409,7 +2409,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
                     new_array = if _new_size > 0i32 as (usize) {
                                     BrotliAllocate(
                                         m,
-                                        _new_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
+                                        _new_size.wrapping_mul(core::mem::size_of::<BackwardMatch>())
                                     ) as (*mut BackwardMatch)
                                 } else {
                                     0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch)
@@ -2418,7 +2418,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
                         memcpy(
                             new_array as (*mut std::os::raw::c_void),
                             matches as (*const std::os::raw::c_void),
-                            matches_size.wrapping_mul(std::mem::size_of::<BackwardMatch>())
+                            matches_size.wrapping_mul(core::mem::size_of::<BackwardMatch>())
                         );
                     }
                     {
@@ -2485,7 +2485,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
                                   i.wrapping_add(1i32 as (usize)) as (isize)
                               ) as (*mut u32) as (*mut std::os::raw::c_void),
                         0i32,
-                        skip.wrapping_mul(std::mem::size_of::<u32>())
+                        skip.wrapping_mul(core::mem::size_of::<u32>())
                     );
                     i = i.wrapping_add(skip);
                 } else {
@@ -2500,7 +2500,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
     memcpy(
         orig_dist_cache as (*mut std::os::raw::c_void),
         dist_cache as (*const std::os::raw::c_void),
-        (4i32 as (usize)).wrapping_mul(std::mem::size_of::<i32>())
+        (4i32 as (usize)).wrapping_mul(core::mem::size_of::<i32>())
     );
     orig_num_commands = *num_commands;
     nodes = if num_bytes.wrapping_add(
@@ -2509,7 +2509,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
                 BrotliAllocate(
                     m,
                     num_bytes.wrapping_add(1i32 as (usize)).wrapping_mul(
-                        std::mem::size_of::<ZopfliNode>()
+                        core::mem::size_of::<ZopfliNode>()
                     )
                 ) as (*mut ZopfliNode)
             } else {
@@ -2558,7 +2558,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
             memcpy(
                 dist_cache as (*mut std::os::raw::c_void),
                 orig_dist_cache as (*const std::os::raw::c_void),
-                (4i32 as (usize)).wrapping_mul(std::mem::size_of::<i32>())
+                (4i32 as (usize)).wrapping_mul(core::mem::size_of::<i32>())
             );
             *num_commands = (*num_commands).wrapping_add(
                                 ZopfliIterate(

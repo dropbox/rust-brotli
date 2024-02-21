@@ -424,20 +424,8 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         ret
     }
     pub fn free(&mut self, alloc: &mut Alloc) {
-        <Alloc as Allocator<u16>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut self.cm_priors,
-                <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-            ),
-        );
-        <Alloc as Allocator<u16>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut self.stride_priors,
-                <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::take(&mut self.cm_priors));
+        <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::take(&mut self.stride_priors));
     }
     fn update_cost_base(
         &mut self,

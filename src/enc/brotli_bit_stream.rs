@@ -184,19 +184,10 @@ impl<'a, Alloc: BrotliAlloc> CommandQueue<'a, Alloc> {
         self.entropy_tally_scratch.free(&mut self.mc);
         self.entropy_pyramid.free(&mut self.mc);
         self.context_map_entropy.free(&mut self.mc);
-        <Alloc as Allocator<StaticCommand>>::free_cell(
-            self.mc,
-            core::mem::replace(
-                &mut self.queue,
-                <Alloc as Allocator<StaticCommand>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<StaticCommand>>::free_cell(self.mc, core::mem::take(&mut self.queue));
         <Alloc as Allocator<u8>>::free_cell(
             self.mc,
-            core::mem::replace(
-                &mut self.best_strides_per_block_type,
-                <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-            ),
+            core::mem::take(&mut self.best_strides_per_block_type),
         );
         if self.overfull {
             return Err(());
@@ -1201,10 +1192,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
             count_limit = count_limit.wrapping_mul(2u32);
         }
         {
-            m.free_cell(core::mem::replace(
-                &mut tree,
-                AllocHT::AllocatedMemory::default(),
-            ));
+            m.free_cell(core::mem::take(&mut tree));
         }
     }
     BrotliConvertBitDepthsToSymbols(depth, length as usize, bits);
@@ -1365,45 +1353,27 @@ impl<
         self.literal_split.destroy(alloc);
         self.command_split.destroy(alloc);
         self.distance_split.destroy(alloc);
-        <Alloc as Allocator<u32>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut self.literal_context_map,
-                <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::take(&mut self.literal_context_map));
         self.literal_context_map_size = 0;
         <Alloc as Allocator<u32>>::free_cell(
             alloc,
-            core::mem::replace(
-                &mut self.distance_context_map,
-                <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-            ),
+            core::mem::take(&mut self.distance_context_map),
         );
         self.distance_context_map_size = 0;
         <Alloc as Allocator<HistogramLiteral>>::free_cell(
             alloc,
-            core::mem::replace(
-                &mut self.literal_histograms,
-                <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory::default(),
-            ),
+            core::mem::take(&mut self.literal_histograms),
         );
 
         self.literal_histograms_size = 0;
         <Alloc as Allocator<HistogramCommand>>::free_cell(
             alloc,
-            core::mem::replace(
-                &mut self.command_histograms,
-                <Alloc as Allocator<HistogramCommand>>::AllocatedMemory::default(),
-            ),
+            core::mem::take(&mut self.command_histograms),
         );
         self.command_histograms_size = 0;
         <Alloc as Allocator<HistogramDistance>>::free_cell(
             alloc,
-            core::mem::replace(
-                &mut self.distance_histograms,
-                <Alloc as Allocator<HistogramDistance>>::AllocatedMemory::default(),
-            ),
+            core::mem::take(&mut self.distance_histograms),
         );
         self.distance_histograms_size = 0;
     }
@@ -2381,20 +2351,8 @@ fn CleanupBlockEncoder<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
     m: &mut Alloc,
     xself: &mut BlockEncoder<Alloc>,
 ) {
-    <Alloc as Allocator<u8>>::free_cell(
-        m,
-        core::mem::replace(
-            &mut (*xself).depths_,
-            <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-        ),
-    );
-    <Alloc as Allocator<u16>>::free_cell(
-        m,
-        core::mem::replace(
-            &mut (*xself).bits_,
-            <Alloc as Allocator<u16>>::AllocatedMemory::default(),
-        ),
-    );
+    <Alloc as Allocator<u8>>::free_cell(m, core::mem::take(&mut (*xself).depths_));
+    <Alloc as Allocator<u16>>::free_cell(m, core::mem::take(&mut (*xself).bits_));
 }
 
 pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
@@ -2571,13 +2529,7 @@ pub fn BrotliStoreMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
         storage,
     );
     {
-        <Alloc as Allocator<HuffmanTree>>::free_cell(
-            alloc,
-            core::mem::replace(
-                &mut tree,
-                <Alloc as Allocator<HuffmanTree>>::AllocatedMemory::default(),
-            ),
-        );
+        <Alloc as Allocator<HuffmanTree>>::free_cell(alloc, core::mem::take(&mut tree));
     }
     i = 0usize;
     while i < n_commands {
