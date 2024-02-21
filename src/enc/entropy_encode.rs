@@ -76,15 +76,9 @@ pub struct SortHuffmanTree {}
 impl HuffmanComparator for SortHuffmanTree {
     fn Cmp(self: &Self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
         if v0.total_count_ != v1.total_count_ {
-            if !!(v0.total_count_ < v1.total_count_) {
-                true
-            } else {
-                false
-            }
-        } else if !!(v0.index_right_or_value_ as (i32) > v1.index_right_or_value_ as (i32)) {
-            true
+            !!(v0.total_count_ < v1.total_count_)
         } else {
-            false
+            !!(v0.index_right_or_value_ as (i32) > v1.index_right_or_value_ as (i32))
         }
     }
 }
