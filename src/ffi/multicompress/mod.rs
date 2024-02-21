@@ -200,17 +200,15 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
         match res {
             Ok(size) => {
                 *encoded_size = size;
-                return 1;
+                1
             }
-            Err(_err) => {
-                return 0;
-            }
+            Err(_err) => 0,
         }
     }) {
-        Ok(ret) => return ret,
+        Ok(ret) => ret,
         Err(panic_err) => {
             error_print(panic_err);
-            return 0;
+            0
         }
     }
 }
@@ -422,11 +420,9 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
         match res {
             Ok(size) => {
                 *encoded_size = size;
-                return 1;
+                1
             }
-            Err(_err) => {
-                return 0;
-            }
+            Err(_err) => 0,
         }
     }) {
         Ok(ret) => ret, // no panic

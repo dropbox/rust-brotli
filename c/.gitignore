@@ -1,0 +1,12 @@
+# These are the targets that are built by make
+# Ideally they should go into some output subdirectory
+multiexample
+fuzz
+fuzz_d
+multiexample_d
+decompressor
+catbrotli
+decompressor_d
+catbrotli_d
+brotli_tool
+brotli_tool_d

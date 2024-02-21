@@ -544,7 +544,7 @@ impl BroCatli {
         if *out_offset == out_bytes.len() {
             return BroCatliResult::NeedsMoreOutput;
         }
-        return BroCatliResult::NeedsMoreInput;
+        BroCatliResult::NeedsMoreInput
     }
     fn append_eof_metablock_to_last_bytes(&mut self) {
         assert!(self.last_byte_sanitized);

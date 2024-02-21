@@ -56,7 +56,7 @@ impl LiteralPredictionModeNibble {
         if prediction_mode < 16 {
             return Ok(LiteralPredictionModeNibble(prediction_mode));
         }
-        return Err(());
+        Err(())
     }
     #[inline(always)]
     pub fn prediction_mode(&self) -> u8 {
@@ -479,17 +479,11 @@ impl<SliceType: SliceWrapper<u8> + Default> Command<SliceType> {
         F: FnMut(SliceType),
     {
         match self {
-            &mut Command::Literal(ref mut lit) => {
-                apply_func(core::mem::replace(&mut lit.data, SliceType::default()))
-            }
+            &mut Command::Literal(ref mut lit) => apply_func(core::mem::take(&mut lit.data)),
             &mut Command::PredictionMode(ref mut pm) => {
-                apply_func(core::mem::replace(
-                    &mut pm.literal_context_map,
-                    SliceType::default(),
-                ));
-                apply_func(core::mem::replace(
+                apply_func(core::mem::take(&mut pm.literal_context_map));
+                apply_func(core::mem::take(
                     &mut pm.predmode_speed_and_distance_context_map,
-                    SliceType::default(),
                 ));
             }
             _ => {}
@@ -536,18 +530,11 @@ pub fn free_cmd_inline<SliceTypeAllocator: Allocator<u8>>(
     m8: &mut SliceTypeAllocator,
 ) {
     match *xself {
-        Command::Literal(ref mut lit) => m8.free_cell(core::mem::replace(
-            &mut lit.data,
-            SliceTypeAllocator::AllocatedMemory::default(),
-        )),
+        Command::Literal(ref mut lit) => m8.free_cell(core::mem::take(&mut lit.data)),
         Command::PredictionMode(ref mut pm) => {
-            m8.free_cell(core::mem::replace(
-                &mut pm.literal_context_map,
-                SliceTypeAllocator::AllocatedMemory::default(),
-            ));
-            m8.free_cell(core::mem::replace(
+            m8.free_cell(core::mem::take(&mut pm.literal_context_map));
+            m8.free_cell(core::mem::take(
                 &mut pm.predmode_speed_and_distance_context_map,
-                SliceTypeAllocator::AllocatedMemory::default(),
             ));
         }
         Command::Dict(_)

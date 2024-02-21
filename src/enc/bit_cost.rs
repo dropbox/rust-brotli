@@ -235,7 +235,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
     // Add the entropy of the code length code histogram.
     bits += BitsEntropy(depth_histo, BROTLI_CODE_LENGTH_CODES);
     //println_stderr!("{:?} {:?}", depth_histo, bits);
-    return bits;
+    bits
 }
 use alloc::SliceWrapperMut;
 

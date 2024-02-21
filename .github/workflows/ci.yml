@@ -1,0 +1,53 @@
+name: Rust
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: taiki-e/install-action@v2
+        with: { tool: "just" }
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - name: Run `just ci-test` to lint, build, and test everything
+        run: just ci-test
+      - name: Check if changes break public API and need a new version. Use `just semver-checks` to run locally.
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+  msrv:
+    name: Test MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - name: Read rust-version from Cargo.toml
+        id: metadata
+        run: |
+          MSRV="$(just read-msrv)"
+          echo "rust-version=$MSRV" >> $GITHUB_OUTPUT
+          echo "Detected MSRV $MSRV"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.metadata.outputs.rust-version }}
+      - name: Run `just ci-test-msrv` to build and test everything with the MSRV
+        run: just ci-test-msrv

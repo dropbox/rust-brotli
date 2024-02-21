@@ -89,10 +89,7 @@ impl<AllocU32: Allocator<u32>> Allocable<u32, AllocU32> for H10Buckets<AllocU32>
         H10Buckets::<AllocU32>(m.alloc_cell(1 << BUCKET_BITS))
     }
     fn free(&mut self, m: &mut AllocU32) {
-        m.free_cell(core::mem::replace(
-            &mut self.0,
-            AllocU32::AllocatedMemory::default(),
-        ));
+        m.free_cell(core::mem::take(&mut self.0));
     }
 }
 
@@ -199,10 +196,7 @@ where
     Buckets: PartialEq<Buckets>,
 {
     pub fn free(&mut self, m32: &mut AllocU32) {
-        m32.free_cell(core::mem::replace(
-            &mut self.forest,
-            AllocU32::AllocatedMemory::default(),
-        ));
+        m32.free_cell(core::mem::take(&mut self.forest));
         self.buckets_.free(m32);
     }
 }
@@ -278,10 +272,7 @@ where
     }
     #[inline(always)]
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-        let max_backward: usize = (*self)
-            .window_mask_
-            .wrapping_sub(16usize)
-            .wrapping_add(1usize);
+        let max_backward: usize = self.window_mask_.wrapping_sub(16usize).wrapping_add(1usize);
         StoreAndFindMatchesH10(
             self,
             data,
@@ -454,14 +445,14 @@ where
     };
     let key = xself.HashBytes(&data[(cur_ix_masked as (usize))..]);
     let forest: &mut [u32] = xself.forest.slice_mut();
-    let mut prev_ix: usize = (*xself).buckets_.slice()[key] as (usize);
+    let mut prev_ix: usize = xself.buckets_.slice()[key] as (usize);
     let mut node_left: usize = LeftChildIndexH10!(xself, cur_ix);
     let mut node_right: usize = RightChildIndexH10!(xself, cur_ix);
     let mut best_len_left: usize = 0usize;
     let mut best_len_right: usize = 0usize;
     let mut depth_remaining: usize;
     if should_reroot_tree != 0 {
-        (*xself).buckets_.slice_mut()[(key as (usize))] = cur_ix as (u32);
+        xself.buckets_.slice_mut()[(key as (usize))] = cur_ix as (u32);
     }
     depth_remaining = 64usize;
     'break16: loop {
@@ -470,8 +461,8 @@ where
             let prev_ix_masked: usize = prev_ix & ring_buffer_mask;
             if backward == 0usize || backward > max_backward || depth_remaining == 0usize {
                 if should_reroot_tree != 0 {
-                    forest[(node_left as (usize))] = (*xself).invalid_pos_;
-                    forest[(node_right as (usize))] = (*xself).invalid_pos_;
+                    forest[(node_left as (usize))] = xself.invalid_pos_;
+                    forest[(node_right as (usize))] = xself.invalid_pos_;
                 }
                 break 'break16;
             }

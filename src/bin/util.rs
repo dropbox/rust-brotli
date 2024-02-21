@@ -37,12 +37,9 @@ pub fn permute_dictionary() -> BTreeMap<Vec<u8>, ()> {
         for index in 0..(1 << kBrotliDictionarySizeBitsByLength[wordlen]) {
             let word = &kBrotliDictionary[offset + index..offset + index + wordlen];
             for transform in 0..121 {
-                let final_size = TransformDictionaryWord(
-                    &mut transformed[..],
-                    word,
-                    wordlen as i32,
-                    transform as i32,
-                ) as usize;
+                let final_size =
+                    TransformDictionaryWord(&mut transformed[..], word, wordlen as i32, transform)
+                        as usize;
                 let vec: Vec<u8> = transformed[..final_size].to_vec();
                 ret.insert(vec, ());
             }

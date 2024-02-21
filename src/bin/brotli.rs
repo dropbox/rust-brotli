@@ -74,13 +74,13 @@ impl<T> ops::IndexMut<usize> for Rebox<T> {
 
 impl<T> alloc_no_stdlib::SliceWrapper<T> for Rebox<T> {
     fn slice(&self) -> &[T] {
-        &*self.b
+        &self.b
     }
 }
 
 impl<T> alloc_no_stdlib::SliceWrapperMut<T> for Rebox<T> {
     fn slice_mut(&mut self) -> &mut [T] {
-        &mut *self.b
+        &mut self.b
     }
 }
 #[derive(Clone, Copy, Default)]
@@ -863,7 +863,7 @@ fn main() {
                     };
                 for i in 0..num_benchmarks {
                     if do_validate {
-                        let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+                        let dict = core::mem::take(&mut custom_dictionary);
                         if num_benchmarks > 0 {
                             custom_dictionary = dict.clone();
                         }
@@ -917,7 +917,7 @@ fn main() {
                             }
                         }
                     } else {
-                        let dict = core::mem::replace(&mut custom_dictionary, Vec::new());
+                        let dict = core::mem::take(&mut custom_dictionary);
                         if num_benchmarks > 0 {
                             custom_dictionary = dict.clone();
                         }
@@ -1030,7 +1030,7 @@ fn main() {
     } else {
         assert_eq!(num_benchmarks, 1);
         match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
-      Ok(_) => return,
+      Ok(_) => (),
       Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
     }
     }

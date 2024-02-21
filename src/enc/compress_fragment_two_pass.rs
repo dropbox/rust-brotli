@@ -42,7 +42,7 @@ fn EmitInsertLen(insertlen: u32, commands: &mut &mut [u32]) -> usize {
         let extra: u32 = insertlen.wrapping_sub(22594u32);
         (*commands)[0] = 23u32 | extra << 8i32;
     }
-    let remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::take(commands);
     let _ = core::mem::replace(commands, &mut remainder[1..]);
     1
 }
@@ -58,7 +58,7 @@ fn EmitDistance(distance: u32, commands: &mut &mut [u32]) -> usize {
         .wrapping_add(80u32);
     let extra: u32 = d.wrapping_sub(offset);
     (*commands)[0] = distcode | extra << 8i32;
-    let remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::take(commands);
     let _ = core::mem::replace(commands, &mut remainder[1..]);
     1
 }
@@ -66,7 +66,7 @@ fn EmitDistance(distance: u32, commands: &mut &mut [u32]) -> usize {
 fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
     if copylen < 12usize {
         (*commands)[0] = copylen.wrapping_add(20usize) as (u32);
-        let remainder = core::mem::replace(commands, &mut []);
+        let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         1
     } else if copylen < 72usize {
@@ -76,7 +76,7 @@ fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
         let code: usize = (nbits << 1i32).wrapping_add(prefix).wrapping_add(28usize);
         let extra: usize = tail.wrapping_sub(prefix << nbits);
         (*commands)[0] = (code | extra << 8i32) as (u32);
-        let remainder = core::mem::replace(commands, &mut []);
+        let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         1
     } else if copylen < 136usize {
@@ -84,10 +84,10 @@ fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
         let code: usize = (tail >> 5i32).wrapping_add(54usize);
         let extra: usize = tail & 31usize;
         (*commands)[0] = (code | extra << 8i32) as (u32);
-        let remainder = core::mem::replace(commands, &mut []);
+        let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         (*commands)[0] = 64u32;
-        let remainder2 = core::mem::replace(commands, &mut []);
+        let remainder2 = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder2[1..]);
         2
     } else if copylen < 2120usize {
@@ -96,19 +96,19 @@ fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
         let code: usize = nbits.wrapping_add(52usize);
         let extra: usize = tail.wrapping_sub(1usize << nbits);
         (*commands)[0] = (code | extra << 8i32) as (u32);
-        let remainder = core::mem::replace(commands, &mut []);
+        let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         (*commands)[0] = 64u32;
-        let remainder2 = core::mem::replace(commands, &mut []);
+        let remainder2 = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder2[1..]);
         2
     } else {
         let extra: usize = copylen.wrapping_sub(2120usize);
         (*commands)[0] = (63usize | extra << 8i32) as (u32);
-        let remainder = core::mem::replace(commands, &mut []);
+        let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         (*commands)[0] = 64u32;
-        let remainder2 = core::mem::replace(commands, &mut []);
+        let remainder2 = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder2[1..]);
         2
     }
@@ -142,7 +142,7 @@ fn EmitCopyLen(copylen: usize, commands: &mut &mut [u32]) -> usize {
         let extra: usize = copylen.wrapping_sub(2118usize);
         (*commands)[0] = (63usize | extra << 8i32) as (u32);
     }
-    let remainder = core::mem::replace(commands, &mut []);
+    let remainder = core::mem::take(commands);
     let _ = core::mem::replace(commands, &mut remainder[1..]);
     1
 }
@@ -288,11 +288,11 @@ fn CreateCommands(
                     &base_ip[(next_emit as usize)..(next_emit + insert as usize)],
                 );
                 *num_literals += insert as usize;
-                let new_literals = core::mem::replace(literals, &mut []);
+                let new_literals = core::mem::take(literals);
                 let _ = core::mem::replace(literals, &mut new_literals[(insert as usize)..]);
                 if distance == last_distance {
                     (*commands)[0] = 64u32;
-                    let remainder = core::mem::replace(commands, &mut []);
+                    let remainder = core::mem::take(commands);
                     let _ = core::mem::replace(commands, &mut remainder[1..]);
                     *num_commands += 1;
                 } else {
@@ -431,8 +431,8 @@ fn CreateCommands(
         *num_commands += EmitInsertLen(insert, commands);
         literals[..insert as usize]
             .clone_from_slice(&base_ip[(next_emit as (usize))..(next_emit + insert as usize)]);
-        let mut xliterals = core::mem::replace(literals, &mut []);
-        *literals = &mut core::mem::replace(&mut xliterals, &mut [])[(insert as usize)..];
+        let mut xliterals = core::mem::take(literals);
+        *literals = &mut core::mem::take(&mut xliterals)[(insert as usize)..];
         *num_literals += insert as usize;
     }
 }
@@ -516,11 +516,11 @@ fn BuildAndStoreCommandPrefixCode(
     let mut cmd_bits: [u16; 64] = [0; 64];
     BrotliCreateHuffmanTree(histogram, 64usize, 15i32, &mut tree[..], depth);
     BrotliCreateHuffmanTree(
-        &histogram[(64usize)..],
+        &histogram[64usize..],
         64usize,
         14i32,
         &mut tree[..],
-        &mut depth[(64usize)..],
+        &mut depth[64usize..],
     );
     /* We have to jump through a few hoops here in order to compute
     the command bits because the symbols are in a different order than in
@@ -582,7 +582,7 @@ fn BuildAndStoreCommandPrefixCode(
         48i32 as (usize),
         8usize,
     );
-    BrotliConvertBitDepthsToSymbols(&mut depth[(64usize)..], 64usize, &mut bits[(64usize)..]);
+    BrotliConvertBitDepthsToSymbols(&mut depth[64usize..], 64usize, &mut bits[64usize..]);
     {
         let mut i: usize;
         for item in cmd_depth[..64].iter_mut() {
@@ -639,7 +639,7 @@ fn BuildAndStoreCommandPrefixCode(
         );
     }
     BrotliStoreHuffmanTree(
-        &mut depth[(64usize)..],
+        &mut depth[64usize..],
         64usize,
         &mut tree[..],
         storage_ix,

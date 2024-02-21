@@ -1,5 +1,8 @@
 #![allow(dead_code)]
+#![allow(clippy::excessive_precision)]
+
 use core;
+
 #[cfg(feature = "float64")]
 pub type floatX = f64;
 
@@ -348,7 +351,7 @@ pub fn xFastLog2u16(v: u16) -> floatX {
 #[cfg(feature = "std")]
 #[inline(always)]
 pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
-    return (2 as super::util::floatX).powf(v);
+    (2 as super::util::floatX).powf(v)
 }
 
 #[cfg(not(feature = "std"))]

@@ -106,20 +106,16 @@ fn compute_huffman_table_index_for_context_map(
 
 pub fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
     match mode {
-        ContextType::CONTEXT_LSB6 => {
-            return (p1 as (i32) & 0x3fi32) as (u8);
-        }
-        ContextType::CONTEXT_MSB6 => {
-            return (p1 as (i32) >> 2i32) as (u8);
-        }
+        ContextType::CONTEXT_LSB6 => (p1 as (i32) & 0x3fi32) as (u8),
+        ContextType::CONTEXT_MSB6 => (p1 as (i32) >> 2i32) as (u8),
         ContextType::CONTEXT_UTF8 => {
-            return (kUTF8ContextLookup[p1 as (usize)] as (i32)
+            (kUTF8ContextLookup[p1 as (usize)] as (i32)
                 | kUTF8ContextLookup[(p2 as (i32) + 256i32) as (usize)] as (i32))
-                as (u8);
+                as (u8)
         }
         ContextType::CONTEXT_SIGNED => {
-            return ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32)
-                + kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8);
+            ((kSigned3BitContextLookup[p1 as (usize)] as (i32) << 3i32)
+                + kSigned3BitContextLookup[p2 as (usize)] as (i32)) as (u8)
         }
     }
     //  0i32 as (u8)

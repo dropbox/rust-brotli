@@ -25,11 +25,11 @@ impl Default for HuffmanTree {
 }
 
 pub fn NewHuffmanTree(count: u32, left: i16, right: i16) -> HuffmanTree {
-    return HuffmanTree {
+    HuffmanTree {
         total_count_: count,
         index_left_: left,
         index_right_or_value_: right,
-    };
+    }
 }
 pub fn InitHuffmanTree(xself: &mut HuffmanTree, count: u32, left: i16, right: i16) {
     *xself = NewHuffmanTree(count, left, right);
@@ -75,13 +75,13 @@ pub trait HuffmanComparator {
 pub struct SortHuffmanTree {}
 impl HuffmanComparator for SortHuffmanTree {
     fn Cmp(self: &Self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
-        if (*v0).total_count_ != (*v1).total_count_ {
-            if !!((*v0).total_count_ < (*v1).total_count_) {
+        if v0.total_count_ != v1.total_count_ {
+            if !!(v0.total_count_ < v1.total_count_) {
                 true
             } else {
                 false
             }
-        } else if !!((*v0).index_right_or_value_ as (i32) > (*v1).index_right_or_value_ as (i32)) {
+        } else if !!(v0.index_right_or_value_ as (i32) > v1.index_right_or_value_ as (i32)) {
             true
         } else {
             false

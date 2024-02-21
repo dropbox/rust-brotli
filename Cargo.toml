@@ -11,6 +11,7 @@ keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
 categories = ["compression", "no-std"]
 readme = "README.md"
 autobins = false
+rust-version = "1.56.0"
 
 [[bin]]
 doc = false
