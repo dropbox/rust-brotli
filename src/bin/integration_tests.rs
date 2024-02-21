@@ -274,7 +274,7 @@ impl io::Write for UnlimitedBuffer {
 #[allow(non_snake_case)]
 #[test]
 fn test_roundtrip_64x() {
-    let X = 'X' as u8;
+    let X = b'X';
     let in_buf: [u8; 64] = [
         X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
         X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,
@@ -742,8 +742,8 @@ fn test_10x_10y() {
     }
     let mut i: usize = 0;
     while i < 10 {
-        assert_eq!(output.data[i], 'X' as u8);
-        assert_eq!(output.data[i + 10], 'Y' as u8);
+        assert_eq!(output.data[i], b'X');
+        assert_eq!(output.data[i + 10], b'Y');
         i += 1;
     }
     assert_eq!(output.data.len(), 20);
@@ -764,8 +764,8 @@ fn test_10x_10y_one_out_byte() {
     }
     let mut i: usize = 0;
     while i < 10 {
-        assert_eq!(output.data[i], 'X' as u8);
-        assert_eq!(output.data[i + 10], 'Y' as u8);
+        assert_eq!(output.data[i], b'X');
+        assert_eq!(output.data[i + 10], b'Y');
         i += 1;
     }
     assert_eq!(output.data.len(), 20);
@@ -786,8 +786,8 @@ fn test_10x_10y_byte_by_byte() {
     }
     let mut i: usize = 0;
     while i < 10 {
-        assert_eq!(output.data[i], 'X' as u8);
-        assert_eq!(output.data[i + 10], 'Y' as u8);
+        assert_eq!(output.data[i], b'X');
+        assert_eq!(output.data[i + 10], b'Y');
         i += 1;
     }
     assert_eq!(output.data.len(), 20);
