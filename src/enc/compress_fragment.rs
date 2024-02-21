@@ -890,12 +890,11 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                                     next_hash = Hash(&input_ptr[next_ip..], shift);
                                     candidate = ip_index.wrapping_sub(last_distance as usize);
                                     if IsMatch(&input_ptr[ip_index..], &input_ptr[candidate..]) != 0
+                                        && candidate < ip_index
                                     {
-                                        if candidate < ip_index {
-                                            table[hash as usize] =
-                                                ip_index.wrapping_sub(base_ip) as i32;
-                                            break 'break15;
-                                        }
+                                        table[hash as usize] =
+                                            ip_index.wrapping_sub(base_ip) as i32;
+                                        break 'break15;
                                     }
                                     candidate = base_ip.wrapping_add(table[hash as usize] as usize);
                                     table[hash as usize] = ip_index.wrapping_sub(base_ip) as i32;

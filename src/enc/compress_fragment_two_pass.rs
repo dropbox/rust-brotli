@@ -234,14 +234,12 @@ fn CreateCommands(
                                 &base_ip[(candidate as (usize))..],
                                 min_match,
                             ) != 0
+                                && candidate < ip_index
                             {
-                                if candidate < ip_index {
-                                    table[(hash as (usize))] =
-                                        ip_index.wrapping_sub(0usize) as (i32);
+                                table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
+                                {
                                     {
-                                        {
-                                            break 'break3;
-                                        }
+                                        break 'break3;
                                     }
                                 }
                             }

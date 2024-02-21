@@ -444,11 +444,10 @@ where
                 as (i32)
                 & mask as (i32)
                 != 0
+                && cur_id as (i32) != block_id[(byte_ix as (usize))] as (i32)
             {
-                if cur_id as (i32) != block_id[(byte_ix as (usize))] as (i32) {
-                    cur_id = block_id[(byte_ix as (usize))];
-                    num_blocks = num_blocks.wrapping_add(1 as (usize));
-                }
+                cur_id = block_id[(byte_ix as (usize))];
+                num_blocks = num_blocks.wrapping_add(1 as (usize));
             }
             block_id[(byte_ix as (usize))] = cur_id;
         }
