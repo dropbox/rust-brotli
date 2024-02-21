@@ -1269,10 +1269,10 @@ impl<
             + alloc::Allocator<HistogramLiteral>
             + alloc::Allocator<HistogramCommand>
             + alloc::Allocator<HistogramDistance>,
-    > MetaBlockSplit<Alloc>
+    > Default for MetaBlockSplit<Alloc>
 {
-    pub fn new() -> Self {
-        MetaBlockSplit {
+    fn default() -> Self {
+        Self {
             literal_split: BlockSplit::<Alloc>::new(),
             command_split: BlockSplit::<Alloc>::new(),
             distance_split: BlockSplit::<Alloc>::new(),
@@ -1289,6 +1289,20 @@ impl<
             distance_histograms_size: 0,
         }
     }
+}
+
+impl<
+        Alloc: alloc::Allocator<u8>
+            + alloc::Allocator<u32>
+            + alloc::Allocator<HistogramLiteral>
+            + alloc::Allocator<HistogramCommand>
+            + alloc::Allocator<HistogramDistance>,
+    > MetaBlockSplit<Alloc>
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn destroy(&mut self, alloc: &mut Alloc) {
         self.literal_split.destroy(alloc);
         self.command_split.destroy(alloc);
@@ -2815,6 +2829,12 @@ fn block_split_reference<'a, Alloc: BrotliAlloc>(
 #[derive(Clone, Copy)]
 pub struct RecoderState {
     pub num_bytes_encoded: usize,
+}
+
+impl Default for RecoderState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RecoderState {
