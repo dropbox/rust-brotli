@@ -485,9 +485,7 @@ pub fn DecideOverRleUse(
 fn Reverse(v: &mut [u8], mut start: usize, mut end: usize) {
     end = end.wrapping_sub(1 as (usize));
     while start < end {
-        let tmp: u8 = v[(start as (usize))];
-        v[(start as (usize))] = v[(end as (usize))];
-        v[(end as (usize))] = tmp;
+        v.swap((start as (usize)), (end as (usize)));
         start = start.wrapping_add(1 as (usize));
         end = end.wrapping_sub(1 as (usize));
     }

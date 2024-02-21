@@ -305,9 +305,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 while j < 4usize {
                     {
                         if histo[j] > histo[i] {
-                            let mut __brotli_swap_tmp: u32 = histo[j];
-                            histo[j] = histo[i];
-                            histo[i] = __brotli_swap_tmp;
+                            histo.swap(j, i);
                         }
                     }
                     j = j.wrapping_add(1 as (usize));

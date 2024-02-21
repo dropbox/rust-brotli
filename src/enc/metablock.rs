@@ -642,9 +642,7 @@ fn BlockSplitterFinishBlock<
             split.types.slice_mut()[(xself.num_blocks_ as (usize))] =
                 split.types.slice()[(xself.num_blocks_.wrapping_sub(2usize) as (usize))]; //FIXME: investigate copy?
             {
-                let mut __brotli_swap_tmp: usize = xself.last_histogram_ix_[0usize];
-                xself.last_histogram_ix_[0usize] = xself.last_histogram_ix_[1usize];
-                xself.last_histogram_ix_[1usize] = __brotli_swap_tmp;
+                xself.last_histogram_ix_.swap(0usize, 1usize);
             }
             histograms[(xself.last_histogram_ix_[0usize] as (usize))] =
                 combined_histo[1usize].clone();
@@ -802,9 +800,7 @@ fn ContextBlockSplitterFinishBlock<
             split.types.slice_mut()[(xself.num_blocks_ as (usize))] = nbm2;
 
             {
-                let mut __brotli_swap_tmp: usize = xself.last_histogram_ix_[0usize];
-                xself.last_histogram_ix_[0usize] = xself.last_histogram_ix_[1usize];
-                xself.last_histogram_ix_[1usize] = __brotli_swap_tmp;
+                xself.last_histogram_ix_.swap(0usize, 1usize);
             }
             i = 0usize;
             while i < num_contexts {

@@ -84,9 +84,7 @@ fn BrotliCompareAndPushToQueue<
     if idx1 == idx2 {
     } else {
         if idx2 < idx1 {
-            let t: u32 = idx2;
-            idx2 = idx1;
-            idx1 = t;
+            core::mem::swap(&mut idx2, &mut idx1);
         }
         p.idx1 = idx1;
         p.idx2 = idx2;
