@@ -127,8 +127,8 @@ fn compute_combined_cost(
         if stride_max[i] == 0 {
             assert!(stride_max[i] != 0);
         }
-        let w;
-        w = (1 << (BLEND_FIXED_POINT_PRECISION - 2)); // a quarter of weight to stride
+
+        let w = (1 << (BLEND_FIXED_POINT_PRECISION - 2)); // a quarter of weight to stride
         let combined_pdf = w * u32::from(stride_pdf[i])
             + ((1 << BLEND_FIXED_POINT_PRECISION) - w) * u32::from(cm_pdf);
         let combined_max = w * u32::from(stride_max[i])

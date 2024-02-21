@@ -289,8 +289,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
     }
     if count == 4i32 {
         let mut histo: [u32; 4] = [0; 4];
-        let h23: u32;
-        let histomax: u32;
+
         i = 0usize;
         while i < 4usize {
             {
@@ -316,8 +315,8 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
             }
             i = i.wrapping_add(1 as (usize));
         }
-        h23 = histo[2usize].wrapping_add(histo[3usize]);
-        histomax = brotli_max_uint32_t(h23, histo[0usize]);
+        let h23: u32 = histo[2usize].wrapping_add(histo[3usize]);
+        let histomax: u32 = brotli_max_uint32_t(h23, histo[0usize]);
         return kFourSymbolHistogramCost
             + (3u32).wrapping_mul(h23) as super::util::floatX
             + (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize]))

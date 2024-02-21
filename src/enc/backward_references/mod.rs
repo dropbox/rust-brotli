@@ -397,11 +397,9 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         }
         let bucket_sweep = self.buckets_.BUCKET_SWEEP();
         if bucket_sweep == 1i32 {
-            let backward: usize;
-            let len: usize;
             prev_ix = self.buckets_.slice()[key as (usize)] as (usize);
             self.buckets_.slice_mut()[key as (usize)] = cur_ix as (u32);
-            backward = cur_ix.wrapping_sub(prev_ix);
+            let backward: usize = cur_ix.wrapping_sub(prev_ix);
             prev_ix &= ring_buffer_mask as (u32) as (usize);
             if compare_char != data[(prev_ix.wrapping_add(best_len_in) as (usize))] as (i32) {
                 return false;
@@ -409,7 +407,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
             if backward == 0usize || backward > max_backward {
                 return false;
             }
-            len = FindMatchLengthWithLimitMin4(
+            let len: usize = FindMatchLengthWithLimitMin4(
                 &data[(prev_ix as (usize))..],
                 &data[(cur_ix_masked as (usize))..],
                 max_length,
@@ -1904,19 +1902,16 @@ fn TestStaticDictionaryItem(
     h9_opts: H9Opts,
     out: &mut HasherSearchResult,
 ) -> i32 {
-    let len: usize;
-    let dist: usize;
-    let offset: usize;
-    let matchlen: usize;
     let backward: usize;
-    let score: u64;
-    len = item & 0x1fusize;
-    dist = item >> 5i32;
-    offset = (dictionary.offsets_by_length[len] as (usize)).wrapping_add(len.wrapping_mul(dist));
+
+    let len: usize = item & 0x1fusize;
+    let dist: usize = item >> 5i32;
+    let offset: usize =
+        (dictionary.offsets_by_length[len] as (usize)).wrapping_add(len.wrapping_mul(dist));
     if len > max_length {
         return 0i32;
     }
-    matchlen = FindMatchLengthWithLimit(data, &dictionary.data[offset..], len);
+    let matchlen: usize = FindMatchLengthWithLimit(data, &dictionary.data[offset..], len);
     if matchlen.wrapping_add(kCutoffTransformsCount as usize) <= len || matchlen == 0usize {
         return 0i32;
     }
@@ -1933,7 +1928,7 @@ fn TestStaticDictionaryItem(
     if backward > max_distance {
         return 0i32;
     }
-    score = BackwardReferenceScore(matchlen, backward, h9_opts);
+    let score: u64 = BackwardReferenceScore(matchlen, backward, h9_opts);
     if score < out.score {
         return 0i32;
     }
@@ -2441,7 +2436,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             'break6: loop {
                 'continue7: loop {
                     let cost_diff_lazy: u64 = 175;
-                    let is_match_found: bool;
+
                     let mut sr2 = HasherSearchResult {
                         len: 0,
                         len_x_code: 0,
@@ -2458,7 +2453,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                     sr2.score = kMinScore;
                     max_distance =
                         brotli_min_size_t(position.wrapping_add(1usize), max_backward_limit);
-                    is_match_found = hasher.FindLongestMatch(
+                    let is_match_found: bool = hasher.FindLongestMatch(
                         dictionary,
                         dictionary_hash,
                         ringbuffer,

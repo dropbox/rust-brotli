@@ -152,8 +152,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
     let mut literal_histograms: <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory;
     let mut literal_context_modes: <Alloc as Allocator<ContextType>>::AllocatedMemory =
         <Alloc as Allocator<ContextType>>::AllocatedMemory::default();
-    let literal_histograms_size: usize;
-    let distance_histograms_size: usize;
+
     let mut i: usize;
     let mut literal_context_multiplier: usize = 1usize;
     let mut ndirect_msb: u32 = 0;
@@ -166,7 +165,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         for npostfix in 0..(BROTLI_MAX_NPOSTFIX + 1) {
             while ndirect_msb < 16 {
                 let ndirect = ndirect_msb << npostfix;
-                let skip: bool;
+
                 let mut dist_cost: f64 = 0.0;
                 BrotliInitDistanceParams(&mut new_params, npostfix as u32, ndirect as u32);
                 if npostfix as u32 == orig_params.dist.distance_postfix_bits
@@ -174,7 +173,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
                 {
                     check_orig = false;
                 }
-                skip = !ComputeDistanceCost(
+                let skip: bool = !ComputeDistanceCost(
                     cmds,
                     num_commands,
                     &orig_params.dist,
@@ -234,13 +233,13 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
             *item = literal_context_mode;
         }
     }
-    literal_histograms_size = mb
+    let literal_histograms_size: usize = mb
         .literal_split
         .num_types
         .wrapping_mul(literal_context_multiplier);
     literal_histograms =
         <Alloc as Allocator<HistogramLiteral>>::alloc_cell(alloc, literal_histograms_size);
-    distance_histograms_size = mb.distance_split.num_types << 2i32;
+    let distance_histograms_size: usize = mb.distance_split.num_types << 2i32;
     distance_histograms =
         <Alloc as Allocator<HistogramDistance>>::alloc_cell(alloc, distance_histograms_size);
     mb.command_histograms_size = mb.command_split.num_types;
@@ -496,7 +495,7 @@ fn InitContextBlockSplitter<
     let max_num_blocks: usize = num_symbols
         .wrapping_div(min_block_size)
         .wrapping_add(1usize);
-    let max_num_types: usize;
+
     assert!(num_contexts <= BROTLI_MAX_STATIC_CONTEXTS);
     let mut xself = ContextBlockSplitter {
         alphabet_size_: alphabet_size,
@@ -513,7 +512,8 @@ fn InitContextBlockSplitter<
         last_histogram_ix_: [0; 2],
         last_entropy_: [0.0 as super::util::floatX; 2 * BROTLI_MAX_STATIC_CONTEXTS],
     };
-    max_num_types = brotli_min_size_t(max_num_blocks, xself.max_block_types_.wrapping_add(1usize));
+    let max_num_types: usize =
+        brotli_min_size_t(max_num_blocks, xself.max_block_types_.wrapping_add(1usize));
     {
         if split.types.slice().len() < max_num_blocks {
             let mut _new_size: usize = if split.types.slice().len() == 0usize {

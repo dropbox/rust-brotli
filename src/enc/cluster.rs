@@ -112,10 +112,10 @@ fn BrotliCompareAndPushToQueue<
                     (pairs[0i32 as (usize)]).cost_diff,
                 )
             };
-            let cost_combo: super::util::floatX;
+
             let mut combo: HistogramType = out[idx1 as usize].clone();
             HistogramAddHistogram(&mut combo, &out[idx2 as usize]);
-            cost_combo = BrotliPopulationCost(&combo, scratch_space);
+            let cost_combo: super::util::floatX = BrotliPopulationCost(&combo, scratch_space);
             if cost_combo < threshold - p.cost_diff {
                 p.cost_combo = cost_combo;
                 is_good_pair = 1i32;
@@ -186,8 +186,6 @@ pub fn BrotliHistogramCombine<
         }
     }
     while num_clusters > min_cluster_size {
-        let best_idx1: u32;
-        let best_idx2: u32;
         let mut i: usize;
         if (pairs[(0usize)]).cost_diff >= cost_diff_threshold {
             cost_diff_threshold = 1e38 as super::util::floatX;
@@ -199,8 +197,8 @@ pub fn BrotliHistogramCombine<
             }
         }
         /* Take the best pair from the top of heap. */
-        best_idx1 = (pairs[(0usize)]).idx1;
-        best_idx2 = (pairs[(0usize)]).idx2;
+        let best_idx1: u32 = (pairs[(0usize)]).idx1;
+        let best_idx2: u32 = (pairs[(0usize)]).idx2;
         HistogramSelfAddHistogram(&mut out, (best_idx1 as (usize)), (best_idx2 as (usize)));
         (out[(best_idx1 as (usize))]).set_bit_cost((pairs[(0usize)]).cost_combo);
         {
@@ -508,7 +506,7 @@ pub fn BrotliClusterHistograms<
         {
             let num_to_combine: usize =
                 brotli_min_size_t(in_size.wrapping_sub(i), max_input_histograms);
-            let num_new_clusters: usize;
+
             let mut j: usize;
             j = 0usize;
             while j < num_to_combine {
@@ -518,7 +516,7 @@ pub fn BrotliClusterHistograms<
                 }
                 j = j.wrapping_add(1 as (usize));
             }
-            num_new_clusters = BrotliHistogramCombine(
+            let num_new_clusters: usize = BrotliHistogramCombine(
                 out,
                 cluster_size.slice_mut(),
                 &mut histogram_symbols[(i as (usize))..],

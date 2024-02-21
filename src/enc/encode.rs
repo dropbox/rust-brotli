@@ -1488,9 +1488,8 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
     } as (usize))] = 0x3i32 as (u8);
     while size > 0usize {
         let mut nibbles: u32 = 0u32;
-        let chunk_size: u32;
-        let bits: u32;
-        chunk_size = if size > (1u32 << 24i32) as (usize) {
+
+        let chunk_size: u32 = if size > (1u32 << 24i32) as (usize) {
             1u32 << 24i32
         } else {
             size as (u32)
@@ -1502,7 +1501,7 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
                 1i32
             } as (u32);
         }
-        bits = nibbles << 1i32
+        let bits: u32 = nibbles << 1i32
             | chunk_size.wrapping_sub(1u32) << 3i32
             | 1u32 << (19u32).wrapping_add((4u32).wrapping_mul(nibbles));
         output[({
@@ -1852,7 +1851,7 @@ fn ChooseContextMap(
     ];
     let mut monogram_histo: [u32; 3] = [0u32, 0u32, 0u32];
     let mut two_prefix_histo: [u32; 6] = [0u32, 0u32, 0u32, 0u32, 0u32, 0u32];
-    let total: usize;
+
     let mut i: usize;
     let mut dummy: usize = 0;
     let mut entropy: [super::util::floatX; 4] = [0.0 as super::util::floatX; 4];
@@ -1889,7 +1888,7 @@ fn ChooseContextMap(
         }
         i = i.wrapping_add(1 as (usize));
     }
-    total = monogram_histo[0usize]
+    let total: usize = monogram_histo[0usize]
         .wrapping_add(monogram_histo[1usize])
         .wrapping_add(monogram_histo[2usize]) as (usize);
     0i32;
@@ -2113,8 +2112,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         assert_eq!(params.catable, false); // Sanitize Params senforces this constraint
     }
     let wrapped_last_flush_pos: u32 = WrapPosition(last_flush_pos);
-    let last_bytes: u16;
-    let last_bytes_bits: u8;
+
     let literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
     let mut block_params = params.clone();
     if bytes == 0usize {
@@ -2152,9 +2150,9 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         return;
     }
     let saved_byte_location = (*storage_ix) >> 3;
-    last_bytes =
+    let last_bytes: u16 =
         ((storage[saved_byte_location + 1] as u16) << 8) | storage[saved_byte_location] as u16;
-    last_bytes_bits = *storage_ix as u8;
+    let last_bytes_bits: u8 = *storage_ix as u8;
     /*if params.dist.num_direct_distance_codes != 0 ||
                       params.dist.distance_postfix_bits != 0 {
       RecomputeDistancePrefixes(commands,
@@ -2311,7 +2309,6 @@ fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
     let mut distance_postfix_bits = 0u32;
 
     if params.quality >= 4 {
-        let ndirect_msb;
         if params.mode == BrotliEncoderMode::BROTLI_MODE_FONT {
             distance_postfix_bits = 1;
             num_direct_distance_codes = 12;
@@ -2319,7 +2316,7 @@ fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
             distance_postfix_bits = params.dist.distance_postfix_bits;
             num_direct_distance_codes = params.dist.num_direct_distance_codes;
         }
-        ndirect_msb = (num_direct_distance_codes >> distance_postfix_bits) & 0x0f;
+        let ndirect_msb = (num_direct_distance_codes >> distance_postfix_bits) & 0x0f;
         if distance_postfix_bits > BROTLI_MAX_NPOSTFIX as u32
             || num_direct_distance_codes > BROTLI_MAX_NDIRECT as u32
             || (ndirect_msb << distance_postfix_bits) != num_direct_distance_codes
@@ -2470,7 +2467,6 @@ where
     if s.params.quality == 0i32 || s.params.quality == 1i32 {
         let mut table_size: usize = 0;
         {
-            let table: &mut [i32];
             if delta == 0 && (is_last == 0) {
                 *out_size = catable_header_size;
                 return 1i32;
@@ -2481,7 +2477,8 @@ where
             //(*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
             //        (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;
 
-            table = GetHashTable!(s, s.params.quality, bytes as (usize), &mut table_size);
+            let table: &mut [i32] =
+                GetHashTable!(s, s.params.quality, bytes as (usize), &mut table_size);
 
             if s.params.quality == 0i32 {
                 BrotliCompressFragmentFast(
@@ -2952,7 +2949,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
             let storage: &mut [u8];
             let mut storage_ix: usize = s.last_bytes_bits_ as (usize);
             let mut table_size: usize = 0;
-            let table: &mut [i32];
+
             if force_flush != 0 && (block_size == 0usize) {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
                 {
@@ -2970,7 +2967,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
             }
             storage[(0usize)] = s.last_bytes_ as u8;
             storage[(1usize)] = (s.last_bytes_ >> 8) as u8;
-            table = GetHashTable!(s, s.params.quality, block_size, &mut table_size);
+            let table: &mut [i32] = GetHashTable!(s, s.params.quality, block_size, &mut table_size);
             if s.params.quality == 0i32 {
                 BrotliCompressFragmentFast(
                     &mut s.m8,
@@ -3171,10 +3168,11 @@ pub fn BrotliEncoderCompressStream<
                 } else {
                     0i32
                 };
-                let result: i32;
+
                 UpdateSizeHint(s, *available_in);
                 let mut avail_out = s.available_out_;
-                result = EncodeData(s, is_last, force_flush, &mut avail_out, metablock_callback);
+                let result: i32 =
+                    EncodeData(s, is_last, force_flush, &mut avail_out, metablock_callback);
                 s.available_out_ = avail_out;
                 //this function set next_out to &storage[0]
                 if result == 0 {
