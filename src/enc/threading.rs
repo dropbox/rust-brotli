@@ -592,10 +592,8 @@ where
     }
     if let Ok(retrieved_owned_input) = spawner_and_input.unwrap() {
         *owned_input = Owned::new(retrieved_owned_input.0); // return the input to its rightful owner before returning
-    } else {
-        if let Ok(_) = compression_result {
-            compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic);
-        }
+    } else if let Ok(_) = compression_result {
+        compression_result = Err(BrotliEncoderThreadError::OtherThreadPanic);
     }
     compression_result
 }

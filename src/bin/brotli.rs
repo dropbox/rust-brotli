@@ -761,22 +761,18 @@ fn main() {
             } else if argument == "-advstride" && !double_dash {
                 params.stride_detection_quality = 3;
                 continue;
-            } else {
-                if argument == "-stride" && !double_dash {
-                    params.stride_detection_quality = 2;
-                    continue;
-                } else {
-                    if (argument.starts_with("-s") && !argument.starts_with("-speed="))
-                        && !double_dash
-                    {
-                        params.size_hint = argument
-                            .trim_matches('-')
-                            .trim_matches('s')
-                            .parse::<usize>()
-                            .unwrap();
-                        continue;
-                    }
-                }
+            } else if argument == "-stride" && !double_dash {
+                params.stride_detection_quality = 2;
+                continue;
+            } else if (argument.starts_with("-s") && !argument.starts_with("-speed="))
+                && !double_dash
+            {
+                params.size_hint = argument
+                    .trim_matches('-')
+                    .trim_matches('s')
+                    .parse::<usize>()
+                    .unwrap();
+                continue;
             }
             if argument.starts_with("-speed=") && !double_dash {
                 let comma_string = argument
@@ -801,12 +797,10 @@ fn main() {
                         for item in params.literal_adaptation.iter_mut() {
                             item.1 = data;
                         }
+                    } else if (index & 1) == 0 {
+                        params.literal_adaptation[index / 2].0 = data;
                     } else {
-                        if (index & 1) == 0 {
-                            params.literal_adaptation[index / 2].0 = data;
-                        } else {
-                            params.literal_adaptation[index / 2].1 = data;
-                        }
+                        params.literal_adaptation[index / 2].1 = data;
                     }
                 }
                 continue;
@@ -888,30 +882,28 @@ fn main() {
                                 Ok(_) => {}
                                 Err(e) => panic!("Error {:?}", e),
                             }
+                        } else if num_threads != 1 {
+                            match compress_multi(
+                                &mut input,
+                                &mut output,
+                                &params,
+                                num_threads,
+                                None,
+                            ) {
+                                Ok(_) => {}
+                                Err(e) => panic!("Error {:?}", e),
+                            }
                         } else {
-                            if num_threads != 1 {
-                                match compress_multi(
-                                    &mut input,
-                                    &mut output,
-                                    &params,
-                                    num_threads,
-                                    None,
-                                ) {
-                                    Ok(_) => {}
-                                    Err(e) => panic!("Error {:?}", e),
-                                }
-                            } else {
-                                match compress(
-                                    &mut input,
-                                    &mut output,
-                                    buffer_size,
-                                    &params,
-                                    &custom_dictionary[..],
-                                    num_threads,
-                                ) {
-                                    Ok(_) => {}
-                                    Err(e) => panic!("Error {:?}", e),
-                                }
+                            match compress(
+                                &mut input,
+                                &mut output,
+                                buffer_size,
+                                &params,
+                                &custom_dictionary[..],
+                                num_threads,
+                            ) {
+                                Ok(_) => {}
+                                Err(e) => panic!("Error {:?}", e),
                             }
                         }
                     } else {
