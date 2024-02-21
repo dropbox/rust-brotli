@@ -224,7 +224,7 @@ impl UnlimitedBuffer {
     }
 }
 impl io::Read for Buffer {
-    fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if self.read_offset == self.data.len() {
             self.read_offset = 0;
         }
@@ -238,19 +238,19 @@ impl io::Read for Buffer {
     }
 }
 impl io::Write for Buffer {
-    fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.read_offset == self.data.len() {
             return Ok(buf.len());
         }
         self.data.extend(buf);
         Ok(buf.len())
     }
-    fn flush(self: &mut Self) -> io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 impl io::Read for UnlimitedBuffer {
-    fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
         if bytes_to_read > 0 {
             buf[0..bytes_to_read]
@@ -262,11 +262,11 @@ impl io::Read for UnlimitedBuffer {
 }
 
 impl io::Write for UnlimitedBuffer {
-    fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.data.extend(buf);
         Ok(buf.len())
     }
-    fn flush(self: &mut Self) -> io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
@@ -877,7 +877,7 @@ impl<'a> LimitedBuffer<'a> {
     }
 }
 impl<'a> io::Read for LimitedBuffer<'a> {
-    fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let bytes_to_read = cmp::min(buf.len(), self.data.len() - self.read_offset);
         if bytes_to_read > 0 {
             buf[0..bytes_to_read]
@@ -889,7 +889,7 @@ impl<'a> io::Read for LimitedBuffer<'a> {
 }
 
 impl<'a> io::Write for LimitedBuffer<'a> {
-    fn write(self: &mut Self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let bytes_to_write = cmp::min(buf.len(), self.data.len() - self.write_offset);
         if bytes_to_write > 0 {
             self.data[self.write_offset..self.write_offset + bytes_to_write]
@@ -900,7 +900,7 @@ impl<'a> io::Write for LimitedBuffer<'a> {
         self.write_offset += bytes_to_write;
         Ok(bytes_to_write)
     }
-    fn flush(self: &mut Self) -> io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }

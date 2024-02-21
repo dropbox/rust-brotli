@@ -1059,7 +1059,7 @@ fn StoreStaticCodeLengthCode(storage_ix: &mut usize, storage: &mut [u8]) {
 pub struct SimpleSortHuffmanTree {}
 
 impl HuffmanComparator for SimpleSortHuffmanTree {
-    fn Cmp(self: &Self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
+    fn Cmp(&self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
         v0.total_count_ < v1.total_count_
     }
 }
