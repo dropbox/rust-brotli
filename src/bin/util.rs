@@ -159,7 +159,6 @@ pub fn write_one<T: SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                 dict.transform as i32,
             ) as usize;
 
-            transformed_word.split_at(actual_copy_len).0;
             assert_eq!(dict.final_size as usize, actual_copy_len);
             println_stderr!(
                 "dict {} word {},{} {:x} func {} {:x}",
