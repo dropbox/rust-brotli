@@ -435,7 +435,7 @@ impl BroCatli {
         out_bytes: &mut [u8],
         out_offset: &mut usize,
     ) -> BroCatliResult {
-        if let Some(mut new_stream_pending) = self.new_stream_pending.clone() {
+        if let Some(mut new_stream_pending) = self.new_stream_pending {
             let flush_result = self.flush_previous_stream(out_bytes, out_offset);
             if let BroCatliResult::Success = flush_result {
                 if usize::from(new_stream_pending.num_bytes_read)

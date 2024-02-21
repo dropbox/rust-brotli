@@ -1996,7 +1996,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
             buckets_: H2Sub::<Alloc> {
                 buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
             },
-            h9_opts: self.h9_opts.clone(),
+            h9_opts: self.h9_opts,
         };
         ret.buckets_
             .buckets_
@@ -2014,7 +2014,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
             buckets_: H3Sub::<Alloc> {
                 buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
             },
-            h9_opts: self.h9_opts.clone(),
+            h9_opts: self.h9_opts,
         };
         ret.buckets_
             .buckets_
@@ -2032,7 +2032,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
             buckets_: H4Sub::<Alloc> {
                 buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
             },
-            h9_opts: self.h9_opts.clone(),
+            h9_opts: self.h9_opts,
         };
         ret.buckets_
             .buckets_
@@ -2050,7 +2050,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
             buckets_: H54Sub::<Alloc> {
                 buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.len()),
             },
-            h9_opts: self.h9_opts.clone(),
+            h9_opts: self.h9_opts,
         };
         ret.buckets_
             .buckets_
@@ -2069,7 +2069,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
             num_: num,
             buckets_: buckets,
             dict_search_stats_: self.dict_search_stats_.clone(),
-            h9_opts: self.h9_opts.clone(),
+            h9_opts: self.h9_opts,
         }
     }
 }
@@ -2088,7 +2088,7 @@ impl<
             specialization: self.specialization.clone(),
             num,
             buckets,
-            h9_opts: self.h9_opts.clone(),
+            h9_opts: self.h9_opts,
         }
     }
 }

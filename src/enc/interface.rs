@@ -412,7 +412,7 @@ impl<SliceType: SliceWrapper<u8> + Default> Default for FeatureFlagSliceType<Sli
 impl<SliceType: SliceWrapper<u8> + Clone> Clone for FeatureFlagSliceType<SliceType> {
     #[inline(always)]
     fn clone(&self) -> Self {
-        FeatureFlagSliceType::<SliceType>(self.0.clone())
+        FeatureFlagSliceType::<SliceType>(self.0)
     }
 }
 impl<SliceType: SliceWrapper<u8> + Clone + Copy> Copy for FeatureFlagSliceType<SliceType> {}
@@ -456,7 +456,7 @@ impl<SliceType: SliceWrapper<u8> + Clone> Clone for LiteralCommand<SliceType> {
         LiteralCommand::<SliceType> {
             data: self.data.clone(),
             prob: self.prob.clone(),
-            high_entropy: self.high_entropy.clone(),
+            high_entropy: self.high_entropy,
         }
     }
 }
@@ -509,12 +509,12 @@ impl<SliceType: SliceWrapper<u8> + Clone> Clone for Command<SliceType> {
     #[inline]
     fn clone(&self) -> Command<SliceType> {
         match self {
-            Command::Copy(copy) => Command::Copy(copy.clone()),
-            Command::Dict(dict) => Command::Dict(dict.clone()),
+            Command::Copy(copy) => Command::Copy(*copy),
+            Command::Dict(dict) => Command::Dict(*dict),
             Command::Literal(literal) => Command::Literal(literal.clone()),
-            Command::BlockSwitchCommand(switch) => Command::BlockSwitchCommand(switch.clone()),
-            Command::BlockSwitchLiteral(switch) => Command::BlockSwitchLiteral(switch.clone()),
-            Command::BlockSwitchDistance(switch) => Command::BlockSwitchDistance(switch.clone()),
+            Command::BlockSwitchCommand(switch) => Command::BlockSwitchCommand(*switch),
+            Command::BlockSwitchLiteral(switch) => Command::BlockSwitchLiteral(*switch),
+            Command::BlockSwitchDistance(switch) => Command::BlockSwitchDistance(*switch),
             Command::PredictionMode(pm) => Command::PredictionMode(pm.clone()),
         }
     }
@@ -686,11 +686,11 @@ pub fn thaw_pair<'a, SliceType: Unfreezable + SliceWrapper<u8>>(
                 .thaw_pair(data)
                 .unwrap(),
         }),
-        Command::Dict(ref d) => Command::Dict(d.clone()),
-        Command::Copy(ref c) => Command::Copy(c.clone()),
-        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(c.clone()),
-        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(c.clone()),
-        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(c.clone()),
+        Command::Dict(ref d) => Command::Dict(*d),
+        Command::Copy(ref c) => Command::Copy(*c),
+        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
+        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
+        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
     }
 }
 
@@ -710,11 +710,11 @@ pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(
                 .predmode_speed_and_distance_context_map
                 .thaw(data),
         }),
-        Command::Dict(ref d) => Command::Dict(d.clone()),
-        Command::Copy(ref c) => Command::Copy(c.clone()),
-        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(c.clone()),
-        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(c.clone()),
-        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(c.clone()),
+        Command::Dict(ref d) => Command::Dict(*d),
+        Command::Copy(ref c) => Command::Copy(*c),
+        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
+        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
+        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
     }
 }
 
@@ -732,11 +732,11 @@ impl<SliceType: SliceWrapper<u8> + Freezable> Command<SliceType> {
                     .predmode_speed_and_distance_context_map
                     .freeze(),
             }),
-            Command::Dict(ref d) => Command::Dict(d.clone()),
-            Command::Copy(ref c) => Command::Copy(c.clone()),
-            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(c.clone()),
-            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(c.clone()),
-            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(c.clone()),
+            Command::Dict(ref d) => Command::Dict(*d),
+            Command::Copy(ref c) => Command::Copy(*c),
+            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
+            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
+            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
         }
     }
 }

@@ -1022,7 +1022,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
     i = 0usize;
     while i < n_commands {
         {
-            let cmd: Command = commands[(i as (usize))].clone();
+            let cmd: Command = commands[(i as (usize))];
             let mut j: usize;
             BlockSplitterAddSymbol(
                 &mut cmd_blocks,
