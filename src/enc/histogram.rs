@@ -340,8 +340,8 @@ fn NewBlockSplitIterator<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>
         split_: split,
         idx_: 0i32 as (usize),
         type_: 0i32 as (usize),
-        length_: if (*split).lengths.slice().len() != 0 {
-            (*split).lengths.slice()[0] as usize
+        length_: if split.lengths.slice().len() != 0 {
+            split.lengths.slice()[0] as usize
         } else {
             0i32 as (usize)
         },
@@ -352,11 +352,11 @@ fn InitBlockSplitIterator<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u32
     xself: &'a mut BlockSplitIterator<'a, Alloc>,
     split: &'a BlockSplit<Alloc>,
 ) {
-    (*xself).split_ = split;
-    (*xself).idx_ = 0i32 as (usize);
-    (*xself).type_ = 0i32 as (usize);
-    (*xself).length_ = if (*split).lengths.slice().len() != 0 {
-        (*split).lengths.slice()[0] as u32
+    xself.split_ = split;
+    xself.idx_ = 0i32 as (usize);
+    xself.type_ = 0i32 as (usize);
+    xself.length_ = if split.lengths.slice().len() != 0 {
+        split.lengths.slice()[0] as u32
     } else {
         0i32 as (u32)
     } as (usize);
@@ -364,12 +364,12 @@ fn InitBlockSplitIterator<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u32
 fn BlockSplitIteratorNext<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>>(
     xself: &mut BlockSplitIterator<Alloc>,
 ) {
-    if (*xself).length_ == 0i32 as (usize) {
-        (*xself).idx_ = (*xself).idx_.wrapping_add(1 as (usize));
-        (*xself).type_ = (*(*xself).split_).types.slice()[(*xself).idx_ as (usize)] as (usize);
-        (*xself).length_ = (*(*xself).split_).lengths.slice()[(*xself).idx_ as (usize)] as (usize);
+    if xself.length_ == 0i32 as (usize) {
+        xself.idx_ = xself.idx_.wrapping_add(1 as (usize));
+        xself.type_ = xself.split_.types.slice()[xself.idx_ as (usize)] as (usize);
+        xself.length_ = xself.split_.lengths.slice()[xself.idx_ as (usize)] as (usize);
     }
-    (*xself).length_ = (*xself).length_.wrapping_sub(1 as (usize));
+    xself.length_ = xself.length_.wrapping_sub(1 as (usize));
 }
 pub fn HistogramAddItem<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors>(
     xself: &mut HistogramType,
@@ -512,9 +512,9 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
             BlockSplitIteratorNext(&mut insert_and_copy_it);
             HistogramAddItem(
                 &mut insert_and_copy_histograms[(insert_and_copy_it.type_ as (usize))],
-                (*cmd).cmd_prefix_ as (usize),
+                cmd.cmd_prefix_ as (usize),
             );
-            j = (*cmd).insert_len_ as (usize);
+            j = cmd.insert_len_ as (usize);
             while j != 0usize {
                 {
                     let context: usize;
@@ -543,14 +543,14 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
             if CommandCopyLen(cmd) != 0 {
                 prev_byte2 = ringbuffer[((pos.wrapping_sub(2usize) & mask) as (usize))];
                 prev_byte = ringbuffer[((pos.wrapping_sub(1usize) & mask) as (usize))];
-                if (*cmd).cmd_prefix_ as (i32) >= 128i32 {
+                if cmd.cmd_prefix_ as (i32) >= 128i32 {
                     let context: usize;
                     BlockSplitIteratorNext(&mut dist_it);
                     context = (dist_it.type_ << 2i32)
                         .wrapping_add(CommandDistanceContext(cmd) as (usize));
                     HistogramAddItem(
                         &mut copy_dist_histograms[(context as (usize))],
-                        (*cmd).dist_prefix_ as (usize) & 0x3ff,
+                        cmd.dist_prefix_ as (usize) & 0x3ff,
                     );
                 }
             }

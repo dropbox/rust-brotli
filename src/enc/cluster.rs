@@ -47,13 +47,13 @@ fn brotli_max_double(a: super::util::floatX, b: super::util::floatX) -> super::u
 
 #[inline(always)]
 fn HistogramPairIsLess(p1: &HistogramPair, p2: &HistogramPair) -> bool {
-    if (*p1).cost_diff != (*p2).cost_diff {
-        if !!((*p1).cost_diff > (*p2).cost_diff) {
+    if p1.cost_diff != p2.cost_diff {
+        if !!(p1.cost_diff > p2.cost_diff) {
             true
         } else {
             false
         }
-    } else if !!((*p1).idx2.wrapping_sub((*p1).idx1) > (*p2).idx2.wrapping_sub((*p2).idx1)) {
+    } else if !!(p1.idx2.wrapping_sub(p1.idx1) > p2.idx2.wrapping_sub(p2.idx1)) {
         true
     } else {
         false

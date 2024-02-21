@@ -74,13 +74,13 @@ impl<T> ops::IndexMut<usize> for Rebox<T> {
 
 impl<T> alloc_no_stdlib::SliceWrapper<T> for Rebox<T> {
     fn slice(&self) -> &[T] {
-        &*self.b
+        &self.b
     }
 }
 
 impl<T> alloc_no_stdlib::SliceWrapperMut<T> for Rebox<T> {
     fn slice_mut(&mut self) -> &mut [T] {
-        &mut *self.b
+        &mut self.b
     }
 }
 #[derive(Clone, Copy, Default)]

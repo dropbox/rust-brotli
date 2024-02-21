@@ -355,9 +355,9 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
     if w.l as (usize) > max_length {
         0i32
     } else {
-        let offset: usize = ((*dictionary).offsets_by_length[w.l as (usize)] as (usize))
+        let offset: usize = (dictionary.offsets_by_length[w.l as (usize)] as (usize))
             .wrapping_add((w.len() as (usize)).wrapping_mul(w.idx() as (usize)));
-        let dict = &(*dictionary).data.split_at(offset).1;
+        let dict = &dictionary.data.split_at(offset).1;
         if w.transform() as (i32) == 0i32 {
             if !!(FindMatchLengthWithLimit(dict, data, w.l as (usize)) == w.l as (usize)) {
                 1i32
@@ -433,9 +433,9 @@ fn DictMatchLength(
     maxlen: usize,
 ) -> usize {
     let offset: usize =
-        ((*dictionary).offsets_by_length[len] as (usize)).wrapping_add(len.wrapping_mul(id));
+        (dictionary.offsets_by_length[len] as (usize)).wrapping_add(len.wrapping_mul(id));
     FindMatchLengthWithLimit(
-        &(*dictionary).data.split_at(offset).1,
+        &dictionary.data.split_at(offset).1,
         data,
         brotli_min_size_t(len, maxlen),
     )
@@ -469,7 +469,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                 _old
             }];
             let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);
-            let n: usize = 1usize << (*dictionary).size_bits_by_length[l] as (i32);
+            let n: usize = 1usize << dictionary.size_bits_by_length[l] as (i32);
             let id: usize = w.idx() as (usize);
             end = !(w.len() as (i32) & 0x80i32 == 0) as (i32);
             w.l = l as (u8);
@@ -1173,7 +1173,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                 _old
             }];
             let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);
-            let n: usize = 1usize << (*dictionary).size_bits_by_length[l] as (i32);
+            let n: usize = 1usize << dictionary.size_bits_by_length[l] as (i32);
             let id: usize = w.idx() as (usize);
             end = !(w.len() as (i32) & 0x80i32 == 0) as (i32);
             w.l = l as (u8);
@@ -1416,7 +1416,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                     _old
                 }];
                 let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);
-                let n: usize = 1usize << (*dictionary).size_bits_by_length[l] as (i32);
+                let n: usize = 1usize << dictionary.size_bits_by_length[l] as (i32);
                 let id: usize = w.idx() as (usize);
                 end = !(w.len() as (i32) & 0x80i32 == 0) as (i32);
                 w.l = l as (u8);
@@ -1482,7 +1482,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                     _old
                 }];
                 let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);
-                let n: usize = 1usize << (*dictionary).size_bits_by_length[l] as (i32);
+                let n: usize = 1usize << dictionary.size_bits_by_length[l] as (i32);
                 let id: usize = w.idx() as (usize);
                 end = !(w.len() as (i32) & 0x80i32 == 0) as (i32);
                 w.l = l as (u8);
