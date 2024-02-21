@@ -87,16 +87,16 @@ impl<'a> fmt::LowerHex for SliceU8Ref<'a> {
 pub fn write_one<T: SliceWrapper<u8>>(cmd: &interface::Command<T>) {
     use std::io::Write;
     match cmd {
-        &interface::Command::BlockSwitchLiteral(ref bsl) => {
+        interface::Command::BlockSwitchLiteral(bsl) => {
             println_stderr!("ltype {} {}", bsl.0.block_type(), bsl.1);
         }
-        &interface::Command::BlockSwitchCommand(ref bsc) => {
+        interface::Command::BlockSwitchCommand(bsc) => {
             println_stderr!("ctype {}", bsc.0);
         }
-        &interface::Command::BlockSwitchDistance(ref bsd) => {
+        interface::Command::BlockSwitchDistance(bsd) => {
             println_stderr!("dtype {}", bsd.0);
         }
-        &interface::Command::PredictionMode(ref prediction) => {
+        interface::Command::PredictionMode(prediction) => {
             let prediction_mode = prediction_mode_str(prediction.literal_prediction_mode());
             let lit_cm = prediction
                 .literal_context_map
@@ -146,10 +146,10 @@ pub fn write_one<T: SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                 );
             }
         }
-        &interface::Command::Copy(ref copy) => {
+        interface::Command::Copy(copy) => {
             println_stderr!("copy {} from {}", copy.num_bytes, copy.distance);
         }
-        &interface::Command::Dict(ref dict) => {
+        interface::Command::Dict(dict) => {
             let mut transformed_word = [0u8; 38];
             let word_index = dict.word_id as usize * dict.word_size as usize
                 + kBrotliDictionaryOffsetsByLength[dict.word_size as usize] as usize;
@@ -173,7 +173,7 @@ pub fn write_one<T: SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                 SliceU8Ref(transformed_word.split_at(actual_copy_len).0)
             );
         }
-        &interface::Command::Literal(ref lit) => {
+        interface::Command::Literal(lit) => {
             println_stderr!(
                 "{} {} {:x}",
                 if lit.high_entropy { "rndins" } else { "insert" },
