@@ -1581,10 +1581,10 @@ pub fn BrotliEncoderCompress<
         {
             let s = &mut s_orig;
             let mut available_in: usize = input_size;
-            let mut next_in_array: &[u8] = input_buffer;
+            let next_in_array: &[u8] = input_buffer;
             let mut next_in_offset: usize = 0;
             let mut available_out: usize = *encoded_size;
-            let mut next_out_array: &mut [u8] = output_start;
+            let next_out_array: &mut [u8] = output_start;
             let mut next_out_offset: usize = 0;
             let mut total_out = Some(0usize);
             BrotliEncoderSetParameter(
@@ -1610,10 +1610,10 @@ pub fn BrotliEncoderCompress<
                 s,
                 BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
                 &mut available_in,
-                &mut next_in_array,
+                next_in_array,
                 &mut next_in_offset,
                 &mut available_out,
-                &mut next_out_array,
+                next_out_array,
                 &mut next_out_offset,
                 &mut total_out,
                 metablock_callback,
@@ -2596,7 +2596,7 @@ where
     } else {
         BrotliCreateBackwardReferences(
             &mut s.m8,
-            &dictionary,
+            dictionary,
             bytes as (usize),
             wrapped_last_processed_pos as (usize),
             &mut s.ringbuffer_.data_mo.slice_mut()[(s.ringbuffer_.buffer_index as usize)..],
@@ -2707,7 +2707,7 @@ where
         s.num_commands_ = 0usize;
         s.num_literals_ = 0usize;
         s.saved_dist_cache_
-            .clone_from_slice(&s.dist_cache_.split_at(4).0);
+            .clone_from_slice(s.dist_cache_.split_at(4).0);
         s.next_out_ = NextOut::DynamicStorage(0); // this always returns that
         *out_size = storage_ix >> 3i32;
         1i32

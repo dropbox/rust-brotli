@@ -400,7 +400,7 @@ impl BroCatli {
             .split_at_mut(to_copy)
             .0
             .clone_from_slice(
-                &new_stream_pending
+                new_stream_pending
                     .bytes_so_far
                     .split_at(usize::from(new_stream_pending.num_bytes_written.unwrap()))
                     .1

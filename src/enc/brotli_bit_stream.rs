@@ -181,9 +181,9 @@ impl<'a, Alloc: BrotliAlloc> CommandQueue<'a, Alloc> {
             self.mc,
         );
         self.clear();
-        self.entropy_tally_scratch.free(&mut self.mc);
-        self.entropy_pyramid.free(&mut self.mc);
-        self.context_map_entropy.free(&mut self.mc);
+        self.entropy_tally_scratch.free(self.mc);
+        self.entropy_pyramid.free(self.mc);
+        self.context_map_entropy.free(self.mc);
         <Alloc as Allocator<StaticCommand>>::free_cell(self.mc, core::mem::take(&mut self.queue));
         <Alloc as Allocator<u8>>::free_cell(
             self.mc,
@@ -570,7 +570,7 @@ fn LogMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
     let mut best_strides = <Alloc as Allocator<u8>>::AllocatedMemory::default();
     if params.stride_detection_quality > 2 {
         let mut stride_selector =
-            stride_eval::StrideEval::<Alloc>::new(alloc, input, &prediction_mode, &params);
+            stride_eval::StrideEval::<Alloc>::new(alloc, input, &prediction_mode, params);
         process_command_queue(
             &mut stride_selector,
             input,
@@ -639,7 +639,7 @@ fn LogMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
         input,
         entropy_pyramid.stride_last_level_range(),
         context_map_entropy.take_prediction_mode(),
-        &params,
+        params,
     );
     if params.prior_bitmask_detection != 0 {
         process_command_queue(

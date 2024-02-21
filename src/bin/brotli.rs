@@ -437,8 +437,8 @@ where
     brotli::BrotliCompressCustomIoCustomDict(
         &mut IoReaderWrapper::<InputType>(r),
         &mut IoWriterWrapper::<OutputType>(w),
-        &mut input_buffer.slice_mut(),
-        &mut output_buffer.slice_mut(),
+        input_buffer.slice_mut(),
+        output_buffer.slice_mut(),
         params,
         new_brotli_heap_alloc(),
         &mut log,
@@ -509,7 +509,7 @@ fn writeln_time<OutputType: Write>(
 }
 
 fn read_custom_dictionary(filename: &str) -> Vec<u8> {
-    let mut dict = match File::open(&Path::new(&filename)) {
+    let mut dict = match File::open(Path::new(&filename)) {
         Err(why) => panic!("couldn't open custom dictionary {:}\n{:}", filename, why),
         Ok(file) => file,
     };
@@ -843,12 +843,12 @@ fn main() {
             panic!("Unknown Argument {:}", argument);
         }
         if filenames[0] != "" {
-            let mut input = match File::open(&Path::new(&filenames[0])) {
+            let mut input = match File::open(Path::new(&filenames[0])) {
                 Err(why) => panic!("couldn't open {:}\n{:}", filenames[0], why),
                 Ok(file) => file,
             };
             if filenames[1] != "" {
-                let mut output = match File::create(&Path::new(&filenames[1])) {
+                let mut output = match File::create(Path::new(&filenames[1])) {
                     Err(why) => panic!(
                         "couldn't open file for writing: {:}\n{:}",
                         filenames[1], why

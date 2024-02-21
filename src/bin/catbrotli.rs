@@ -92,7 +92,7 @@ fn main() {
     };
     for filename in filenames {
         bro_cat_li.new_brotli_file();
-        let mut input_file = match File::open(&Path::new(&filename)) {
+        let mut input_file = match File::open(Path::new(&filename)) {
             Err(why) => panic!("couldn't open {:}\n{:}", filename, why),
             Ok(file) => file,
         };

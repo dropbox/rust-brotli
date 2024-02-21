@@ -245,10 +245,10 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
     for StrideEval<'a, Alloc>
 {
     fn drop(&mut self) {
-        <Alloc as Allocator<floatX>>::free_cell(&mut self.alloc, core::mem::take(&mut self.score));
+        <Alloc as Allocator<floatX>>::free_cell(self.alloc, core::mem::take(&mut self.score));
         for i in 0..8 {
             <Alloc as Allocator<u16>>::free_cell(
-                &mut self.alloc,
+                self.alloc,
                 core::mem::take(&mut self.stride_priors[i]),
             );
         }

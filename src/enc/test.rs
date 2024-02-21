@@ -225,7 +225,7 @@ fn oneshot_compress(
     (1, next_out_offset)
 }
 
-fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult, usize, usize) {
+fn oneshot_decompress(compressed: &[u8], output: &mut [u8]) -> (BrotliResult, usize, usize) {
     let mut available_in: usize = compressed.len();
     let mut available_out: usize = output.len();
     let mut stack_u8_buffer = define_allocator_memory_pool!(128, u8, [0; 100 * 1024], stack);
@@ -251,7 +251,7 @@ fn oneshot_decompress(compressed: &[u8], mut output: &mut [u8]) -> (BrotliResult
         &compressed[..],
         &mut available_out,
         &mut output_offset,
-        &mut output,
+        output,
         &mut written,
         &mut brotli_state,
     );
