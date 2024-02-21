@@ -516,11 +516,11 @@ fn BuildAndStoreCommandPrefixCode(
     let mut cmd_bits: [u16; 64] = [0; 64];
     BrotliCreateHuffmanTree(histogram, 64usize, 15i32, &mut tree[..], depth);
     BrotliCreateHuffmanTree(
-        &histogram[(64usize)..],
+        &histogram[64usize..],
         64usize,
         14i32,
         &mut tree[..],
-        &mut depth[(64usize)..],
+        &mut depth[64usize..],
     );
     /* We have to jump through a few hoops here in order to compute
     the command bits because the symbols are in a different order than in
@@ -582,7 +582,7 @@ fn BuildAndStoreCommandPrefixCode(
         48i32 as (usize),
         8usize,
     );
-    BrotliConvertBitDepthsToSymbols(&mut depth[(64usize)..], 64usize, &mut bits[(64usize)..]);
+    BrotliConvertBitDepthsToSymbols(&mut depth[64usize..], 64usize, &mut bits[64usize..]);
     {
         let mut i: usize;
         for item in cmd_depth[..64].iter_mut() {
@@ -639,7 +639,7 @@ fn BuildAndStoreCommandPrefixCode(
         );
     }
     BrotliStoreHuffmanTree(
-        &mut depth[(64usize)..],
+        &mut depth[64usize..],
         64usize,
         &mut tree[..],
         storage_ix,

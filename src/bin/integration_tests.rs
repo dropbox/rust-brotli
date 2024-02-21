@@ -337,7 +337,7 @@ fn roundtrip_helper(in_buf: &[u8], q: i32, lgwin: i32, q9_5: bool) -> usize {
 
 fn total_roundtrip_helper(data: &[u8]) {
     for q in 0..10 {
-        roundtrip_helper(data, q as i32, (q + 13) as i32, false);
+        roundtrip_helper(data, q, q + 13, false);
     }
     roundtrip_helper(data, 10, 23, true);
 }

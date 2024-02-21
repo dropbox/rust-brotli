@@ -560,7 +560,7 @@ fn InitContextBlockSplitter<
     *histograms_size = max_num_types.wrapping_mul(num_contexts);
     *histograms = <Alloc as Allocator<HistogramLiteral>>::alloc_cell(alloc, *histograms_size);
     //(*xself).histograms_ = *histograms;
-    ClearHistograms(&mut histograms.slice_mut()[(0usize)..], num_contexts);
+    ClearHistograms(&mut histograms.slice_mut()[0usize..], num_contexts);
     xself.last_histogram_ix_[0] = 0;
     xself.last_histogram_ix_[1] = 0;
     xself

@@ -258,7 +258,7 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF: Allocator<floatX>>(
         num_bytes,
         ringbuffer_mask,
         ringbuffer,
-        &mut literal_costs[(1usize)..],
+        &mut literal_costs[1usize..],
     );
     literal_costs[(0usize)] = 0.0 as (floatX);
     i = 0usize;
