@@ -109,8 +109,8 @@ fn test_custom_dict_for_multithreading() {
     }
     let mut bro_cat_li = BroCatli::new();
     let mut output = UnlimitedBuffer::new(&[]);
-    let mut ibuffer = vec![0u8; 1];
-    let mut obuffer = vec![0u8; 1];
+    let mut ibuffer = [0u8; 1];
+    let mut obuffer = [0u8; 1];
     let mut ooffset = 0usize;
     for brotli in brs.iter_mut() {
         brotli.reset_read();
