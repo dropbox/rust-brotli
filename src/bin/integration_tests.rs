@@ -596,7 +596,7 @@ fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32, do_flus
             let wdec = DecompressorWriter::new(&mut output, 257);
             {
                 let mut wenc = CompressorWriter::new(wdec, 255, q, lgwin);
-                while in_buf.len() > 0 {
+                while !in_buf.is_empty() {
                     match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
                         Ok(size) => {
                             if size == 0 {
@@ -622,7 +622,7 @@ fn writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u32, do_flus
         let mut compressed = UnlimitedBuffer::new(&[]);
         {
             let mut wenc = CompressorWriter::new(&mut compressed, 255, q, lgwin);
-            while in_buf.len() > 0 {
+            while !in_buf.is_empty() {
                 match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
                     Ok(size) => {
                         if size == 0 {
@@ -644,7 +644,7 @@ fn into_inner_writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u
     let orig_buf = in_buf;
     let mut compressed = UnlimitedBuffer::new(&[]);
     let mut wenc = CompressorWriter::new(&mut compressed, 255, q, lgwin);
-    while in_buf.len() > 0 {
+    while !in_buf.is_empty() {
         match wenc.write(&in_buf[..cmp::min(in_buf.len(), buf_size)]) {
             Ok(size) => {
                 if size == 0 {
@@ -658,7 +658,7 @@ fn into_inner_writer_helper(mut in_buf: &[u8], buf_size: usize, q: u32, lgwin: u
     let c2 = wenc.into_inner();
 
     let pct_ratio = 95usize;
-    assert!(c2.data.len() > 0);
+    assert!(!c2.data.is_empty());
     assert!(c2.data.len() < orig_buf.len() * pct_ratio / 100);
     let mut compressed_in = UnlimitedBuffer::new(&c2.data[..]);
     let mut output = UnlimitedBuffer::new(&[]);

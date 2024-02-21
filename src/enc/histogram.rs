@@ -340,7 +340,7 @@ fn NewBlockSplitIterator<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>
         split_: split,
         idx_: 0i32 as (usize),
         type_: 0i32 as (usize),
-        length_: if split.lengths.slice().len() != 0 {
+        length_: if !split.lengths.slice().is_empty() {
             split.lengths.slice()[0] as usize
         } else {
             0i32 as (usize)
@@ -355,7 +355,7 @@ fn InitBlockSplitIterator<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u32
     xself.split_ = split;
     xself.idx_ = 0i32 as (usize);
     xself.type_ = 0i32 as (usize);
-    xself.length_ = if split.lengths.slice().len() != 0 {
+    xself.length_ = if !split.lengths.slice().is_empty() {
         split.lengths.slice()[0] as u32
     } else {
         0i32 as (u32)
@@ -518,7 +518,7 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
             while j != 0usize {
                 {
                     BlockSplitIteratorNext(&mut literal_it);
-                    let context: usize = if context_modes.len() != 0 {
+                    let context: usize = if !context_modes.is_empty() {
                         (literal_it.type_ << 6i32).wrapping_add(Context(
                             prev_byte,
                             prev_byte2,

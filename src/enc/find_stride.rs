@@ -884,6 +884,6 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyTally<AllocU32> {
         }
     }
     pub fn is_free(&mut self) -> bool {
-        self.pop[0].bucket_populations.slice().len() == 0
+        self.pop[0].bucket_populations.slice().is_empty()
     }
 }

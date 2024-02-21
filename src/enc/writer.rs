@@ -133,7 +133,7 @@ pub fn write_all<ErrType, W: CustomWrite<ErrType>>(
     writer: &mut W,
     mut buf: &[u8],
 ) -> Result<(), ErrType> {
-    while buf.len() != 0 {
+    while !buf.is_empty() {
         match writer.write(buf) {
             Ok(bytes_written) => buf = &buf[bytes_written..],
             Err(e) => return Err(e),

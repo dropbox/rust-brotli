@@ -395,7 +395,7 @@ where
     InputType: Read,
     OutputType: Write,
 {
-    if num_threads > 1 && custom_dictionary.len() == 0 && !params.log_meta_block {
+    if num_threads > 1 && custom_dictionary.is_empty() && !params.log_meta_block {
         if has_stdlib() {
             return compress_multi(
                 r,

@@ -1481,7 +1481,7 @@ fn NewBlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
     num_blocks: usize,
 ) -> BlockEncoder<'a, Alloc> {
     let block_len: usize;
-    if num_blocks != 0 && block_lengths.len() != 0 {
+    if num_blocks != 0 && !block_lengths.is_empty() {
         block_len = block_lengths[0] as usize;
     } else {
         block_len = 0;

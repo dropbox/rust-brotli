@@ -779,7 +779,7 @@ fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(
         ((2u32).wrapping_add(buflen) as (usize)).wrapping_add(kSlackForEightByteHashingEverywhere),
     );
     let mut i: usize;
-    if rb.data_mo.slice().len() != 0 {
+    if !rb.data_mo.slice().is_empty() {
         let lim: usize = ((2u32).wrapping_add(rb.cur_size_) as (usize))
             .wrapping_add(kSlackForEightByteHashingEverywhere);
         new_data.slice_mut()[..lim].clone_from_slice(&rb.data_mo.slice()[..lim]);
@@ -2451,7 +2451,7 @@ where
         delta = UnprocessedInputSize(s);
     }
     let mut wrapped_last_processed_pos: u32 = WrapPosition(s.last_processed_pos_);
-    if s.params.quality == 1i32 && s.command_buf_.slice().len() == 0 {
+    if s.params.quality == 1i32 && s.command_buf_.slice().is_empty() {
         let new_buf =
             <Alloc as Allocator<u32>>::alloc_cell(&mut s.m8, kCompressFragmentTwoPassBlockSize);
         s.command_buf_ = new_buf;
@@ -2523,7 +2523,7 @@ where
             newsize = newsize.wrapping_add(bytes.wrapping_div(4u32).wrapping_add(16u32) as (usize));
             s.cmd_alloc_size_ = newsize;
             let mut new_commands = <Alloc as Allocator<Command>>::alloc_cell(&mut s.m8, newsize);
-            if s.commands_.slice().len() != 0 {
+            if !s.commands_.slice().is_empty() {
                 new_commands.slice_mut()[..s.num_commands_]
                     .clone_from_slice(&s.commands_.slice()[..s.num_commands_]);
                 <Alloc as Allocator<Command>>::free_cell(
@@ -2904,13 +2904,13 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
         return 0i32;
     }
     if s.params.quality == 1i32 {
-        if s.command_buf_.slice().len() == 0 && (buf_size == kCompressFragmentTwoPassBlockSize) {
+        if s.command_buf_.slice().is_empty() && (buf_size == kCompressFragmentTwoPassBlockSize) {
             s.command_buf_ =
                 <Alloc as Allocator<u32>>::alloc_cell(&mut s.m8, kCompressFragmentTwoPassBlockSize);
             s.literal_buf_ =
                 <Alloc as Allocator<u8>>::alloc_cell(&mut s.m8, kCompressFragmentTwoPassBlockSize);
         }
-        if s.command_buf_.slice().len() != 0 {
+        if !s.command_buf_.slice().is_empty() {
             command_buf = core::mem::take(&mut s.command_buf_);
             literal_buf = core::mem::take(&mut s.literal_buf_);
         } else {
@@ -3031,7 +3031,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
         }
     }
     if command_buf.slice().len() == kCompressFragmentTwoPassBlockSize
-        && s.command_buf_.slice().len() == 0
+        && s.command_buf_.slice().is_empty()
     {
         // undo temporary aliasing of command_buf and literal_buf
         s.command_buf_ = core::mem::take(&mut command_buf);
