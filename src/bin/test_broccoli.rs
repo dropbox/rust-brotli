@@ -7,16 +7,16 @@ use super::brotli::concat::{BroCatli, BroCatliResult};
 use super::brotli::enc::BrotliEncoderParams;
 use super::integration_tests::UnlimitedBuffer;
 use brotli_decompressor::{CustomRead, CustomWrite};
-static RANDOM_THEN_UNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
-static ALICE: &'static [u8] = include_bytes!("../../testdata/alice29.txt");
-static UKKONOOA: &'static [u8] = include_bytes!("../../testdata/ukkonooa");
-static ASYOULIKE: &'static [u8] = include_bytes!("../../testdata/asyoulik.txt");
-static BACKWARD65536: &'static [u8] = include_bytes!("../../testdata/backward65536");
-static DICTWORD: &'static [u8] = include_bytes!("../../testdata/ends_with_truncated_dictionary");
-static RANDOM10K: &'static [u8] = include_bytes!("../../testdata/random_org_10k.bin");
-static RANDOMTHENUNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
-static QUICKFOX: &'static [u8] = include_bytes!("../../testdata/quickfox_repeated");
-static EMPTY: &'static [u8] = &[];
+static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
+static ALICE: &[u8] = include_bytes!("../../testdata/alice29.txt");
+static UKKONOOA: &[u8] = include_bytes!("../../testdata/ukkonooa");
+static ASYOULIKE: &[u8] = include_bytes!("../../testdata/asyoulik.txt");
+static BACKWARD65536: &[u8] = include_bytes!("../../testdata/backward65536");
+static DICTWORD: &[u8] = include_bytes!("../../testdata/ends_with_truncated_dictionary");
+static RANDOM10K: &[u8] = include_bytes!("../../testdata/random_org_10k.bin");
+static RANDOMTHENUNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
+static QUICKFOX: &[u8] = include_bytes!("../../testdata/quickfox_repeated");
+static EMPTY: &[u8] = &[];
 use super::Rebox;
 fn concat(
     files: &mut [UnlimitedBuffer],

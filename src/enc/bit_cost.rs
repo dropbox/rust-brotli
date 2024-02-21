@@ -74,6 +74,7 @@ const vectorize_population_cost: bool = true;
 #[cfg(not(feature = "vector_scratch_space"))]
 const vectorize_population_cost: bool = false;
 
+#[allow(clippy::excessive_precision)]
 fn CostComputation<T: SliceWrapper<Mem256i>>(
     depth_histo: &mut [u32; BROTLI_CODE_LENGTH_CODES],
     nnz_data: &T,

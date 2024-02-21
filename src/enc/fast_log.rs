@@ -1,4 +1,5 @@
 #[allow(dead_code)]
+#[allow(clippy::excessive_precision)]
 static mut kLog2Table: [f32; 256] = [
     0.0000000000000000f32,
     0.0000000000000000f32,

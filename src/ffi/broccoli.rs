@@ -40,9 +40,9 @@ impl From<BroCatli> for BroccoliState {
         }
     }
 }
-impl Into<BroCatli> for BroccoliState {
-    fn into(self) -> BroCatli {
-        BroCatli::deserialize_from_buffer(&self.current_data[..]).unwrap()
+impl From<BroccoliState> for BroCatli {
+    fn from(val: BroccoliState) -> Self {
+        BroCatli::deserialize_from_buffer(&val.current_data[..]).unwrap()
     }
 }
 
