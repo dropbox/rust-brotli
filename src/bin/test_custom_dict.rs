@@ -7,8 +7,8 @@ use super::brotli::concat::{BroCatli, BroCatliResult};
 use super::brotli::enc::BrotliEncoderParams;
 use super::integration_tests::UnlimitedBuffer;
 use std::io::{Read, Write};
-static RANDOM_THEN_UNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
-static ALICE: &'static [u8] = include_bytes!("../../testdata/alice29.txt");
+static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
+static ALICE: &[u8] = include_bytes!("../../testdata/alice29.txt");
 use super::Rebox;
 
 #[test]

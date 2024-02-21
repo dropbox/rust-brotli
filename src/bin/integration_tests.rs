@@ -341,7 +341,7 @@ fn total_roundtrip_helper(data: &[u8]) {
     }
     roundtrip_helper(data, 10, 23, true);
 }
-static RANDOM_THEN_UNICODE: &'static [u8] = include_bytes!("../../testdata/random_then_unicode");
+static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
 #[test]
 fn test_random_then_unicode_0() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 0, 13, false);
@@ -1016,7 +1016,7 @@ fn test_1024k() {
     );
 }
 
-static UKKONOOA: &'static [u8] = include_bytes!("../../testdata/ukkonooa");
+static UKKONOOA: &[u8] = include_bytes!("../../testdata/ukkonooa");
 #[test]
 fn test_ukkonooa() {
     let td = UKKONOOA;
@@ -1165,8 +1165,8 @@ fn test_negative_hypothesis() {
         3,
     );
 }
-static ALICE29_BR: &'static [u8] = include_bytes!("../../testdata/alice29.txt.compressed");
-static ALICE29: &'static [u8] = include_bytes!("../../testdata/alice29.txt");
+static ALICE29_BR: &[u8] = include_bytes!("../../testdata/alice29.txt.compressed");
+static ALICE29: &[u8] = include_bytes!("../../testdata/alice29.txt");
 #[test]
 fn test_alice29() {
     assert_decompressed_input_matches_output(ALICE29_BR, ALICE29, 65536, 65536);
