@@ -486,9 +486,11 @@ where
                 if len >= max_comp_len {
                     if should_reroot_tree != 0 {
                         forest[(node_left as (usize))] =
-                            forest[(LeftChildIndexH10!(xself, prev_ix) as (usize))];
+                            forest[(2usize).wrapping_mul(prev_ix & (*xself).window_mask_) as usize];
                         forest[(node_right as (usize))] =
-                            forest[(RightChildIndexH10!(xself, prev_ix) as (usize))];
+                            forest[        (2usize)
+            .wrapping_mul(prev_ix & (*xself).window_mask_)
+            .wrapping_add(1usize) as (usize)];
                     }
                     break 'break16;
                 }
