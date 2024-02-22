@@ -136,7 +136,7 @@ fn oneshot_compress(
         BrotliEncoderSetParameter(
             s,
             BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
-            quality as (u32),
+            quality,
         );
         if magic {
             BrotliEncoderSetParameter(
@@ -151,9 +151,9 @@ fn oneshot_compress(
         BrotliEncoderSetParameter(
             s,
             BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
-            lgwin as (u32),
+            lgwin,
         );
-        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0 as (u32)); // gen, text, font
+        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0_u32); // gen, text, font
         BrotliEncoderSetParameter(
             s,
             BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,

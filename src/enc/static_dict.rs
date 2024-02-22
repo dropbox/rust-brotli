@@ -383,17 +383,17 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
             i = 0usize;
             while i < w.len() as (usize) {
                 {
-                    if dict[(i as (usize))] as (i32) >= b'a' as (i32)
-                        && (dict[(i as (usize))] as (i32) <= b'z' as (i32))
+                    if dict[i] as (i32) >= b'a' as (i32)
+                        && (dict[i] as (i32) <= b'z' as (i32))
                     {
-                        if dict[(i as (usize))] as (i32) ^ 32i32 != data[(i as (usize))] as (i32) {
+                        if dict[i] as (i32) ^ 32i32 != data[i] as (i32) {
                             return 0i32;
                         }
-                    } else if dict[(i as (usize))] as (i32) != data[(i as (usize))] as (i32) {
+                    } else if dict[i] as (i32) != data[i] as (i32) {
                         return 0i32;
                     }
                 }
-                i = i.wrapping_add(1 as (usize));
+                i = i.wrapping_add(1_usize);
             }
             1i32
         }
@@ -412,7 +412,7 @@ fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
 #[allow(unused)]
 fn AddMatch(distance: usize, len: usize, len_code: usize, mut matches: &mut [u32]) {
     let match_: u32 = (distance << 5i32).wrapping_add(len_code) as (u32);
-    matches[len as (usize)] = brotli_min_uint32_t(matches[len as (usize)], match_);
+    matches[len] = brotli_min_uint32_t(matches[len], match_);
 }
 
 #[allow(unused)]
@@ -465,7 +465,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
         while end == 0 {
             let mut w: DictWord = kStaticDictionaryWords[{
                 let _old = offset;
-                offset = offset.wrapping_add(1 as (usize));
+                offset = offset.wrapping_add(1_usize);
                 _old
             }];
             let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);
@@ -528,7 +528,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                         );
                         has_found_match = 1i32;
                     }
-                    len = len.wrapping_add(1 as (usize));
+                    len = len.wrapping_add(1_usize);
                 }
                 if matchlen < l || l.wrapping_add(6usize) >= max_length {
                     {
@@ -1161,7 +1161,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
         while end == 0 {
             let mut w: DictWord = kStaticDictionaryWords[{
                 let _old = offset;
-                offset = offset.wrapping_add(1 as (usize));
+                offset = offset.wrapping_add(1_usize);
                 _old
             }];
             let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);
@@ -1403,7 +1403,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
         while end == 0 {
             let mut w: DictWord = kStaticDictionaryWords[{
                 let _old = offset;
-                offset = offset.wrapping_add(1 as (usize));
+                offset = offset.wrapping_add(1_usize);
                 _old
             }];
             let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);
@@ -1468,7 +1468,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
         while end == 0 {
             let mut w: DictWord = kStaticDictionaryWords[{
                 let _old = offset;
-                offset = offset.wrapping_add(1 as (usize));
+                offset = offset.wrapping_add(1_usize);
                 _old
             }];
             let l: usize = (w.len() as (i32) & 0x1fi32) as (usize);

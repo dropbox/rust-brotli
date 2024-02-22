@@ -377,7 +377,7 @@ pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
 
 #[inline(always)]
 pub fn Log2FloorNonZero(v: u64) -> u32 {
-    (63u32 ^ v.leading_zeros()) as u32
+    (63u32 ^ v.leading_zeros())
 }
 
 mod test {
@@ -388,7 +388,7 @@ mod test {
             n
         } != 0
         {
-            result = result.wrapping_add(1 as (u32));
+            result = result.wrapping_add(1_u32);
         }
         result
     }

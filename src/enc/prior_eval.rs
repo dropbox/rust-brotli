@@ -107,11 +107,11 @@ fn stride_lookup_lin(
 ) -> usize {
     if let Some(nibble) = high_nibble {
         1 + 2
-            * (actual_context as usize
+            * (actual_context
                 | ((stride_byte as usize & 0xf) << 8)
                 | ((nibble as usize) << 12))
     } else {
-        2 * (actual_context as usize | ((stride_byte as usize) << 8))
+        2 * (actual_context | ((stride_byte as usize) << 8))
     }
 }
 pub struct Stride1Prior {}
@@ -253,7 +253,7 @@ impl Prior for CMPrior {
         if let Some(nibble) = high_nibble {
             (nibble as usize + 1) + 17 * actual_context
         } else {
-            17 * actual_context as usize
+            17 * actual_context
         }
     }
     #[inline(always)]
@@ -296,7 +296,7 @@ impl Prior for SlowCMPrior {
         if let Some(nibble) = high_nibble {
             (nibble as usize + 1) + 17 * actual_context
         } else {
-            17 * actual_context as usize
+            17 * actual_context
         }
     }
     #[inline]
@@ -317,11 +317,11 @@ impl Prior for AdvPrior {
     ) -> usize {
         if let Some(nibble) = high_nibble {
             65536
-                + ((actual_context as usize)
+                + (actual_context
                     | ((stride_byte as usize) << 8)
                     | ((nibble as usize & 0xf) << 16))
         } else {
-            (actual_context as usize) | ((stride_byte as usize & 0xf0) << 8)
+            actual_context | ((stride_byte as usize & 0xf0) << 8)
         }
     }
     #[inline(always)]

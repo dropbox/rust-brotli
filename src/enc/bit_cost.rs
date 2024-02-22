@@ -269,7 +269,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 }
             }
         }
-        i = i.wrapping_add(1 as (usize));
+        i = i.wrapping_add(1_usize);
     }
     if count == 1i32 {
         return kOneSymbolHistogramCost;
@@ -295,7 +295,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
             {
                 histo[i] = (*histogram).slice()[s[i]];
             }
-            i = i.wrapping_add(1 as (usize));
+            i = i.wrapping_add(1_usize);
         }
         i = 0usize;
         while i < 4usize {
@@ -308,10 +308,10 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                             histo.swap(j, i);
                         }
                     }
-                    j = j.wrapping_add(1 as (usize));
+                    j = j.wrapping_add(1_usize);
                 }
             }
-            i = i.wrapping_add(1 as (usize));
+            i = i.wrapping_add(1_usize);
         }
         let h23: u32 = histo[2usize].wrapping_add(histo[3usize]);
         let histomax: u32 = brotli_max_uint32_t(h23, histo[0usize]);
@@ -336,7 +336,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 nnz += 1;
             } else {
                 let mut reps: u32 = 1;
-                for hd in (*histogram).slice()[i + 1..(data_size as usize)].iter() {
+                for hd in (*histogram).slice()[i + 1..data_size].iter() {
                     if *hd != 0 {
                         break;
                     }

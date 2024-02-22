@@ -170,7 +170,7 @@ where
         num_nodes = input_size;
     }
     let window_mask = (1 << params.lgwin) - 1;
-    let invalid_pos = 0u32.wrapping_sub(window_mask) as u32;
+    let invalid_pos = 0u32.wrapping_sub(window_mask);
     let buckets = <Buckets as Allocable<u32, AllocU32>>::new(m32, invalid_pos);
     H10::<AllocU32, Buckets, H10DefaultParams> {
         common: Struct1 {
@@ -302,7 +302,7 @@ where
             {
                 self.Store(data, mask, i);
             }
-            i = i.wrapping_add(1 as (usize));
+            i = i.wrapping_add(1_usize);
         }
     }
     fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
@@ -443,7 +443,7 @@ where
     } else {
         0i32
     };
-    let key = xself.HashBytes(&data[(cur_ix_masked as (usize))..]);
+    let key = xself.HashBytes(&data[cur_ix_masked..]);
     let forest: &mut [u32] = xself.forest.slice_mut();
     let mut prev_ix: usize = xself.buckets_.slice()[key] as (usize);
     let mut node_left: usize = LeftChildIndexH10!(xself, cur_ix);
@@ -452,7 +452,7 @@ where
     let mut best_len_right: usize = 0usize;
     let mut depth_remaining: usize;
     if should_reroot_tree != 0 {
-        xself.buckets_.slice_mut()[(key as (usize))] = cur_ix as (u32);
+        xself.buckets_.slice_mut()[key] = cur_ix as (u32);
     }
     depth_remaining = 64usize;
     'break16: loop {
@@ -461,8 +461,8 @@ where
             let prev_ix_masked: usize = prev_ix & ring_buffer_mask;
             if backward == 0usize || backward > max_backward || depth_remaining == 0usize {
                 if should_reroot_tree != 0 {
-                    forest[(node_left as (usize))] = xself.invalid_pos_;
-                    forest[(node_right as (usize))] = xself.invalid_pos_;
+                    forest[node_left] = xself.invalid_pos_;
+                    forest[node_right] = xself.invalid_pos_;
                 }
                 break 'break16;
             }
@@ -470,8 +470,8 @@ where
                 let cur_len: usize = core::cmp::min(best_len_left, best_len_right);
 
                 let len: usize = cur_len.wrapping_add(FindMatchLengthWithLimit(
-                    &data[(cur_ix_masked.wrapping_add(cur_len) as (usize))..],
-                    &data[(prev_ix_masked.wrapping_add(cur_len) as (usize))..],
+                    &data[cur_ix_masked.wrapping_add(cur_len)..],
+                    &data[prev_ix_masked.wrapping_add(cur_len)..],
                     max_length.wrapping_sub(cur_len),
                 ));
                 if matches_offset != matches.len() && (len > *best_len) {
@@ -485,35 +485,35 @@ where
                 }
                 if len >= max_comp_len {
                     if should_reroot_tree != 0 {
-                        forest[(node_left as (usize))] =
-                            forest[(2usize).wrapping_mul(prev_ix & (*xself).window_mask_) as usize];
-                        forest[(node_right as (usize))] =
+                        forest[node_left] =
+                            forest[(2usize).wrapping_mul(prev_ix & (*xself).window_mask_)];
+                        forest[node_right] =
                             forest[        (2usize)
             .wrapping_mul(prev_ix & (*xself).window_mask_)
-            .wrapping_add(1usize) as (usize)];
+            .wrapping_add(1usize)];
                     }
                     break 'break16;
                 }
-                if data[(cur_ix_masked.wrapping_add(len) as (usize))] as (i32)
-                    > data[(prev_ix_masked.wrapping_add(len) as (usize))] as (i32)
+                if data[cur_ix_masked.wrapping_add(len)] as (i32)
+                    > data[prev_ix_masked.wrapping_add(len)] as (i32)
                 {
                     best_len_left = len;
                     if should_reroot_tree != 0 {
-                        forest[(node_left as (usize))] = prev_ix as (u32);
+                        forest[node_left] = prev_ix as (u32);
                     }
                     node_left = RightChildIndexH10!(xself, prev_ix);
-                    prev_ix = forest[(node_left as (usize))] as (usize);
+                    prev_ix = forest[node_left] as (usize);
                 } else {
                     best_len_right = len;
                     if should_reroot_tree != 0 {
-                        forest[(node_right as (usize))] = prev_ix as (u32);
+                        forest[node_right] = prev_ix as (u32);
                     }
                     node_right = LeftChildIndexH10!(xself, prev_ix);
-                    prev_ix = forest[(node_right as (usize))] as (usize);
+                    prev_ix = forest[node_right] as (usize);
                 }
             }
         }
-        depth_remaining = depth_remaining.wrapping_sub(1 as (usize));
+        depth_remaining = depth_remaining.wrapping_sub(1_usize);
     }
     matches_offset
 }

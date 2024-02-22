@@ -39,7 +39,7 @@ fn test_bulk_store_range() {
         specialization: H5Sub {
             hash_shift_: 32i32 - params_hasher.bucket_bits,
             bucket_size_: bucket_size as u32,
-            block_bits_: params_hasher.block_bits as i32,
+            block_bits_: params_hasher.block_bits,
             block_mask_: block_size.wrapping_sub(1u64) as u32,
         },
     };
@@ -141,7 +141,7 @@ fn test_bulk_store_range_off_spec() {
         specialization: H5Sub {
             hash_shift_: 32i32 - params_hasher.bucket_bits,
             bucket_size_: bucket_size as u32,
-            block_bits_: params_hasher.block_bits as i32,
+            block_bits_: params_hasher.block_bits,
             block_mask_: block_size.wrapping_sub(1u64) as u32,
         },
     };
@@ -229,7 +229,7 @@ fn test_bulk_store_range_pow2() {
         specialization: H5Sub {
             hash_shift_: 32i32 - params_hasher.bucket_bits,
             bucket_size_: bucket_size as u32,
-            block_bits_: params_hasher.block_bits as i32,
+            block_bits_: params_hasher.block_bits,
             block_mask_: block_size.wrapping_sub(1u64) as u32,
         },
     };

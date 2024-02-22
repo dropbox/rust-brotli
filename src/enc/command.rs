@@ -130,10 +130,10 @@ pub fn PrefixEncodeCopyDistance(
         *code = distance_code as (u16);
         *extra_bits = 0u32;
     } else {
-        let dist: u64 = (1u64 << (postfix_bits as u64).wrapping_add(2u32 as (u64))).wrapping_add(
+        let dist: u64 = (1u64 << postfix_bits.wrapping_add(2u32 as (u64))).wrapping_add(
             (distance_code as u64)
                 .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES as u64)
-                .wrapping_sub(num_direct_codes as u64) as u64,
+                .wrapping_sub(num_direct_codes as u64),
         );
         let bucket: u64 = Log2FloorNonZero(dist).wrapping_sub(1u32) as (u64);
         let postfix_mask: u64 = (1u32 << postfix_bits).wrapping_sub(1u32) as (u64);
@@ -171,11 +171,11 @@ pub fn CommandRestoreDistanceCode(xself: &Command, dist: &BrotliDistanceParams) 
         let postfix_mask = (1u32 << dist.distance_postfix_bits) - 1;
         let hcode = dcode
             .wrapping_sub(dist.num_direct_distance_codes)
-            .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES as u32)
+            .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES)
             >> dist.distance_postfix_bits;
         let lcode = dcode
             .wrapping_sub(dist.num_direct_distance_codes)
-            .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES as u32)
+            .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES)
             & postfix_mask;
         let offset = (2u32.wrapping_add((hcode & 1)) << nbits).wrapping_sub(4);
         (offset.wrapping_add(extra) << dist.distance_postfix_bits)
@@ -220,7 +220,7 @@ pub fn CommandDistanceIndexAndOffset(cmd: &Command, dist: &BrotliDistanceParams)
         return (0, ret);
     }
     let postfix_mask = (1 << n_postfix) - 1;
-    let dcode = dprefix as u32 - BROTLI_NUM_DISTANCE_SHORT_CODES as u32 - n_direct;
+    let dcode = dprefix as u32 - BROTLI_NUM_DISTANCE_SHORT_CODES - n_direct;
     let hcode = dcode >> n_postfix;
     let lcode = dcode & postfix_mask;
     let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;
@@ -370,7 +370,7 @@ pub fn RecomputeDistancePrefixes(
     i = 0usize;
     while i < num_commands {
         {
-            let cmd: &mut Command = &mut cmds[(i as (usize))];
+            let cmd: &mut Command = &mut cmds[i];
             if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as (i32) >= 128i32) {
                 PrefixEncodeCopyDistance(
                     CommandRestoreDistanceCode(cmd, dist) as (usize),
@@ -381,7 +381,7 @@ pub fn RecomputeDistancePrefixes(
                 );
             }
         }
-        i = i.wrapping_add(1 as (usize));
+        i = i.wrapping_add(1_usize);
     }
 }
 
