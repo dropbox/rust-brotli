@@ -380,8 +380,8 @@ impl<'a> BackwardMatchMut<'a> {
 
 #[inline(always)]
 pub fn InitBackwardMatch(xself: &mut BackwardMatchMut, dist: usize, len: usize) {
-    (*xself).set_distance(dist as (u32));
-    (*xself).set_length_and_code((len << 5i32) as (u32));
+    (*xself).set_distance(dist as u32);
+    (*xself).set_length_and_code((len << 5i32) as u32);
 }
 
 macro_rules! LeftChildIndexH10 {
@@ -445,14 +445,14 @@ where
     };
     let key = xself.HashBytes(&data[cur_ix_masked..]);
     let forest: &mut [u32] = xself.forest.slice_mut();
-    let mut prev_ix: usize = xself.buckets_.slice()[key] as (usize);
+    let mut prev_ix: usize = xself.buckets_.slice()[key] as usize;
     let mut node_left: usize = LeftChildIndexH10!(xself, cur_ix);
     let mut node_right: usize = RightChildIndexH10!(xself, cur_ix);
     let mut best_len_left: usize = 0usize;
     let mut best_len_right: usize = 0usize;
     let mut depth_remaining: usize;
     if should_reroot_tree != 0 {
-        xself.buckets_.slice_mut()[key] = cur_ix as (u32);
+        xself.buckets_.slice_mut()[key] = cur_ix as u32;
     }
     depth_remaining = 64usize;
     'break16: loop {
@@ -490,22 +490,22 @@ where
                     }
                     break 'break16;
                 }
-                if data[cur_ix_masked.wrapping_add(len)] as (i32)
-                    > data[prev_ix_masked.wrapping_add(len)] as (i32)
+                if data[cur_ix_masked.wrapping_add(len)] as i32
+                    > data[prev_ix_masked.wrapping_add(len)] as i32
                 {
                     best_len_left = len;
                     if should_reroot_tree != 0 {
-                        forest[node_left] = prev_ix as (u32);
+                        forest[node_left] = prev_ix as u32;
                     }
                     node_left = RightChildIndexH10!(xself, prev_ix);
-                    prev_ix = forest[node_left] as (usize);
+                    prev_ix = forest[node_left] as usize;
                 } else {
                     best_len_right = len;
                     if should_reroot_tree != 0 {
-                        forest[node_right] = prev_ix as (u32);
+                        forest[node_right] = prev_ix as u32;
                     }
                     node_right = LeftChildIndexH10!(xself, prev_ix);
-                    prev_ix = forest[node_right] as (usize);
+                    prev_ix = forest[node_right] as usize;
                 }
             }
         }

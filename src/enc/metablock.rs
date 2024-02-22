@@ -224,7 +224,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         &mut mb.distance_split,
     );
     if params.disable_literal_context_modeling == 0 {
-        literal_context_multiplier = (1i32 << 6i32) as (usize);
+        literal_context_multiplier = (1i32 << 6i32) as usize;
         literal_context_modes =
             <Alloc as Allocator<ContextType>>::alloc_cell(alloc, mb.literal_split.num_types);
         for item in literal_context_modes.slice_mut().iter_mut() {
@@ -282,7 +282,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         while i != 0usize {
             let mut j: usize = 0usize;
             i = i.wrapping_sub(1);
-            while j < (1i32 << 6i32) as (usize) {
+            while j < (1i32 << 6i32) as usize {
                 {
                     let val = mb.literal_context_map.slice()[i];
                     mb.literal_context_map.slice_mut()[(i << 6i32).wrapping_add(j)] = val;
@@ -406,7 +406,7 @@ fn InitBlockSplitter<
     histograms_size: &mut usize,
 ) -> BlockSplitter {
     let max_num_blocks: usize = num_symbols.wrapping_div(min_block_size).wrapping_add(1);
-    let max_num_types: usize = brotli_min_size_t(max_num_blocks, (256i32 + 1i32) as (usize));
+    let max_num_types: usize = brotli_min_size_t(max_num_blocks, (256i32 + 1i32) as usize);
     let mut xself = BlockSplitter {
         last_entropy_: [0.0 as super::util::floatX; 2],
         alphabet_size_: alphabet_size,
@@ -571,8 +571,8 @@ fn BlockSplitterFinishBlock<
 ) {
     xself.block_size_ = brotli_max_size_t(xself.block_size_, xself.min_block_size_);
     if xself.num_blocks_ == 0usize {
-        split.lengths.slice_mut()[(0)] = xself.block_size_ as (u32);
-        split.types.slice_mut()[(0)] = 0i32 as (u8);
+        split.lengths.slice_mut()[(0)] = xself.block_size_ as u32;
+        split.types.slice_mut()[(0)] = 0u8;
         xself.last_entropy_[(0)] = BitsEntropy((histograms[(0)]).slice(), xself.alphabet_size_);
         xself.last_entropy_[(1)] = xself.last_entropy_[(0)];
         xself.num_blocks_ = xself.num_blocks_.wrapping_add(1);
@@ -611,10 +611,10 @@ fn BlockSplitterFinishBlock<
             && (diff[0] > xself.split_threshold_)
             && (diff[1] > xself.split_threshold_)
         {
-            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as (u32);
-            split.types.slice_mut()[xself.num_blocks_] = split.num_types as (u8);
+            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
+            split.types.slice_mut()[xself.num_blocks_] = split.num_types as u8;
             xself.last_histogram_ix_[1] = xself.last_histogram_ix_[0];
-            xself.last_histogram_ix_[0] = split.num_types as (u8) as (usize);
+            xself.last_histogram_ix_[0] = split.num_types as u8 as usize;
             xself.last_entropy_[(1)] = xself.last_entropy_[(0)];
             xself.last_entropy_[(0)] = entropy;
             xself.num_blocks_ = xself.num_blocks_.wrapping_add(1);
@@ -627,7 +627,7 @@ fn BlockSplitterFinishBlock<
             xself.merge_last_count_ = 0usize;
             xself.target_block_size_ = xself.min_block_size_;
         } else if diff[1] < diff[0] - 20.0 as super::util::floatX {
-            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as (u32);
+            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
             split.types.slice_mut()[xself.num_blocks_] =
                 split.types.slice()[xself.num_blocks_.wrapping_sub(2usize)]; //FIXME: investigate copy?
             {
@@ -643,7 +643,7 @@ fn BlockSplitterFinishBlock<
             xself.target_block_size_ = xself.min_block_size_;
         } else {
             {
-                let _rhs = xself.block_size_ as (u32);
+                let _rhs = xself.block_size_ as u32;
                 let _lhs = &mut split.lengths.slice_mut()[xself.num_blocks_.wrapping_sub(1)];
                 *_lhs = (*_lhs).wrapping_add(_rhs);
             }
@@ -688,8 +688,8 @@ fn ContextBlockSplitterFinishBlock<
     }
     if xself.num_blocks_ == 0usize {
         let mut i: usize;
-        split.lengths.slice_mut()[(0)] = xself.block_size_ as (u32);
-        split.types.slice_mut()[(0)] = 0i32 as (u8);
+        split.lengths.slice_mut()[(0)] = xself.block_size_ as u32;
+        split.types.slice_mut()[(0)] = 0u8;
         i = 0usize;
         while i < num_contexts {
             {
@@ -747,8 +747,8 @@ fn ContextBlockSplitterFinishBlock<
             && (diff[0] > xself.split_threshold_)
             && (diff[1] > xself.split_threshold_)
         {
-            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as (u32);
-            split.types.slice_mut()[xself.num_blocks_] = split.num_types as (u8);
+            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
+            split.types.slice_mut()[xself.num_blocks_] = split.num_types as u8;
             xself.last_histogram_ix_[1] = xself.last_histogram_ix_[0];
             xself.last_histogram_ix_[0] = split.num_types.wrapping_mul(num_contexts);
             i = 0usize;
@@ -772,7 +772,7 @@ fn ContextBlockSplitterFinishBlock<
             xself.merge_last_count_ = 0usize;
             xself.target_block_size_ = xself.min_block_size_;
         } else if diff[1] < diff[0] - 20.0 as super::util::floatX {
-            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as (u32);
+            split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
             let nbm2 = split.types.slice()[xself.num_blocks_.wrapping_sub(2usize)];
             split.types.slice_mut()[xself.num_blocks_] = nbm2;
 
@@ -796,7 +796,7 @@ fn ContextBlockSplitterFinishBlock<
             xself.target_block_size_ = xself.min_block_size_;
         } else {
             {
-                let _rhs = xself.block_size_ as (u32);
+                let _rhs = xself.block_size_ as u32;
                 let _lhs = &mut split.lengths.slice_mut()[xself.num_blocks_.wrapping_sub(1)];
                 let old_split_length = *_lhs;
                 *_lhs = old_split_length.wrapping_add(_rhs);
@@ -893,10 +893,10 @@ fn MapStaticContexts<
     i = 0usize;
     while i < mb.literal_split.num_types {
         {
-            let offset: u32 = i.wrapping_mul(num_contexts) as (u32);
+            let offset: u32 = i.wrapping_mul(num_contexts) as u32;
             let mut j: usize;
             j = 0usize;
-            while j < (1u32 << 6i32) as (usize) {
+            while j < (1u32 << 6i32) as usize {
                 {
                     mb.literal_context_map.slice_mut()[(i << 6i32).wrapping_add(j)] =
                         offset.wrapping_add(static_context_map[j]);
@@ -935,7 +935,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
     i = 0usize;
     while i < n_commands {
         {
-            num_literals = num_literals.wrapping_add((commands[i]).insert_len_ as (usize));
+            num_literals = num_literals.wrapping_add((commands[i]).insert_len_ as usize);
         }
         i = i.wrapping_add(1);
     }
@@ -994,9 +994,9 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
                 &mut mb.command_split,
                 mb.command_histograms.slice_mut(),
                 &mut mb.command_histograms_size,
-                cmd.cmd_prefix_ as (usize),
+                cmd.cmd_prefix_ as usize,
             );
-            j = cmd.insert_len_ as (usize);
+            j = cmd.insert_len_ as usize;
             while j != 0usize {
                 {
                     let literal: u8 = ringbuffer[(pos & mask)];
@@ -1006,19 +1006,19 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
                             &mut mb.literal_split,
                             mb.literal_histograms.slice_mut(),
                             &mut mb.literal_histograms_size,
-                            literal as (usize),
+                            literal as usize,
                         ),
                         &mut LitBlocks::ctx(ref mut lit_blocks_ctx) => {
                             let context: usize =
-                                Context(prev_byte, prev_byte2, literal_context_mode) as (usize);
+                                Context(prev_byte, prev_byte2, literal_context_mode) as usize;
                             ContextBlockSplitterAddSymbol(
                                 lit_blocks_ctx,
                                 alloc,
                                 &mut mb.literal_split,
                                 mb.literal_histograms.slice_mut(),
                                 &mut mb.literal_histograms_size,
-                                literal as (usize),
-                                static_context_map[(context as (usize))] as (usize),
+                                literal as usize,
+                                static_context_map[(context as usize)] as usize,
                             );
                         }
                     }
@@ -1028,17 +1028,17 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
                 }
                 j = j.wrapping_sub(1);
             }
-            pos = pos.wrapping_add(CommandCopyLen(&cmd) as (usize));
+            pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
             if CommandCopyLen(&cmd) != 0 {
                 prev_byte2 = ringbuffer[(pos.wrapping_sub(2usize) & mask)];
                 prev_byte = ringbuffer[(pos.wrapping_sub(1) & mask)];
-                if cmd.cmd_prefix_ as (i32) >= 128i32 {
+                if cmd.cmd_prefix_ as i32 >= 128i32 {
                     BlockSplitterAddSymbol(
                         &mut dist_blocks,
                         &mut mb.distance_split,
                         mb.distance_histograms.slice_mut(),
                         &mut mb.distance_histograms_size,
-                        cmd.dist_prefix_ as (usize) & 0x3ff,
+                        cmd.dist_prefix_ as usize & 0x3ff,
                     );
                 }
             }

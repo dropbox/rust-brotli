@@ -138,7 +138,7 @@ fn oneshot_compress(
             BrotliEncoderSetParameter(
                 s,
                 BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
-                magic as (u32),
+                magic as u32,
             );
         }
         if quality >= 10 {
@@ -149,7 +149,7 @@ fn oneshot_compress(
         BrotliEncoderSetParameter(
             s,
             BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
-            input.len() as (u32),
+            input.len() as u32,
         );
         loop {
             let mut available_in: usize =

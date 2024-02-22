@@ -260,7 +260,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
     'break1: while i < data_size {
         {
             if (*histogram).slice()[i] > 0u32 {
-                s[count as (usize)] = i;
+                s[count as usize] = i;
                 count += 1;
                 if count > 4i32 {
                     {
@@ -385,8 +385,8 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                     }
                     reps = 0;
                 }
-                let log2p: super::util::floatX = log2total - FastLog2u16(*histo as (u16));
-                let mut depth: usize = (log2p + 0.5 as super::util::floatX) as (usize);
+                let log2p: super::util::floatX = log2total - FastLog2u16(*histo as u16);
+                let mut depth: usize = (log2p + 0.5 as super::util::floatX) as usize;
                 bits += *histo as super::util::floatX * log2p;
                 depth = core::cmp::min(depth, 15);
                 max_depth = core::cmp::max(depth, max_depth);
@@ -402,11 +402,11 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
 }
 /*
 fn HistogramDataSizeCommand() -> usize {
-    704i32 as (usize)
+    704usize
 }*/
 
 /*
 fn HistogramDataSizeDistance() -> usize {
-    520i32 as (usize)
+    520usize
 }
 */

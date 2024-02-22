@@ -84,25 +84,22 @@ fn BrotliCompareAndPushToQueue<
         p.idx2 = idx2;
         p.cost_diff = 0.5 as super::util::floatX
             * ClusterCostDiff(
-                cluster_size[idx1 as usize] as (usize),
-                cluster_size[idx2 as usize] as (usize),
+                cluster_size[idx1 as usize] as usize,
+                cluster_size[idx2 as usize] as usize,
             );
-        p.cost_diff -= (out[idx1 as (usize)]).bit_cost();
-        p.cost_diff -= (out[idx2 as (usize)]).bit_cost();
-        if (out[idx1 as (usize)]).total_count() == 0i32 as (usize) {
-            p.cost_combo = (out[idx2 as (usize)]).bit_cost();
+        p.cost_diff -= (out[idx1 as usize]).bit_cost();
+        p.cost_diff -= (out[idx2 as usize]).bit_cost();
+        if (out[idx1 as usize]).total_count() == 0usize {
+            p.cost_combo = (out[idx2 as usize]).bit_cost();
             is_good_pair = 1i32;
-        } else if (out[idx2 as (usize)]).total_count() == 0i32 as (usize) {
-            p.cost_combo = (out[idx1 as (usize)]).bit_cost();
+        } else if (out[idx2 as usize]).total_count() == 0usize {
+            p.cost_combo = (out[idx1 as usize]).bit_cost();
             is_good_pair = 1i32;
         } else {
-            let threshold: super::util::floatX = if *num_pairs == 0i32 as (usize) {
+            let threshold: super::util::floatX = if *num_pairs == 0usize {
                 1e38 as super::util::floatX
             } else {
-                brotli_max_double(
-                    0.0 as super::util::floatX,
-                    (pairs[0i32 as (usize)]).cost_diff,
-                )
+                brotli_max_double(0.0 as super::util::floatX, (pairs[0usize]).cost_diff)
             };
 
             let mut combo: HistogramType = out[idx1 as usize].clone();
@@ -115,13 +112,13 @@ fn BrotliCompareAndPushToQueue<
         }
         if is_good_pair != 0 {
             p.cost_diff += p.cost_combo;
-            if *num_pairs > 0i32 as (usize) && HistogramPairIsLess(&pairs[0i32 as (usize)], &p) {
+            if *num_pairs > 0usize && HistogramPairIsLess(&pairs[0usize], &p) {
                 /* Replace the top of the queue if needed. */
                 if *num_pairs < max_num_pairs {
-                    pairs[*num_pairs] = pairs[0i32 as (usize)];
+                    pairs[*num_pairs] = pairs[0usize];
                     *num_pairs = (*num_pairs).wrapping_add(1);
                 }
-                pairs[0i32 as (usize)] = p;
+                pairs[0usize] = p;
             } else if *num_pairs < max_num_pairs {
                 pairs[*num_pairs] = p;
                 *num_pairs = (*num_pairs).wrapping_add(1);
@@ -189,11 +186,11 @@ pub fn BrotliHistogramCombine<
         /* Take the best pair from the top of heap. */
         let best_idx1: u32 = (pairs[(0)]).idx1;
         let best_idx2: u32 = (pairs[(0)]).idx2;
-        HistogramSelfAddHistogram(out, (best_idx1 as (usize)), (best_idx2 as (usize)));
-        (out[(best_idx1 as (usize))]).set_bit_cost((pairs[(0)]).cost_combo);
+        HistogramSelfAddHistogram(out, (best_idx1 as usize), (best_idx2 as usize));
+        (out[(best_idx1 as usize)]).set_bit_cost((pairs[(0)]).cost_combo);
         {
-            let _rhs = cluster_size[(best_idx2 as (usize))];
-            let _lhs = &mut cluster_size[(best_idx1 as (usize))];
+            let _rhs = cluster_size[(best_idx2 as usize)];
+            let _lhs = &mut cluster_size[(best_idx1 as usize)];
             *_lhs = (*_lhs).wrapping_add(_rhs);
         }
         i = 0usize;
@@ -318,7 +315,7 @@ pub fn BrotliHistogramRemap<
             };
             let mut best_bits: super::util::floatX = BrotliHistogramBitCostDistance(
                 &inp[i],
-                &mut out[(best_out as (usize))],
+                &mut out[(best_out as usize)],
                 scratch_space,
             );
             let mut j: usize;
@@ -327,7 +324,7 @@ pub fn BrotliHistogramRemap<
                 {
                     let cur_bits: super::util::floatX = BrotliHistogramBitCostDistance(
                         &inp[i],
-                        &mut out[(clusters[j] as (usize))],
+                        &mut out[(clusters[j] as usize)],
                         scratch_space,
                     );
                     if cur_bits < best_bits {
@@ -345,14 +342,14 @@ pub fn BrotliHistogramRemap<
     /* Recompute each out based on raw and symbols. */
     while i < num_clusters {
         {
-            HistogramClear(&mut out[(clusters[i] as (usize))]);
+            HistogramClear(&mut out[(clusters[i] as usize)]);
         }
         i = i.wrapping_add(1);
     }
     i = 0usize;
     while i < in_size {
         {
-            HistogramAddHistogram(&mut out[(symbols[i] as (usize))], &inp[i]);
+            HistogramAddHistogram(&mut out[(symbols[i] as usize)], &inp[i]);
         }
         i = i.wrapping_add(1);
     }
@@ -397,8 +394,8 @@ pub fn BrotliHistogramReindex<
     i = 0usize;
     while i < length {
         {
-            if new_index.slice()[(symbols[i] as (usize))] == kInvalidIndex {
-                new_index.slice_mut()[(symbols[i] as (usize))] = next_index;
+            if new_index.slice()[(symbols[i] as usize)] == kInvalidIndex {
+                new_index.slice_mut()[(symbols[i] as usize)] = next_index;
                 next_index = next_index.wrapping_add(1);
             }
         }
@@ -415,11 +412,11 @@ pub fn BrotliHistogramReindex<
     i = 0usize;
     while i < length {
         {
-            if new_index.slice()[(symbols[i] as (usize))] == next_index {
-                tmp.slice_mut()[(next_index as (usize))] = out[(symbols[i] as (usize))].clone();
+            if new_index.slice()[(symbols[i] as usize)] == next_index {
+                tmp.slice_mut()[(next_index as usize)] = out[(symbols[i] as usize)].clone();
                 next_index = next_index.wrapping_add(1);
             }
-            symbols[i] = new_index.slice()[(symbols[i] as (usize))];
+            symbols[i] = new_index.slice()[(symbols[i] as usize)];
         }
         i = i.wrapping_add(1);
     }
@@ -427,7 +424,7 @@ pub fn BrotliHistogramReindex<
         <Alloc as Allocator<u32>>::free_cell(alloc, new_index);
     }
     i = 0usize;
-    while i < next_index as (usize) {
+    while i < next_index as usize {
         {
             out[i] = tmp.slice()[i].clone();
         }
@@ -436,7 +433,7 @@ pub fn BrotliHistogramReindex<
     {
         <Alloc as Allocator<HistogramType>>::free_cell(alloc, tmp)
     }
-    next_index as (usize)
+    next_index as usize
 }
 
 pub fn BrotliClusterHistograms<
@@ -482,7 +479,7 @@ pub fn BrotliClusterHistograms<
         {
             out[i] = inp[i].clone();
             (out[i]).set_bit_cost(BrotliPopulationCost(&inp[i], scratch_space));
-            histogram_symbols[i] = i as (u32);
+            histogram_symbols[i] = i as u32;
         }
         i = i.wrapping_add(1);
     }
@@ -496,7 +493,7 @@ pub fn BrotliClusterHistograms<
             j = 0usize;
             while j < num_to_combine {
                 {
-                    clusters.slice_mut()[num_clusters.wrapping_add(j)] = i.wrapping_add(j) as (u32);
+                    clusters.slice_mut()[num_clusters.wrapping_add(j)] = i.wrapping_add(j) as u32;
                 }
                 j = j.wrapping_add(1);
             }
