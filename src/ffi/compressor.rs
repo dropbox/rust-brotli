@@ -308,7 +308,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressStream(
             } else {
                 (&mut [], false)
             };
-            let mut to = Some(0usize);
+            let mut to = Some(0);
             result = ::enc::encode::BrotliEncoderCompressStream(
                 &mut (*state_ptr).compressor,
                 translated_op,

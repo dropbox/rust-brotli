@@ -145,7 +145,7 @@ fn oneshot_compress(
             BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_Q9_5, 1);
         }
         BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_LGWIN, lgwin);
-        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0_u32); // gen, text, font
+        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0); // gen, text, font
         BrotliEncoderSetParameter(
             s,
             BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
@@ -159,7 +159,7 @@ fn oneshot_compress(
             if available_out == 0 {
                 panic!("No output buffer space");
             }
-            let mut total_out = Some(0usize);
+            let mut total_out = Some(0);
             let op: BrotliEncoderOperation;
             if available_in == input.len() - next_in_offset {
                 op = BrotliEncoderOperation::BROTLI_OPERATION_FINISH;

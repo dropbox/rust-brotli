@@ -40,12 +40,12 @@ pub fn CommandDistanceContext(xself: &Command) -> u32 {
 pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i32]) -> usize {
     if distance <= max_distance {
         let distance_plus_3: usize = distance.wrapping_add(3usize);
-        let offset0: usize = distance_plus_3.wrapping_sub(dist_cache[(0usize)] as (usize));
-        let offset1: usize = distance_plus_3.wrapping_sub(dist_cache[(1usize)] as (usize));
-        if distance == dist_cache[(0usize)] as (usize) {
+        let offset0: usize = distance_plus_3.wrapping_sub(dist_cache[(0)] as (usize));
+        let offset1: usize = distance_plus_3.wrapping_sub(dist_cache[(1)] as (usize));
+        if distance == dist_cache[(0)] as (usize) {
             return 0usize;
-        } else if distance == dist_cache[(1usize)] as (usize) {
-            return 1usize;
+        } else if distance == dist_cache[(1)] as (usize) {
+            return 1;
         } else if offset0 < 7usize {
             return (0x9750468i32 >> (4usize).wrapping_mul(offset0) & 0xfi32) as (usize);
         } else if offset1 < 7usize {
@@ -56,7 +56,7 @@ pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i
             return 3usize;
         }
     }
-    distance.wrapping_add(16usize).wrapping_sub(1usize)
+    distance.wrapping_add(16usize).wrapping_sub(1)
 }
 
 #[inline(always)]
@@ -381,7 +381,7 @@ pub fn RecomputeDistancePrefixes(
                 );
             }
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
 }
 

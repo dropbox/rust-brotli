@@ -119,12 +119,12 @@ fn BrotliCompareAndPushToQueue<
                 /* Replace the top of the queue if needed. */
                 if *num_pairs < max_num_pairs {
                     pairs[*num_pairs] = pairs[0i32 as (usize)];
-                    *num_pairs = (*num_pairs).wrapping_add(1_usize);
+                    *num_pairs = (*num_pairs).wrapping_add(1);
                 }
                 pairs[0i32 as (usize)] = p;
             } else if *num_pairs < max_num_pairs {
                 pairs[*num_pairs] = p;
-                *num_pairs = (*num_pairs).wrapping_add(1_usize);
+                *num_pairs = (*num_pairs).wrapping_add(1);
             }
         }
     }
@@ -145,7 +145,7 @@ pub fn BrotliHistogramCombine<
     scratch_space: &mut HistogramType::i32vec,
 ) -> usize {
     let mut cost_diff_threshold: super::util::floatX = 0.0 as super::util::floatX;
-    let mut min_cluster_size: usize = 1usize;
+    let mut min_cluster_size: usize = 1;
     let mut num_pairs: usize = 0usize;
     {
         /* We maintain a vector of histogram pairs, with the property that the pair
@@ -155,7 +155,7 @@ pub fn BrotliHistogramCombine<
         while idx1 < num_clusters {
             {
                 let mut idx2: usize;
-                idx2 = idx1.wrapping_add(1usize);
+                idx2 = idx1.wrapping_add(1);
                 while idx2 < num_clusters {
                     {
                         BrotliCompareAndPushToQueue(
@@ -169,15 +169,15 @@ pub fn BrotliHistogramCombine<
                             &mut num_pairs,
                         );
                     }
-                    idx2 = idx2.wrapping_add(1_usize);
+                    idx2 = idx2.wrapping_add(1);
                 }
             }
-            idx1 = idx1.wrapping_add(1_usize);
+            idx1 = idx1.wrapping_add(1);
         }
     }
     while num_clusters > min_cluster_size {
         let mut i: usize;
-        if (pairs[(0usize)]).cost_diff >= cost_diff_threshold {
+        if (pairs[(0)]).cost_diff >= cost_diff_threshold {
             cost_diff_threshold = 1e38 as super::util::floatX;
             min_cluster_size = max_clusters;
             {
@@ -187,10 +187,10 @@ pub fn BrotliHistogramCombine<
             }
         }
         /* Take the best pair from the top of heap. */
-        let best_idx1: u32 = (pairs[(0usize)]).idx1;
-        let best_idx2: u32 = (pairs[(0usize)]).idx2;
+        let best_idx1: u32 = (pairs[(0)]).idx1;
+        let best_idx2: u32 = (pairs[(0)]).idx2;
         HistogramSelfAddHistogram(out, (best_idx1 as (usize)), (best_idx2 as (usize)));
-        (out[(best_idx1 as (usize))]).set_bit_cost((pairs[(0usize)]).cost_combo);
+        (out[(best_idx1 as (usize))]).set_bit_cost((pairs[(0)]).cost_combo);
         {
             let _rhs = cluster_size[(best_idx2 as (usize))];
             let _lhs = &mut cluster_size[(best_idx1 as (usize))];
@@ -203,7 +203,7 @@ pub fn BrotliHistogramCombine<
                     symbols[i] = best_idx1;
                 }
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         i = 0usize;
         'break9: while i < num_clusters {
@@ -215,9 +215,9 @@ pub fn BrotliHistogramCombine<
                     break 'break9;
                 }
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
-        num_clusters = num_clusters.wrapping_sub(1_usize);
+        num_clusters = num_clusters.wrapping_sub(1);
         {
             /* Remove pairs intersecting the just combined best pair. */
             let mut copy_to_idx: usize = 0usize;
@@ -236,19 +236,19 @@ pub fn BrotliHistogramCombine<
                                 break 'continue12;
                             }
                         }
-                        if HistogramPairIsLess(&pairs[(0usize)], &p) {
+                        if HistogramPairIsLess(&pairs[(0)], &p) {
                             /* Replace the top of the queue if needed. */
-                            let front: HistogramPair = pairs[(0usize)];
-                            pairs[(0usize)] = p;
+                            let front: HistogramPair = pairs[(0)];
+                            pairs[(0)] = p;
                             pairs[copy_to_idx] = front;
                         } else {
                             pairs[copy_to_idx] = p;
                         }
-                        copy_to_idx = copy_to_idx.wrapping_add(1_usize);
+                        copy_to_idx = copy_to_idx.wrapping_add(1);
                     }
                     break;
                 }
-                i = i.wrapping_add(1_usize);
+                i = i.wrapping_add(1);
             }
             num_pairs = copy_to_idx;
         }
@@ -267,7 +267,7 @@ pub fn BrotliHistogramCombine<
                     &mut num_pairs,
                 );
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
     }
     num_clusters
@@ -312,9 +312,9 @@ pub fn BrotliHistogramRemap<
     while i < in_size {
         {
             let mut best_out: u32 = if i == 0usize {
-                symbols[(0usize)]
+                symbols[(0)]
             } else {
-                symbols[i.wrapping_sub(1usize)]
+                symbols[i.wrapping_sub(1)]
             };
             let mut best_bits: super::util::floatX = BrotliHistogramBitCostDistance(
                 &inp[i],
@@ -335,11 +335,11 @@ pub fn BrotliHistogramRemap<
                         best_out = clusters[j];
                     }
                 }
-                j = j.wrapping_add(1_usize);
+                j = j.wrapping_add(1);
             }
             symbols[i] = best_out;
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     i = 0usize;
     /* Recompute each out based on raw and symbols. */
@@ -347,14 +347,14 @@ pub fn BrotliHistogramRemap<
         {
             HistogramClear(&mut out[(clusters[i] as (usize))]);
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     i = 0usize;
     while i < in_size {
         {
             HistogramAddHistogram(&mut out[(symbols[i] as (usize))], &inp[i]);
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
 }
 
@@ -391,7 +391,7 @@ pub fn BrotliHistogramReindex<
         {
             new_index.slice_mut()[i] = kInvalidIndex;
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     next_index = 0u32;
     i = 0usize;
@@ -399,10 +399,10 @@ pub fn BrotliHistogramReindex<
         {
             if new_index.slice()[(symbols[i] as (usize))] == kInvalidIndex {
                 new_index.slice_mut()[(symbols[i] as (usize))] = next_index;
-                next_index = next_index.wrapping_add(1_u32);
+                next_index = next_index.wrapping_add(1);
             }
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     /* TODO: by using idea of "cycle-sort" we can avoid allocation of
     tmp and reduce the number of copying by the factor of 2. */
@@ -417,11 +417,11 @@ pub fn BrotliHistogramReindex<
         {
             if new_index.slice()[(symbols[i] as (usize))] == next_index {
                 tmp.slice_mut()[(next_index as (usize))] = out[(symbols[i] as (usize))].clone();
-                next_index = next_index.wrapping_add(1_u32);
+                next_index = next_index.wrapping_add(1);
             }
             symbols[i] = new_index.slice()[(symbols[i] as (usize))];
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     {
         <Alloc as Allocator<u32>>::free_cell(alloc, new_index);
@@ -431,7 +431,7 @@ pub fn BrotliHistogramReindex<
         {
             out[i] = tmp.slice()[i].clone();
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     {
         <Alloc as Allocator<HistogramType>>::free_cell(alloc, tmp)
@@ -468,14 +468,14 @@ pub fn BrotliClusterHistograms<
         .wrapping_mul(max_input_histograms)
         .wrapping_div(2usize);
     let mut pairs =
-        <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity.wrapping_add(1usize));
+        <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity.wrapping_add(1));
     let mut i: usize;
     i = 0usize;
     while i < in_size {
         {
             cluster_size.slice_mut()[i] = 1u32;
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     i = 0usize;
     while i < in_size {
@@ -484,7 +484,7 @@ pub fn BrotliClusterHistograms<
             (out[i]).set_bit_cost(BrotliPopulationCost(&inp[i], scratch_space));
             histogram_symbols[i] = i as (u32);
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     i = 0usize;
     while i < in_size {
@@ -498,7 +498,7 @@ pub fn BrotliClusterHistograms<
                 {
                     clusters.slice_mut()[num_clusters.wrapping_add(j)] = i.wrapping_add(j) as (u32);
                 }
-                j = j.wrapping_add(1_usize);
+                j = j.wrapping_add(1);
             }
             let num_new_clusters: usize = BrotliHistogramCombine(
                 out,
@@ -522,14 +522,14 @@ pub fn BrotliClusterHistograms<
             num_clusters.wrapping_div(2usize).wrapping_mul(num_clusters),
         );
         {
-            if pairs_capacity < max_num_pairs.wrapping_add(1usize) {
+            if pairs_capacity < max_num_pairs.wrapping_add(1) {
                 let mut _new_size: usize = if pairs_capacity == 0usize {
-                    max_num_pairs.wrapping_add(1usize)
+                    max_num_pairs.wrapping_add(1)
                 } else {
                     pairs_capacity
                 };
                 let mut new_array: <Alloc as Allocator<HistogramPair>>::AllocatedMemory;
-                while _new_size < max_num_pairs.wrapping_add(1usize) {
+                while _new_size < max_num_pairs.wrapping_add(1) {
                     _new_size = _new_size.wrapping_mul(2usize);
                 }
                 new_array = if _new_size != 0 {

@@ -459,11 +459,11 @@ where
         for thread_index in 1..num_threads {
             let res = spawner_and_input.view(|input_and_params: &(SliceW, BrotliEncoderParams)| {
                 let range = get_range(thread_index - 1, num_threads, input_and_params.0.len());
-                let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
+                let overlap = hasher.StoreLookahead().wrapping_sub(1);
                 if range.end - range.start > overlap {
                     hasher.BulkStoreRange(
                         input_and_params.0.slice(),
-                        !(0usize),
+                        !(0),
                         if range.start > overlap {
                             range.start - overlap
                         } else {

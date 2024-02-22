@@ -66,7 +66,7 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
                 let _lhs = &mut histogram[input[i] as (usize)];
                 *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         histogram_total = input_size;
         i = 0usize;
@@ -80,7 +80,7 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
                 }
                 histogram_total = histogram_total.wrapping_add(adjust as (usize));
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
     } else {
         static kSampleRate: usize = 29usize;
@@ -109,7 +109,7 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
                 }
                 histogram_total = histogram_total.wrapping_add(adjust as (usize));
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
     }
     BrotliBuildAndStoreHuffmanTreeFast(
@@ -132,7 +132,7 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
                         .wrapping_add(histogram[i].wrapping_mul(depths[i] as (u32)) as (usize));
                 }
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         literal_ratio
             .wrapping_mul(125usize)
@@ -336,7 +336,7 @@ fn EmitLiterals(
                 storage,
             );
         }
-        j = j.wrapping_add(1_usize);
+        j = j.wrapping_add(1);
     }
 }
 
@@ -628,7 +628,7 @@ fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> i32 {
                 r -= histo[i] as (super::util::floatX)
                     * (depths[i] as (super::util::floatX) + FastLog2(histo[i] as u64));
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         if !!(r >= 0.0 as super::util::floatX) {
             1i32
@@ -768,7 +768,7 @@ fn BuildAndStoreCommandPrefixCode(
                 cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] =
                     depth[i.wrapping_add(56)];
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         BrotliStoreHuffmanTree(
             &mut cmd_depth[..],

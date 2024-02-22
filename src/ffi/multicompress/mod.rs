@@ -70,7 +70,7 @@ fn help_brotli_encoder_compress_single(
     let mut next_in_offset = 0usize;
     let mut available_out = output.len();
     let mut next_out_offset = 0usize;
-    let mut total_out = Some(0usize);
+    let mut total_out = Some(0);
     result = BrotliEncoderCompressStream(
         &mut encoder,
         BrotliEncoderOperation::BROTLI_OPERATION_FINISH,

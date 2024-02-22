@@ -388,7 +388,7 @@ mod test {
             n
         } != 0
         {
-            result = result.wrapping_add(1_u32);
+            result = result.wrapping_add(1);
         }
         result
     }

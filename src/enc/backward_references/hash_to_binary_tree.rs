@@ -272,7 +272,7 @@ where
     }
     #[inline(always)]
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-        let max_backward: usize = self.window_mask_.wrapping_sub(16usize).wrapping_add(1usize);
+        let max_backward: usize = self.window_mask_.wrapping_sub(16usize).wrapping_add(1);
         StoreAndFindMatchesH10(
             self,
             data,
@@ -302,7 +302,7 @@ where
             {
                 self.Store(data, mask, i);
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
     }
     fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
@@ -393,7 +393,7 @@ macro_rules! RightChildIndexH10 {
     ($xself: expr, $pos: expr) => {
         (2usize)
             .wrapping_mul($pos & (*$xself).window_mask_)
-            .wrapping_add(1usize)
+            .wrapping_add(1)
     };
 }
 /*
@@ -413,7 +413,7 @@ fn RightChildIndexH10<AllocU32: Allocator<u32>,
     (2usize).wrapping_mul(
         pos & (*xself).window_mask_
     ).wrapping_add(
-        1usize
+        1
     )
 }
 */
@@ -509,7 +509,7 @@ where
                 }
             }
         }
-        depth_remaining = depth_remaining.wrapping_sub(1_usize);
+        depth_remaining = depth_remaining.wrapping_sub(1);
     }
     matches_offset
 }

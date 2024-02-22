@@ -28,7 +28,7 @@ pub fn ShannonEntropy(
     let mut sum: usize = 0usize;
     let mut retval: super::util::floatX = 0i32 as super::util::floatX;
     let mut p: usize;
-    if size & 1usize != 0 && !population.is_empty() {
+    if size & 1 != 0 && !population.is_empty() {
         p = population[0] as usize;
         population = population.split_at(1).1;
         sum = sum.wrapping_add(p);
@@ -269,7 +269,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 }
             }
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     if count == 1i32 {
         return kOneSymbolHistogramCost;
@@ -278,8 +278,8 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         return kTwoSymbolHistogramCost + (*histogram).total_count() as super::util::floatX;
     }
     if count == 3i32 {
-        let histo0: u32 = (*histogram).slice()[s[0usize]];
-        let histo1: u32 = (*histogram).slice()[s[1usize]];
+        let histo0: u32 = (*histogram).slice()[s[0]];
+        let histo1: u32 = (*histogram).slice()[s[1]];
         let histo2: u32 = (*histogram).slice()[s[2usize]];
         let histomax: u32 = brotli_max_uint32_t(histo0, brotli_max_uint32_t(histo1, histo2));
         return kThreeSymbolHistogramCost
@@ -295,30 +295,29 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
             {
                 histo[i] = (*histogram).slice()[s[i]];
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         i = 0usize;
         while i < 4usize {
             {
                 let mut j: usize;
-                j = i.wrapping_add(1usize);
+                j = i.wrapping_add(1);
                 while j < 4usize {
                     {
                         if histo[j] > histo[i] {
                             histo.swap(j, i);
                         }
                     }
-                    j = j.wrapping_add(1_usize);
+                    j = j.wrapping_add(1);
                 }
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         let h23: u32 = histo[2usize].wrapping_add(histo[3usize]);
-        let histomax: u32 = brotli_max_uint32_t(h23, histo[0usize]);
+        let histomax: u32 = brotli_max_uint32_t(h23, histo[0]);
         return kFourSymbolHistogramCost
             + (3u32).wrapping_mul(h23) as super::util::floatX
-            + (2u32).wrapping_mul(histo[0usize].wrapping_add(histo[1usize]))
-                as super::util::floatX
+            + (2u32).wrapping_mul(histo[0].wrapping_add(histo[1])) as super::util::floatX
             - histomax as super::util::floatX;
     }
     if vectorize_population_cost {
@@ -364,7 +363,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         }
         bits += CostComputation(&mut depth_histo, nnz_data, nnz, total_count, log2total);
     } else {
-        let mut max_depth: usize = 1usize;
+        let mut max_depth: usize = 1;
         let mut depth_histo: [u32; 18] = [
             0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
             0u32, 0u32, 0u32, 0u32,

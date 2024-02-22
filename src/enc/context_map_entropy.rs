@@ -355,7 +355,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         } else if cm {
             0usize
         } else {
-            1usize
+            1
         };
         let mut ret_cost = [
             self.singleton_costs[cost_type_index][0][0],
@@ -394,7 +394,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         } else if cm {
             0usize
         } else {
-            1usize
+            1
         };
         for high in 0..2 {
             /*eprintln!("TRIAL {} {}", cm, combined);
@@ -415,7 +415,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         } else if cm {
             0usize
         } else {
-            1usize
+            1
         };
         let mut ret = [0.0 as floatX; 2];
         for high in 0..2 {

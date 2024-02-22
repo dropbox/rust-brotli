@@ -265,7 +265,7 @@ where
     }
     let mut next_in_offset: usize = 0;
     let mut next_out_offset: usize = 0;
-    let mut total_out = Some(0usize);
+    let mut total_out = Some(0);
     let mut read_err: Result<(), ErrType> = Ok(());
     {
         let s = &mut s_orig;

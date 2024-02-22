@@ -194,7 +194,7 @@ fn CreateCommands(
         let mut goto_emit_remainder: i32 = 0i32;
         next_hash = Hash(
             &base_ip[{
-                ip_index = ip_index.wrapping_add(1_usize);
+                ip_index = ip_index.wrapping_add(1);
                 ip_index
             }..],
             shift,
@@ -212,7 +212,7 @@ fn CreateCommands(
                             let hash: u32 = next_hash;
                             let bytes_between_hash_lookups: u32 = ({
                                 let _old = skip;
-                                skip = skip.wrapping_add(1_u32);
+                                skip = skip.wrapping_add(1);
                                 _old
                             }) >> 5i32;
                             ip_index = next_ip;
@@ -232,7 +232,7 @@ fn CreateCommands(
                             if IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) != 0
                                 && candidate < ip_index
                             {
-                                table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
+                                table[(hash as (usize))] = ip_index.wrapping_sub(0) as (i32);
                                 {
                                     {
                                         break 'break3;
@@ -242,7 +242,7 @@ fn CreateCommands(
                             candidate = table[(hash as (usize))] as (usize);
                             0i32;
                             0i32;
-                            table[(hash as (usize))] = ip_index.wrapping_sub(0usize) as (i32);
+                            table[(hash as (usize))] = ip_index.wrapping_sub(0) as (i32);
                         }
                         if !(IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) == 0) {
                             break;
@@ -394,7 +394,7 @@ fn CreateCommands(
             if goto_emit_remainder == 0 {
                 next_hash = Hash(
                     &base_ip[{
-                        ip_index = ip_index.wrapping_add(1_usize);
+                        ip_index = ip_index.wrapping_add(1);
                         ip_index
                     }..],
                     shift,
@@ -587,7 +587,7 @@ fn BuildAndStoreCommandPrefixCode(
                 cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] =
                     depth[i.wrapping_add(16)];
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         BrotliStoreHuffmanTree(
             &mut cmd_depth[..],
@@ -644,7 +644,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
             let _lhs = &mut lit_histo[literals[i] as (usize)];
             *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     BrotliBuildAndStoreHuffmanTreeFast(
         mht,
@@ -667,7 +667,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
                 *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
     {
         let _rhs = 1i32;
@@ -729,7 +729,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
                 literals = &literals[insert as usize..];
             }
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
 }
 fn EmitUncompressedMetaBlock(

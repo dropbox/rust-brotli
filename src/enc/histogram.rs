@@ -365,11 +365,11 @@ fn BlockSplitIteratorNext<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u32
     xself: &mut BlockSplitIterator<Alloc>,
 ) {
     if xself.length_ == 0i32 as (usize) {
-        xself.idx_ = xself.idx_.wrapping_add(1_usize);
+        xself.idx_ = xself.idx_.wrapping_add(1);
         xself.type_ = xself.split_.types.slice()[xself.idx_] as (usize);
         xself.length_ = xself.split_.lengths.slice()[xself.idx_] as (usize);
     }
-    xself.length_ = xself.length_.wrapping_sub(1_usize);
+    xself.length_ = xself.length_.wrapping_sub(1);
 }
 pub fn HistogramAddItem<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors>(
     xself: &mut HistogramType,
@@ -381,7 +381,7 @@ pub fn HistogramAddItem<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> 
         let val = (*_lhs).wrapping_add(_rhs as (u32));
         *_lhs = val;
     }
-    let new_count = (*xself).total_count().wrapping_add(1_usize);
+    let new_count = (*xself).total_count().wrapping_add(1);
     (*xself).set_total_count(new_count);
 }
 pub fn HistogramAddVector<
@@ -534,14 +534,14 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
                     );
                     prev_byte2 = prev_byte;
                     prev_byte = ringbuffer[(pos & mask)];
-                    pos = pos.wrapping_add(1_usize);
+                    pos = pos.wrapping_add(1);
                 }
-                j = j.wrapping_sub(1_usize);
+                j = j.wrapping_sub(1);
             }
             pos = pos.wrapping_add(CommandCopyLen(cmd) as (usize));
             if CommandCopyLen(cmd) != 0 {
                 prev_byte2 = ringbuffer[(pos.wrapping_sub(2usize) & mask)];
-                prev_byte = ringbuffer[(pos.wrapping_sub(1usize) & mask)];
+                prev_byte = ringbuffer[(pos.wrapping_sub(1) & mask)];
                 if cmd.cmd_prefix_ as (i32) >= 128i32 {
                     BlockSplitIteratorNext(&mut dist_it);
                     let context: usize = (dist_it.type_ << 2i32)
@@ -553,6 +553,6 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
                 }
             }
         }
-        i = i.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
     }
 }

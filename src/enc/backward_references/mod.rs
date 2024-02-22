@@ -212,9 +212,9 @@ pub fn StitchToPreviousBlockInternal<T: AnyHasher>(
 }
 
 pub fn StoreLookaheadThenStore<T: AnyHasher>(hasher: &mut T, size: usize, dict: &[u8]) {
-    let overlap = hasher.StoreLookahead().wrapping_sub(1usize);
+    let overlap = hasher.StoreLookahead().wrapping_sub(1);
     if size > overlap {
-        hasher.BulkStoreRange(dict, !(0usize), 0, size - overlap);
+        hasher.BulkStoreRange(dict, !(0), 0, size - overlap);
     }
 }
 
@@ -366,7 +366,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         let mut compare_char: i32 = data[cur_ix_masked.wrapping_add(best_len_in)] as (i32);
         let mut best_score: u64 = out.score;
         let mut best_len: usize = best_len_in;
-        let cached_backward: usize = distance_cache[(0usize)] as (usize);
+        let cached_backward: usize = distance_cache[(0)] as (usize);
         let mut prev_ix: usize = cur_ix.wrapping_sub(cached_backward);
         let mut is_match_found: i32 = 0i32;
         out.len_x_code = 0usize;
@@ -615,7 +615,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<H9<Alloc>> 
 
 fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
     if num_distances > 4i32 {
-        let last_distance: i32 = distance_cache[(0usize)];
+        let last_distance: i32 = distance_cache[(0)];
         distance_cache[(4usize)] = last_distance - 1i32;
         distance_cache[(5usize)] = last_distance + 1i32;
         distance_cache[(6usize)] = last_distance - 2i32;
@@ -623,9 +623,9 @@ fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
         distance_cache[(8usize)] = last_distance - 3i32;
         distance_cache[(9usize)] = last_distance + 3i32;
         if num_distances > 10i32 {
-            let next_last_distance: i32 = distance_cache[(1usize)];
+            let next_last_distance: i32 = distance_cache[(1)];
             distance_cache[(10usize)] = next_last_distance - 1i32;
-            distance_cache[(11usize)] = next_last_distance + 1i32;
+            distance_cache[(11)] = next_last_distance + 1i32;
             distance_cache[(12usize)] = next_last_distance - 2i32;
             distance_cache[(13usize)] = next_last_distance + 2i32;
             distance_cache[(14usize)] = next_last_distance - 3i32;
@@ -1717,7 +1717,7 @@ impl<
                 }
                 break;
             }
-            i = i.wrapping_add(1_usize);
+            i = i.wrapping_add(1);
         }
         {
             let key: u32 = self.HashBytes(cur_data) as u32;
@@ -1852,7 +1852,7 @@ pub struct H42 {
 
 fn unopt_ctzll(mut val: usize) -> u8 {
     let mut cnt: u8 = 0i32 as (u8);
-    while val & 1usize == 0usize {
+    while val & 1 == 0usize {
         val >>= 1i32;
         cnt = (cnt as (i32) + 1) as (u8);
     }
@@ -1913,7 +1913,7 @@ fn TestStaticDictionaryItem(
             (cut << 2i32).wrapping_add(kCutoffTransforms >> cut.wrapping_mul(6) & 0x3f) as usize;
         backward = max_backward
             .wrapping_add(dist)
-            .wrapping_add(1usize)
+            .wrapping_add(1)
             .wrapping_add(transform_id << dictionary.size_bits_by_length[len] as (i32));
     }
     if backward > max_distance {
@@ -1954,7 +1954,7 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(
     while i < if shallow != 0 { 1u32 } else { 2u32 } as (usize) {
         {
             let item: usize = dictionary_hash[key] as (usize);
-            xself.dict_num_lookups = xself.dict_num_lookups.wrapping_add(1_usize);
+            xself.dict_num_lookups = xself.dict_num_lookups.wrapping_add(1);
             if item != 0usize {
                 let item_matches: i32 = TestStaticDictionaryItem(
                     dictionary,
@@ -1967,13 +1967,13 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(
                     out,
                 );
                 if item_matches != 0 {
-                    xself.dict_num_matches = xself.dict_num_matches.wrapping_add(1_usize);
+                    xself.dict_num_matches = xself.dict_num_matches.wrapping_add(1);
                     is_match_found = 1i32;
                 }
             }
         }
-        i = i.wrapping_add(1_usize);
-        key = key.wrapping_add(1_usize);
+        i = i.wrapping_add(1);
+        key = key.wrapping_add(1);
     }
     is_match_found
 }
@@ -2378,7 +2378,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
     num_literals: &mut usize,
 ) {
     let gap = 0usize;
-    let max_backward_limit: usize = (1usize << params.lgwin).wrapping_sub(16usize);
+    let max_backward_limit: usize = (1usize << params.lgwin).wrapping_sub(16);
     let mut new_commands_count: usize = 0;
     let mut insert_length: usize = *last_insert_len;
     let pos_end: usize = position.wrapping_add(num_bytes);
@@ -2386,7 +2386,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
         position
             .wrapping_add(num_bytes)
             .wrapping_sub(hasher.StoreLookahead())
-            .wrapping_add(1usize)
+            .wrapping_add(1)
     } else {
         position
     };
@@ -2423,7 +2423,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             &mut sr,
         ) {
             let mut delayed_backward_references_in_row: i32 = 0i32;
-            max_length = max_length.wrapping_sub(1_usize);
+            max_length = max_length.wrapping_sub(1);
             'break6: loop {
                 'continue7: loop {
                     let cost_diff_lazy: u64 = 175;
@@ -2435,22 +2435,21 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                         score: 0,
                     };
                     sr2.len = if params.quality < 5 {
-                        brotli_min_size_t(sr.len.wrapping_sub(1usize), max_length)
+                        brotli_min_size_t(sr.len.wrapping_sub(1), max_length)
                     } else {
                         0usize
                     };
                     sr2.len_x_code = 0usize;
                     sr2.distance = 0usize;
                     sr2.score = kMinScore;
-                    max_distance =
-                        brotli_min_size_t(position.wrapping_add(1usize), max_backward_limit);
+                    max_distance = brotli_min_size_t(position.wrapping_add(1), max_backward_limit);
                     let is_match_found: bool = hasher.FindLongestMatch(
                         dictionary,
                         dictionary_hash,
                         ringbuffer,
                         ringbuffer_mask,
                         dist_cache,
-                        position.wrapping_add(1usize),
+                        position.wrapping_add(1),
                         max_length,
                         max_distance,
                         gap,
@@ -2458,8 +2457,8 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                         &mut sr2,
                     );
                     if is_match_found && (sr2.score >= sr.score.wrapping_add(cost_diff_lazy)) {
-                        position = position.wrapping_add(1_usize);
-                        insert_length = insert_length.wrapping_add(1_usize);
+                        position = position.wrapping_add(1);
+                        insert_length = insert_length.wrapping_add(1);
                         sr = sr2;
                         if {
                             delayed_backward_references_in_row += 1;
@@ -2474,7 +2473,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                     }
                     break 'break6;
                 }
-                max_length = max_length.wrapping_sub(1_usize);
+                max_length = max_length.wrapping_sub(1);
             }
             apply_random_heuristics = position
                 .wrapping_add((2usize).wrapping_mul(sr.len))
@@ -2485,9 +2484,9 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                     ComputeDistanceCode(sr.distance, max_distance, dist_cache);
                 if sr.distance <= max_distance && (distance_code > 0usize) {
                     dist_cache[(3usize)] = dist_cache[(2usize)];
-                    dist_cache[(2usize)] = dist_cache[(1usize)];
-                    dist_cache[(1usize)] = dist_cache[(0usize)];
-                    dist_cache[(0usize)] = sr.distance as (i32);
+                    dist_cache[(2usize)] = dist_cache[(1)];
+                    dist_cache[(1)] = dist_cache[(0)];
+                    dist_cache[(0)] = sr.distance as (i32);
                     hasher.PrepareDistanceCache(dist_cache);
                 }
                 new_commands_count += 1;
@@ -2515,12 +2514,12 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             );
             position = position.wrapping_add(sr.len);
         } else {
-            insert_length = insert_length.wrapping_add(1_usize);
-            position = position.wrapping_add(1_usize);
+            insert_length = insert_length.wrapping_add(1);
+            position = position.wrapping_add(1);
 
             if position > apply_random_heuristics {
                 let kMargin: usize =
-                    brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1usize), 4usize);
+                    brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1), 4usize);
                 if position.wrapping_add(16usize) >= pos_end.wrapping_sub(kMargin) {
                     insert_length = insert_length.wrapping_add(pos_end - position);
                     position = pos_end;
