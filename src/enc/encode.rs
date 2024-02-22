@@ -1419,8 +1419,7 @@ fn ShouldCompress(
             {
                 {
                     let _rhs = 1;
-                    let _lhs =
-                        &mut literal_histo[data[(pos as (usize) & mask)] as (usize)];
+                    let _lhs = &mut literal_histo[data[(pos as (usize) & mask)] as (usize)];
                     *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
                 }
                 pos = pos.wrapping_add(kSampleRate);
@@ -2040,9 +2039,8 @@ fn DecideOverLiteralContextModeling(
             {
                 static lut: [i32; 4] = [0i32, 0i32, 1i32, 2i32];
                 let stride_end_pos: usize = start_pos.wrapping_add(64usize);
-                let mut prev: i32 = lut
-                    [(input[(start_pos & mask)] as (i32) >> 6i32) as (usize)]
-                    * 3i32;
+                let mut prev: i32 =
+                    lut[(input[(start_pos & mask)] as (i32) >> 6i32) as (usize)] * 3i32;
                 let mut pos: usize;
                 pos = start_pos.wrapping_add(1usize);
                 while pos < stride_end_pos {
@@ -2407,8 +2405,7 @@ where
         assert!(s.last_processed_pos_ < 2 || s.custom_dictionary);
         let num_bytes_to_write_uncompressed: usize = core::cmp::min(2, bytes as usize);
         {
-            let data =
-                &mut s.ringbuffer_.data_mo.slice_mut()[s.ringbuffer_.buffer_index..];
+            let data = &mut s.ringbuffer_.data_mo.slice_mut()[s.ringbuffer_.buffer_index..];
             BrotliStoreUncompressedMetaBlock(
                 &mut s.m8,
                 0,
@@ -2466,8 +2463,7 @@ where
                 *out_size = catable_header_size;
                 return 1i32;
             }
-            let data =
-                &mut s.ringbuffer_.data_mo.slice_mut()[s.ringbuffer_.buffer_index..];
+            let data = &mut s.ringbuffer_.data_mo.slice_mut()[s.ringbuffer_.buffer_index..];
 
             //(*s).storage_.slice_mut()[0] = (*s).last_bytes_ as u8;
             //        (*s).storage_.slice_mut()[1] = ((*s).last_bytes_ >> 8) as u8;

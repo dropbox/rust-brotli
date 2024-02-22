@@ -485,10 +485,8 @@ where
                 }
                 if len >= max_comp_len {
                     if should_reroot_tree != 0 {
-                        forest[node_left] =
-                            forest[LeftChildIndexH10!(xself, prev_ix)];
-                        forest[node_right] =
-                            forest[RightChildIndexH10!(xself, prev_ix)];
+                        forest[node_left] = forest[LeftChildIndexH10!(xself, prev_ix)];
+                        forest[node_right] = forest[RightChildIndexH10!(xself, prev_ix)];
                     }
                     break 'break16;
                 }

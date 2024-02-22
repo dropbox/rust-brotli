@@ -133,11 +133,7 @@ fn oneshot_compress(
     {
         let s = &mut s_orig;
 
-        BrotliEncoderSetParameter(
-            s,
-            BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
-            quality,
-        );
+        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_QUALITY, quality);
         if magic {
             BrotliEncoderSetParameter(
                 s,
@@ -148,11 +144,7 @@ fn oneshot_compress(
         if quality >= 10 {
             BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_Q9_5, 1);
         }
-        BrotliEncoderSetParameter(
-            s,
-            BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
-            lgwin,
-        );
+        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_LGWIN, lgwin);
         BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0_u32); // gen, text, font
         BrotliEncoderSetParameter(
             s,

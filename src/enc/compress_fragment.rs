@@ -128,9 +128,8 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
         while i < 256usize {
             {
                 if histogram[i] != 0 {
-                    literal_ratio = literal_ratio.wrapping_add(
-                        histogram[i].wrapping_mul(depths[i] as (u32)) as (usize),
-                    );
+                    literal_ratio = literal_ratio
+                        .wrapping_add(histogram[i].wrapping_mul(depths[i] as (u32)) as (usize));
                 }
             }
             i = i.wrapping_add(1_usize);

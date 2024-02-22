@@ -106,10 +106,7 @@ fn stride_lookup_lin(
     high_nibble: Option<u8>,
 ) -> usize {
     if let Some(nibble) = high_nibble {
-        1 + 2
-            * (actual_context
-                | ((stride_byte as usize & 0xf) << 8)
-                | ((nibble as usize) << 12))
+        1 + 2 * (actual_context | ((stride_byte as usize & 0xf) << 8) | ((nibble as usize) << 12))
     } else {
         2 * (actual_context | ((stride_byte as usize) << 8))
     }
@@ -317,9 +314,7 @@ impl Prior for AdvPrior {
     ) -> usize {
         if let Some(nibble) = high_nibble {
             65536
-                + (actual_context
-                    | ((stride_byte as usize) << 8)
-                    | ((nibble as usize & 0xf) << 16))
+                + (actual_context | ((stride_byte as usize) << 8) | ((nibble as usize & 0xf) << 16))
         } else {
             actual_context | ((stride_byte as usize & 0xf0) << 8)
         }

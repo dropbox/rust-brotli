@@ -117,8 +117,7 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(
                         let mut j: usize = i;
                         let mut tmp: HuffmanTree = items[i];
                         while j >= gap
-                            && (comparator
-                                .Cmp(&mut tmp, &mut items[j.wrapping_sub(gap)]))
+                            && (comparator.Cmp(&mut tmp, &mut items[j.wrapping_sub(gap)]))
                         {
                             {
                                 items[j] = items[j.wrapping_sub(gap)];
@@ -329,8 +328,7 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                         k = 0usize;
                         while k < step {
                             {
-                                good_for_rle[i.wrapping_sub(k).wrapping_sub(1usize)] =
-                                    1i32 as (u8);
+                                good_for_rle[i.wrapping_sub(k).wrapping_sub(1usize)] = 1i32 as (u8);
                             }
                             k = k.wrapping_add(1_usize);
                         }
@@ -381,8 +379,7 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
                     k = 0usize;
                     while k < stride {
                         {
-                            counts[i.wrapping_sub(k).wrapping_sub(1usize)] =
-                                count as (u32);
+                            counts[i.wrapping_sub(k).wrapping_sub(1usize)] = count as (u32);
                         }
                         k = k.wrapping_add(1_usize);
                     }

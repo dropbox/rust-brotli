@@ -112,9 +112,8 @@ fn EstimateBitCostsForLiteralsUTF8(
                 let utf8_pos2: usize = UTF8Position(last_c, c, max_utf8);
                 {
                     let _rhs = 1;
-                    let _lhs = &mut histogram[utf8_pos2][data
-                        [(pos.wrapping_add(i).wrapping_sub(window_half) & mask)]
-                        as (usize)];
+                    let _lhs = &mut histogram[utf8_pos2]
+                        [data[(pos.wrapping_add(i).wrapping_sub(window_half) & mask)] as (usize)];
                     *_lhs = (*_lhs).wrapping_sub(_rhs as (usize));
                 }
                 {
@@ -137,9 +136,8 @@ fn EstimateBitCostsForLiteralsUTF8(
                 let utf8_pos2: usize = UTF8Position(last_c, c, max_utf8);
                 {
                     let _rhs = 1;
-                    let _lhs = &mut histogram[utf8_pos2][data
-                        [(pos.wrapping_add(i).wrapping_add(window_half) & mask)]
-                        as (usize)];
+                    let _lhs = &mut histogram[utf8_pos2]
+                        [data[(pos.wrapping_add(i).wrapping_add(window_half) & mask)] as (usize)];
                     *_lhs = (*_lhs).wrapping_add(_rhs as (usize));
                 }
                 {
@@ -161,8 +159,7 @@ fn EstimateBitCostsForLiteralsUTF8(
                 }) as (usize);
                 let utf8_pos: usize = UTF8Position(last_c, c, max_utf8);
                 let masked_pos: usize = pos.wrapping_add(i) & mask;
-                let mut histo: usize =
-                    histogram[utf8_pos][data[masked_pos] as (usize)];
+                let mut histo: usize = histogram[utf8_pos][data[masked_pos] as (usize)];
                 //precision is vital here: lets keep double precision
                 let mut lit_cost: f64;
                 if histo == 0usize {
@@ -204,8 +201,7 @@ pub fn BrotliEstimateBitCostsForLiterals(
         while i < in_window {
             {
                 let _rhs = 1;
-                let _lhs =
-                    &mut histogram[data[(pos.wrapping_add(i) & mask)] as (usize)];
+                let _lhs = &mut histogram[data[(pos.wrapping_add(i) & mask)] as (usize)];
                 *_lhs = (*_lhs).wrapping_add(_rhs as (usize));
             }
             i = i.wrapping_add(1_usize);

@@ -352,10 +352,7 @@ pub fn BrotliHistogramRemap<
     i = 0usize;
     while i < in_size {
         {
-            HistogramAddHistogram(
-                &mut out[(symbols[i] as (usize))],
-                &inp[i],
-            );
+            HistogramAddHistogram(&mut out[(symbols[i] as (usize))], &inp[i]);
         }
         i = i.wrapping_add(1_usize);
     }
@@ -419,8 +416,7 @@ pub fn BrotliHistogramReindex<
     while i < length {
         {
             if new_index.slice()[(symbols[i] as (usize))] == next_index {
-                tmp.slice_mut()[(next_index as (usize))] =
-                    out[(symbols[i] as (usize))].clone();
+                tmp.slice_mut()[(next_index as (usize))] = out[(symbols[i] as (usize))].clone();
                 next_index = next_index.wrapping_add(1_u32);
             }
             symbols[i] = new_index.slice()[(symbols[i] as (usize))];
@@ -485,8 +481,7 @@ pub fn BrotliClusterHistograms<
     while i < in_size {
         {
             out[i] = inp[i].clone();
-            (out[i])
-                .set_bit_cost(BrotliPopulationCost(&inp[i], scratch_space));
+            (out[i]).set_bit_cost(BrotliPopulationCost(&inp[i], scratch_space));
             histogram_symbols[i] = i as (u32);
         }
         i = i.wrapping_add(1_usize);
@@ -501,8 +496,7 @@ pub fn BrotliClusterHistograms<
             j = 0usize;
             while j < num_to_combine {
                 {
-                    clusters.slice_mut()[num_clusters.wrapping_add(j)] =
-                        i.wrapping_add(j) as (u32);
+                    clusters.slice_mut()[num_clusters.wrapping_add(j)] = i.wrapping_add(j) as (u32);
                 }
                 j = j.wrapping_add(1_usize);
             }

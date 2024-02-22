@@ -363,8 +363,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         let best_len_in: usize = out.len;
         let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
         let key: u32 = self.HashBytes(&data[cur_ix_masked..]) as u32;
-        let mut compare_char: i32 =
-            data[cur_ix_masked.wrapping_add(best_len_in)] as (i32);
+        let mut compare_char: i32 = data[cur_ix_masked.wrapping_add(best_len_in)] as (i32);
         let mut best_score: u64 = out.score;
         let mut best_len: usize = best_len_in;
         let cached_backward: usize = distance_cache[(0usize)] as (usize);
@@ -407,11 +406,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
             if backward == 0usize || backward > max_backward {
                 return false;
             }
-            let len: usize = FindMatchLengthWithLimitMin4(
-                &data[prev_ix..],
-                &data[cur_ix_masked..],
-                max_length,
-            );
+            let len: usize =
+                FindMatchLengthWithLimitMin4(&data[prev_ix..], &data[cur_ix_masked..], max_length);
             if len != 0 {
                 out.len = len;
                 out.distance = backward;
@@ -444,8 +440,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                         out.len = best_len;
                         out.distance = backward;
                         out.score = score;
-                        compare_char =
-                            data[cur_ix_masked.wrapping_add(best_len)] as (i32);
+                        compare_char = data[cur_ix_masked.wrapping_add(best_len)] as (i32);
                         is_match_found = 1i32;
                     }
                 }
@@ -765,11 +760,8 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
                 continue;
             }
             {
-                let len: usize = FindMatchLengthWithLimit(
-                    &data[prev_ix..],
-                    &data[cur_ix_masked..],
-                    max_length,
-                );
+                let len: usize =
+                    FindMatchLengthWithLimit(&data[prev_ix..], &data[cur_ix_masked..], max_length);
                 if len >= 3 || (len == 2 && i < 2) {
                     let score = BackwardReferenceScoreUsingLastDistanceH9(len, i, self.h9_opts);
                     if best_score < score {
@@ -1917,9 +1909,8 @@ fn TestStaticDictionaryItem(
     }
     {
         let cut: u64 = len.wrapping_sub(matchlen) as u64;
-        let transform_id: usize = (cut << 2i32)
-            .wrapping_add(kCutoffTransforms >> cut.wrapping_mul(6) & 0x3f)
-            as usize;
+        let transform_id: usize =
+            (cut << 2i32).wrapping_add(kCutoffTransforms >> cut.wrapping_mul(6) & 0x3f) as usize;
         backward = max_backward
             .wrapping_add(dist)
             .wrapping_add(1usize)

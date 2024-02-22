@@ -383,9 +383,7 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
             i = 0usize;
             while i < w.len() as (usize) {
                 {
-                    if dict[i] as (i32) >= b'a' as (i32)
-                        && (dict[i] as (i32) <= b'z' as (i32))
-                    {
+                    if dict[i] as (i32) >= b'a' as (i32) && (dict[i] as (i32) <= b'z' as (i32)) {
                         if dict[i] as (i32) ^ 32i32 != data[i] as (i32) {
                             return 0i32;
                         }

@@ -922,19 +922,9 @@ fn BrotliStoreHuffmanTreeToBitMask(
                 storage,
             );
             if ix == 16usize {
-                BrotliWriteBits(
-                    2,
-                    huffman_tree_extra_bits[i] as (u64),
-                    storage_ix,
-                    storage,
-                );
+                BrotliWriteBits(2, huffman_tree_extra_bits[i] as (u64), storage_ix, storage);
             } else if ix == 17usize {
-                BrotliWriteBits(
-                    3,
-                    huffman_tree_extra_bits[i] as (u64),
-                    storage_ix,
-                    storage,
-                );
+                BrotliWriteBits(3, huffman_tree_extra_bits[i] as (u64), storage_ix, storage);
             }
         }
         i = i.wrapping_add(1_usize);
@@ -1570,9 +1560,7 @@ fn StoreSimpleHuffmanTree(
                 j = i.wrapping_add(1usize);
                 while j < num_symbols {
                     {
-                        if depths[symbols[j]] as (i32)
-                            < depths[symbols[i]] as (i32)
-                        {
+                        if depths[symbols[j]] as (i32) < depths[symbols[i]] as (i32) {
                             symbols.swap(j, i);
                         }
                     }
@@ -1762,8 +1750,7 @@ fn BuildAndStoreBlockSplitCode(
     i = 0usize;
     while i < num_blocks {
         {
-            let type_code: usize =
-                NextBlockTypeCode(&mut type_code_calculator, types[i]);
+            let type_code: usize = NextBlockTypeCode(&mut type_code_calculator, types[i]);
             if i != 0usize {
                 let _rhs = 1;
                 let _lhs = &mut type_histo[type_code];
@@ -1771,8 +1758,7 @@ fn BuildAndStoreBlockSplitCode(
             }
             {
                 let _rhs = 1;
-                let _lhs =
-                    &mut length_histo[BlockLengthPrefixCode(lengths[i]) as (usize)];
+                let _lhs = &mut length_histo[BlockLengthPrefixCode(lengths[i]) as (usize)];
                 *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
             }
         }
@@ -1879,12 +1865,7 @@ fn StoreTrivialContextMap(
                 } else {
                     i.wrapping_add(context_bits).wrapping_sub(1usize)
                 };
-                BrotliWriteBits(
-                    depths[code],
-                    bits[code] as (u64),
-                    storage_ix,
-                    storage,
-                );
+                BrotliWriteBits(depths[code], bits[code] as (u64), storage_ix, storage);
                 BrotliWriteBits(
                     depths[repeat_code],
                     bits[repeat_code] as (u64),
@@ -2093,8 +2074,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(
     while i < num_rle_symbols {
         {
             let _rhs = 1;
-            let _lhs =
-                &mut histogram[(rle_symbols.slice()[i] & kSymbolMask) as (usize)];
+            let _lhs = &mut histogram[(rle_symbols.slice()[i] & kSymbolMask) as (usize)];
             *_lhs = (*_lhs).wrapping_add(_rhs as (u32));
         }
         i = i.wrapping_add(1_usize);
@@ -2316,8 +2296,7 @@ fn StoreSymbolWithContext<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
     }
     xself.block_len_ = xself.block_len_.wrapping_sub(1_usize);
     {
-        let histo_ix: usize =
-            context_map[xself.entropy_ix_.wrapping_add(context)] as (usize);
+        let histo_ix: usize = context_map[xself.entropy_ix_.wrapping_add(context)] as (usize);
         let ix: usize = histo_ix
             .wrapping_mul(xself.histogram_length_)
             .wrapping_add(symbol);
