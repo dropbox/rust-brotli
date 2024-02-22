@@ -2862,6 +2862,7 @@ struct BlockSplitRef<'a> {
     lengths: &'a [u32],
     num_types: u32,
 }
+
 impl<'a> Default for BlockSplitRef<'a> {
     fn default() -> Self {
         BlockSplitRef {
@@ -2947,22 +2948,14 @@ fn block_split_reference<'a, Alloc: BrotliAlloc>(
     };
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct RecoderState {
     pub num_bytes_encoded: usize,
 }
 
-impl Default for RecoderState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl RecoderState {
     pub fn new() -> Self {
-        RecoderState {
-            num_bytes_encoded: 0,
-        }
+        Self::default()
     }
 }
 
