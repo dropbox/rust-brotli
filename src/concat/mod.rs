@@ -121,6 +121,7 @@ fn detect_varlen_offset(bytes_so_far: &[u8]) -> Result<(usize), ()> {
 }
 
 // eat your vegetables
+#[derive(Default)]
 pub struct BroCatli {
     last_bytes: [u8; 2],
     last_bytes_len: u8,
@@ -131,23 +132,12 @@ pub struct BroCatli {
     window_size: u8,
     new_stream_pending: Option<NewStreamData>,
 }
-impl Default for BroCatli {
-    fn default() -> BroCatli {
-        BroCatli::new()
-    }
-}
+
 impl BroCatli {
-    pub fn new() -> BroCatli {
-        BroCatli {
-            last_bytes: [0, 0],
-            last_bytes_len: 0,
-            last_byte_bit_offset: 0,
-            last_byte_sanitized: false,
-            any_bytes_emitted: false,
-            new_stream_pending: None,
-            window_size: 0,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
+
     pub fn deserialize_from_buffer(buffer: &[u8]) -> Result<BroCatli, ()> {
         if 16 + NUM_STREAM_HEADER_BYTES > buffer.len() {
             return Err(());
