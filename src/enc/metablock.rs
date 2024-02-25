@@ -430,7 +430,7 @@ fn InitBlockSplitter<
             };
             let mut new_array: <Alloc as Allocator<u8>>::AllocatedMemory;
             while _new_size < max_num_blocks {
-                _new_size = _new_size.wrapping_mul(2usize);
+                _new_size = _new_size.wrapping_mul(2);
             }
             new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
             if (!split.types.slice().is_empty()) {
@@ -451,7 +451,7 @@ fn InitBlockSplitter<
                 split.lengths.slice().len()
             };
             while _new_size < max_num_blocks {
-                _new_size = _new_size.wrapping_mul(2usize);
+                _new_size = _new_size.wrapping_mul(2);
             }
             let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
             new_array.slice_mut()[..split.lengths.slice().len()]
@@ -515,7 +515,7 @@ fn InitContextBlockSplitter<
                 split.types.slice().len()
             };
             while _new_size < max_num_blocks {
-                _new_size = _new_size.wrapping_mul(2usize);
+                _new_size = _new_size.wrapping_mul(2);
             }
             let mut new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
             if (!split.types.slice().is_empty()) {
@@ -536,7 +536,7 @@ fn InitContextBlockSplitter<
                 split.lengths.slice().len()
             };
             while _new_size < max_num_blocks {
-                _new_size = _new_size.wrapping_mul(2usize);
+                _new_size = _new_size.wrapping_mul(2);
             }
             let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
             if (!split.lengths.slice().is_empty()) {
@@ -571,10 +571,10 @@ fn BlockSplitterFinishBlock<
 ) {
     xself.block_size_ = brotli_max_size_t(xself.block_size_, xself.min_block_size_);
     if xself.num_blocks_ == 0usize {
-        split.lengths.slice_mut()[(0)] = xself.block_size_ as u32;
-        split.types.slice_mut()[(0)] = 0u8;
-        xself.last_entropy_[(0)] = BitsEntropy((histograms[(0)]).slice(), xself.alphabet_size_);
-        xself.last_entropy_[(1)] = xself.last_entropy_[(0)];
+        split.lengths.slice_mut()[0] = xself.block_size_ as u32;
+        split.types.slice_mut()[0] = 0u8;
+        xself.last_entropy_[0] = BitsEntropy((histograms[0]).slice(), xself.alphabet_size_);
+        xself.last_entropy_[1] = xself.last_entropy_[0];
         xself.num_blocks_ = xself.num_blocks_.wrapping_add(1);
         split.num_types = split.num_types.wrapping_add(1);
         xself.curr_histogram_ix_ = xself.curr_histogram_ix_.wrapping_add(1);
@@ -615,8 +615,8 @@ fn BlockSplitterFinishBlock<
             split.types.slice_mut()[xself.num_blocks_] = split.num_types as u8;
             xself.last_histogram_ix_[1] = xself.last_histogram_ix_[0];
             xself.last_histogram_ix_[0] = split.num_types as u8 as usize;
-            xself.last_entropy_[(1)] = xself.last_entropy_[(0)];
-            xself.last_entropy_[(0)] = entropy;
+            xself.last_entropy_[1] = xself.last_entropy_[0];
+            xself.last_entropy_[0] = entropy;
             xself.num_blocks_ = xself.num_blocks_.wrapping_add(1);
             split.num_types = split.num_types.wrapping_add(1);
             xself.curr_histogram_ix_ = xself.curr_histogram_ix_.wrapping_add(1);
@@ -629,13 +629,13 @@ fn BlockSplitterFinishBlock<
         } else if diff[1] < diff[0] - 20.0 as super::util::floatX {
             split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
             split.types.slice_mut()[xself.num_blocks_] =
-                split.types.slice()[xself.num_blocks_.wrapping_sub(2usize)]; //FIXME: investigate copy?
+                split.types.slice()[xself.num_blocks_.wrapping_sub(2)]; //FIXME: investigate copy?
             {
                 xself.last_histogram_ix_.swap(0, 1);
             }
             histograms[xself.last_histogram_ix_[0]] = combined_histo[1].clone();
-            xself.last_entropy_[(1)] = xself.last_entropy_[(0)];
-            xself.last_entropy_[(0)] = combined_entropy[1];
+            xself.last_entropy_[1] = xself.last_entropy_[0];
+            xself.last_entropy_[0] = combined_entropy[1];
             xself.num_blocks_ = xself.num_blocks_.wrapping_add(1);
             xself.block_size_ = 0usize;
             HistogramClear(&mut histograms[xself.curr_histogram_ix_]);
@@ -648,9 +648,9 @@ fn BlockSplitterFinishBlock<
                 *_lhs = (*_lhs).wrapping_add(_rhs);
             }
             histograms[xself.last_histogram_ix_[0]] = combined_histo[0].clone();
-            xself.last_entropy_[(0)] = combined_entropy[0];
+            xself.last_entropy_[0] = combined_entropy[0];
             if split.num_types == 1 {
-                xself.last_entropy_[(1)] = xself.last_entropy_[(0)];
+                xself.last_entropy_[1] = xself.last_entropy_[0];
             }
             xself.block_size_ = 0usize;
             HistogramClear(&mut histograms[xself.curr_histogram_ix_]);
@@ -688,8 +688,8 @@ fn ContextBlockSplitterFinishBlock<
     }
     if xself.num_blocks_ == 0usize {
         let mut i: usize;
-        split.lengths.slice_mut()[(0)] = xself.block_size_ as u32;
-        split.types.slice_mut()[(0)] = 0u8;
+        split.lengths.slice_mut()[0] = xself.block_size_ as u32;
+        split.types.slice_mut()[0] = 0u8;
         i = 0usize;
         while i < num_contexts {
             {
@@ -773,7 +773,7 @@ fn ContextBlockSplitterFinishBlock<
             xself.target_block_size_ = xself.min_block_size_;
         } else if diff[1] < diff[0] - 20.0 as super::util::floatX {
             split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
-            let nbm2 = split.types.slice()[xself.num_blocks_.wrapping_sub(2usize)];
+            let nbm2 = split.types.slice()[xself.num_blocks_.wrapping_sub(2)];
             split.types.slice_mut()[xself.num_blocks_] = nbm2;
 
             {
@@ -1030,7 +1030,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             }
             pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
             if CommandCopyLen(&cmd) != 0 {
-                prev_byte2 = ringbuffer[(pos.wrapping_sub(2usize) & mask)];
+                prev_byte2 = ringbuffer[(pos.wrapping_sub(2) & mask)];
                 prev_byte = ringbuffer[(pos.wrapping_sub(1) & mask)];
                 if cmd.cmd_prefix_ as i32 >= 128i32 {
                     BlockSplitterAddSymbol(

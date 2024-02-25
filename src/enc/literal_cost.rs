@@ -42,10 +42,10 @@ fn DecideMultiByteStatsLevel(pos: usize, len: usize, mask: usize, data: &[u8]) -
         }
         i = i.wrapping_add(1);
     }
-    if counts[2usize] < 500usize {
+    if counts[2] < 500usize {
         max_utf8 = 1;
     }
-    if counts[1].wrapping_add(counts[2usize]) < 25usize {
+    if counts[1].wrapping_add(counts[2]) < 25usize {
         max_utf8 = 0usize;
     }
     max_utf8
@@ -100,13 +100,13 @@ fn EstimateBitCostsForLiteralsUTF8(
                         .wrapping_sub(1)
                         & mask)] as i32
                 }) as usize;
-                let last_c: usize = (if i < window_half.wrapping_add(2usize) {
+                let last_c: usize = (if i < window_half.wrapping_add(2) {
                     0i32
                 } else {
                     data[(pos
                         .wrapping_add(i)
                         .wrapping_sub(window_half)
-                        .wrapping_sub(2usize)
+                        .wrapping_sub(2)
                         & mask)] as i32
                 }) as usize;
                 let utf8_pos2: usize = UTF8Position(last_c, c, max_utf8);
@@ -131,7 +131,7 @@ fn EstimateBitCostsForLiteralsUTF8(
                 let last_c: usize = data[(pos
                     .wrapping_add(i)
                     .wrapping_add(window_half)
-                    .wrapping_sub(2usize)
+                    .wrapping_sub(2)
                     & mask)] as usize;
                 let utf8_pos2: usize = UTF8Position(last_c, c, max_utf8);
                 {
@@ -155,7 +155,7 @@ fn EstimateBitCostsForLiteralsUTF8(
                 let last_c: usize = (if i < 2usize {
                     0i32
                 } else {
-                    data[(pos.wrapping_add(i).wrapping_sub(2usize) & mask)] as i32
+                    data[(pos.wrapping_add(i).wrapping_sub(2) & mask)] as i32
                 }) as usize;
                 let utf8_pos: usize = UTF8Position(last_c, c, max_utf8);
                 let masked_pos: usize = pos.wrapping_add(i) & mask;

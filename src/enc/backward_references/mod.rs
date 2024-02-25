@@ -366,7 +366,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         let mut compare_char: i32 = data[cur_ix_masked.wrapping_add(best_len_in)] as i32;
         let mut best_score: u64 = out.score;
         let mut best_len: usize = best_len_in;
-        let cached_backward: usize = distance_cache[(0)] as usize;
+        let cached_backward: usize = distance_cache[0] as usize;
         let mut prev_ix: usize = cur_ix.wrapping_sub(cached_backward);
         let mut is_match_found: i32 = 0i32;
         out.len_x_code = 0usize;
@@ -615,21 +615,21 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<H9<Alloc>> 
 
 fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
     if num_distances > 4i32 {
-        let last_distance: i32 = distance_cache[(0)];
-        distance_cache[(4usize)] = last_distance - 1i32;
-        distance_cache[(5usize)] = last_distance + 1i32;
-        distance_cache[(6usize)] = last_distance - 2i32;
-        distance_cache[(7usize)] = last_distance + 2i32;
-        distance_cache[(8usize)] = last_distance - 3i32;
-        distance_cache[(9usize)] = last_distance + 3i32;
+        let last_distance: i32 = distance_cache[0];
+        distance_cache[4] = last_distance - 1i32;
+        distance_cache[5] = last_distance + 1i32;
+        distance_cache[6] = last_distance - 2i32;
+        distance_cache[7] = last_distance + 2i32;
+        distance_cache[8] = last_distance - 3i32;
+        distance_cache[9] = last_distance + 3i32;
         if num_distances > 10i32 {
-            let next_last_distance: i32 = distance_cache[(1)];
-            distance_cache[(10usize)] = next_last_distance - 1i32;
-            distance_cache[(11)] = next_last_distance + 1i32;
-            distance_cache[(12usize)] = next_last_distance - 2i32;
-            distance_cache[(13usize)] = next_last_distance + 2i32;
-            distance_cache[(14usize)] = next_last_distance - 3i32;
-            distance_cache[(15usize)] = next_last_distance + 3i32;
+            let next_last_distance: i32 = distance_cache[1];
+            distance_cache[10] = next_last_distance - 1i32;
+            distance_cache[11] = next_last_distance + 1i32;
+            distance_cache[12] = next_last_distance - 2i32;
+            distance_cache[13] = next_last_distance + 2i32;
+            distance_cache[14] = next_last_distance - 3i32;
+            distance_cache[15] = next_last_distance + 3i32;
         }
     }
 }
@@ -1863,7 +1863,7 @@ fn BackwardReferenceScoreUsingLastDistance(copy_length: usize, h9_opts: H9Opts) 
     ((h9_opts.literal_byte_score as u64) >> 2)
         .wrapping_mul(copy_length as u64)
         .wrapping_add((30u64 * 8u64).wrapping_mul(::core::mem::size_of::<u64>() as u64))
-        .wrapping_add(15u64)
+        .wrapping_add(15)
 }
 
 fn BackwardReferenceScore(
@@ -2394,7 +2394,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
     let mut apply_random_heuristics: usize = position.wrapping_add(random_heuristics_window_size);
     let kMinScore: u64 = (30u64 * 8)
         .wrapping_mul(::core::mem::size_of::<u64>() as u64)
-        .wrapping_add(100u64);
+        .wrapping_add(100);
     hasher.PrepareDistanceCache(dist_cache);
     while position.wrapping_add(hasher.HashTypeLength()) < pos_end {
         let mut max_length: usize = pos_end.wrapping_sub(position);
@@ -2483,10 +2483,10 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                 let distance_code: usize =
                     ComputeDistanceCode(sr.distance, max_distance, dist_cache);
                 if sr.distance <= max_distance && (distance_code > 0usize) {
-                    dist_cache[(3usize)] = dist_cache[(2usize)];
-                    dist_cache[(2usize)] = dist_cache[(1)];
-                    dist_cache[(1)] = dist_cache[(0)];
-                    dist_cache[(0)] = sr.distance as i32;
+                    dist_cache[3] = dist_cache[2];
+                    dist_cache[2] = dist_cache[1];
+                    dist_cache[1] = dist_cache[0];
+                    dist_cache[0] = sr.distance as i32;
                     hasher.PrepareDistanceCache(dist_cache);
                 }
                 new_commands_count += 1;
@@ -2509,7 +2509,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             hasher.StoreRange(
                 ringbuffer,
                 ringbuffer_mask,
-                position.wrapping_add(2usize),
+                position.wrapping_add(2),
                 brotli_min_size_t(position.wrapping_add(sr.len), store_end),
             );
             position = position.wrapping_add(sr.len);
@@ -2520,7 +2520,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             if position > apply_random_heuristics {
                 let kMargin: usize =
                     brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1), 4usize);
-                if position.wrapping_add(16usize) >= pos_end.wrapping_sub(kMargin) {
+                if position.wrapping_add(16) >= pos_end.wrapping_sub(kMargin) {
                     insert_length = insert_length.wrapping_add(pos_end - position);
                     position = pos_end;
                 } else if position
@@ -2528,12 +2528,12 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                         .wrapping_add((4usize).wrapping_mul(random_heuristics_window_size))
                 {
                     hasher.Store4Vec4(ringbuffer, ringbuffer_mask, position);
-                    insert_length = insert_length.wrapping_add(16usize);
-                    position = position.wrapping_add(16usize);
+                    insert_length = insert_length.wrapping_add(16);
+                    position = position.wrapping_add(16);
                 } else {
                     hasher.StoreEvenVec4(ringbuffer, ringbuffer_mask, position);
-                    insert_length = insert_length.wrapping_add(8usize);
-                    position = position.wrapping_add(8usize);
+                    insert_length = insert_length.wrapping_add(8);
+                    position = position.wrapping_add(8);
                 }
             }
         }

@@ -538,7 +538,7 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
             }
             pos = pos.wrapping_add(CommandCopyLen(cmd) as usize);
             if CommandCopyLen(cmd) != 0 {
-                prev_byte2 = ringbuffer[(pos.wrapping_sub(2usize) & mask)];
+                prev_byte2 = ringbuffer[(pos.wrapping_sub(2) & mask)];
                 prev_byte = ringbuffer[(pos.wrapping_sub(1) & mask)];
                 if cmd.cmd_prefix_ as i32 >= 128i32 {
                     BlockSplitIteratorNext(&mut dist_it);
