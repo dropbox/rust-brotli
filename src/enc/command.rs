@@ -37,24 +37,24 @@ pub fn CommandDistanceContext(xself: &Command) -> u32 {
 #[inline(always)]
 pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i32]) -> usize {
     if distance <= max_distance {
-        let distance_plus_3: usize = distance.wrapping_add(3usize);
-        let offset0: usize = distance_plus_3.wrapping_sub(dist_cache[(0)] as usize);
-        let offset1: usize = distance_plus_3.wrapping_sub(dist_cache[(1)] as usize);
-        if distance == dist_cache[(0)] as usize {
+        let distance_plus_3: usize = distance.wrapping_add(3);
+        let offset0: usize = distance_plus_3.wrapping_sub(dist_cache[0] as usize);
+        let offset1: usize = distance_plus_3.wrapping_sub(dist_cache[1] as usize);
+        if distance == dist_cache[0] as usize {
             return 0usize;
-        } else if distance == dist_cache[(1)] as usize {
+        } else if distance == dist_cache[1] as usize {
             return 1;
         } else if offset0 < 7usize {
             return (0x9750468i32 >> (4usize).wrapping_mul(offset0) & 0xfi32) as usize;
         } else if offset1 < 7usize {
             return (0xfdb1acei32 >> (4usize).wrapping_mul(offset1) & 0xfi32) as usize;
-        } else if distance == dist_cache[(2usize)] as usize {
+        } else if distance == dist_cache[2] as usize {
             return 2usize;
-        } else if distance == dist_cache[(3usize)] as usize {
+        } else if distance == dist_cache[3] as usize {
             return 3usize;
         }
     }
-    distance.wrapping_add(16usize).wrapping_sub(1)
+    distance.wrapping_add(16).wrapping_sub(1)
 }
 
 #[inline(always)]
@@ -62,12 +62,12 @@ pub fn GetInsertLengthCode(insertlen: usize) -> u16 {
     if insertlen < 6usize {
         insertlen as u16
     } else if insertlen < 130usize {
-        let nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2) as u64).wrapping_sub(1u32);
+        let nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2) as u64).wrapping_sub(1);
         ((nbits << 1i32) as usize)
-            .wrapping_add(insertlen.wrapping_sub(2usize) >> nbits)
-            .wrapping_add(2usize) as u16
+            .wrapping_add(insertlen.wrapping_sub(2) >> nbits)
+            .wrapping_add(2) as u16
     } else if insertlen < 2114usize {
-        Log2FloorNonZero(insertlen.wrapping_sub(66usize) as u64).wrapping_add(10u32) as u16
+        Log2FloorNonZero(insertlen.wrapping_sub(66) as u64).wrapping_add(10) as u16
     } else if insertlen < 6210usize {
         21u32 as u16
     } else if insertlen < 22594usize {
@@ -80,14 +80,14 @@ pub fn GetInsertLengthCode(insertlen: usize) -> u16 {
 #[inline(always)]
 pub fn GetCopyLengthCode(copylen: usize) -> u16 {
     if copylen < 10usize {
-        copylen.wrapping_sub(2usize) as u16
+        copylen.wrapping_sub(2) as u16
     } else if copylen < 134usize {
-        let nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6usize) as u64).wrapping_sub(1u32);
+        let nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6) as u64).wrapping_sub(1);
         ((nbits << 1i32) as usize)
-            .wrapping_add(copylen.wrapping_sub(6usize) >> nbits)
-            .wrapping_add(4usize) as u16
+            .wrapping_add(copylen.wrapping_sub(6) >> nbits)
+            .wrapping_add(4) as u16
     } else if copylen < 2118usize {
-        Log2FloorNonZero(copylen.wrapping_sub(70usize) as u64).wrapping_add(12u32) as u16
+        Log2FloorNonZero(copylen.wrapping_sub(70) as u64).wrapping_add(12) as u16
     } else {
         23u32 as u16
     }
@@ -132,8 +132,8 @@ pub fn PrefixEncodeCopyDistance(
                 .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES as u64)
                 .wrapping_sub(num_direct_codes as u64),
         );
-        let bucket: u64 = Log2FloorNonZero(dist).wrapping_sub(1u32) as (u64);
-        let postfix_mask: u64 = (1u32 << postfix_bits).wrapping_sub(1u32) as (u64);
+        let bucket: u64 = Log2FloorNonZero(dist).wrapping_sub(1) as (u64);
+        let postfix_mask: u64 = (1u32 << postfix_bits).wrapping_sub(1) as (u64);
         let postfix: u64 = dist & postfix_mask;
         let prefix: u64 = (dist >> bucket) & 1;
         let offset: u64 = (2u64).wrapping_add(prefix) << bucket;

@@ -44,7 +44,7 @@ fn make_generic_hasher() -> AdvHasher<H5Sub, StandardAlloc> {
             hash_shift_: 32i32 - params_hasher.bucket_bits,
             bucket_size_: bucket_size as u32,
             block_bits_: params_hasher.block_bits as i32,
-            block_mask_: block_size.wrapping_sub(1u64) as u32,
+            block_mask_: block_size.wrapping_sub(1) as u32,
         },
     }
 }

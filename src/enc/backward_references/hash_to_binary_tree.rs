@@ -272,7 +272,7 @@ where
     }
     #[inline(always)]
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-        let max_backward: usize = self.window_mask_.wrapping_sub(16usize).wrapping_add(1);
+        let max_backward: usize = self.window_mask_.wrapping_sub(16).wrapping_add(1);
         StoreAndFindMatchesH10(
             self,
             data,
@@ -287,15 +287,15 @@ where
     fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
         let mut i: usize = ix_start;
         let mut j: usize = ix_start;
-        if ix_start.wrapping_add(63usize) <= ix_end {
-            i = ix_end.wrapping_sub(63usize);
+        if ix_start.wrapping_add(63) <= ix_end {
+            i = ix_end.wrapping_sub(63);
         }
-        if ix_start.wrapping_add(512usize) <= i {
+        if ix_start.wrapping_add(512) <= i {
             while j < i {
                 {
                     self.Store(data, mask, j);
                 }
-                j = j.wrapping_add(8usize);
+                j = j.wrapping_add(8);
             }
         }
         while i < ix_end {
