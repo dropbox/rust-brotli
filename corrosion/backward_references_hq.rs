@@ -794,7 +794,7 @@ unsafe extern fn StoreAndFindMatchesH10(
     let cur_ix_masked : usize = cur_ix & ring_buffer_mask;
     let max_comp_len
         : usize
-        = brotli_min_size_t(max_length,128usize);
+        = brotli_min_size_t(max_length,128);
     let should_reroot_tree
         : i32
         = if !!(max_length >= 128usize) { 1i32 } else { 0i32 };
@@ -1041,7 +1041,7 @@ unsafe extern fn FindAllMatchesH10(
         let mut minlen
             : usize
             = brotli_max_size_t(
-                  4usize,
+                  4,
                   best_len.wrapping_add(1usize)
               );
         if BrotliFindAllStaticDictionaryMatches(
@@ -1053,7 +1053,7 @@ unsafe extern fn FindAllMatchesH10(
            ) != 0 {
             let mut maxlen
                 : usize
-                = brotli_min_size_t(37usize,max_length);
+                = brotli_min_size_t(37,max_length);
             let mut l : usize;
             l = minlen;
             while l <= maxlen {
@@ -1208,7 +1208,7 @@ unsafe extern fn ComputeDistanceCache(
 unsafe extern fn StartPosQueueSize(
     mut self : *const StartPosQueue
 ) -> usize {
-    brotli_min_size_t((*self).idx_,8usize)
+    brotli_min_size_t((*self).idx_,8)
 }
 
 unsafe extern fn StartPosQueuePush(
@@ -1277,7 +1277,7 @@ unsafe extern fn EvaluateNode(
                       );
     if node_cost <= ZopfliCostModelGetLiteralCosts(
                         model,
-                        0usize,
+                        0,
                         pos
                     ) {
         let mut posdata : PosData;
@@ -1285,7 +1285,7 @@ unsafe extern fn EvaluateNode(
         posdata.cost = node_cost;
         posdata.costdiff = node_cost - ZopfliCostModelGetLiteralCosts(
                                            model,
-                                           0usize,
+                                           0,
                                            pos
                                        );
         ComputeDistanceCache(
@@ -1434,7 +1434,7 @@ unsafe extern fn UpdateNodes(
     {
         let mut posdata
             : *const PosData
-            = StartPosQueueAt(queue as (*const StartPosQueue),0usize);
+            = StartPosQueueAt(queue as (*const StartPosQueue),0);
         let mut min_cost
             : f32
             = (*posdata).cost + ZopfliCostModelGetMinCostCmd(
@@ -1465,7 +1465,7 @@ unsafe extern fn UpdateNodes(
                                            inscode
                                        ) as (f32) + ZopfliCostModelGetLiteralCosts(
                                                         model,
-                                                        0usize,
+                                                        0,
                                                         pos
                                                     );
                 let mut best_len : usize = min_len.wrapping_sub(1usize);
@@ -1628,7 +1628,7 @@ unsafe extern fn UpdateNodes(
                                               len
                                           };
                                     let copycode : u16 = GetCopyLengthCode(len_code);
-                                    let cmdcode : u16 = CombineLengthCodes(inscode,copycode,0i32);
+                                    let cmdcode : u16 = CombineLengthCodes(inscode,copycode,0);
                                     let cost
                                         : f32
                                         = dist_cost + GetCopyExtra(
@@ -1647,7 +1647,7 @@ unsafe extern fn UpdateNodes(
                                             len,
                                             len_code,
                                             dist,
-                                            0usize,
+                                            0,
                                             cost
                                         );
                                         result = brotli_max_size_t(result,len);
@@ -1684,7 +1684,7 @@ unsafe extern fn StoreH10(
         data,
         ix,
         mask,
-        128usize,
+        128,
         max_backward,
         0i32 as (*mut std::os::raw::c_void) as (*mut usize),
         0i32 as (*mut std::os::raw::c_void) as (*mut BackwardMatch)
@@ -2090,17 +2090,17 @@ unsafe extern fn ZopfliCostModelSetFromCommands(
     let mut cost_cmd : *mut f32 = (*self).cost_cmd_;
     memset(
         histogram_literal as (*mut std::os::raw::c_void),
-        0i32,
+        0,
         core::mem::size_of::<*mut u32>()
     );
     memset(
         histogram_cmd as (*mut std::os::raw::c_void),
-        0i32,
+        0,
         core::mem::size_of::<*mut u32>()
     );
     memset(
         histogram_dist as (*mut std::os::raw::c_void),
-        0i32,
+        0,
         core::mem::size_of::<*mut u32>()
     );
     i = 0usize;
@@ -2153,20 +2153,20 @@ unsafe extern fn ZopfliCostModelSetFromCommands(
     }
     SetCost(
         histogram_literal as (*const u32),
-        256usize,
-        1i32,
+        256,
+        1,
         cost_literal
     );
     SetCost(
         histogram_cmd as (*const u32),
-        704usize,
-        0i32,
+        704,
+        0,
         cost_cmd
     );
     SetCost(
         histogram_dist as (*const u32),
         (*self).distance_histogram_size as usize,
-        0i32,
+        0,
         (*self).cost_dist_
     );
     i = 0usize;
@@ -2484,7 +2484,7 @@ pub unsafe extern fn BrotliCreateHqZopfliBackwardReferences(
                         &mut *num_matches.offset(
                                   i.wrapping_add(1usize) as isize
                               ) as (*mut u32) as (*mut std::os::raw::c_void),
-                        0i32,
+                        0,
                         skip.wrapping_mul(core::mem::size_of::<u32>())
                     );
                     i = i.wrapping_add(skip);

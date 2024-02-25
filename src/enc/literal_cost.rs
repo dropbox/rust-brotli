@@ -16,16 +16,16 @@ fn UTF8Position(last: usize, c: usize, clamp: usize) -> usize {
     if c < 128usize {
         0usize
     } else if c >= 192usize {
-        brotli_min_size_t(1usize, clamp)
+        brotli_min_size_t(1, clamp)
     } else if last < 0xe0usize {
         0usize
     } else {
-        brotli_min_size_t(2usize, clamp)
+        brotli_min_size_t(2, clamp)
     }
 }
 
 fn DecideMultiByteStatsLevel(pos: usize, len: usize, mask: usize, data: &[u8]) -> usize {
-    let mut counts: [usize; 3] = [0, 0usize, 0usize];
+    let mut counts: [usize; 3] = [0, 0, 0];
     let mut max_utf8: usize = 1;
     let mut last_c: usize = 0usize;
     let mut i: usize;
@@ -35,7 +35,7 @@ fn DecideMultiByteStatsLevel(pos: usize, len: usize, mask: usize, data: &[u8]) -
             let c: usize = data[(pos.wrapping_add(i) & mask)] as usize;
             {
                 let _rhs = 1;
-                let _lhs = &mut counts[UTF8Position(last_c, c, 2usize)];
+                let _lhs = &mut counts[UTF8Position(last_c, c, 2)];
                 *_lhs = (*_lhs).wrapping_add(_rhs as usize);
             }
             last_c = c;
@@ -62,7 +62,7 @@ fn EstimateBitCostsForLiteralsUTF8(
     let mut histogram: [[usize; 256]; 3] = [[0; 256]; 3];
     let window_half: usize = 495usize;
     let in_window: usize = brotli_min_size_t(window_half, len);
-    let mut in_window_utf8: [usize; 3] = [0, 0usize, 0usize];
+    let mut in_window_utf8: [usize; 3] = [0, 0, 0];
     let mut i: usize;
     {
         let mut last_c: usize = 0usize;

@@ -437,7 +437,7 @@ where
 {
     let mut matches_offset = 0usize;
     let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
-    let max_comp_len: usize = core::cmp::min(max_length, 128usize);
+    let max_comp_len: usize = core::cmp::min(max_length, 128);
     let should_reroot_tree: i32 = if !!(max_length >= 128usize) {
         1i32
     } else {

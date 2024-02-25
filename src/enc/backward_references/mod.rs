@@ -456,7 +456,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                 max_backward.wrapping_add(gap),
                 max_distance,
                 out,
-                1i32,
+                1,
             );
         }
         self.buckets_.slice_mut()
@@ -636,9 +636,7 @@ fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
 
 pub const kDistanceCacheIndex: [u8; 16] = [0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1];
 
-pub const kDistanceCacheOffset: [i8; 16] = [
-    0i8, 0i8, 0i8, 0i8, -1i8, 1i8, -2i8, 2i8, -3i8, 3i8, -1i8, 1i8, -2i8, 2i8, -3i8, 3i8,
-];
+pub const kDistanceCacheOffset: [i8; 16] = [0i8, 0, 0, 0, -1, 1, -2, 2, -3, 3, -1, 1, -2, 2, -3, 3];
 
 //const BROTLI_LITERAL_BYTE_SCORE: u64 = 540;
 const BROTLI_DISTANCE_BIT_PENALTY: u32 = 120;
@@ -847,7 +845,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
                 max_backward.wrapping_add(gap),
                 max_distance,
                 out,
-                0i32,
+                0,
             );
         }
         is_match_found != 0
@@ -1786,7 +1784,7 @@ impl<
                 max_backward.wrapping_add(gap),
                 max_distance,
                 out,
-                0i32,
+                0,
             );
         }
         is_match_found != 0
@@ -2518,8 +2516,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             position = position.wrapping_add(1);
 
             if position > apply_random_heuristics {
-                let kMargin: usize =
-                    brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1), 4usize);
+                let kMargin: usize = brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1), 4);
                 if position.wrapping_add(16usize) >= pos_end.wrapping_sub(kMargin) {
                     insert_length = insert_length.wrapping_add(pos_end - position);
                     position = pos_end;

@@ -78,7 +78,7 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(
     n: usize,
     comparator: Comparator,
 ) {
-    static gaps: [usize; 6] = [132usize, 57usize, 23usize, 10usize, 4usize, 1];
+    static gaps: [usize; 6] = [132usize, 57, 23, 10, 4, 1];
     if n < 13usize {
         let mut i: usize;
         i = 1;
@@ -162,7 +162,7 @@ pub fn BrotliCreateHuffmanTree(
         index_left_: 0,
         index_right_or_value_: 0,
     };
-    InitHuffmanTree(&mut sentinel, !(0u32), -1i16, -1i16);
+    InitHuffmanTree(&mut sentinel, !(0u32), -1, -1);
     count_limit = 1u32;
     'break1: loop {
         {
@@ -182,7 +182,7 @@ pub fn BrotliCreateHuffmanTree(
                             _old
                         }],
                         count,
-                        -1i16,
+                        -1,
                         i as i16,
                     );
                 }

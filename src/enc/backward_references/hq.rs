@@ -450,7 +450,7 @@ where
         i = i.wrapping_add(1);
     }
     {
-        let minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1usize));
+        let minlen: usize = brotli_max_size_t(4, best_len.wrapping_add(1usize));
         if dictionary.is_some()
             && BrotliFindAllStaticDictionaryMatches(
                 dictionary.unwrap(),
@@ -461,7 +461,7 @@ where
             ) != 0
         {
             assert!(params.use_dictionary);
-            let maxlen: usize = brotli_min_size_t(37usize, max_length);
+            let maxlen: usize = brotli_min_size_t(37, max_length);
             let mut l: usize;
             l = minlen;
             while l <= maxlen {
@@ -573,7 +573,7 @@ fn ComputeDistanceCache(
 
 #[inline(always)]
 fn StartPosQueueSize(xself: &StartPosQueue) -> usize {
-    brotli_min_size_t(xself.idx_, 8usize)
+    brotli_min_size_t(xself.idx_, 8)
 }
 
 fn StartPosQueuePush(xself: &mut StartPosQueue, posdata: &PosData) {
@@ -623,11 +623,11 @@ fn EvaluateNode<AllocF: Allocator<floatX>>(
         gap,
         nodes,
     ));
-    if node_cost <= ZopfliCostModelGetLiteralCosts(model, 0usize, pos) {
+    if node_cost <= ZopfliCostModelGetLiteralCosts(model, 0, pos) {
         let mut posdata = PosData {
             pos,
             cost: node_cost,
-            costdiff: node_cost - ZopfliCostModelGetLiteralCosts(model, 0usize, pos),
+            costdiff: node_cost - ZopfliCostModelGetLiteralCosts(model, 0, pos),
             distance_cache: [0; 4],
         };
         ComputeDistanceCache(
@@ -768,7 +768,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
         nodes,
     );
     {
-        let posdata = StartPosQueueAt(queue, 0usize);
+        let posdata = StartPosQueueAt(queue, 0);
         let min_cost: floatX = posdata.cost
             + ZopfliCostModelGetMinCostCmd(model)
             + ZopfliCostModelGetLiteralCosts(model, posdata.pos, pos);
@@ -784,7 +784,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                 let start_costdiff: floatX = posdata.costdiff;
                 let base_cost: floatX = start_costdiff
                     + GetInsertExtra(inscode) as (floatX)
-                    + ZopfliCostModelGetLiteralCosts(model, 0usize, pos);
+                    + ZopfliCostModelGetLiteralCosts(model, 0, pos);
                 let mut best_len: usize = min_len.wrapping_sub(1usize);
                 let mut j: usize = 0usize;
                 'break29: while j < 16usize && (best_len < max_len) {
@@ -924,7 +924,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                         len
                                     };
                                     let copycode: u16 = GetCopyLengthCode(len_code);
-                                    let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0i32);
+                                    let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0);
                                     let cost: floatX = dist_cost
                                         + GetCopyExtra(copycode) as (floatX)
                                         + ZopfliCostModelGetCommandCost(model, cmdcode);
@@ -932,8 +932,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                     {
                                         if cost < nodeCost {
                                             UpdateZopfliNode(
-                                                nodes, pos, start, len, len_code, dist, 0usize,
-                                                cost,
+                                                nodes, pos, start, len, len_code, dist, 0, cost,
                                             );
                                             result = brotli_max_size_t(result, len);
                                         }
@@ -1287,19 +1286,19 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
     SetCost(
         &histogram_literal[..],
         BROTLI_NUM_LITERAL_SYMBOLS,
-        1i32,
+        1,
         &mut cost_literal,
     );
     SetCost(
         &histogram_cmd[..],
         BROTLI_NUM_COMMAND_SYMBOLS,
-        0i32,
+        0,
         &mut cost_cmd[..],
     );
     SetCost(
         &histogram_dist[..],
         xself.distance_histogram_size as usize,
-        0i32,
+        0,
         xself.cost_dist_.slice_mut(),
     );
     i = 0usize;

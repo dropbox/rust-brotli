@@ -11,7 +11,7 @@ use super::static_dict_lut::{
 static kUppercaseFirst: u8 = 10u8;
 
 #[allow(unused)]
-static kOmitLastNTransforms: [u8; 10] = [0u8, 12u8, 27u8, 23u8, 42u8, 63u8, 56u8, 48u8, 59u8, 64u8];
+static kOmitLastNTransforms: [u8; 10] = [0u8, 12, 27, 23, 42, 63, 56, 48, 59, 64];
 
 pub struct BrotliDictionary {
     pub size_bits_by_length: &'static [u8; 25],

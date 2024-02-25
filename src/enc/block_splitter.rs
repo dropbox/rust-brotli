@@ -543,10 +543,8 @@ fn ClusterBlocks<
     let mut cluster_size_capacity: usize = expected_num_clusters;
     let mut cluster_size = <Alloc as Allocator<u32>>::alloc_cell(alloc, cluster_size_capacity);
     let mut num_clusters: usize = 0usize;
-    let mut histograms = <Alloc as Allocator<HistogramType>>::alloc_cell(
-        alloc,
-        brotli_min_size_t(num_blocks, 64usize),
-    );
+    let mut histograms =
+        <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, brotli_min_size_t(num_blocks, 64));
     let mut max_num_pairs: usize = (64i32 * 64i32 / 2i32) as usize;
     let pairs_capacity: usize = max_num_pairs.wrapping_add(1);
     let mut pairs = <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity);
@@ -583,7 +581,7 @@ fn ClusterBlocks<
     i = 0usize;
     while i < num_blocks {
         {
-            let num_to_combine: usize = brotli_min_size_t(num_blocks.wrapping_sub(i), 64usize);
+            let num_to_combine: usize = brotli_min_size_t(num_blocks.wrapping_sub(i), 64);
 
             let mut j: usize;
             j = 0usize;
@@ -625,7 +623,7 @@ fn ClusterBlocks<
                 pairs.slice_mut(),
                 num_to_combine,
                 num_to_combine,
-                64usize,
+                64,
                 max_num_pairs,
                 scratch_space,
             );
@@ -728,7 +726,7 @@ fn ClusterBlocks<
         pairs.slice_mut(),
         num_clusters,
         num_blocks,
-        256usize,
+        256,
         max_num_pairs,
         scratch_space,
     );

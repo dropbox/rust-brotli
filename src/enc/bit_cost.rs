@@ -91,7 +91,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
             let element = nnz_data.slice()[i >> 3].extract(i & 7);
             let log2p = log2total - FastLog2u16(element as u16);
             // Approximate the bit depth by round(-log2(P(symbol)))
-            let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
+            let depth = core::cmp::min((log2p + 0.5) as u8, 15);
             bits += element as super::util::floatX * log2p;
             if (depth as usize > max_depth) {
                 max_depth = depth as usize;
@@ -365,10 +365,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         bits += CostComputation(&mut depth_histo, nnz_data, nnz, total_count, log2total);
     } else {
         let mut max_depth: usize = 1;
-        let mut depth_histo: [u32; 18] = [
-            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-            0u32, 0u32, 0u32, 0u32,
-        ];
+        let mut depth_histo: [u32; 18] = [0u32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let log2total: super::util::floatX = FastLog2((*histogram).total_count() as u64); // 64 bit here
         let mut reps: u32 = 0;
         for histo in histogram.slice()[..data_size].iter() {
@@ -397,7 +394,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
             }
         }
         bits += (18usize).wrapping_add((2usize).wrapping_mul(max_depth)) as super::util::floatX;
-        bits += BitsEntropy(&depth_histo[..], 18usize);
+        bits += BitsEntropy(&depth_histo[..], 18);
     }
     bits
 }

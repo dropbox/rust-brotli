@@ -845,7 +845,7 @@ fn BlockSplitterAddSymbol<
     HistogramAddItem(&mut histograms[xself.curr_histogram_ix_], symbol);
     xself.block_size_ = xself.block_size_.wrapping_add(1);
     if xself.block_size_ == xself.target_block_size_ {
-        BlockSplitterFinishBlock(xself, split, histograms, histograms_size, 0i32);
+        BlockSplitterFinishBlock(xself, split, histograms, histograms_size, 0);
     }
 }
 
@@ -866,7 +866,7 @@ fn ContextBlockSplitterAddSymbol<
     );
     xself.block_size_ = xself.block_size_.wrapping_add(1);
     if xself.block_size_ == xself.target_block_size_ {
-        ContextBlockSplitterFinishBlock(xself, m, split, histograms, histograms_size, 0i32);
+        ContextBlockSplitterFinishBlock(xself, m, split, histograms, histograms_size, 0);
     }
 }
 
@@ -942,8 +942,8 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
     lit_blocks = if num_contexts == 1 {
         LitBlocks::plain(InitBlockSplitter::<HistogramLiteral, Alloc>(
             alloc,
-            256usize,
-            512usize,
+            256,
+            512,
             400.0 as super::util::floatX,
             num_literals,
             &mut mb.literal_split,
@@ -953,9 +953,9 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
     } else {
         LitBlocks::ctx(InitContextBlockSplitter::<Alloc>(
             alloc,
-            256usize,
+            256,
             num_contexts,
-            512usize,
+            512,
             400.0 as super::util::floatX,
             num_literals,
             &mut mb.literal_split,
@@ -965,8 +965,8 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
     };
     cmd_blocks = InitBlockSplitter::<HistogramCommand, Alloc>(
         alloc,
-        704usize,
-        1024usize,
+        704,
+        1024,
         500.0 as super::util::floatX,
         n_commands,
         &mut mb.command_split,
@@ -975,8 +975,8 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
     );
     dist_blocks = InitBlockSplitter::<HistogramDistance, Alloc>(
         alloc,
-        64usize,
-        512usize,
+        64,
+        512,
         100.0 as super::util::floatX,
         n_commands,
         &mut mb.distance_split,
@@ -1051,7 +1051,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             &mut mb.literal_split,
             mb.literal_histograms.slice_mut(),
             &mut mb.literal_histograms_size,
-            1i32,
+            1,
         ),
         &mut LitBlocks::ctx(ref mut lit_blocks_ctx) => ContextBlockSplitterFinishBlock(
             lit_blocks_ctx,
@@ -1059,7 +1059,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             &mut mb.literal_split,
             mb.literal_histograms.slice_mut(),
             &mut mb.literal_histograms_size,
-            1i32,
+            1,
         ),
     }
     BlockSplitterFinishBlock(
@@ -1067,14 +1067,14 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
         &mut mb.command_split,
         mb.command_histograms.slice_mut(),
         &mut mb.command_histograms_size,
-        1i32,
+        1,
     );
     BlockSplitterFinishBlock(
         &mut dist_blocks,
         &mut mb.distance_split,
         mb.distance_histograms.slice_mut(),
         &mut mb.distance_histograms_size,
-        1i32,
+        1,
     );
     if num_contexts > 1 {
         MapStaticContexts(alloc, num_contexts, static_context_map, mb);
@@ -1150,7 +1150,7 @@ pub fn BrotliOptimizeHistograms<
     while i < mb.literal_histograms_size {
         {
             BrotliOptimizeHuffmanCountsForRle(
-                256usize,
+                256,
                 mb.literal_histograms.slice_mut()[i].slice_mut(),
                 &mut good_for_rle[..],
             );
@@ -1161,7 +1161,7 @@ pub fn BrotliOptimizeHistograms<
     while i < mb.command_histograms_size {
         {
             BrotliOptimizeHuffmanCountsForRle(
-                704usize,
+                704,
                 mb.command_histograms.slice_mut()[i].slice_mut(),
                 &mut good_for_rle[..],
             );
