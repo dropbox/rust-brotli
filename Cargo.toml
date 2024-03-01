@@ -33,6 +33,9 @@ incremental = false
 # Uncomment once this packed_simd
 # "packed_simd_2" = {version="0.3", optional=true}
 
+[build-dependencies]
+man = "0.3.0"
+
 [features]
 default = ["std", "ffi-api"]
 benchmark = ["brotli-decompressor/benchmark"]
