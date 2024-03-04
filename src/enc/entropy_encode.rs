@@ -78,7 +78,7 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(
     n: usize,
     comparator: Comparator,
 ) {
-    static gaps: [usize; 6] = [132usize, 57usize, 23usize, 10usize, 4usize, 1];
+    static gaps: [usize; 6] = [132, 57, 23, 10, 4, 1];
     if n < 13usize {
         let mut i: usize;
         i = 1;
@@ -630,8 +630,7 @@ pub fn BrotliWriteHuffmanTree(
 
 fn BrotliReverseBits(num_bits: usize, mut bits: u16) -> u16 {
     static kLut: [usize; 16] = [
-        0x0usize, 0x8usize, 0x4usize, 0xcusize, 0x2usize, 0xausize, 0x6usize, 0xeusize, 0x1,
-        0x9usize, 0x5usize, 0xdusize, 0x3usize, 0xbusize, 0x7usize, 0xfusize,
+        0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe, 0x1, 0x9, 0x5, 0xd, 0x3, 0xb, 0x7, 0xf,
     ];
     let mut retval: usize = kLut[(bits as i32 & 0xfi32) as usize];
     let mut i: usize;

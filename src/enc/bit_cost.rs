@@ -324,7 +324,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
     if vectorize_population_cost {
         // vectorization failed: it's faster to do things inline than split into two loops
         let mut nnz: usize = 0;
-        let mut depth_histo: [u32; 18] = [0u32; 18];
+        let mut depth_histo = [0u32; 18];
         let total_count = (*histogram).total_count() as super::util::floatX;
         let log2total = FastLog2((*histogram).total_count() as u64);
         i = 0usize;
@@ -365,10 +365,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         bits += CostComputation(&mut depth_histo, nnz_data, nnz, total_count, log2total);
     } else {
         let mut max_depth: usize = 1;
-        let mut depth_histo: [u32; 18] = [
-            0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-            0u32, 0u32, 0u32, 0u32,
-        ];
+        let mut depth_histo = [0u32; 18];
         let log2total: super::util::floatX = FastLog2((*histogram).total_count() as u64); // 64 bit here
         let mut reps: u32 = 0;
         for histo in histogram.slice()[..data_size].iter() {
