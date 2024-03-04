@@ -20,7 +20,7 @@ fn test_compress_workpool() {
         BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
         BrotliEncoderParameter::BROTLI_PARAM_Q9_5,
     ];
-    let values = [11u32, 16u32, 91u32, 0u32, 0u32, 0u32];
+    let values = [11u32, 16, 91, 0, 0, 0];
     let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(input.len(), 4);
     let mut encoded_backing = [0u8; 145];
     let encoded = &mut encoded_backing[..encoded_size];
@@ -74,7 +74,7 @@ fn test_compress_empty_workpool() {
         BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
         BrotliEncoderParameter::BROTLI_PARAM_Q9_5,
     ];
-    let values = [3u32, 16u32, 91u32, 0u32, 0u32, 0u32];
+    let values = [3u32, 16, 91, 0, 0, 0];
     let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(input.len(), 4);
     let mut encoded_backing = [0u8; 145];
     let encoded = &mut encoded_backing[..encoded_size];
@@ -129,7 +129,7 @@ fn test_compress_empty_multi_raw() {
         BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
         BrotliEncoderParameter::BROTLI_PARAM_Q9_5,
     ];
-    let values = [3u32, 16u32, 0u32, 0u32, 0u32, 0u32];
+    let values = [3u32, 16, 0, 0, 0, 0];
     let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(input.len(), 4);
     let mut encoded_backing = [0u8; 145];
     let encoded = &mut encoded_backing[..encoded_size];
@@ -179,7 +179,7 @@ fn test_compress_null_multi_raw() {
         BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
         BrotliEncoderParameter::BROTLI_PARAM_Q9_5,
     ];
-    let values = [3u32, 16u32, 0u32, 0u32, 0u32, 0u32];
+    let values = [3u32, 16, 0, 0, 0, 0];
     let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(0, 4);
     let mut encoded_backing = [0u8; 145];
     let encoded = &mut encoded_backing[..encoded_size];
@@ -228,7 +228,7 @@ fn test_compress_empty_multi_raw_one_thread() {
         BrotliEncoderParameter::BROTLI_PARAM_APPENDABLE,
         BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
     ];
-    let values = [10u32, 1u32, 1u32, 1u32, 1u32];
+    let values = [10u32, 1, 1, 1, 1];
     let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(input.len(), 1);
     let mut encoded_backing = [0u8; 25];
     let encoded = &mut encoded_backing[..encoded_size];
@@ -281,7 +281,7 @@ fn test_compress_empty_multi_catable() {
         BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
         BrotliEncoderParameter::BROTLI_PARAM_Q9_5,
     ];
-    let values = [3u32, 16u32, 0u32, 1u32, 1u32, 0u32];
+    let values = [3u32, 16, 0, 1, 1, 0];
     let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(input.len(), 4);
     let mut encoded_backing = [0u8; 145];
     let encoded = &mut encoded_backing[..encoded_size];

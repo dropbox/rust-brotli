@@ -636,9 +636,7 @@ fn adv_prepare_distance_cache(distance_cache: &mut [i32], num_distances: i32) {
 
 pub const kDistanceCacheIndex: [u8; 16] = [0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1];
 
-pub const kDistanceCacheOffset: [i8; 16] = [
-    0i8, 0i8, 0i8, 0i8, -1i8, 1i8, -2i8, 2i8, -3i8, 3i8, -1i8, 1i8, -2i8, 2i8, -3i8, 3i8,
-];
+pub const kDistanceCacheOffset: [i8; 16] = [0, 0, 0, 0, -1, 1, -2, 2, -3, 3, -1, 1, -2, 2, -3, 3];
 
 //const BROTLI_LITERAL_BYTE_SCORE: u64 = 540;
 const BROTLI_DISTANCE_BIT_PENALTY: u32 = 120;

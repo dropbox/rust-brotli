@@ -25,7 +25,7 @@ fn UTF8Position(last: usize, c: usize, clamp: usize) -> usize {
 }
 
 fn DecideMultiByteStatsLevel(pos: usize, len: usize, mask: usize, data: &[u8]) -> usize {
-    let mut counts: [usize; 3] = [0, 0usize, 0usize];
+    let mut counts = [0usize; 3];
     let mut max_utf8: usize = 1;
     let mut last_c: usize = 0usize;
     let mut i: usize;
@@ -59,10 +59,10 @@ fn EstimateBitCostsForLiteralsUTF8(
     cost: &mut [super::util::floatX],
 ) {
     let max_utf8: usize = DecideMultiByteStatsLevel(pos, len, mask, data);
-    let mut histogram: [[usize; 256]; 3] = [[0; 256]; 3];
+    let mut histogram = [[0usize; 256]; 3];
     let window_half: usize = 495usize;
     let in_window: usize = brotli_min_size_t(window_half, len);
-    let mut in_window_utf8: [usize; 3] = [0, 0usize, 0usize];
+    let mut in_window_utf8 = [0usize; 3];
     let mut i: usize;
     {
         let mut last_c: usize = 0usize;

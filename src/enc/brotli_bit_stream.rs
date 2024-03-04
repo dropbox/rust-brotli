@@ -819,12 +819,9 @@ fn BrotliStoreHuffmanTreeOfHuffmanTreeToBitMask(
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
-    static kStorageOrder: [u8; 18] = [
-        1u8, 2u8, 3u8, 4u8, 0u8, 5u8, 17u8, 6u8, 16u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8,
-        15u8,
-    ];
-    static kHuffmanBitLengthHuffmanCodeSymbols: [u8; 6] = [0u8, 7u8, 3u8, 2u8, 1u8, 15u8];
-    static kHuffmanBitLengthHuffmanCodeBitLengths: [u8; 6] = [2u8, 4u8, 3u8, 2u8, 2u8, 4u8];
+    static kStorageOrder: [u8; 18] = [1, 2, 3, 4, 0, 5, 17, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    static kHuffmanBitLengthHuffmanCodeSymbols: [u8; 6] = [0, 7, 3, 2, 1, 15];
+    static kHuffmanBitLengthHuffmanCodeBitLengths: [u8; 6] = [2, 4, 3, 2, 2, 4];
     let mut skip_some: u64 = 0u64;
     let mut codes_to_store: u64 = 18;
     if num_codes > 1i32 {
@@ -907,17 +904,12 @@ pub fn BrotliStoreHuffmanTree(
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
-    let mut huffman_tree: [u8; 704] = [0; 704];
-    let mut huffman_tree_extra_bits: [u8; 704] = [0; 704];
-    let mut huffman_tree_size: usize = 0usize;
-    let mut code_length_bitdepth: [u8; 18] = [
-        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
-    ];
-    let mut code_length_bitdepth_symbols: [u16; 18] = [0; 18];
-    let mut huffman_tree_histogram: [u32; 18] = [
-        0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
-        0u32, 0u32, 0u32,
-    ];
+    let mut huffman_tree = [0u8; 704];
+    let mut huffman_tree_extra_bits = [0u8; 704];
+    let mut huffman_tree_size = 0usize;
+    let mut code_length_bitdepth = [0u8; 18];
+    let mut code_length_bitdepth_symbols = [0u16; 18];
+    let mut huffman_tree_histogram = [0u32; 18];
     let mut i: usize;
     let mut num_codes: i32 = 0i32;
     let mut code: usize = 0usize;
@@ -1572,7 +1564,7 @@ fn BuildAndStoreHuffmanTree(
     storage: &mut [u8],
 ) {
     let mut count: usize = 0usize;
-    let mut s4: [usize; 4] = [0, 0usize, 0usize, 0usize];
+    let mut s4 = [0usize; 4];
     let mut i: usize;
     let mut max_bits: usize = 0usize;
     i = 0usize;
@@ -3069,7 +3061,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>(
             &cmds,
             input0,
             input1,
-            &[0i32, 0i32, 0i32, 0i32],
+            &[0, 0, 0, 0],
             recoder_state,
             block_split_nop(),
             params,
