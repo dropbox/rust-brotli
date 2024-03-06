@@ -380,8 +380,8 @@ impl<'a> BackwardMatchMut<'a> {
 
 #[inline(always)]
 pub fn InitBackwardMatch(xself: &mut BackwardMatchMut, dist: usize, len: usize) {
-    (*xself).set_distance(dist as u32);
-    (*xself).set_length_and_code((len << 5i32) as u32);
+    xself.set_distance(dist as u32);
+    xself.set_length_and_code((len << 5i32) as u32);
 }
 
 macro_rules! LeftChildIndexH10 {
@@ -402,7 +402,7 @@ fn LeftChildIndexH10<AllocU32: Allocator<u32>,
      Params:H10Params>(
     mut xself : &mut H10<AllocU32, Buckets, Params>, pos : usize
 ) -> usize {
-    (2usize).wrapping_mul(pos & (*xself).window_mask_)
+    (2usize).wrapping_mul(pos & xself.window_mask_)
 }
 
 fn RightChildIndexH10<AllocU32: Allocator<u32>,
@@ -411,7 +411,7 @@ fn RightChildIndexH10<AllocU32: Allocator<u32>,
     mut xself : &mut H10<AllocU32, Buckets, Params>, pos : usize
 ) -> usize {
     (2usize).wrapping_mul(
-        pos & (*xself).window_mask_
+        pos & xself.window_mask_
     ).wrapping_add(
         1
     )

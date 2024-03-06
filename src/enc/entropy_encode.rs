@@ -481,13 +481,13 @@ fn BrotliWriteHuffmanTreeRepetitions(
     if previous_value as i32 != value as i32 {
         tree[*tree_size] = value;
         extra_bits_data[*tree_size] = 0u8;
-        *tree_size = (*tree_size).wrapping_add(1);
+        *tree_size = tree_size.wrapping_add(1);
         repetitions = repetitions.wrapping_sub(1);
     }
     if repetitions == 7usize {
         tree[*tree_size] = value;
         extra_bits_data[*tree_size] = 0u8;
-        *tree_size = (*tree_size).wrapping_add(1);
+        *tree_size = tree_size.wrapping_add(1);
         repetitions = repetitions.wrapping_sub(1);
     }
     if repetitions < 3usize {
@@ -497,7 +497,7 @@ fn BrotliWriteHuffmanTreeRepetitions(
             {
                 tree[*tree_size] = value;
                 extra_bits_data[*tree_size] = 0u8;
-                *tree_size = (*tree_size).wrapping_add(1);
+                *tree_size = tree_size.wrapping_add(1);
             }
             i = i.wrapping_add(1);
         }
@@ -507,7 +507,7 @@ fn BrotliWriteHuffmanTreeRepetitions(
         while 1i32 != 0 {
             tree[*tree_size] = 16u8;
             extra_bits_data[*tree_size] = (repetitions & 0x3usize) as u8;
-            *tree_size = (*tree_size).wrapping_add(1);
+            *tree_size = tree_size.wrapping_add(1);
             repetitions >>= 2i32;
             if repetitions == 0usize {
                 {
@@ -530,7 +530,7 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(
     if repetitions == 11 {
         tree[*tree_size] = 0u8;
         extra_bits_data[*tree_size] = 0u8;
-        *tree_size = (*tree_size).wrapping_add(1);
+        *tree_size = tree_size.wrapping_add(1);
         repetitions = repetitions.wrapping_sub(1);
     }
     if repetitions < 3usize {
@@ -540,7 +540,7 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(
             {
                 tree[*tree_size] = 0u8;
                 extra_bits_data[*tree_size] = 0u8;
-                *tree_size = (*tree_size).wrapping_add(1);
+                *tree_size = tree_size.wrapping_add(1);
             }
             i = i.wrapping_add(1);
         }
@@ -550,7 +550,7 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(
         while 1i32 != 0 {
             tree[*tree_size] = 17u8;
             extra_bits_data[*tree_size] = (repetitions & 0x7usize) as u8;
-            *tree_size = (*tree_size).wrapping_add(1);
+            *tree_size = tree_size.wrapping_add(1);
             repetitions >>= 3i32;
             if repetitions == 0usize {
                 {

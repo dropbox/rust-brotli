@@ -169,7 +169,7 @@ fn CopyLiteralsToByteArray(
 }
 
 fn MyRand(seed: &mut u32) -> u32 {
-    *seed = (*seed).wrapping_mul(16807);
+    *seed = seed.wrapping_mul(16807);
     if *seed == 0u32 {
         *seed = 1u32;
     }
@@ -376,11 +376,11 @@ where
                     local_insert_cost
                         .clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
                     for sub_index in 0usize..8usize {
-                        *cost_iter = (*cost_iter).replace(
+                        *cost_iter = cost_iter.replace(
                             sub_index,
-                            (*cost_iter).extract(sub_index) + local_insert_cost[sub_index],
+                            cost_iter.extract(sub_index) + local_insert_cost[sub_index],
                         );
-                        let final_cost = (*cost_iter).extract(sub_index);
+                        let final_cost = cost_iter.extract(sub_index);
                         if final_cost < min_cost {
                             min_cost = final_cost;
                             *block_id_ptr = (base_index + sub_index) as u8;
@@ -807,11 +807,11 @@ fn ClusterBlocks<
     <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::take(&mut clusters));
     <Alloc as Allocator<HistogramType>>::free_cell(alloc, core::mem::take(&mut all_histograms));
     {
-        if (*split).types_alloc_size() < num_blocks {
-            let mut _new_size: usize = if (*split).types_alloc_size() == 0usize {
+        if split.types_alloc_size() < num_blocks {
+            let mut _new_size: usize = if split.types_alloc_size() == 0usize {
                 num_blocks
             } else {
-                (*split).types_alloc_size()
+                split.types_alloc_size()
             };
             while _new_size < num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
@@ -826,11 +826,11 @@ fn ClusterBlocks<
         }
     }
     {
-        if (*split).lengths_alloc_size() < num_blocks {
-            let mut _new_size: usize = if (*split).lengths_alloc_size() == 0usize {
+        if split.lengths_alloc_size() < num_blocks {
+            let mut _new_size: usize = if split.lengths_alloc_size() == 0usize {
                 num_blocks
             } else {
-                (*split).lengths_alloc_size()
+                split.lengths_alloc_size()
             };
             while _new_size < num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
@@ -907,11 +907,11 @@ fn SplitByteVector<
         return;
     } else if length < kMinLengthForBlockSplitting {
         {
-            if (*split).types_alloc_size() < split.num_blocks.wrapping_add(1) {
-                let mut _new_size: usize = if (*split).types_alloc_size() == 0usize {
+            if split.types_alloc_size() < split.num_blocks.wrapping_add(1) {
+                let mut _new_size: usize = if split.types_alloc_size() == 0usize {
                     split.num_blocks.wrapping_add(1)
                 } else {
-                    (*split).types_alloc_size()
+                    split.types_alloc_size()
                 };
 
                 while _new_size < split.num_blocks.wrapping_add(1) {
@@ -927,11 +927,11 @@ fn SplitByteVector<
             }
         }
         {
-            if (*split).lengths_alloc_size() < split.num_blocks.wrapping_add(1) {
-                let mut _new_size: usize = if (*split).lengths_alloc_size() == 0usize {
+            if split.lengths_alloc_size() < split.num_blocks.wrapping_add(1) {
+                let mut _new_size: usize = if split.lengths_alloc_size() == 0usize {
                     split.num_blocks.wrapping_add(1)
                 } else {
-                    (*split).lengths_alloc_size()
+                    split.lengths_alloc_size()
                 };
                 while _new_size < split.num_blocks.wrapping_add(1) {
                     _new_size = _new_size.wrapping_mul(2);

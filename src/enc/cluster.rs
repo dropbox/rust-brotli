@@ -116,12 +116,12 @@ fn BrotliCompareAndPushToQueue<
                 /* Replace the top of the queue if needed. */
                 if *num_pairs < max_num_pairs {
                     pairs[*num_pairs] = pairs[0];
-                    *num_pairs = (*num_pairs).wrapping_add(1);
+                    *num_pairs = num_pairs.wrapping_add(1);
                 }
                 pairs[0] = p;
             } else if *num_pairs < max_num_pairs {
                 pairs[*num_pairs] = p;
-                *num_pairs = (*num_pairs).wrapping_add(1);
+                *num_pairs = num_pairs.wrapping_add(1);
             }
         }
     }
@@ -279,12 +279,12 @@ pub fn BrotliHistogramBitCostDistance<
     candidate: &HistogramType,
     scratch_space: &mut HistogramType::i32vec,
 ) -> super::util::floatX {
-    if (*histogram).total_count() == 0usize {
+    if histogram.total_count() == 0usize {
         0.0 as super::util::floatX
     } else {
         let mut tmp: HistogramType = histogram.clone();
         HistogramAddHistogram(&mut tmp, candidate);
-        BrotliPopulationCost(&tmp, scratch_space) - (*candidate).bit_cost()
+        BrotliPopulationCost(&tmp, scratch_space) - candidate.bit_cost()
     }
 }
 

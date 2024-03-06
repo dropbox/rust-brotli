@@ -446,7 +446,7 @@ pub fn BrotliWriteBits(n_bits: usize, bits: u64, pos: &mut usize, array: &mut [u
     let mut v: u64 = p[0] as (u64);
     v |= bits << (*pos & 7);
     BROTLI_UNALIGNED_STORE64(p, v);
-    *pos = (*pos).wrapping_add(n_bits);
+    *pos = pos.wrapping_add(n_bits);
 }
 pub fn BrotliStoreMetaBlockHeader(
     len: usize,
@@ -686,9 +686,9 @@ fn EmitUncompressedMetaBlock(
     storage: &mut [u8],
 ) {
     BrotliStoreMetaBlockHeader(input_size, 1i32, storage_ix, storage);
-    *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
+    *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     memcpy(storage, (*storage_ix >> 3i32), input, 0, input_size);
-    *storage_ix = (*storage_ix).wrapping_add(input_size << 3i32);
+    *storage_ix = storage_ix.wrapping_add(input_size << 3i32);
     storage[(*storage_ix >> 3i32)] = 0u8;
 }
 #[allow(unused_variables)]
@@ -943,13 +943,13 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT: alloc::Allocator<HuffmanTree>>(
             storage,
         );
     }
-    if (*storage_ix).wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3i32) {
+    if storage_ix.wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3i32) {
         RewindBitPosition(initial_storage_ix, storage_ix, storage);
         EmitUncompressedMetaBlock(input, input_size, storage_ix, storage);
     }
     if is_last != 0 {
         BrotliWriteBits(1, 1, storage_ix, storage);
         BrotliWriteBits(1, 1, storage_ix, storage);
-        *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
+        *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     }
 }

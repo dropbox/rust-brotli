@@ -1900,7 +1900,7 @@ fn RunLengthCodeZeros(
         if v[i] != 0u32 {
             v[*out_size] = (v[i]).wrapping_add(*max_run_length_prefix);
             i = i.wrapping_add(1);
-            *out_size = (*out_size).wrapping_add(1);
+            *out_size = out_size.wrapping_add(1);
         } else {
             let mut reps: u32 = 1u32;
             let mut k: usize;
@@ -1917,7 +1917,7 @@ fn RunLengthCodeZeros(
                     let run_length_prefix: u32 = Log2FloorNonZero(reps as (u64));
                     let extra_bits: u32 = reps.wrapping_sub(1u32 << run_length_prefix);
                     v[*out_size] = run_length_prefix.wrapping_add(extra_bits << 9i32);
-                    *out_size = (*out_size).wrapping_add(1);
+                    *out_size = out_size.wrapping_add(1);
                     {
                         {
                             break;
@@ -1927,7 +1927,7 @@ fn RunLengthCodeZeros(
                     let extra_bits: u32 = (1u32 << max_prefix).wrapping_sub(1);
                     v[*out_size] = max_prefix.wrapping_add(extra_bits << 9i32);
                     reps = reps.wrapping_sub((2u32 << max_prefix).wrapping_sub(1));
-                    *out_size = (*out_size).wrapping_add(1);
+                    *out_size = out_size.wrapping_add(1);
                 }
             }
         }
@@ -2227,7 +2227,7 @@ fn CleanupBlockEncoder<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
 }
 
 pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
-    *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
+    *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     storage[(*storage_ix >> 3i32)] = 0u8;
 }
 
@@ -3042,10 +3042,10 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>(
     JumpToByteBoundary(storage_ix, storage);
     let dst_start0 = (*storage_ix >> 3i32);
     storage[dst_start0..(dst_start0 + input0.len())].clone_from_slice(input0);
-    *storage_ix = (*storage_ix).wrapping_add(input0.len() << 3i32);
+    *storage_ix = storage_ix.wrapping_add(input0.len() << 3i32);
     let dst_start1 = (*storage_ix >> 3i32);
     storage[dst_start1..(dst_start1 + input1.len())].clone_from_slice(input1);
-    *storage_ix = (*storage_ix).wrapping_add(input1.len() << 3i32);
+    *storage_ix = storage_ix.wrapping_add(input1.len() << 3i32);
     BrotliWriteBitsPrepareStorage(*storage_ix, storage);
     if params.log_meta_block && !suppress_meta_block_logging {
         let cmds = [Command {
