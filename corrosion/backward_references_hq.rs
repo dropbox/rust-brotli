@@ -67,7 +67,7 @@ pub unsafe extern fn ctzll(mut x : usize) -> usize {
     let mut count : u8 = 0u8;
     while x & 0usize != 0 {
         count = (count as i32 + 1i32) as u8;
-        x = x >> 1i32;
+        x = x >> 1;
     }
     count as usize
 }
@@ -78,17 +78,17 @@ static kCutoffTransformsCount : u32 = 10u32;
 
 static kCutoffTransforms
     : usize
-    = 0x71b520ausize << 32i32 | 0xda2d3200u32 as usize;
+    = 0x71b520ausize << 32 | 0xda2d3200u32 as usize;
 
 static kHashMul32 : u32 = 0x1e35a7bdu32;
 
 static kHashMul64
     : usize
-    = 0x1e35a7bdusize << 32i32 | 0x1e35a7bdusize;
+    = 0x1e35a7bdusize << 32 | 0x1e35a7bdusize;
 
 static kHashMul64Long
     : usize
-    = 0x1fe35a7bu32 as usize << 32i32 | 0xd3579bd3u32 as usize;
+    = 0x1fe35a7bu32 as usize << 32 | 0xd3579bd3u32 as usize;
 
 static kInfinity : f32 = 1.7e38f32;
 
@@ -219,7 +219,7 @@ unsafe extern fn ZopfliNodeCopyDistance(
 unsafe extern fn ZopfliNodeLengthCode(
     mut self : *const ZopfliNode
 ) -> u32 {
-    let modifier : u32 = (*self).length >> 25i32;
+    let modifier : u32 = (*self).length >> 25;
     ZopfliNodeCopyLength(self).wrapping_add(9).wrapping_sub(
         modifier
     )
@@ -234,7 +234,7 @@ unsafe extern fn brotli_min_size_t(
 unsafe extern fn ZopfliNodeDistanceCode(
     mut self : *const ZopfliNode
 ) -> u32 {
-    let short_code : u32 = (*self).dcode_insert_length >> 27i32;
+    let short_code : u32 = (*self).dcode_insert_length >> 27;
     if short_code == 0u32 {
         ZopfliNodeCopyDistance(self).wrapping_add(
             16u32
@@ -249,7 +249,7 @@ unsafe extern fn ZopfliNodeDistanceCode(
 unsafe extern fn Log2FloorNonZero(mut n : usize) -> u32 {
     let mut result : u32 = 0u32;
     while {
-              n = n >> 1i32;
+              n = n >> 1;
               n
           } != 0 {
         result = result.wrapping_add(1);
@@ -290,7 +290,7 @@ unsafe extern fn PrefixEncodeCopyDistance(
             : usize
             = (2usize).wrapping_add(prefix) << bucket;
         let mut nbits : usize = bucket.wrapping_sub(postfix_bits);
-        *code = (nbits << 10i32 | (16usize).wrapping_add(
+        *code = (nbits << 10 | (16usize).wrapping_add(
                                       num_direct_codes
                                   ).wrapping_add(
                                       (2usize).wrapping_mul(
@@ -318,7 +318,7 @@ unsafe extern fn GetInsertLengthCode(
               ).wrapping_sub(
                   1u32
               );
-        ((nbits << 1i32) as usize).wrapping_add(
+        ((nbits << 1) as usize).wrapping_add(
             insertlen.wrapping_sub(2) >> nbits
         ).wrapping_add(
             2usize
@@ -349,7 +349,7 @@ unsafe extern fn GetCopyLengthCode(mut copylen : usize) -> u16 {
               ).wrapping_sub(
                   1u32
               );
-        ((nbits << 1i32) as usize).wrapping_add(
+        ((nbits << 1) as usize).wrapping_add(
             copylen.wrapping_sub(6) >> nbits
         ).wrapping_add(
             4usize
@@ -370,7 +370,7 @@ unsafe extern fn CombineLengthCodes(
 ) -> u16 {
     let mut bits64
         : u16
-        = (copycode as u32 & 0x7u32 | (inscode as u32 & 0x7u32) << 3i32) as u16;
+        = (copycode as u32 & 0x7u32 | (inscode as u32 & 0x7u32) << 3) as u16;
     if use_last_distance != 0 && (inscode as i32 < 8i32) && (copycode as i32 < 16i32) {
         if copycode as i32 < 8i32 {
             bits64 as i32
@@ -380,8 +380,8 @@ unsafe extern fn CombineLengthCodes(
     } else {
         let mut offset
             : i32
-            = 2i32 * ((copycode as i32 >> 3i32) + 3i32 * (inscode as i32 >> 3i32));
-        offset = (offset << 5i32) + 0x40i32 + (0x520d40i32 >> offset & 0xc0i32);
+            = 2i32 * ((copycode as i32 >> 3) + 3i32 * (inscode as i32 >> 3));
+        offset = (offset << 5) + 0x40i32 + (0x520d40i32 >> offset & 0xc0i32);
         (offset as u16 as i32 | bits64 as i32) as u16
     }
 }
@@ -407,7 +407,7 @@ unsafe extern fn InitCommand(
 ) {
     let mut delta : u32 = copylen_code_delta as i8 as u8 as u32;
     (*self).insert_len_ = insertlen as u32;
-    (*self).copy_len_ = (copylen | (delta << 25i32) as usize) as u32;
+    (*self).copy_len_ = (copylen | (delta << 25) as usize) as u32;
     PrefixEncodeCopyDistance(
         distance_code,
         (*dist).num_direct_distance_codes as usize,
@@ -689,7 +689,7 @@ unsafe extern fn FindMatchLengthWithLimit(
     let mut matched : usize = 0usize;
     let mut limit2
         : usize
-        = (limit >> 3i32).wrapping_add(1);
+        = (limit >> 3).wrapping_add(1);
     while {
               limit2 = limit2.wrapping_sub(1);
               limit2
@@ -710,7 +710,7 @@ unsafe extern fn FindMatchLengthWithLimit(
                           s1.offset(matched as isize) as (*const std::os::raw::c_void)
                       );
             let mut matching_bits : usize = ctzll(x) as usize;
-            matched = matched.wrapping_add(matching_bits >> 3i32);
+            matched = matched.wrapping_add(matching_bits >> 3);
             return matched;
         }
     }
@@ -733,7 +733,7 @@ unsafe extern fn InitBackwardMatch(
     mut self : *mut BackwardMatch, mut dist : usize, mut len : usize
 ) {
     (*self).distance = dist as u32;
-    (*self).length_and_code = (len << 5i32) as u32;
+    (*self).length_and_code = (len << 5) as u32;
 }
 
 #[derive(Clone, Copy)]
@@ -758,7 +758,7 @@ unsafe extern fn HashBytesH10(mut data : *const u8) -> u32 {
           ).wrapping_mul(
               kHashMul32
           );
-    h >> 32i32 - 17i32
+    h >> 32 - 17i32
 }
 
 unsafe extern fn ForestH10(mut self : *mut H10) -> *mut u32 {
@@ -932,7 +932,7 @@ unsafe extern fn InitDictionaryBackwardMatch(
     mut len_code : usize
 ) {
     (*self).distance = dist as u32;
-    (*self).length_and_code = (len << 5i32 | if len == len_code {
+    (*self).length_and_code = (len << 5 | if len == len_code {
                                                  0usize
                                              } else {
                                                  len_code
@@ -1063,7 +1063,7 @@ unsafe extern fn FindAllMatchesH10(
                         let mut distance
                             : usize
                             = max_backward.wrapping_add(gap).wrapping_add(
-                                  (dict_id >> 5i32) as usize
+                                  (dict_id >> 5) as usize
                               ).wrapping_add(
                                   1usize
                               );
@@ -1094,7 +1094,7 @@ unsafe extern fn FindAllMatchesH10(
 unsafe extern fn BackwardMatchLength(
     mut self : *const BackwardMatch
 ) -> usize {
-    ((*self).length_and_code >> 5i32) as usize
+    ((*self).length_and_code >> 5) as usize
 }
 
 unsafe extern fn MaxZopfliCandidates(
@@ -1377,9 +1377,9 @@ unsafe extern fn UpdateZopfliNode(
                                 9u32 as usize
                             ).wrapping_sub(
                                 len_code
-                            ) << 25i32) as u32;
+                            ) << 25) as u32;
     (*next).distance = dist as u32;
-    (*next).dcode_insert_length = (short_code << 27i32 | pos.wrapping_sub(
+    (*next).dcode_insert_length = (short_code << 27 | pos.wrapping_sub(
                                                              start_pos
                                                          )) as u32;
     (*next).u.cost = cost;
@@ -1605,7 +1605,7 @@ unsafe extern fn UpdateNodes(
                                 &mut dist_symbol as (*mut u16),
                                 &mut distextra as (*mut u32)
                             );
-                            distnumextra = (dist_symbol as i32 >> 10i32) as u32;
+                            distnumextra = (dist_symbol as i32 >> 10) as u32;
                             dist_cost = base_cost + distnumextra as (f32) + ZopfliCostModelGetDistanceCost(
                                                                                 model,
                                                                                 (dist_symbol as i32 & 0x3ffi32) as usize

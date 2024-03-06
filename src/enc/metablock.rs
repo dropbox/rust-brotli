@@ -224,7 +224,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         &mut mb.distance_split,
     );
     if params.disable_literal_context_modeling == 0 {
-        literal_context_multiplier = (1i32 << 6i32) as usize;
+        literal_context_multiplier = (1i32 << 6) as usize;
         literal_context_modes =
             <Alloc as Allocator<ContextType>>::alloc_cell(alloc, mb.literal_split.num_types);
         for item in literal_context_modes.slice_mut().iter_mut() {
@@ -237,7 +237,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         .wrapping_mul(literal_context_multiplier);
     literal_histograms =
         <Alloc as Allocator<HistogramLiteral>>::alloc_cell(alloc, literal_histograms_size);
-    let distance_histograms_size: usize = mb.distance_split.num_types << 2i32;
+    let distance_histograms_size: usize = mb.distance_split.num_types << 2;
     distance_histograms =
         <Alloc as Allocator<HistogramDistance>>::alloc_cell(alloc, distance_histograms_size);
     mb.command_histograms_size = mb.command_split.num_types;
@@ -260,7 +260,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         distance_histograms.slice_mut(),
     );
     <Alloc as Allocator<ContextType>>::free_cell(alloc, literal_context_modes);
-    mb.literal_context_map_size = mb.literal_split.num_types << 6i32;
+    mb.literal_context_map_size = mb.literal_split.num_types << 6;
     mb.literal_context_map =
         <Alloc as Allocator<u32>>::alloc_cell(alloc, mb.literal_context_map_size);
     mb.literal_histograms_size = mb.literal_context_map_size;
@@ -282,16 +282,16 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         while i != 0usize {
             let mut j: usize = 0usize;
             i = i.wrapping_sub(1);
-            while j < (1i32 << 6i32) as usize {
+            while j < (1i32 << 6) as usize {
                 {
                     let val = mb.literal_context_map.slice()[i];
-                    mb.literal_context_map.slice_mut()[(i << 6i32).wrapping_add(j)] = val;
+                    mb.literal_context_map.slice_mut()[(i << 6).wrapping_add(j)] = val;
                 }
                 j = j.wrapping_add(1);
             }
         }
     }
-    mb.distance_context_map_size = mb.distance_split.num_types << 2i32;
+    mb.distance_context_map_size = mb.distance_split.num_types << 2;
     mb.distance_context_map =
         <Alloc as Allocator<u32>>::alloc_cell(alloc, mb.distance_context_map_size);
     mb.distance_histograms_size = mb.distance_context_map_size;
@@ -883,7 +883,7 @@ fn MapStaticContexts<
     mb: &mut MetaBlockSplit<Alloc>,
 ) {
     let mut i: usize;
-    mb.literal_context_map_size = mb.literal_split.num_types << 6i32;
+    mb.literal_context_map_size = mb.literal_split.num_types << 6;
     let new_literal_context_map =
         <Alloc as Allocator<u32>>::alloc_cell(m32, mb.literal_context_map_size);
     <Alloc as Allocator<u32>>::free_cell(
@@ -896,9 +896,9 @@ fn MapStaticContexts<
             let offset: u32 = i.wrapping_mul(num_contexts) as u32;
             let mut j: usize;
             j = 0usize;
-            while j < (1u32 << 6i32) as usize {
+            while j < (1u32 << 6) as usize {
                 {
-                    mb.literal_context_map.slice_mut()[(i << 6i32).wrapping_add(j)] =
+                    mb.literal_context_map.slice_mut()[(i << 6).wrapping_add(j)] =
                         offset.wrapping_add(static_context_map[j]);
                 }
                 j = j.wrapping_add(1);

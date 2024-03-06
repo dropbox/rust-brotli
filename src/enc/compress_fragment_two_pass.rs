@@ -13,7 +13,7 @@ use super::static_dict::{
 };
 use super::util::{brotli_min_size_t, Log2FloorNonZero};
 use core;
-static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as usize;
+static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 
 // returns number of commands inserted
 fn EmitInsertLen(insertlen: u32, commands: &mut &mut [u32]) -> usize {
@@ -23,24 +23,24 @@ fn EmitInsertLen(insertlen: u32, commands: &mut &mut [u32]) -> usize {
         let tail: u32 = insertlen.wrapping_sub(2);
         let nbits: u32 = Log2FloorNonZero(tail as (u64)).wrapping_sub(1);
         let prefix: u32 = tail >> nbits;
-        let inscode: u32 = (nbits << 1i32).wrapping_add(prefix).wrapping_add(2);
+        let inscode: u32 = (nbits << 1).wrapping_add(prefix).wrapping_add(2);
         let extra: u32 = tail.wrapping_sub(prefix << nbits);
-        (*commands)[0] = inscode | extra << 8i32;
+        (*commands)[0] = inscode | extra << 8;
     } else if insertlen < 2114u32 {
         let tail: u32 = insertlen.wrapping_sub(66);
         let nbits: u32 = Log2FloorNonZero(tail as (u64));
         let code: u32 = nbits.wrapping_add(10);
         let extra: u32 = tail.wrapping_sub(1u32 << nbits);
-        (*commands)[0] = code | extra << 8i32;
+        (*commands)[0] = code | extra << 8;
     } else if insertlen < 6210u32 {
         let extra: u32 = insertlen.wrapping_sub(2114);
-        (*commands)[0] = 21u32 | extra << 8i32;
+        (*commands)[0] = 21u32 | extra << 8;
     } else if insertlen < 22594u32 {
         let extra: u32 = insertlen.wrapping_sub(6210);
-        (*commands)[0] = 22u32 | extra << 8i32;
+        (*commands)[0] = 22u32 | extra << 8;
     } else {
         let extra: u32 = insertlen.wrapping_sub(22594);
-        (*commands)[0] = 23u32 | extra << 8i32;
+        (*commands)[0] = 23u32 | extra << 8;
     }
     let remainder = core::mem::take(commands);
     let _ = core::mem::replace(commands, &mut remainder[1..]);
@@ -57,7 +57,7 @@ fn EmitDistance(distance: u32, commands: &mut &mut [u32]) -> usize {
         .wrapping_add(prefix)
         .wrapping_add(80);
     let extra: u32 = d.wrapping_sub(offset);
-    (*commands)[0] = distcode | extra << 8i32;
+    (*commands)[0] = distcode | extra << 8;
     let remainder = core::mem::take(commands);
     let _ = core::mem::replace(commands, &mut remainder[1..]);
     1
@@ -73,17 +73,17 @@ fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
         let tail: usize = copylen.wrapping_sub(8);
         let nbits: usize = Log2FloorNonZero(tail as u64).wrapping_sub(1) as usize;
         let prefix: usize = tail >> nbits;
-        let code: usize = (nbits << 1i32).wrapping_add(prefix).wrapping_add(28);
+        let code: usize = (nbits << 1).wrapping_add(prefix).wrapping_add(28);
         let extra: usize = tail.wrapping_sub(prefix << nbits);
-        (*commands)[0] = (code | extra << 8i32) as u32;
+        (*commands)[0] = (code | extra << 8) as u32;
         let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         1
     } else if copylen < 136usize {
         let tail: usize = copylen.wrapping_sub(8);
-        let code: usize = (tail >> 5i32).wrapping_add(54);
+        let code: usize = (tail >> 5).wrapping_add(54);
         let extra: usize = tail & 31usize;
-        (*commands)[0] = (code | extra << 8i32) as u32;
+        (*commands)[0] = (code | extra << 8) as u32;
         let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         (*commands)[0] = 64u32;
@@ -95,7 +95,7 @@ fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
         let nbits: usize = Log2FloorNonZero(tail as u64) as usize;
         let code: usize = nbits.wrapping_add(52);
         let extra: usize = tail.wrapping_sub(1usize << nbits);
-        (*commands)[0] = (code | extra << 8i32) as u32;
+        (*commands)[0] = (code | extra << 8) as u32;
         let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         (*commands)[0] = 64u32;
@@ -104,7 +104,7 @@ fn EmitCopyLenLastDistance(copylen: usize, commands: &mut &mut [u32]) -> usize {
         2
     } else {
         let extra: usize = copylen.wrapping_sub(2120);
-        (*commands)[0] = (63usize | extra << 8i32) as u32;
+        (*commands)[0] = (63usize | extra << 8) as u32;
         let remainder = core::mem::take(commands);
         let _ = core::mem::replace(commands, &mut remainder[1..]);
         (*commands)[0] = 64u32;
@@ -129,18 +129,18 @@ fn EmitCopyLen(copylen: usize, commands: &mut &mut [u32]) -> usize {
         let tail: usize = copylen.wrapping_sub(6);
         let nbits: usize = Log2FloorNonZero(tail as u64).wrapping_sub(1) as usize;
         let prefix: usize = tail >> nbits;
-        let code: usize = (nbits << 1i32).wrapping_add(prefix).wrapping_add(44);
+        let code: usize = (nbits << 1).wrapping_add(prefix).wrapping_add(44);
         let extra: usize = tail.wrapping_sub(prefix << nbits);
-        (*commands)[0] = (code | extra << 8i32) as u32;
+        (*commands)[0] = (code | extra << 8) as u32;
     } else if copylen < 2118usize {
         let tail: usize = copylen.wrapping_sub(70);
         let nbits: usize = Log2FloorNonZero(tail as u64) as usize;
         let code: usize = nbits.wrapping_add(52);
         let extra: usize = tail.wrapping_sub(1usize << nbits);
-        (*commands)[0] = (code | extra << 8i32) as u32;
+        (*commands)[0] = (code | extra << 8) as u32;
     } else {
         let extra: usize = copylen.wrapping_sub(2118);
-        (*commands)[0] = (63usize | extra << 8i32) as u32;
+        (*commands)[0] = (63usize | extra << 8) as u32;
     }
     let remainder = core::mem::take(commands);
     let _ = core::mem::replace(commands, &mut remainder[1..]);
@@ -213,7 +213,7 @@ fn CreateCommands(
                                 let _old = skip;
                                 skip = skip.wrapping_add(1);
                                 _old
-                            }) >> 5i32;
+                            }) >> 5;
                             ip_index = next_ip;
                             0i32;
                             next_ip = ip_index.wrapping_add(bytes_between_hash_lookups as usize);
@@ -249,7 +249,7 @@ fn CreateCommands(
                     }
                 }
                 if !(ip_index.wrapping_sub(candidate)
-                    > (1usize << 18i32).wrapping_sub(16) as isize as usize
+                    > (1usize << 18).wrapping_sub(16) as isize as usize
                     && (goto_emit_remainder == 0))
                 {
                     break;
@@ -332,7 +332,7 @@ fn CreateCommands(
                 }
             }
             while ip_index.wrapping_sub(candidate)
-                <= (1usize << 18i32).wrapping_sub(16) as isize as usize
+                <= (1usize << 18).wrapping_sub(16) as isize as usize
                 && (IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) != 0)
             {
                 let base_index: usize = ip_index;
@@ -442,7 +442,7 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
 }
 
 pub fn BrotliWriteBits(n_bits: usize, bits: u64, pos: &mut usize, array: &mut [u8]) {
-    let p = &mut array[(*pos >> 3i32)..];
+    let p = &mut array[(*pos >> 3)..];
     let mut v: u64 = p[0] as (u64);
     v |= bits << (*pos & 7);
     BROTLI_UNALIGNED_STORE64(p, v);
@@ -456,9 +456,9 @@ pub fn BrotliStoreMetaBlockHeader(
 ) {
     let mut nibbles: u64 = 6;
     BrotliWriteBits(1, 0, storage_ix, storage);
-    if len <= (1u32 << 16i32) as usize {
+    if len <= (1u32 << 16) as usize {
         nibbles = 4;
-    } else if len <= (1u32 << 20i32) as usize {
+    } else if len <= (1u32 << 20) as usize {
         nibbles = 5;
     }
     BrotliWriteBits(2, nibbles.wrapping_sub(4), storage_ix, storage);
@@ -648,7 +648,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
         {
             let cmd: u32 = commands[i];
             let code: u32 = cmd & 0xffu32;
-            let extra: u32 = cmd >> 8i32;
+            let extra: u32 = cmd >> 8;
             0i32;
             BrotliWriteBits(
                 cmd_depths[code as usize] as usize,
@@ -687,9 +687,9 @@ fn EmitUncompressedMetaBlock(
 ) {
     BrotliStoreMetaBlockHeader(input_size, 1i32, storage_ix, storage);
     *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
-    memcpy(storage, (*storage_ix >> 3i32), input, 0, input_size);
-    *storage_ix = (*storage_ix).wrapping_add(input_size << 3i32);
-    storage[(*storage_ix >> 3i32)] = 0u8;
+    memcpy(storage, (*storage_ix >> 3), input, 0, input_size);
+    *storage_ix = (*storage_ix).wrapping_add(input_size << 3);
+    storage[(*storage_ix >> 3)] = 0u8;
 }
 #[allow(unused_variables)]
 #[inline(always)]
@@ -793,7 +793,7 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
     let mask: usize = (1u32 << bitpos).wrapping_sub(1) as usize;
     {
         let _rhs = mask as u8;
-        let _lhs = &mut storage[(new_storage_ix >> 3i32)];
+        let _lhs = &mut storage[(new_storage_ix >> 3)];
         *_lhs = (*_lhs as i32 & _rhs as i32) as u8;
     }
     *storage_ix = new_storage_ix;
@@ -943,7 +943,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT: alloc::Allocator<HuffmanTree>>(
             storage,
         );
     }
-    if (*storage_ix).wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3i32) {
+    if (*storage_ix).wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3) {
         RewindBitPosition(initial_storage_ix, storage_ix, storage);
         EmitUncompressedMetaBlock(input, input_size, storage_ix, storage);
     }

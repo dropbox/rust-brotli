@@ -298,7 +298,7 @@ where
         return 0;
     }
     let data_size: usize = histograms[0].slice().len();
-    let bitmaplen: usize = num_histograms.wrapping_add(7) >> 3i32;
+    let bitmaplen: usize = num_histograms.wrapping_add(7) >> 3;
     let mut num_blocks: usize = 1;
     let mut i: usize;
     let mut j: usize;
@@ -428,7 +428,7 @@ where
             0i32;
             byte_ix -= 1;
             ix = ix.wrapping_sub(bitmaplen);
-            if switch_signal[ix.wrapping_add((cur_id as i32 >> 3i32) as usize)] as i32 & mask as i32
+            if switch_signal[ix.wrapping_add((cur_id as i32 >> 3) as usize)] as i32 & mask as i32
                 != 0
                 && cur_id as i32 != block_id[byte_ix] as i32
             {
@@ -967,7 +967,7 @@ fn SplitByteVector<
     {
         let mut block_ids = <Alloc as Allocator<u8>>::alloc_cell(alloc, length);
         let mut num_blocks: usize = 0usize;
-        let bitmaplen: usize = num_histograms.wrapping_add(7) >> 3i32;
+        let bitmaplen: usize = num_histograms.wrapping_add(7) >> 3;
         let mut insert_cost = <Alloc as Allocator<super::util::floatX>>::alloc_cell(
             alloc,
             data_size.wrapping_mul(num_histograms),

@@ -25,7 +25,7 @@ pub fn CommandCopyLen(xself: &Command) -> u32 {
 }
 
 pub fn CommandDistanceContext(xself: &Command) -> u32 {
-    let r: u32 = (xself.cmd_prefix_ as i32 >> 6i32) as u32;
+    let r: u32 = (xself.cmd_prefix_ as i32 >> 6) as u32;
     let c: u32 = (xself.cmd_prefix_ as i32 & 7i32) as u32;
     if (r == 0u32 || r == 2u32 || r == 4u32 || r == 7u32) && (c <= 2u32) {
         c
@@ -63,7 +63,7 @@ pub fn GetInsertLengthCode(insertlen: usize) -> u16 {
         insertlen as u16
     } else if insertlen < 130usize {
         let nbits: u32 = Log2FloorNonZero(insertlen.wrapping_sub(2) as u64).wrapping_sub(1);
-        ((nbits << 1i32) as usize)
+        ((nbits << 1) as usize)
             .wrapping_add(insertlen.wrapping_sub(2) >> nbits)
             .wrapping_add(2) as u16
     } else if insertlen < 2114usize {
@@ -83,7 +83,7 @@ pub fn GetCopyLengthCode(copylen: usize) -> u16 {
         copylen.wrapping_sub(2) as u16
     } else if copylen < 134usize {
         let nbits: u32 = Log2FloorNonZero(copylen.wrapping_sub(6) as u64).wrapping_sub(1);
-        ((nbits << 1i32) as usize)
+        ((nbits << 1) as usize)
             .wrapping_add(copylen.wrapping_sub(6) >> nbits)
             .wrapping_add(4) as u16
     } else if copylen < 2118usize {
@@ -95,7 +95,7 @@ pub fn GetCopyLengthCode(copylen: usize) -> u16 {
 
 #[inline(always)]
 pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u16 {
-    let bits64: u16 = (copycode as u32 & 0x7u32 | (inscode as u32 & 0x7u32) << 3i32) as u16;
+    let bits64: u16 = (copycode as u32 & 0x7u32 | (inscode as u32 & 0x7u32) << 3) as u16;
     if use_last_distance != 0 && ((inscode as i32) < 8i32) && ((copycode as i32) < 16i32) {
         if (copycode as i32) < 8i32 {
             bits64
@@ -104,8 +104,8 @@ pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -
             (bits64 as i32 | s64 as i32) as u16
         }
     } else {
-        let sub_offset: i32 = 2i32 * ((copycode as i32 >> 3i32) + 3i32 * (inscode as i32 >> 3i32));
-        let offset = (sub_offset << 5i32) + 0x40i32 + (0x520d40i32 >> sub_offset & 0xc0i32);
+        let sub_offset: i32 = 2i32 * ((copycode as i32 >> 3) + 3i32 * (inscode as i32 >> 3));
+        let offset = (sub_offset << 5) + 0x40i32 + (0x520d40i32 >> sub_offset & 0xc0i32);
         (offset as u16 as i32 | bits64 as i32) as u16
     }
 }
@@ -153,7 +153,7 @@ pub fn PrefixEncodeCopyDistance(
         .wrapping_add((2u64).wrapping_mul(nbits.wrapping_sub(1)).wrapping_add(prefix) <<
                       postfix_bits)
         .wrapping_add(postfix) as u16;*/
-        //*extra_bits = (nbits << 24i32 | dist.wrapping_sub(offset) >> postfix_bits) as u32;
+        //*extra_bits = (nbits << 24 | dist.wrapping_sub(offset) >> postfix_bits) as u32;
     }
 }
 pub fn CommandRestoreDistanceCode(xself: &Command, dist: &BrotliDistanceParams) -> u32 {

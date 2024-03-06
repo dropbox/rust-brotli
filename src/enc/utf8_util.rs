@@ -12,7 +12,7 @@ fn BrotliParseAsUTF8(symbol: &mut i32, input: &[u8], size: usize) -> usize {
         && (input[0] as i32 & 0xe0i32 == 0xc0i32)
         && (input[1] as i32 & 0xc0i32 == 0x80i32)
     {
-        *symbol = (input[0] as i32 & 0x1fi32) << 6i32 | input[1] as i32 & 0x3fi32;
+        *symbol = (input[0] as i32 & 0x1fi32) << 6 | input[1] as i32 & 0x3fi32;
         if *symbol > 0x7fi32 {
             return 2usize;
         }
@@ -22,8 +22,8 @@ fn BrotliParseAsUTF8(symbol: &mut i32, input: &[u8], size: usize) -> usize {
         && (input[1] as i32 & 0xc0i32 == 0x80i32)
         && (input[2] as i32 & 0xc0i32 == 0x80i32)
     {
-        *symbol = (input[0] as i32 & 0xfi32) << 12i32
-            | (input[1] as i32 & 0x3fi32) << 6i32
+        *symbol = (input[0] as i32 & 0xfi32) << 12
+            | (input[1] as i32 & 0x3fi32) << 6
             | input[2] as i32 & 0x3fi32;
         if *symbol > 0x7ffi32 {
             return 3usize;
@@ -35,9 +35,9 @@ fn BrotliParseAsUTF8(symbol: &mut i32, input: &[u8], size: usize) -> usize {
         && (input[2] as i32 & 0xc0i32 == 0x80i32)
         && (input[3] as i32 & 0xc0i32 == 0x80i32)
     {
-        *symbol = (input[0] as i32 & 0x7i32) << 18i32
-            | (input[1] as i32 & 0x3fi32) << 12i32
-            | (input[2] as i32 & 0x3fi32) << 6i32
+        *symbol = (input[0] as i32 & 0x7i32) << 18
+            | (input[1] as i32 & 0x3fi32) << 12
+            | (input[2] as i32 & 0x3fi32) << 6
             | input[3] as i32 & 0x3fi32;
         if *symbol > 0xffffi32 && (*symbol <= 0x10ffffi32) {
             return 4usize;

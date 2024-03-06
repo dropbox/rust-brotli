@@ -38,13 +38,13 @@ static kInvalidMatch: u32 = 0xfffffffu32;
 
 static kCutoffTransformsCount: u32 = 10u32;
 
-static kCutoffTransforms: u64 = 0x71b520au64 << 32i32 | 0xda2d3200u32 as (u64);
+static kCutoffTransforms: u64 = 0x71b520au64 << 32 | 0xda2d3200u32 as (u64);
 
 pub static kHashMul32: u32 = 0x1e35a7bdu32;
 
-pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32i32 | 0x1e35a7bdu64;
+pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32 | 0x1e35a7bdu64;
 
-pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32 as (u64);
+pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32 | 0xd3579bd3u32 as (u64);
 
 */
 pub const BROTLI_MAX_EFFECTIVE_DISTANCE_ALPHABET_SIZE: usize = 544;
@@ -78,7 +78,7 @@ fn ZopfliNodeCopyDistance(xself: &ZopfliNode) -> u32 {
 
 #[inline(always)]
 fn ZopfliNodeLengthCode(xself: &ZopfliNode) -> u32 {
-    let modifier: u32 = xself.length >> 25i32;
+    let modifier: u32 = xself.length >> 25;
     ZopfliNodeCopyLength(xself)
         .wrapping_add(9)
         .wrapping_sub(modifier)
@@ -91,7 +91,7 @@ fn brotli_min_size_t(a: usize, b: usize) -> usize {
 
 #[inline(always)]
 fn ZopfliNodeDistanceCode(xself: &ZopfliNode) -> u32 {
-    let short_code: u32 = xself.dcode_insert_length >> 27i32;
+    let short_code: u32 = xself.dcode_insert_length >> 27;
     if short_code == 0u32 {
         ZopfliNodeCopyDistance(xself)
             .wrapping_add(16)
@@ -308,9 +308,8 @@ fn InitDictionaryBackwardMatch(
     len_code: usize,
 ) {
     (*xself).set_distance(dist as u32);
-    (*xself).set_length_and_code(
-        (len << 5i32 | if len == len_code { 0usize } else { len_code }) as u32,
-    );
+    (*xself)
+        .set_length_and_code((len << 5 | if len == len_code { 0usize } else { len_code }) as u32);
 }
 
 pub fn StitchToPreviousBlockH10<
@@ -469,7 +468,7 @@ where
                     if dict_id < kInvalidMatch {
                         let distance: usize = max_backward
                             .wrapping_add(gap)
-                            .wrapping_add((dict_id >> 5i32) as usize)
+                            .wrapping_add((dict_id >> 5) as usize)
                             .wrapping_add(1);
                         if distance <= params.dist.max_distance {
                             InitDictionaryBackwardMatch(
@@ -491,7 +490,7 @@ where
 
 #[inline(always)]
 fn BackwardMatchLength(xself: &BackwardMatch) -> usize {
-    ((*xself).length_and_code() >> 5i32) as usize
+    ((*xself).length_and_code() >> 5) as usize
 }
 
 #[inline(always)]
@@ -713,7 +712,7 @@ fn UpdateZopfliNode(
     cost: floatX,
 ) {
     let next = &mut nodes[pos.wrapping_add(len)];
-    next.length = (len | len.wrapping_add(9u32 as usize).wrapping_sub(len_code) << 25i32) as u32;
+    next.length = (len | len.wrapping_add(9u32 as usize).wrapping_sub(len_code) << 25) as u32;
     next.distance = dist as u32;
     next.dcode_insert_length = pos.wrapping_sub(start_pos) as u32 | (short_code << 27) as u32;
     next.u = Union1::cost(cost);

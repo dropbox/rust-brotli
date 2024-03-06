@@ -984,7 +984,7 @@ pub fn BrotliStoreHuffmanTree(
 fn StoreStaticCodeLengthCode(storage_ix: &mut usize, storage: &mut [u8]) {
     BrotliWriteBits(
         40,
-        0xffu32 as (u64) << 32i32 | 0x55555554u32 as (u64),
+        0xffu32 as (u64) << 32 | 0x55555554u32 as (u64),
         storage_ix,
         storage,
     );
@@ -1916,7 +1916,7 @@ fn RunLengthCodeZeros(
                 if reps < 2u32 << max_prefix {
                     let run_length_prefix: u32 = Log2FloorNonZero(reps as (u64));
                     let extra_bits: u32 = reps.wrapping_sub(1u32 << run_length_prefix);
-                    v[*out_size] = run_length_prefix.wrapping_add(extra_bits << 9i32);
+                    v[*out_size] = run_length_prefix.wrapping_add(extra_bits << 9);
                     *out_size = (*out_size).wrapping_add(1);
                     {
                         {
@@ -1925,7 +1925,7 @@ fn RunLengthCodeZeros(
                     }
                 } else {
                     let extra_bits: u32 = (1u32 << max_prefix).wrapping_sub(1);
-                    v[*out_size] = max_prefix.wrapping_add(extra_bits << 9i32);
+                    v[*out_size] = max_prefix.wrapping_add(extra_bits << 9);
                     reps = reps.wrapping_sub((2u32 << max_prefix).wrapping_sub(1));
                     *out_size = (*out_size).wrapping_add(1);
                 }
@@ -1947,7 +1947,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(
     let mut rle_symbols: AllocU32::AllocatedMemory;
     let mut max_run_length_prefix: u32 = 6u32;
     let mut num_rle_symbols: usize = 0usize;
-    static kSymbolMask: u32 = (1u32 << 9i32) - 1;
+    static kSymbolMask: u32 = (1u32 << 9) - 1;
     let mut depths: [u8; 272] = [0; 272];
     let mut bits: [u16; 272] = [0; 272];
     StoreVarLenUint8(num_clusters.wrapping_sub(1) as u64, storage_ix, storage);
@@ -2006,7 +2006,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(
     while i < num_rle_symbols {
         {
             let rle_symbol: u32 = rle_symbols.slice()[i] & kSymbolMask;
-            let extra_bits_val: u32 = rle_symbols.slice()[i] >> 9i32;
+            let extra_bits_val: u32 = rle_symbols.slice()[i] >> 9;
             BrotliWriteBits(
                 depths[rle_symbol as usize],
                 bits[rle_symbol as usize] as (u64),
@@ -2150,13 +2150,13 @@ fn StoreCommandExtra(cmd: &Command, storage_ix: &mut usize, storage: &mut [u8]) 
 fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
     match mode {
         ContextType::CONTEXT_LSB6 => (p1 as i32 & 0x3fi32) as u8,
-        ContextType::CONTEXT_MSB6 => (p1 as i32 >> 2i32) as u8,
+        ContextType::CONTEXT_MSB6 => (p1 as i32 >> 2) as u8,
         ContextType::CONTEXT_UTF8 => {
             (kUTF8ContextLookup[p1 as usize] as i32
                 | kUTF8ContextLookup[(p2 as i32 + 256i32) as usize] as i32) as u8
         }
         ContextType::CONTEXT_SIGNED => {
-            (((kSigned3BitContextLookup[p1 as usize] as i32) << 3i32)
+            (((kSigned3BitContextLookup[p1 as usize] as i32) << 3)
                 + kSigned3BitContextLookup[p2 as usize] as i32) as u8
         }
     }
@@ -2210,7 +2210,7 @@ fn CommandCopyLen(xself: &Command) -> u32 {
 }
 
 fn CommandDistanceContext(xself: &Command) -> u32 {
-    let r: u32 = (xself.cmd_prefix_ as i32 >> 6i32) as u32;
+    let r: u32 = (xself.cmd_prefix_ as i32 >> 6) as u32;
     let c: u32 = (xself.cmd_prefix_ as i32 & 7i32) as u32;
     if (r == 0u32 || r == 2u32 || r == 4u32 || r == 7u32) && (c <= 2u32) {
         return c;
@@ -2228,7 +2228,7 @@ fn CleanupBlockEncoder<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
 
 pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
     *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
-    storage[(*storage_ix >> 3i32)] = 0u8;
+    storage[(*storage_ix >> 3)] = 0u8;
 }
 
 pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
@@ -2454,7 +2454,7 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
                 prev_byte = input[(pos.wrapping_sub(1) & mask)];
                 if cmd.cmd_prefix_ as i32 >= 128i32 {
                     let dist_code: usize = cmd.dist_prefix_ as usize & 0x3ff;
-                    let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10i32; //FIXME: from command
+                    let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10; //FIXME: from command
                     let distextra: u64 = cmd.dist_extra_ as (u64);
                     if mb.distance_context_map_size == 0usize {
                         StoreSymbol(&mut distance_enc, dist_code, storage_ix, storage);
@@ -2565,7 +2565,7 @@ fn StoreDataWithHuffmanCodes(
             pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
             if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
                 let dist_code: usize = cmd.dist_prefix_ as usize & 0x3ff;
-                let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10i32;
+                let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10;
                 let distextra: u32 = cmd.dist_extra_;
                 BrotliWriteBits(
                     dist_depth[dist_code],
@@ -2702,7 +2702,7 @@ pub fn BrotliStoreMetaBlockTrivial<Alloc: BrotliAlloc, Cb>(
 fn StoreStaticCommandHuffmanTree(storage_ix: &mut usize, storage: &mut [u8]) {
     BrotliWriteBits(
         56,
-        0x926244u32 as (u64) << 32i32 | 0x16307003,
+        0x926244u32 as (u64) << 32 | 0x16307003,
         storage_ix,
         storage,
     );
@@ -3040,12 +3040,12 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>(
     let (input0, input1) = InputPairFromMaskedInput(input, position, len, mask);
     BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
     JumpToByteBoundary(storage_ix, storage);
-    let dst_start0 = (*storage_ix >> 3i32);
+    let dst_start0 = (*storage_ix >> 3);
     storage[dst_start0..(dst_start0 + input0.len())].clone_from_slice(input0);
-    *storage_ix = (*storage_ix).wrapping_add(input0.len() << 3i32);
-    let dst_start1 = (*storage_ix >> 3i32);
+    *storage_ix = (*storage_ix).wrapping_add(input0.len() << 3);
+    let dst_start1 = (*storage_ix >> 3);
     storage[dst_start1..(dst_start1 + input1.len())].clone_from_slice(input1);
-    *storage_ix = (*storage_ix).wrapping_add(input1.len() << 3i32);
+    *storage_ix = (*storage_ix).wrapping_add(input1.len() << 3);
     BrotliWriteBitsPrepareStorage(*storage_ix, storage);
     if params.log_meta_block && !suppress_meta_block_logging {
         let cmds = [Command {
