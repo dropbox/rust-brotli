@@ -23,13 +23,13 @@ pub static kInvalidMatch: u32 = 0xfffffffu32;
 
 static kCutoffTransformsCount: u32 = 10u32;
 
-static kCutoffTransforms: u64 = 0x71b520au64 << 32i32 | 0xda2d3200u32 as (u64);
+static kCutoffTransforms: u64 = 0x71b520au64 << 32 | 0xda2d3200u32 as (u64);
 
 pub static kHashMul32: u32 = 0x1e35a7bdu32;
 
-pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32i32 | 0x1e35a7bdu64;
+pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32 | 0x1e35a7bdu64;
 
-pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32i32 | 0xd3579bd3u32 as (u64);
+pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32 | 0xd3579bd3u32 as (u64);
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[repr(C)]
@@ -258,8 +258,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> BasicHashe
                 let mixed1 = self.HashBytes(word11.split_at(1).1);
                 let mixed2 = self.HashBytes(word11.split_at(2).1);
                 let mixed3 = self.HashBytes(word11.split_at(3).1);
-                let off: u32 =
-                    (i >> 3i32).wrapping_rem(self.buckets_.BUCKET_SWEEP() as usize) as u32;
+                let off: u32 = (i >> 3).wrapping_rem(self.buckets_.BUCKET_SWEEP() as usize) as u32;
                 let offset0: usize = mixed0 + off as usize;
                 let offset1: usize = mixed1 + off as usize;
                 let offset2: usize = mixed2 + off as usize;
@@ -312,7 +311,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
         let (_, data_window) = data.split_at((ix & mask));
         let key: u32 = self.HashBytes(data_window) as u32;
-        let off: u32 = (ix >> 3i32).wrapping_rem(self.buckets_.BUCKET_SWEEP() as usize) as u32;
+        let off: u32 = (ix >> 3).wrapping_rem(self.buckets_.BUCKET_SWEEP() as usize) as u32;
         self.buckets_.slice_mut()[key.wrapping_add(off) as usize] = ix as u32;
     }
     fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
@@ -1895,7 +1894,7 @@ fn TestStaticDictionaryItem(
     let backward: usize;
 
     let len: usize = item & 0x1fusize;
-    let dist: usize = item >> 5i32;
+    let dist: usize = item >> 5;
     let offset: usize =
         (dictionary.offsets_by_length[len] as usize).wrapping_add(len.wrapping_mul(dist));
     if len > max_length {
@@ -1908,7 +1907,7 @@ fn TestStaticDictionaryItem(
     {
         let cut: u64 = len.wrapping_sub(matchlen) as u64;
         let transform_id: usize =
-            (cut << 2i32).wrapping_add(kCutoffTransforms >> cut.wrapping_mul(6) & 0x3f) as usize;
+            (cut << 2).wrapping_add(kCutoffTransforms >> cut.wrapping_mul(6) & 0x3f) as usize;
         backward = max_backward
             .wrapping_add(dist)
             .wrapping_add(1)
@@ -1944,10 +1943,10 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(
     let mut is_match_found: i32 = 0i32;
     let opts = handle.Opts();
     let xself: &mut Struct1 = handle.GetHasherCommon();
-    if xself.dict_num_matches < xself.dict_num_lookups >> 7i32 {
+    if xself.dict_num_matches < xself.dict_num_lookups >> 7 {
         return 0i32;
     }
-    key = (Hash14(data) << 1i32) as usize; //FIXME: works for any kind of hasher??
+    key = (Hash14(data) << 1) as usize; //FIXME: works for any kind of hasher??
     i = 0usize;
     while i < if shallow != 0 { 1u32 } else { 2u32 } as usize {
         {

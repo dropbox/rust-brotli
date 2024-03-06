@@ -29,7 +29,7 @@ static kCmdHistoSeed: [u32; 128] = [
 ];
 
 fn Hash(p: &[u8], shift: usize) -> u32 {
-    let h: u64 = (BROTLI_UNALIGNED_LOAD64(p) << 24i32).wrapping_mul(kHashMul32 as (u64));
+    let h: u64 = (BROTLI_UNALIGNED_LOAD64(p) << 24).wrapping_mul(kHashMul32 as (u64));
     (h >> shift) as u32
 }
 fn IsMatch(p1: &[u8], p2: &[u8]) -> i32 {
@@ -54,7 +54,7 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
     let mut histogram: [u32; 256] = [0; 256];
     let mut histogram_total: usize;
     let mut i: usize;
-    if input_size < (1i32 << 15i32) as usize {
+    if input_size < (1i32 << 15) as usize {
         i = 0usize;
         while i < input_size {
             {
@@ -167,7 +167,7 @@ fn EmitInsertLen(
         let tail: usize = insertlen.wrapping_sub(2);
         let nbits: u32 = Log2FloorNonZero(tail as u64).wrapping_sub(1);
         let prefix: usize = tail >> nbits;
-        let inscode: usize = ((nbits << 1i32) as usize)
+        let inscode: usize = ((nbits << 1) as usize)
             .wrapping_add(prefix)
             .wrapping_add(42);
         BrotliWriteBits(
@@ -239,7 +239,7 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
     let mask: usize = (1u32 << bitpos).wrapping_sub(1) as usize;
     {
         let _rhs = mask as u8;
-        let _lhs = &mut storage[(new_storage_ix >> 3i32)];
+        let _lhs = &mut storage[(new_storage_ix >> 3)];
         *_lhs = (*_lhs as i32 & _rhs as i32) as u8;
     }
     *storage_ix = new_storage_ix;
@@ -255,9 +255,9 @@ fn EmitUncompressedMetaBlock(
     RewindBitPosition(storage_ix_start, storage_ix, storage);
     BrotliStoreMetaBlockHeader(len, 1i32, storage_ix, storage);
     *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
-    memcpy(storage, (*storage_ix >> 3i32), begin, 0, len);
-    *storage_ix = (*storage_ix).wrapping_add(len << 3i32);
-    storage[(*storage_ix >> 3i32)] = 0u8;
+    memcpy(storage, (*storage_ix >> 3), begin, 0, len);
+    *storage_ix = (*storage_ix).wrapping_add(len << 3);
+    storage[(*storage_ix >> 3)] = 0u8;
 }
 
 fn EmitLongInsertLen(
@@ -374,9 +374,7 @@ fn EmitCopyLenLastDistance(
         let tail: usize = copylen.wrapping_sub(8);
         let nbits: u32 = Log2FloorNonZero(tail as u64).wrapping_sub(1);
         let prefix: usize = tail >> nbits;
-        let code: usize = ((nbits << 1i32) as usize)
-            .wrapping_add(prefix)
-            .wrapping_add(4);
+        let code: usize = ((nbits << 1) as usize).wrapping_add(prefix).wrapping_add(4);
         BrotliWriteBits(
             depth[(code as usize)] as usize,
             bits[(code as usize)] as (u64),
@@ -396,7 +394,7 @@ fn EmitCopyLenLastDistance(
         }
     } else if copylen < 136usize {
         let tail: usize = copylen.wrapping_sub(8);
-        let code: usize = (tail >> 5i32).wrapping_add(30);
+        let code: usize = (tail >> 5).wrapping_add(30);
         BrotliWriteBits(
             depth[code] as usize,
             bits[code] as (u64),
@@ -466,7 +464,7 @@ fn EmitCopyLenLastDistance(
 
 fn HashBytesAtOffset(v: u64, offset: i32, shift: usize) -> u32 {
     {
-        let h: u64 = (v >> (8i32 * offset) << 24i32).wrapping_mul(kHashMul32 as (u64));
+        let h: u64 = (v >> (8i32 * offset) << 24).wrapping_mul(kHashMul32 as (u64));
         (h >> shift) as u32
     }
 }
@@ -495,7 +493,7 @@ fn EmitCopyLen(
         let tail: usize = copylen.wrapping_sub(6);
         let nbits: u32 = Log2FloorNonZero(tail as u64).wrapping_sub(1);
         let prefix: usize = tail >> nbits;
-        let code: usize = ((nbits << 1i32) as usize)
+        let code: usize = ((nbits << 1) as usize)
             .wrapping_add(prefix)
             .wrapping_add(20);
         BrotliWriteBits(
@@ -591,7 +589,7 @@ fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> i32 {
 
 fn UpdateBits(mut n_bits: usize, mut bits: u32, mut pos: usize, array: &mut [u8]) {
     while n_bits > 0usize {
-        let byte_pos: usize = pos >> 3i32;
+        let byte_pos: usize = pos >> 3;
         let n_unchanged_bits: usize = pos & 7usize;
         let n_changed_bits: usize =
             brotli_min_size_t(n_bits, (8usize).wrapping_sub(n_unchanged_bits));
@@ -703,8 +701,8 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
     let mut ip_end = 0usize;
     let mut next_emit = 0usize;
     let base_ip = 0usize;
-    static kFirstBlockSize: usize = (3i32 << 15i32) as usize;
-    static kMergeBlockSize: usize = (1i32 << 16i32) as usize;
+    static kFirstBlockSize: usize = (3i32 << 15) as usize;
+    static kMergeBlockSize: usize = (1i32 << 16) as usize;
     let kInputMarginBytes = 16usize;
     let kMinMatchLen = 5usize;
     let mut metablock_start = 0usize;
@@ -737,7 +735,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
     }
     BrotliWriteBits(
         *cmd_code_numbits & 7usize,
-        cmd_code[*cmd_code_numbits >> 3i32] as u64,
+        cmd_code[*cmd_code_numbits >> 3] as u64,
         storage_ix,
         storage,
     );
@@ -775,7 +773,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                                         let _old = skip;
                                         skip = skip.wrapping_add(1);
                                         _old
-                                    } >> 5i32;
+                                    } >> 5;
                                     ip_index = next_ip;
                                     next_ip =
                                         ip_index.wrapping_add(bytes_between_hash_lookups as usize);
@@ -801,7 +799,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                             }
                         }
                         if !(ip_index.wrapping_sub(candidate)
-                            > (1usize << 18i32).wrapping_sub(16) as isize as usize
+                            > (1usize << 18).wrapping_sub(16) as isize as usize
                             && (code_block_selection as i32
                                 == CodeBlockState::EMIT_COMMANDS as i32))
                         {
@@ -927,7 +925,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                             &input_ptr[ip_index + 5..],
                             ip_end.wrapping_sub(ip_index).wrapping_sub(5),
                         ));
-                        if ip_index.wrapping_sub(candidate) > (1usize << 18i32).wrapping_sub(16) {
+                        if ip_index.wrapping_sub(candidate) > (1usize << 18).wrapping_sub(16) {
                             break;
                         }
                         ip_index = ip_index.wrapping_add(matched);
@@ -992,7 +990,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
             input_size = input_size.wrapping_sub(block_size);
             block_size = brotli_min_size_t(input_size, kMergeBlockSize);
             if input_size > 0
-                && (total_block_size.wrapping_add(block_size) <= (1i32 << 20i32) as usize)
+                && (total_block_size.wrapping_add(block_size) <= (1i32 << 20) as usize)
                 && (ShouldMergeBlock(&input_ptr[input_index..], block_size, &mut lit_depth[..])
                     != 0)
             {
@@ -1224,7 +1222,7 @@ pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
             storage,
         );
     }
-    if (*storage_ix).wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3i32) {
+    if (*storage_ix).wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3) {
         EmitUncompressedMetaBlock(input, input_size, initial_storage_ix, storage_ix, storage);
     }
     if is_last != 0 {

@@ -82,7 +82,7 @@ use enc::input_pair::InputReferenceMut;
 //fn BrotliInitZopfliNodes(array: &mut [ZopfliNode], length: usize);
 //fn BrotliWipeOutMemoryManager(m: &mut [MemoryManager]);
 
-static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17i32) as usize;
+static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
@@ -682,10 +682,10 @@ fn EncodeWindowBits(
         *last_bytes = 1u16;
         *last_bytes_bits = 7u8;
     } else if lgwin > 17i32 {
-        *last_bytes = ((lgwin - 17i32) << 1i32 | 1i32) as u16;
+        *last_bytes = ((lgwin - 17i32) << 1 | 1i32) as u16;
         *last_bytes_bits = 4u8;
     } else {
-        *last_bytes = ((lgwin - 8i32) << 4i32 | 1i32) as u16;
+        *last_bytes = ((lgwin - 8i32) << 4 | 1i32) as u16;
         *last_bytes_bits = 7u8;
     }
 }
@@ -873,8 +873,8 @@ fn RingBufferWrite<AllocU8: alloc::Allocator<u8>>(
         .wrapping_sub(1)];
     rb.data_mo.slice_mut()[rb.buffer_index.wrapping_sub(1)] = data_1;
     rb.pos_ = rb.pos_.wrapping_add(n as u32);
-    if rb.pos_ > 1u32 << 30i32 {
-        rb.pos_ = rb.pos_ & (1u32 << 30i32).wrapping_sub(1) | 1u32 << 30i32;
+    if rb.pos_ > 1u32 << 30 {
+        rb.pos_ = rb.pos_ & (1u32 << 30).wrapping_sub(1) | 1u32 << 30;
     }
 }
 
@@ -918,7 +918,7 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
         hparams.block_bits = H9_BLOCK_BITS as i32;
         hparams.bucket_bits = H9_BUCKET_BITS as i32;
         hparams.hash_len = 4;
-    } else if params.quality == 4 && (params.size_hint >= (1i32 << 20i32) as usize) {
+    } else if params.quality == 4 && (params.size_hint >= (1i32 << 20) as usize) {
         hparams.type_ = 54i32;
     } else if params.quality < 5 {
         hparams.type_ = params.quality;
@@ -930,7 +930,7 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
         } else {
             42i32
         };
-    } else if ((params.q9_5 && params.size_hint > (1 << 20i32)) || params.size_hint > (1 << 22i32))
+    } else if ((params.q9_5 && params.size_hint > (1 << 20)) || params.size_hint > (1 << 22))
         && (params.lgwin >= 19i32)
     {
         hparams.type_ = 6i32;
@@ -947,7 +947,7 @@ fn ChooseHasher(params: &mut BrotliEncoderParams) {
     } else {
         hparams.type_ = 5i32;
         hparams.block_bits = core::cmp::min(params.quality - 1, 9);
-        hparams.bucket_bits = if params.quality < 7 && params.size_hint <= (1 << 20i32) {
+        hparams.bucket_bits = if params.quality < 7 && params.size_hint <= (1 << 20) {
             14i32
         } else {
             15i32
@@ -1324,9 +1324,9 @@ pub fn BrotliEncoderMaxCompressedSizeMulti(input_size: usize, num_threads: usize
 
 pub fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
     let magic_size = 16usize;
-    let num_large_blocks: usize = input_size >> 14i32;
-    let tail: usize = input_size.wrapping_sub(num_large_blocks << 24i32);
-    let tail_overhead: usize = (if tail > (1i32 << 20i32) as usize {
+    let num_large_blocks: usize = input_size >> 14;
+    let tail: usize = input_size.wrapping_sub(num_large_blocks << 24);
+    let tail_overhead: usize = (if tail > (1i32 << 20) as usize {
         4i32
     } else {
         3i32
@@ -1362,7 +1362,7 @@ fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u
 
 pub fn InitInsertCommand(xself: &mut Command, insertlen: usize) {
     xself.insert_len_ = insertlen as u32;
-    xself.copy_len_ = (4i32 << 25i32) as u32;
+    xself.copy_len_ = (4i32 << 25) as u32;
     xself.dist_extra_ = 0u32;
     xself.dist_prefix_ = (1u16 << 10) | BROTLI_NUM_DISTANCE_SHORT_CODES as u16;
     GetLengthCode(insertlen, 4usize, 0i32, &mut xself.cmd_prefix_);
@@ -1376,7 +1376,7 @@ fn ShouldCompress(
     num_literals: usize,
     num_commands: usize,
 ) -> i32 {
-    if num_commands < (bytes >> 8i32).wrapping_add(2)
+    if num_commands < (bytes >> 8).wrapping_add(2)
         && num_literals as (super::util::floatX)
             > 0.99 as super::util::floatX * bytes as (super::util::floatX)
     {
@@ -1462,20 +1462,16 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
     while size > 0usize {
         let mut nibbles: u32 = 0u32;
 
-        let chunk_size: u32 = if size > (1u32 << 24i32) as usize {
-            1u32 << 24i32
+        let chunk_size: u32 = if size > (1u32 << 24) as usize {
+            1u32 << 24
         } else {
             size as u32
         };
-        if chunk_size > 1u32 << 16i32 {
-            nibbles = if chunk_size > 1u32 << 20i32 {
-                2i32
-            } else {
-                1i32
-            } as u32;
+        if chunk_size > 1u32 << 16 {
+            nibbles = if chunk_size > 1u32 << 20 { 2i32 } else { 1i32 } as u32;
         }
-        let bits: u32 = nibbles << 1i32
-            | chunk_size.wrapping_sub(1) << 3i32
+        let bits: u32 = nibbles << 1
+            | chunk_size.wrapping_sub(1) << 3
             | 1u32 << (19u32).wrapping_add((4u32).wrapping_mul(nibbles));
         output[{
             let _old = result;
@@ -1486,18 +1482,18 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
             let _old = result;
             result = result.wrapping_add(1);
             _old
-        }] = (bits >> 8i32) as u8;
+        }] = (bits >> 8) as u8;
         output[{
             let _old = result;
             result = result.wrapping_add(1);
             _old
-        }] = (bits >> 16i32) as u8;
+        }] = (bits >> 16) as u8;
         if nibbles == 2u32 {
             output[{
                 let _old = result;
                 result = result.wrapping_add(1);
                 _old
-            }] = (bits >> 24i32) as u8;
+            }] = (bits >> 24) as u8;
         }
         output[result..(result + chunk_size as usize)]
             .clone_from_slice(&input[offset..(offset + chunk_size as usize)]);
@@ -1630,14 +1626,14 @@ fn InjectBytePaddingBlock<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<A
     }
     destination[0] = seal as u8;
     if seal_bits > 8usize {
-        destination[1] = (seal >> 8i32) as u8;
+        destination[1] = (seal >> 8) as u8;
     }
     if seal_bits > 16usize {
-        destination[2] = (seal >> 16i32) as u8;
+        destination[2] = (seal >> 16) as u8;
     }
     s.available_out_ = s
         .available_out_
-        .wrapping_add(seal_bits.wrapping_add(7) >> 3i32);
+        .wrapping_add(seal_bits.wrapping_add(7) >> 3);
 }
 fn InjectFlushOrPushOutput<Alloc: BrotliAlloc>(
     s: &mut BrotliEncoderStateStruct<Alloc>,
@@ -1681,7 +1677,7 @@ fn UpdateSizeHint<Alloc: BrotliAlloc>(
     if s.params.size_hint == 0usize {
         let delta: u64 = UnprocessedInputSize(s);
         let tail: u64 = available_in as u64;
-        let limit: u32 = 1u32 << 30i32;
+        let limit: u32 = 1u32 << 30;
         let total: u32;
         if delta >= u64::from(limit)
             || tail >= u64::from(limit)
@@ -1697,10 +1693,10 @@ fn UpdateSizeHint<Alloc: BrotliAlloc>(
 
 fn WrapPosition(position: u64) -> u32 {
     let mut result: u32 = position as u32;
-    let gb: u64 = position >> 30i32;
+    let gb: u64 = position >> 30;
     if gb > 2 {
-        result = result & (1u32 << 30i32).wrapping_sub(1)
-            | ((gb.wrapping_sub(1) & 1) as u32).wrapping_add(1) << 30i32;
+        result = result & (1u32 << 30).wrapping_sub(1)
+            | ((gb.wrapping_sub(1) & 1) as u32).wrapping_add(1) << 30;
     }
     result
 }
@@ -1722,9 +1718,9 @@ fn GetBrotliStorage<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>,
 
 fn MaxHashTableSize(quality: i32) -> usize {
     (if quality == 0i32 {
-        1i32 << 15i32
+        1i32 << 15
     } else {
-        1i32 << 17i32
+        1i32 << 17
     }) as usize
 }
 
@@ -2007,7 +2003,7 @@ fn DecideOverLiteralContextModeling(
             {
                 static lut: [i32; 4] = [0, 0, 1, 2];
                 let stride_end_pos: usize = start_pos.wrapping_add(64);
-                let mut prev: i32 = lut[(input[(start_pos & mask)] as i32 >> 6i32) as usize] * 3i32;
+                let mut prev: i32 = lut[(input[(start_pos & mask)] as i32 >> 6) as usize] * 3i32;
                 let mut pos: usize;
                 pos = start_pos.wrapping_add(1);
                 while pos < stride_end_pos {
@@ -2015,11 +2011,11 @@ fn DecideOverLiteralContextModeling(
                         let literal: u8 = input[(pos & mask)];
                         {
                             let _rhs = 1;
-                            let cur_ind = (prev + lut[(literal as i32 >> 6i32) as usize]);
+                            let cur_ind = (prev + lut[(literal as i32 >> 6) as usize]);
                             let _lhs = &mut bigram_prefix_histo[cur_ind as usize];
                             *_lhs = (*_lhs).wrapping_add(_rhs as u32);
                         }
-                        prev = lut[(literal as i32 >> 6i32) as usize] * 3i32;
+                        prev = lut[(literal as i32 >> 6) as usize] * 3i32;
                     }
                     pos = pos.wrapping_add(1);
                 }
@@ -2236,7 +2232,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         );
         mb.destroy(alloc);
     }
-    if bytes + 4 + saved_byte_location < (*storage_ix >> 3i32) {
+    if bytes + 4 + saved_byte_location < (*storage_ix >> 3) {
         dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
         //memcpy(dist_cache,
         //     saved_dist_cache,
@@ -2355,8 +2351,8 @@ where
     if let IsFirst::NothingWritten = s.is_first_mb {
         if s.params.magic_number {
             BrotliWriteMetadataMetaBlock(&s.params, &mut storage_ix, s.storage_.slice_mut());
-            s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3i32)] as u16
-                | ((s.storage_.slice()[1 + (storage_ix >> 3i32)] as u16) << 8);
+            s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3)] as u16
+                | ((s.storage_.slice()[1 + (storage_ix >> 3)] as u16) << 8);
             s.last_bytes_bits_ = (storage_ix & 7u32 as usize) as u8;
             s.next_out_ = NextOut::DynamicStorage(0);
             catable_header_size = storage_ix >> 3;
@@ -2387,8 +2383,8 @@ where
                 false, /* suppress meta-block logging */
                 callback,
             );
-            s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3i32)] as u16
-                | ((s.storage_.slice()[1 + (storage_ix >> 3i32)] as u16) << 8);
+            s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3)] as u16
+                | ((s.storage_.slice()[1 + (storage_ix >> 3)] as u16) << 8);
             s.last_bytes_bits_ = (storage_ix & 7u32 as usize) as u8;
             s.prev_byte2_ = s.prev_byte_;
             s.prev_byte_ = data[s.last_flush_pos_ as usize & mask as usize];
@@ -2467,14 +2463,14 @@ where
                     s.storage_.slice_mut(),
                 );
             }
-            s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3i32)] as u16
-                | ((s.storage_.slice()[(storage_ix >> 3i32) + 1] as u16) << 8);
+            s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3)] as u16
+                | ((s.storage_.slice()[(storage_ix >> 3) + 1] as u16) << 8);
             s.last_bytes_bits_ = (storage_ix & 7u32 as usize) as u8;
         }
         UpdateLastProcessedPos(s);
         // *output = &mut (*s).storage_.slice_mut();
         s.next_out_ = NextOut::DynamicStorage(0); // this always returns that
-        *out_size = storage_ix >> 3i32;
+        *out_size = storage_ix >> 3;
         return 1i32;
     }
     {
@@ -2647,8 +2643,8 @@ where
             callback,
         );
 
-        s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3i32)] as u16
-            | ((s.storage_.slice()[1 + (storage_ix >> 3i32)] as u16) << 8);
+        s.last_bytes_ = s.storage_.slice()[(storage_ix >> 3)] as u16
+            | ((s.storage_.slice()[1 + (storage_ix >> 3)] as u16) << 8);
         s.last_bytes_bits_ = (storage_ix & 7u32 as usize) as u8;
         s.last_flush_pos_ = s.input_pos_;
         if UpdateLastProcessedPos(s) != 0 {
@@ -2666,7 +2662,7 @@ where
         s.saved_dist_cache_
             .clone_from_slice(s.dist_cache_.split_at(4).0);
         s.next_out_ = NextOut::DynamicStorage(0); // this always returns that
-        *out_size = storage_ix >> 3i32;
+        *out_size = storage_ix >> 3;
         1i32
     }
 }
@@ -2700,7 +2696,7 @@ fn WriteMetadataHeader<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Allo
             header,
         );
     }
-    storage_ix.wrapping_add(7u32 as usize) >> 3i32
+    storage_ix.wrapping_add(7u32 as usize) >> 3
 }
 
 fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
@@ -2729,7 +2725,7 @@ fn ProcessMetadata<
     total_out: &mut Option<usize>,
     metablock_callback: &mut MetaBlockCallback,
 ) -> i32 {
-    if *available_in > (1u32 << 24i32) as usize {
+    if *available_in > (1u32 << 24) as usize {
         return 0i32;
     }
     if s.stream_state_ as i32 == BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING as i32 {
@@ -2952,7 +2948,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
             *next_in_offset += block_size;
             *available_in = (*available_in).wrapping_sub(block_size);
             if inplace != 0 {
-                let out_bytes: usize = storage_ix >> 3i32;
+                let out_bytes: usize = storage_ix >> 3;
                 0i32;
                 0i32;
                 *next_out_offset += out_bytes;
@@ -2962,12 +2958,12 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
                     *total_out_inner = s.total_out_ as usize;
                 }
             } else {
-                let out_bytes: usize = storage_ix >> 3i32;
+                let out_bytes: usize = storage_ix >> 3;
                 s.next_out_ = NextOut::DynamicStorage(0);
                 s.available_out_ = out_bytes;
             }
-            s.last_bytes_ = storage[(storage_ix >> 3i32)] as u16
-                | ((storage[1 + (storage_ix >> 3i32)] as u16) << 8);
+            s.last_bytes_ =
+                storage[(storage_ix >> 3)] as u16 | ((storage[1 + (storage_ix >> 3)] as u16) << 8);
             s.last_bytes_bits_ = (storage_ix & 7u32 as usize) as u8;
             if force_flush != 0 {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;

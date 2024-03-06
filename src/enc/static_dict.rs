@@ -84,7 +84,7 @@ macro_rules! sub_match {
                 $matched = $matched.wrapping_add(8) as u32 as usize;
             } else {
                 $matched = $matched
-                    .wrapping_add((($s2_as_64 ^ $s1_as_64).trailing_zeros() >> 3i32) as usize)
+                    .wrapping_add((($s2_as_64 ^ $s1_as_64).trailing_zeros() >> 3) as usize)
                     as u32 as usize;
                 return $matched;
             }
@@ -103,7 +103,7 @@ macro_rules! sub_match8 {
             $matched = $matched.wrapping_add(8) as u32 as usize;
         } else {
             $matched = $matched
-                .wrapping_add((($s2_as_64 ^ $s1_as_64).trailing_zeros() >> 3i32) as usize)
+                .wrapping_add((($s2_as_64 ^ $s1_as_64).trailing_zeros() >> 3) as usize)
                 as u32 as usize;
             return $matched;
         }
@@ -398,7 +398,7 @@ fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
 
 #[allow(unused)]
 fn AddMatch(distance: usize, len: usize, len_code: usize, mut matches: &mut [u32]) {
-    let match_: u32 = (distance << 5i32).wrapping_add(len_code) as u32;
+    let match_: u32 = (distance << 5).wrapping_add(len_code) as u32;
     matches[len] = brotli_min_uint32_t(matches[len], match_);
 }
 

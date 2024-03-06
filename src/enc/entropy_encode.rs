@@ -276,7 +276,7 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
     }
     {
         let mut nonzeros: usize = 0usize;
-        let mut smallest_nonzero: u32 = (1i32 << 30i32) as u32;
+        let mut smallest_nonzero: u32 = (1i32 << 30) as u32;
         i = 0usize;
         while i < length {
             {
@@ -638,7 +638,7 @@ fn BrotliReverseBits(num_bits: usize, mut bits: u16) -> u16 {
     while i < num_bits {
         {
             retval <<= 4i32;
-            bits = (bits as i32 >> 4i32) as u16;
+            bits = (bits as i32 >> 4) as u16;
             retval |= kLut[(bits as i32 & 0xfi32) as usize];
         }
         i = i.wrapping_add(4);
@@ -669,7 +669,7 @@ pub fn BrotliConvertBitDepthsToSymbols(depth: &[u8], len: usize, bits: &mut [u16
     i = 1;
     while i < MAX_HUFFMAN_BITS {
         {
-            code = (code + bl_count[i.wrapping_sub(1)] as i32) << 1i32;
+            code = (code + bl_count[i.wrapping_sub(1)] as i32) << 1;
             next_code[i] = code as u16;
         }
         i = i.wrapping_add(1);

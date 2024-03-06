@@ -381,7 +381,7 @@ impl<'a> BackwardMatchMut<'a> {
 #[inline(always)]
 pub fn InitBackwardMatch(xself: &mut BackwardMatchMut, dist: usize, len: usize) {
     (*xself).set_distance(dist as u32);
-    (*xself).set_length_and_code((len << 5i32) as u32);
+    (*xself).set_length_and_code((len << 5) as u32);
 }
 
 macro_rules! LeftChildIndexH10 {

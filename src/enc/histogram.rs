@@ -465,14 +465,14 @@ pub fn HistogramSelfAddHistogram<
 pub fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
     match mode {
         ContextType::CONTEXT_SIGNED => {
-            (((kSigned3BitContextLookup[p1 as usize] as i32) << 3i32)
+            (((kSigned3BitContextLookup[p1 as usize] as i32) << 3)
                 + kSigned3BitContextLookup[p2 as usize] as i32) as u8
         }
         ContextType::CONTEXT_UTF8 => {
             (kUTF8ContextLookup[p1 as usize] as i32
                 | kUTF8ContextLookup[(p2 as i32 + 256i32) as usize] as i32) as u8
         }
-        ContextType::CONTEXT_MSB6 => (p1 as i32 >> 2i32) as u8,
+        ContextType::CONTEXT_MSB6 => (p1 as i32 >> 2) as u8,
         ContextType::CONTEXT_LSB6 => (p1 as i32 & 0x3fi32) as u8, /* else {
                                                                   0u8
                                                                   }*/
@@ -518,7 +518,7 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
                 {
                     BlockSplitIteratorNext(&mut literal_it);
                     let context: usize = if !context_modes.is_empty() {
-                        (literal_it.type_ << 6i32).wrapping_add(Context(
+                        (literal_it.type_ << 6).wrapping_add(Context(
                             prev_byte,
                             prev_byte2,
                             context_modes[literal_it.type_],
@@ -543,7 +543,7 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
                 if cmd.cmd_prefix_ as i32 >= 128i32 {
                     BlockSplitIteratorNext(&mut dist_it);
                     let context: usize =
-                        (dist_it.type_ << 2i32).wrapping_add(CommandDistanceContext(cmd) as usize);
+                        (dist_it.type_ << 2).wrapping_add(CommandDistanceContext(cmd) as usize);
                     HistogramAddItem(
                         &mut copy_dist_histograms[(context as usize)],
                         cmd.dist_prefix_ as usize & 0x3ff,
