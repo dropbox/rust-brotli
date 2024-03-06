@@ -16,18 +16,16 @@ autobins = false
 path = "src/lib.rs"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
-[profile.release]
-lto = true
-
 [dependencies]
-"brotli" = { version = "~3.3", default-features = false, features = ["ffi-api"] }
+"brotli" = { version = "3.4", default-features = false, features = ["ffi-api"], path = ".." }
 
 [features]
 default = ["std"]
 benchmark = ["brotli/benchmark"]
 disable-timer = ["brotli/disable-timer"]
 seccomp = ["brotli/seccomp"]
-simd = ["brotli/simd"]
+# Uncomment once brotli package supports simd feature again
+# simd = ["brotli/simd"]
 std = ["brotli/std"]
 validation = ["brotli/validation"]
 vector_scratch_space = ["brotli/vector_scratch_space"]
