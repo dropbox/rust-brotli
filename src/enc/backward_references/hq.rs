@@ -160,12 +160,12 @@ pub fn BrotliZopfliCreateCommands(
                     dist_cache[0] = distance as i32;
                 }
             }
-            *num_literals = (*num_literals).wrapping_add(insert_length);
+            *num_literals = num_literals.wrapping_add(insert_length);
             pos = pos.wrapping_add(copy_length);
         }
         i = i.wrapping_add(1);
     }
-    *last_insert_len = (*last_insert_len).wrapping_add(num_bytes.wrapping_sub(pos));
+    *last_insert_len = last_insert_len.wrapping_add(num_bytes.wrapping_sub(pos));
 }
 
 #[inline(always)]
@@ -307,7 +307,7 @@ fn InitDictionaryBackwardMatch(
     len: usize,
     len_code: usize,
 ) {
-    (*xself).set_distance(dist as u32);
+    xself.set_distance(dist as u32);
     (*xself)
         .set_length_and_code((len << 5 | if len == len_code { 0usize } else { len_code }) as u32);
 }
@@ -490,7 +490,7 @@ where
 
 #[inline(always)]
 fn BackwardMatchLength(xself: &BackwardMatch) -> usize {
-    ((*xself).length_and_code() >> 5) as usize
+    (xself.length_and_code() >> 5) as usize
 }
 
 #[inline(always)]
@@ -720,7 +720,7 @@ fn UpdateZopfliNode(
 
 #[inline(always)]
 fn BackwardMatchLengthCode(xself: &BackwardMatch) -> usize {
-    let code: usize = ((*xself).length_and_code() & 31u32) as usize;
+    let code: usize = (xself.length_and_code() & 31u32) as usize;
     if code != 0 {
         code
     } else {
@@ -1144,7 +1144,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
         return;
     }
     BrotliInitZopfliNodes(nodes.slice_mut(), num_bytes.wrapping_add(1));
-    *num_commands = (*num_commands).wrapping_add(BrotliZopfliComputeShortestPath(
+    *num_commands = num_commands.wrapping_add(BrotliZopfliComputeShortestPath(
         alloc,
         dictionary,
         num_bytes,
@@ -1503,7 +1503,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
             }
             let num_found_matches: usize = FindAllMatchesH10(
                 hasher,
-                dictionary, //&(*params).dictionary ,
+                dictionary, //&params.dictionary ,
                 ringbuffer,
                 ringbuffer_mask,
                 pos,
@@ -1598,7 +1598,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                     ringbuffer,
                     ringbuffer_mask,
                     commands,
-                    (*num_commands).wrapping_sub(orig_num_commands),
+                    num_commands.wrapping_sub(orig_num_commands),
                     orig_last_insert_len,
                 );
             }
@@ -1613,7 +1613,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
             {
                 *i = *j;
             }
-            *num_commands = (*num_commands).wrapping_add(ZopfliIterate(
+            *num_commands = num_commands.wrapping_add(ZopfliIterate(
                 num_bytes,
                 position,
                 ringbuffer,

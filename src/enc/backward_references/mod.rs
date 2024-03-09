@@ -1407,7 +1407,7 @@ impl<
                         * self.specialization.get_k_hash_mul())
                         & self.specialization.get_hash_mask();
                     let key = mixed_word >> shift;
-                    let minor_ix: usize = chunk_id & self.specialization.block_mask() as usize; //   *num_ref as usize & (*self).specialization.block_mask() as usize; //GIGANTIC HAX: overwrite firsst option
+                    let minor_ix: usize = chunk_id & self.specialization.block_mask() as usize; //   *num_ref as usize & self.specialization.block_mask() as usize; //GIGANTIC HAX: overwrite firsst option
                     let offset: usize =
                         minor_ix + (key << self.specialization.block_bits()) as usize;
                     buckets[offset] = (ix_offset + i) as u32;
@@ -2501,7 +2501,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                     distance_code,
                 );
             }
-            *num_literals = (*num_literals).wrapping_add(insert_length);
+            *num_literals = num_literals.wrapping_add(insert_length);
             insert_length = 0usize;
             hasher.StoreRange(
                 ringbuffer,
@@ -2537,7 +2537,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
     }
     insert_length = insert_length.wrapping_add(pos_end.wrapping_sub(position));
     *last_insert_len = insert_length;
-    *num_commands = (*num_commands).wrapping_add(new_commands_count);
+    *num_commands = num_commands.wrapping_add(new_commands_count);
 }
 pub fn BrotliCreateBackwardReferences<
     Alloc: alloc::Allocator<u16>

@@ -413,8 +413,8 @@ fn InitBlockSplitter<
         min_block_size_: min_block_size,
         split_threshold_: split_threshold,
         num_blocks_: 0usize,
-        //(*xself).split_ : split,
-        //(*xself).histograms_size_ : histograms_size,
+        //xself.split_ : split,
+        //xself.histograms_size_ : histograms_size,
         target_block_size_: min_block_size,
         block_size_: 0usize,
         curr_histogram_ix_: 0usize,
@@ -552,7 +552,7 @@ fn InitContextBlockSplitter<
     split.num_blocks = max_num_blocks;
     *histograms_size = max_num_types.wrapping_mul(num_contexts);
     *histograms = <Alloc as Allocator<HistogramLiteral>>::alloc_cell(alloc, *histograms_size);
-    //(*xself).histograms_ = *histograms;
+    //xself.histograms_ = *histograms;
     ClearHistograms(&mut histograms.slice_mut()[0..], num_contexts);
     xself.last_histogram_ix_[0] = 0;
     xself.last_histogram_ix_[1] = 0;

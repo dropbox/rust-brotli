@@ -377,12 +377,12 @@ pub fn HistogramAddItem<HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> 
 ) {
     {
         let _rhs = 1;
-        let _lhs = &mut (*xself).slice_mut()[val];
+        let _lhs = &mut xself.slice_mut()[val];
         let val = (*_lhs).wrapping_add(_rhs as u32);
         *_lhs = val;
     }
-    let new_count = (*xself).total_count().wrapping_add(1);
-    (*xself).set_total_count(new_count);
+    let new_count = xself.total_count().wrapping_add(1);
+    xself.set_total_count(new_count);
 }
 pub fn HistogramAddVector<
     HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
@@ -394,12 +394,12 @@ pub fn HistogramAddVector<
 ) where
     u64: core::convert::From<IntegerType>,
 {
-    let new_tc = (*xself).total_count().wrapping_add(n);
-    (*xself).set_total_count(new_tc);
+    let new_tc = xself.total_count().wrapping_add(n);
+    xself.set_total_count(new_tc);
     for p_item in p[..n].iter() {
         let _rhs = 1;
         let index: usize = u64::from(p_item.clone()) as usize;
-        let _lhs = &mut (*xself).slice_mut()[index];
+        let _lhs = &mut xself.slice_mut()[index];
         *_lhs = (*_lhs).wrapping_add(_rhs as u32);
     }
 }
@@ -411,8 +411,8 @@ pub fn HistogramClear<HistogramType: SliceWrapperMut<u32> + CostAccessors>(
     for data_elem in xself.slice_mut().iter_mut() {
         *data_elem = 0;
     }
-    (*xself).set_total_count(0);
-    (*xself).set_bit_cost(3.402e+38 as super::util::floatX);
+    xself.set_total_count(0);
+    xself.set_bit_cost(3.402e+38 as super::util::floatX);
 }
 pub fn ClearHistograms<HistogramType: SliceWrapperMut<u32> + CostAccessors>(
     array: &mut [HistogramType],
@@ -430,8 +430,8 @@ pub fn HistogramAddHistogram<
     xself: &mut HistogramType,
     v: &HistogramType,
 ) {
-    let old_total_count = (*xself).total_count();
-    (*xself).set_total_count(old_total_count + (*v).total_count());
+    let old_total_count = xself.total_count();
+    xself.set_total_count(old_total_count + (*v).total_count());
     let h0 = xself.slice_mut();
     let h1 = v.slice();
     let n = min(h0.len(), h1.len());

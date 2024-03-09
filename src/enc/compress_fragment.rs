@@ -254,9 +254,9 @@ fn EmitUncompressedMetaBlock(
 ) {
     RewindBitPosition(storage_ix_start, storage_ix, storage);
     BrotliStoreMetaBlockHeader(len, 1i32, storage_ix, storage);
-    *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
+    *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     memcpy(storage, (*storage_ix >> 3), begin, 0, len);
-    *storage_ix = (*storage_ix).wrapping_add(len << 3);
+    *storage_ix = storage_ix.wrapping_add(len << 3);
     storage[(*storage_ix >> 3)] = 0u8;
 }
 
@@ -708,7 +708,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
     let mut metablock_start = 0usize;
     let mut block_size = brotli_min_size_t(input_size, kFirstBlockSize);
     let mut total_block_size = block_size;
-    let mut mlen_storage_ix = (*storage_ix).wrapping_add(3);
+    let mut mlen_storage_ix = storage_ix.wrapping_add(3);
     let mut lit_depth = [0u8; 256];
     let mut lit_bits = [0u16; 256];
     let mut literal_ratio: usize;
@@ -1063,7 +1063,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                 metablock_start = input_index;
                 block_size = brotli_min_size_t(input_size, kFirstBlockSize);
                 total_block_size = block_size;
-                mlen_storage_ix = (*storage_ix).wrapping_add(3);
+                mlen_storage_ix = storage_ix.wrapping_add(3);
                 BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
                 BrotliWriteBits(13usize, 0, storage_ix, storage);
                 literal_ratio = BuildAndStoreLiteralPrefixCode(
@@ -1159,7 +1159,7 @@ pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
         0i32;
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         BrotliWriteBits(1usize, 1, storage_ix, storage);
-        *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
+        *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
         return;
     }
     if table_bits == 9usize {
@@ -1222,12 +1222,12 @@ pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
             storage,
         );
     }
-    if (*storage_ix).wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3) {
+    if storage_ix.wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3) {
         EmitUncompressedMetaBlock(input, input_size, initial_storage_ix, storage_ix, storage);
     }
     if is_last != 0 {
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         BrotliWriteBits(1usize, 1, storage_ix, storage);
-        *storage_ix = (*storage_ix).wrapping_add(7u32 as usize) & !7u32 as usize;
+        *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     }
 }
