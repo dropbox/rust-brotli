@@ -332,7 +332,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         i = 0usize;
         while i < data_size {
             if (*histogram).slice()[i] > 0u32 {
-                let mut nnz_val = &mut nnz_data.slice_mut()[nnz >> 3];
+                let nnz_val = &mut nnz_data.slice_mut()[nnz >> 3];
                 nnz_val[nnz & 7] = histogram.slice()[i] as i32;
                 i += 1;
                 nnz += 1;
