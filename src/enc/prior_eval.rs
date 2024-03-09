@@ -9,7 +9,8 @@ use super::util::{floatX, FastLog2u16};
 use super::{s16, v8};
 use core;
 #[cfg(feature = "simd")]
-use packed_simd::IntoBits;
+use std::simd::prelude::SimdPartialOrd;
+
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;
 pub const STRIDE_PRIOR_SIZE: usize = 256 * 256 * 2;
@@ -333,20 +334,20 @@ impl<'a> CDF<'a> {
     #[inline(always)]
     pub fn cost(&self, nibble_u8: u8) -> floatX {
         let nibble = nibble_u8 as usize & 0xf;
-        let mut pdf = self.cdf.extract(nibble);
+        let mut pdf = self.cdf[nibble];
         if nibble_u8 != 0 {
-            pdf -= self.cdf.extract((nibble - 1));
+            pdf -= self.cdf[(nibble - 1)];
         }
-        FastLog2u16(self.cdf.extract(15) as u16) - FastLog2u16(pdf as u16)
+        FastLog2u16(self.cdf[15] as u16) - FastLog2u16(pdf as u16)
     }
     #[inline(always)]
     pub fn update(&mut self, nibble_u8: u8, speed: (u16, u16)) {
         let mut cdf = *self.cdf;
         let increment_v = s16::splat(speed.0 as i16);
-        let one_to_16 = s16::new(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
-        let mask_v: s16 = one_to_16.gt(s16::splat(i16::from(nibble_u8))).into_bits();
+        let one_to_16 = s16::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+        let mask_v: s16 = one_to_16.simd_gt(s16::splat(i16::from(nibble_u8))).to_int();
         cdf = cdf + (increment_v & mask_v);
-        if cdf.extract(15) >= speed.1 as i16 {
+        if cdf[15] >= speed.1 as i16 {
             let cdf_bias = one_to_16;
             cdf = cdf + cdf_bias - ((cdf + cdf_bias) >> 2);
         }
@@ -363,7 +364,7 @@ impl<'a> From<&'a mut s16> for CDF<'a> {
 
 pub fn init_cdfs(cdfs: &mut [s16]) {
     for item in cdfs.iter_mut() {
-        *item = s16::new(4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64);
+        *item = s16::from([4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64]);
     }
 }
 
@@ -504,14 +505,14 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
         let mut popularity = [0u32; 8];
         let mut bitmask = [0u8; super::interface::NUM_MIXING_VALUES];
         for (i, score) in self.score.slice().iter().enumerate() {
-            let cm_score = score.extract(WhichPrior::CM as usize);
-            let slow_cm_score = score.extract(WhichPrior::SLOW_CM as usize);
-            let fast_cm_score = score.extract(WhichPrior::FAST_CM as usize) + 16.0;
-            let stride1_score = score.extract(WhichPrior::STRIDE1 as usize);
-            let stride2_score = score.extract(WhichPrior::STRIDE2 as usize);
-            let stride3_score = score.extract(WhichPrior::STRIDE3 as usize) + 16.0;
-            let stride4_score = score.extract(WhichPrior::STRIDE4 as usize);
-            //let stride8_score = score.extract(WhichPrior::STRIDE8) * 1.125 + 16.0;
+            let cm_score = score[WhichPrior::CM as usize];
+            let slow_cm_score = score[WhichPrior::SLOW_CM as usize];
+            let fast_cm_score = score[WhichPrior::FAST_CM as usize] + 16.0;
+            let stride1_score = score[WhichPrior::STRIDE1 as usize];
+            let stride2_score = score[WhichPrior::STRIDE2 as usize];
+            let stride3_score = score[WhichPrior::STRIDE3 as usize] + 16.0;
+            let stride4_score = score[WhichPrior::STRIDE4 as usize];
+            //let stride8_score = score[WhichPrior::STRIDE8] * 1.125 + 16.0;
             let stride8_score = stride4_score + 1.0; // FIXME: never lowest -- ignore stride 8
             let stride_score = core::cmp::min(
                 stride1_score as u64,
@@ -524,7 +525,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 ),
             );
 
-            let adv_score = score.extract(WhichPrior::ADV as usize);
+            let adv_score = score[WhichPrior::ADV as usize];
             if adv_score + epsilon < stride_score as floatX
                 && adv_score + epsilon < cm_score
                 && adv_score + epsilon < slow_cm_score
@@ -622,7 +623,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.cm_speed[1]);
         }
         {
@@ -634,7 +635,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.cm_speed[0]);
         }
         {
@@ -646,7 +647,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, (0, 1024));
         }
         {
@@ -658,7 +659,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, (0, 1024));
         }
         {
@@ -670,7 +671,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.cm_speed[0]);
         }
         {
@@ -682,7 +683,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.cm_speed[0]);
         }
         {
@@ -694,7 +695,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
@@ -706,7 +707,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         {
@@ -718,7 +719,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
@@ -730,7 +731,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         {
@@ -742,7 +743,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
@@ -754,7 +755,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         {
@@ -766,7 +767,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
@@ -778,14 +779,14 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         /*       {
                    type CurPrior = Stride8Prior;
                    let mut cdf = CurPrior::lookup_mut(self.stride_priors[4].slice_mut(),
                                                       stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
-                   h_score = h_score.replace(CurPrior::which(), cdf.cost(literal>>4));
+                   h_score[CurPrior::which()] = cdf.cost(literal>>4);
                    cdf.update(literal >> 4, self.stride_speed[1]);
                }
                {
@@ -795,7 +796,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                                                       selected_bits,
                                                       cm_prior,
                                                       Some(literal >> 4));
-                   l_score = l_score.replace(CurPrior::which(), cdf.cost(literal&0xf));
+                   l_score[CurPrior::which()] = cdf.cost(literal&0xf);
                    cdf.update(literal&0xf, self.stride_speed[0]);
                }
         */
@@ -808,7 +809,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 None,
             );
-            h_score = h_score.replace(CurPrior::which(), cdf.cost(literal >> 4));
+            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
@@ -819,7 +820,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score = l_score.replace(CurPrior::which(), cdf.cost(literal & 0xf));
+            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         self.score.slice_mut()[lscore_index] += l_score;

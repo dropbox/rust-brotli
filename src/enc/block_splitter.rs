@@ -15,7 +15,8 @@ use super::histogram::{
 use super::util::{brotli_max_uint8_t, brotli_min_size_t, FastLog2};
 use core;
 #[cfg(feature = "simd")]
-use packed_simd::IntoBits;
+use std::simd::prelude::{SimdFloat, SimdPartialOrd};
+
 static kMaxLiteralHistograms: usize = 100usize;
 
 static kMaxCommandHistograms: usize = 50usize;
@@ -54,10 +55,10 @@ fn update_cost_and_signal(
     if (false) {
         // scalar mode
         for k in 0..((num_histograms32 as usize + 7) >> 3 << 3) {
-            cost[k >> 3] = cost[k >> 3].replace(k & 7, cost[k >> 3].extract(k & 7) - min_cost);
-            if (cost[k >> 3].extract(k & 7) >= block_switch_cost) {
+            cost[k >> 3][k & 7] -= min_cost;
+            if (cost[k >> 3][k & 7] >= block_switch_cost) {
                 let mask = (1_u8 << (k & 7));
-                cost[k >> 3] = cost[k >> 3].replace(k & 7, block_switch_cost);
+                cost[k >> 3][k & 7] = block_switch_cost;
                 switch_signal[ix + (k >> 3)] |= mask;
             }
         }
@@ -67,16 +68,16 @@ fn update_cost_and_signal(
         // scalar mode
 
         for k in 0..((num_histograms32 as usize + 7) >> 3 << 3) {
-            cost[k >> 3] = cost[k >> 3].replace(k & 7, cost[k >> 3].extract(k & 7) - min_cost);
-            let cmpge = if (cost[k >> 3].extract(k & 7) >= block_switch_cost) {
+            cost[k >> 3][k & 7] -= min_cost;
+            let cmpge = if (cost[k >> 3][k & 7] >= block_switch_cost) {
                 0xff
             } else {
                 0
             };
             let mask = (1_u8 << (k & 7));
             let bits = cmpge & mask;
-            if block_switch_cost < cost[k >> 3].extract(k & 7) {
-                cost[k >> 3] = cost[k >> 3].replace(k & 7, block_switch_cost);
+            if block_switch_cost < cost[k >> 3][k & 7] {
+                cost[k >> 3][k & 7] = block_switch_cost;
             }
             switch_signal[ix + (k >> 3)] |= bits;
             //if (((k + 1)>> 3) != (k >>3)) {
@@ -87,7 +88,7 @@ fn update_cost_and_signal(
     }
     let ymm_min_cost = v256::splat(min_cost);
     let ymm_block_switch_cost = v256::splat(block_switch_cost);
-    let ymm_and_mask = v256i::new(
+    let ymm_and_mask = v256i::from([
         1 << 0,
         1 << 1,
         1 << 2,
@@ -96,7 +97,7 @@ fn update_cost_and_signal(
         1 << 5,
         1 << 6,
         1 << 7,
-    );
+    ]);
 
     for (index, cost_it) in cost[..((num_histograms32 as usize + 7) >> 3)]
         .iter_mut()
@@ -104,12 +105,12 @@ fn update_cost_and_signal(
     {
         let mut ymm_cost = *cost_it;
         let costk_minus_min_cost = ymm_cost - ymm_min_cost;
-        let ymm_cmpge: v256i = costk_minus_min_cost.ge(ymm_block_switch_cost).into_bits();
+        let ymm_cmpge: v256i = costk_minus_min_cost.simd_ge(ymm_block_switch_cost).to_int();
         let ymm_bits = ymm_cmpge & ymm_and_mask;
         let result = sum8i(ymm_bits);
         //super::vectorization::sum8(ymm_bits) as u8;
         switch_signal[ix + index] |= result as u8;
-        ymm_cost = costk_minus_min_cost.min(ymm_block_switch_cost);
+        ymm_cost = costk_minus_min_cost.simd_min(ymm_block_switch_cost);
         *cost_it = Mem256f::from(ymm_cost);
         //println_stderr!("{:} ss {:} c {:?}", (index << 3) + 7, switch_signal[ix + index],*cost_it);
     }
@@ -355,7 +356,7 @@ where
                     .iter()
                     .enumerate()
                 {
-                    let cost_iter = &mut cost[(k >> 3)].extract(k & 7);
+                    let cost_iter = &mut cost[(k >> 3)][k & 7];
                     *cost_iter += *insert_cost_iter;
                     if *cost_iter < min_cost {
                         min_cost = *cost_iter;
@@ -376,11 +377,8 @@ where
                     local_insert_cost
                         .clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
                     for sub_index in 0usize..8usize {
-                        *cost_iter = (*cost_iter).replace(
-                            sub_index,
-                            (*cost_iter).extract(sub_index) + local_insert_cost[sub_index],
-                        );
-                        let final_cost = (*cost_iter).extract(sub_index);
+                        cost_iter[sub_index] += local_insert_cost[sub_index];
+                        let final_cost = cost_iter[sub_index];
                         if final_cost < min_cost {
                             min_cost = final_cost;
                             *block_id_ptr = (base_index + sub_index) as u8;
@@ -398,10 +396,9 @@ where
                     .iter()
                 {
                     let cost_iter = &mut cost[(k >> 3)];
-                    *cost_iter =
-                        cost_iter.replace(k & 7, cost_iter.extract(k & 7) + *insert_cost_iter);
-                    if cost_iter.extract(k & 7) < min_cost {
-                        min_cost = cost_iter.extract(k & 7);
+                    cost_iter[k & 7] += *insert_cost_iter;
+                    if cost_iter[k & 7] < min_cost {
+                        min_cost = cost_iter[k & 7];
                         *block_id_ptr = k as u8;
                     }
                     k += 1;

@@ -5,6 +5,7 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![cfg_attr(feature = "benchmark", feature(test))]
+#![cfg_attr(feature = "simd", feature(portable_simd))]
 #![cfg_attr(
     feature = "no-stdlib-ffi-binding",
     cfg_attr(not(feature = "std"), feature(lang_items))
@@ -15,8 +16,6 @@
 extern crate std;
 #[cfg(feature = "std")]
 extern crate alloc_stdlib;
-#[cfg(feature = "simd")]
-extern crate packed_simd;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib as alloc;

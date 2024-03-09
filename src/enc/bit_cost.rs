@@ -2,11 +2,11 @@
 use super::super::alloc::SliceWrapper;
 use super::histogram::CostAccessors;
 use core;
+#[cfg(feature = "simd")]
+use std::simd::prelude::SimdPartialOrd;
 
 use super::util::{brotli_max_uint32_t, floatX, FastLog2, FastLog2u16};
 use super::vectorization::{cast_f32_to_i32, cast_i32_to_f32, log2i, sum8, v256, v256i, Mem256i};
-#[cfg(feature = "simd")]
-use packed_simd::IntoBits;
 
 static kCopyBase: [u32; 24] = [
     2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70, 102, 134, 198, 326, 582, 1094, 2118,
@@ -88,7 +88,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
         for i in 0..nnz {
             // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
             //                            = log2(total_count) - log2(count(symbol))
-            let element = nnz_data.slice()[i >> 3].extract(i & 7);
+            let element = nnz_data.slice()[i >> 3][i & 7];
             let log2p = log2total - FastLog2u16(element as u16);
             // Approximate the bit depth by round(-log2(P(symbol)))
             let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
@@ -115,7 +115,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
             for i in 0..8 {
                 // Compute -log2(P(symbol)) = -log2(count(symbol)/total_count) =
                 //                            = log2(total_count) - log2(count(symbol))
-                let ele = nnz_data_vec.extract(i);
+                let ele = nnz_data_vec[i];
                 let log2p = log2total - FastLog2u16(ele as u16);
                 // Approximate the bit depth by round(-log2(P(symbol)))
                 let depth = core::cmp::min((log2p + 0.5) as i32, 15) as i32;
@@ -135,7 +135,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
             let last_vec = nnz_data.slice()[nnz_srl_3];
             for i in 0..rem {
                 // remainder won't have last element for sure
-                let element = last_vec.extract(i);
+                let element = last_vec[i];
                 let log2p = log2total - FastLog2u16(element as u16);
                 // Approximate the bit depth by round(-log2(P(symbol)))
                 let depth = core::cmp::min((log2p + 0.5) as i32, 15);
@@ -151,7 +151,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
         //println_stderr!("{:?} {:?}", &depth_histo[..], bits);
         return bits;
     }
-    let pow2l = v256::new(
+    let pow2l: v256 = [
         1.0/*0.7071067811865476*/ as floatX,
         0.3535533905932738 as floatX,
         0.1767766952966369 as floatX,
@@ -160,8 +160,9 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
         0.0220970869120796 as floatX,
         0.0110485434560398 as floatX,
         0.0055242717280199 as floatX,
-    );
-    let pow2h = v256::new(
+    ]
+    .into();
+    let pow2h: v256 = [
         //FIXME: setr
         0.0027621358640100 as floatX,
         0.0013810679320050 as floatX,
@@ -171,7 +172,8 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
         0.0000863167457503 as floatX,
         0.0000431583728752 as floatX,
         /*0.0000215791864376f*/ 0.0 as floatX,
-    );
+    ]
+    .into();
     let ymm_tc = v256::splat(total_count as floatX);
     let search_depthl = cast_f32_to_i32(pow2l * ymm_tc);
     let search_depthh = cast_f32_to_i32(pow2h * ymm_tc);
@@ -179,30 +181,30 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
     let mut sumh = v256i::splat(0);
     for nnz_data_vec in nnz_data.slice().split_at(nnz_srl_3).0.iter() {
         for sub_data_item_index in 0..8 {
-            let count = v256i::splat(nnz_data_vec.extract(sub_data_item_index));
-            let cmpl: v256i = count.gt(search_depthl).into_bits();
-            let cmph: v256i = count.gt(search_depthh).into_bits();
-            suml = suml + (cmpl & v256i::splat(1));
-            sumh = sumh + (cmph & v256i::splat(1));
+            let count = v256i::splat(nnz_data_vec[sub_data_item_index]);
+            let cmpl: v256i = count.simd_gt(search_depthl).to_int();
+            let cmph: v256i = count.simd_gt(search_depthh).to_int();
+            suml = suml + cmpl;
+            sumh = sumh + cmph;
         }
     }
     if rem != 0 {
         let last_element = nnz_data.slice()[nnz >> 3];
         for sub_index in 0..rem {
-            let count = v256i::splat(last_element.extract(sub_index & 7));
-            let cmpl: v256i = count.gt(search_depthl).into_bits();
-            let cmph: v256i = count.gt(search_depthh).into_bits();
-            suml = suml + (cmpl & v256i::splat(1));
-            sumh = sumh + (cmph & v256i::splat(1));
+            let count = v256i::splat(last_element[sub_index & 7]);
+            let cmpl: v256i = count.simd_gt(search_depthl).to_int();
+            let cmph: v256i = count.simd_gt(search_depthh).to_int();
+            suml = suml + cmpl;
+            sumh = sumh + cmph;
         }
     }
     let mut max_depth: usize = 1;
     // Deal with depth_histo and max_depth
     {
         let cumulative_sum: [Mem256i; 2] = [suml, sumh];
-        let mut prev = cumulative_sum[0].extract(0);
+        let mut prev = cumulative_sum[0][0];
         for j in 1..16 {
-            let cur = cumulative_sum[(j & 8) >> 3].extract(j & 7);
+            let cur = cumulative_sum[(j & 8) >> 3][j & 7];
             let delta = cur - prev;
             prev = cur;
             let cur = &mut depth_histo[j];
@@ -225,7 +227,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
     if rem != 0 {
         let last_vec = nnz_data.slice()[nnz_srl_3];
         for i in 0..rem {
-            let last_item = last_vec.extract(i);
+            let last_item = last_vec[i];
             let log2p = log2total - FastLog2u16(last_item as u16);
             bits += last_item as super::util::floatX * log2p;
         }
@@ -330,8 +332,8 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         i = 0usize;
         while i < data_size {
             if (*histogram).slice()[i] > 0u32 {
-                let nnz_val = &mut nnz_data.slice_mut()[nnz >> 3];
-                *nnz_val = nnz_val.replace(nnz & 7, histogram.slice()[i] as i32);
+                let mut nnz_val = &mut nnz_data.slice_mut()[nnz >> 3];
+                nnz_val[nnz & 7] = histogram.slice()[i] as i32;
                 i += 1;
                 nnz += 1;
             } else {

@@ -43,13 +43,13 @@ pub mod singlethreading;
 pub mod threading;
 pub mod worker_pool;
 #[cfg(feature = "simd")]
-use packed_simd::{f32x8, i16x16, i32x8};
+use std::simd::{f32x8, i16x16, i32x8};
 #[cfg(feature = "simd")]
-pub type s16 = i16x16;
+pub type s16 = std::simd::i16x16;
 #[cfg(feature = "simd")]
-pub type v8 = f32x8;
+pub type v8 = std::simd::f32x8;
 #[cfg(feature = "simd")]
-pub type s8 = i32x8;
+pub type s8 = std::simd::i32x8;
 #[cfg(not(feature = "simd"))]
 pub type s16 = compat::Compat16x16;
 #[cfg(not(feature = "simd"))]
