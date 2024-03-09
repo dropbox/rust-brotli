@@ -1,6 +1,5 @@
 #![cfg_attr(feature = "simd", allow(unused))]
-use core::ops::{Add, AddAssign, BitAnd, Mul, Shr, Sub};
-use std::ops::{Index, IndexMut};
+use core::ops::{Add, AddAssign, BitAnd, Index, IndexMut, Mul, Shr, Sub};
 
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Compat16x16([i16; 16]);

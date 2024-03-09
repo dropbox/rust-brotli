@@ -3,7 +3,7 @@ mod benchmark;
 pub mod hash_to_binary_tree;
 pub mod hq;
 mod test;
-use super::super::alloc;
+
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::command::{BrotliDistanceParams, Command, ComputeDistanceCode, InitCommand};
 use super::dictionary_hash::kStaticDictionaryHash;
@@ -14,7 +14,7 @@ use super::static_dict::{
     BROTLI_UNALIGNED_LOAD64,
 };
 use super::util::{brotli_max_size_t, floatX, Log2FloorNonZero};
-use core;
+
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;

@@ -4,7 +4,7 @@
 use enc::util::FastLog2;
 use enc::{s8, v8};
 #[cfg(feature = "simd")]
-use std::simd::Simd;
+use core::simd::Simd;
 pub type Mem256f = v8;
 pub type Mem256i = s8;
 pub type v256 = v8;

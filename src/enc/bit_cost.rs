@@ -3,7 +3,7 @@ use super::super::alloc::SliceWrapper;
 use super::histogram::CostAccessors;
 use core;
 #[cfg(feature = "simd")]
-use std::simd::prelude::SimdPartialOrd;
+use core::simd::prelude::SimdPartialOrd;
 
 use super::util::{brotli_max_uint32_t, floatX, FastLog2, FastLog2u16};
 use super::vectorization::{cast_f32_to_i32, cast_i32_to_f32, log2i, sum8, v256, v256i, Mem256i};

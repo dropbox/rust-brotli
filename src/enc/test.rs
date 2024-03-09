@@ -35,6 +35,7 @@ declare_stack_allocator_struct!(MemPool, 128, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);
 declare_stack_allocator_struct!(CallocatedFreelist2048, 64, calloc);
 declare_stack_allocator_struct!(CallocatedFreelist1024, 32, calloc);
+declare_stack_allocator_struct!(StackAllocatedFreelist64, 64, stack);
 
 fn oneshot_compress(
     input: &[u8],
@@ -57,9 +58,11 @@ fn oneshot_compress(
         unsafe { define_allocator_memory_pool!(96, u64, [0; 32 * 1024], calloc) };
     let stack_f64_buffer =
         unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
-    let stack_f8_buffer = unsafe { define_allocator_memory_pool!(48, v8, [0; 128 * 1024], calloc) };
-    let stack_16x16_buffer =
-        unsafe { define_allocator_memory_pool!(48, s16, [0; 128 * 1024], calloc) };
+    let mut stack_global_buffer_v8 = define_allocator_memory_pool!(64, v8, [v8::default(); 1024 * 16], stack);
+    let mf8 = StackAllocatedFreelist64::<v8>::new_allocator(&mut stack_global_buffer_v8, bzero);
+    let mut stack_16x16_buffer = define_allocator_memory_pool!(64, s16, [s16::default(); 1024 * 16], stack);
+    let m16x16 = StackAllocatedFreelist64::<s16>::new_allocator(&mut stack_16x16_buffer, bzero);
+
     let stack_hl_buffer =
         unsafe { define_allocator_memory_pool!(48, HistogramLiteral, [0; 128 * 1024], calloc) };
     let stack_hc_buffer =
@@ -93,8 +96,7 @@ fn oneshot_compress(
         CallocatedFreelist1024::<ZopfliNode>::new_allocator(stack_zn_buffer.data, bzero);
     let mf64 =
         CallocatedFreelist2048::<super::util::floatX>::new_allocator(stack_f64_buffer.data, bzero);
-    let mf8 = CallocatedFreelist2048::<v8>::new_allocator(stack_f8_buffer.data, bzero);
-    let m16x16 = CallocatedFreelist2048::<s16>::new_allocator(stack_16x16_buffer.data, bzero);
+
     let mpdf = CallocatedFreelist2048::<PDF>::new_allocator(stack_pdf_buffer.data, bzero);
     let msc = CallocatedFreelist2048::<StaticCommand>::new_allocator(stack_sc_buffer.data, bzero);
     let stack_mc_allocator =

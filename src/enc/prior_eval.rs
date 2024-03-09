@@ -9,7 +9,7 @@ use super::util::{floatX, FastLog2u16};
 use super::{s16, v8};
 use core;
 #[cfg(feature = "simd")]
-use std::simd::prelude::SimdPartialOrd;
+use core::simd::prelude::SimdPartialOrd;
 
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;

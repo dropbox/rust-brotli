@@ -15,7 +15,7 @@ use super::histogram::{
 use super::util::{brotli_max_uint8_t, brotli_min_size_t, FastLog2};
 use core;
 #[cfg(feature = "simd")]
-use std::simd::prelude::{SimdFloat, SimdPartialOrd};
+use core::simd::prelude::{SimdFloat, SimdPartialOrd};
 
 static kMaxLiteralHistograms: usize = 100usize;
 
