@@ -1977,13 +1977,9 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(
         i = i.wrapping_add(1);
     }
     {
-        let use_rle: i32 = if !!(max_run_length_prefix > 0u32) {
-            1i32
-        } else {
-            0i32
-        };
-        BrotliWriteBits(1, use_rle as (u64), storage_ix, storage);
-        if use_rle != 0 {
+        let use_rle = max_run_length_prefix > 0;
+        BrotliWriteBits(1, u64::from(use_rle), storage_ix, storage);
+        if use_rle {
             BrotliWriteBits(
                 4,
                 max_run_length_prefix.wrapping_sub(1) as (u64),

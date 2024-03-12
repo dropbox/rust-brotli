@@ -403,10 +403,10 @@ pub fn InitCommand(
     GetLengthCode(
         insertlen,
         copylen_code,
-        if !!((xself.dist_prefix_ as i32 & 0x3ff) == 0i32) {
-            1i32
+        if (xself.dist_prefix_ & 0x3ff) == 0 {
+            1
         } else {
-            0i32
+            0
         },
         &mut xself.cmd_prefix_,
     );

@@ -152,14 +152,9 @@ fn Hash(p: &[u8], shift: usize, length: usize) -> u32 {
     (h >> shift) as u32
 }
 
-fn IsMatch(p1: &[u8], p2: &[u8], length: usize) -> i32 {
-    if BROTLI_UNALIGNED_LOAD32(p1) == BROTLI_UNALIGNED_LOAD32(p2) {
-        if length == 4 {
-            return 1;
-        }
-        return ((p1[4] as i32 == p2[4] as i32) && (p1[5] as i32 == p2[5] as i32)) as i32;
-    }
-    0
+fn IsMatch(p1: &[u8], p2: &[u8], length: usize) -> bool {
+    BROTLI_UNALIGNED_LOAD32(p1) == BROTLI_UNALIGNED_LOAD32(p2)
+        && (length == 4 || (p1[4] == p2[4] && p1[5] == p2[5]))
 }
 
 #[allow(unused_assignments)]
@@ -228,7 +223,7 @@ fn CreateCommands(
                             next_hash = Hash(&base_ip[next_ip..], shift, min_match);
                             0i32;
                             candidate = ip_index.wrapping_sub(last_distance as usize);
-                            if IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) != 0
+                            if IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match)
                                 && candidate < ip_index
                             {
                                 table[(hash as usize)] = ip_index.wrapping_sub(0) as i32;
@@ -243,7 +238,7 @@ fn CreateCommands(
                             0i32;
                             table[(hash as usize)] = ip_index.wrapping_sub(0) as i32;
                         }
-                        if !(IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) == 0) {
+                        if IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) {
                             break;
                         }
                     }
@@ -333,7 +328,7 @@ fn CreateCommands(
             }
             while ip_index.wrapping_sub(candidate)
                 <= (1usize << 18).wrapping_sub(16) as isize as usize
-                && (IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match) != 0)
+                && IsMatch(&base_ip[ip_index..], &base_ip[candidate..], min_match)
             {
                 let base_index: usize = ip_index;
                 let matched: usize = min_match.wrapping_add(FindMatchLengthWithLimit(
@@ -414,10 +409,10 @@ fn CreateCommands(
     }
 }
 
-fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
+fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> bool {
     let corpus_size: super::util::floatX = input_size as (super::util::floatX);
     if num_literals as (super::util::floatX) < 0.98 as super::util::floatX * corpus_size {
-        1i32
+        true
     } else {
         let mut literal_histo: [u32; 256] = [0; 256];
         let max_total_bit_cost: super::util::floatX =
@@ -433,11 +428,7 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> i32 {
             }
             i = i.wrapping_add(43);
         }
-        if !!(BitsEntropy(&mut literal_histo[..], 256usize) < max_total_bit_cost) {
-            1i32
-        } else {
-            0i32
-        }
+        BitsEntropy(&mut literal_histo[..], 256) < max_total_bit_cost
     }
 }
 
@@ -728,7 +719,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                 &mut num_commands,
             );
         }
-        if ShouldCompress(&base_ip[input_index..], block_size, num_literals) != 0 {
+        if ShouldCompress(&base_ip[input_index..], block_size, num_literals) {
             BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
             BrotliWriteBits(13usize, 0, storage_ix, storage);
             StoreCommands(

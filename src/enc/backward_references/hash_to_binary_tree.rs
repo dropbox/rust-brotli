@@ -438,11 +438,7 @@ where
     let mut matches_offset = 0usize;
     let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
     let max_comp_len: usize = core::cmp::min(max_length, 128usize);
-    let should_reroot_tree: i32 = if !!(max_length >= 128usize) {
-        1i32
-    } else {
-        0i32
-    };
+    let should_reroot_tree = max_length >= 128;
     let key = xself.HashBytes(&data[cur_ix_masked..]);
     let forest: &mut [u32] = xself.forest.slice_mut();
     let mut prev_ix: usize = xself.buckets_.slice()[key] as usize;
@@ -451,7 +447,7 @@ where
     let mut best_len_left: usize = 0usize;
     let mut best_len_right: usize = 0usize;
     let mut depth_remaining: usize;
-    if should_reroot_tree != 0 {
+    if should_reroot_tree {
         xself.buckets_.slice_mut()[key] = cur_ix as u32;
     }
     depth_remaining = 64usize;
@@ -460,7 +456,7 @@ where
             let backward: usize = cur_ix.wrapping_sub(prev_ix);
             let prev_ix_masked: usize = prev_ix & ring_buffer_mask;
             if backward == 0usize || backward > max_backward || depth_remaining == 0usize {
-                if should_reroot_tree != 0 {
+                if should_reroot_tree {
                     forest[node_left] = xself.invalid_pos_;
                     forest[node_right] = xself.invalid_pos_;
                 }
@@ -484,7 +480,7 @@ where
                     matches_offset += 1;
                 }
                 if len >= max_comp_len {
-                    if should_reroot_tree != 0 {
+                    if should_reroot_tree {
                         forest[node_left] = forest[LeftChildIndexH10!(xself, prev_ix)];
                         forest[node_right] = forest[RightChildIndexH10!(xself, prev_ix)];
                     }
@@ -494,14 +490,14 @@ where
                     > data[prev_ix_masked.wrapping_add(len)] as i32
                 {
                     best_len_left = len;
-                    if should_reroot_tree != 0 {
+                    if should_reroot_tree {
                         forest[node_left] = prev_ix as u32;
                     }
                     node_left = RightChildIndexH10!(xself, prev_ix);
                     prev_ix = forest[node_left] as usize;
                 } else {
                     best_len_right = len;
-                    if should_reroot_tree != 0 {
+                    if should_reroot_tree {
                         forest[node_right] = prev_ix as u32;
                     }
                     node_right = LeftChildIndexH10!(xself, prev_ix);

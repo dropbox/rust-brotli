@@ -68,7 +68,7 @@ pub fn BrotliIsMostlyUTF8(
             size_utf8 = size_utf8.wrapping_add(bytes_read);
         }
     }
-    if !!(size_utf8 as (super::util::floatX) > min_fraction * length as (super::util::floatX)) {
+    if size_utf8 as (super::util::floatX) > min_fraction * length as (super::util::floatX) {
         1i32
     } else {
         0i32

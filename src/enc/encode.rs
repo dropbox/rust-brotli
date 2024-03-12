@@ -304,7 +304,7 @@ pub fn set_parameter(
         if value != 0u32 && (value != 1u32) {
             return 0i32;
         }
-        params.disable_literal_context_modeling = if !!!(value == 0) { 1i32 } else { 0i32 };
+        params.disable_literal_context_modeling = if value != 0 { 1i32 } else { 0i32 };
         return 1i32;
     }
     if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT as i32 {
@@ -1354,9 +1354,17 @@ fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u
     params: &mut BrotliEncoderParams,
     position: usize,
     input_size: usize,
-    is_last: i32,
+    is_last: bool,
 ) {
-    HasherSetup(m, handle, params, data, position, input_size, is_last);
+    HasherSetup(
+        m,
+        handle,
+        params,
+        data,
+        position,
+        input_size,
+        is_last as i32,
+    );
     handle.StitchToPreviousBlock(input_size, position, data, mask);
 }
 
@@ -1776,15 +1784,11 @@ fn GetHashTableInternal<'a, AllocI32: alloc::Allocator<i32>>(
     }
     table // FIXME: probably need a macro to do this without borrowing the whole EncoderStateStruct
 }
-fn UpdateLastProcessedPos<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> i32 {
+fn UpdateLastProcessedPos<Alloc: BrotliAlloc>(s: &mut BrotliEncoderStateStruct<Alloc>) -> bool {
     let wrapped_last_processed_pos: u32 = WrapPosition(s.last_processed_pos_);
     let wrapped_input_pos: u32 = WrapPosition(s.input_pos_);
     s.last_processed_pos_ = s.input_pos_;
-    if !!(wrapped_input_pos < wrapped_last_processed_pos) {
-        1i32
-    } else {
-        0i32
-    }
+    wrapped_input_pos < wrapped_last_processed_pos
 }
 
 fn MaxMetablockSize(params: &BrotliEncoderParams) -> usize {
@@ -2036,7 +2040,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
     mask: usize,
     last_flush_pos: u64,
     bytes: usize,
-    mut is_last: i32,
+    mut is_last: bool,
     literal_context_mode: ContextType,
     params: &BrotliEncoderParams,
     lit_scratch_space: &mut <HistogramLiteral as CostAccessors>::i32vec,
@@ -2063,7 +2067,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
 {
     let actual_is_last = is_last;
     if params.appendable {
-        is_last = 0;
+        is_last = false;
     } else {
         assert!(!params.catable); // Sanitize Params senforces this constraint
     }
@@ -2088,7 +2092,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
         BrotliStoreUncompressedMetaBlock(
             alloc,
-            is_last,
+            is_last as i32,
             data,
             wrapped_last_flush_pos as usize,
             mask,
@@ -2124,7 +2128,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
             wrapped_last_flush_pos as usize,
             bytes,
             mask,
-            is_last,
+            is_last as i32,
             params,
             saved_dist_cache,
             commands,
@@ -2141,7 +2145,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
             wrapped_last_flush_pos as usize,
             bytes,
             mask,
-            is_last,
+            is_last as i32,
             params,
             saved_dist_cache,
             commands,
@@ -2218,7 +2222,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
             mask,
             prev_byte,
             prev_byte2,
-            is_last,
+            is_last as i32,
             &block_params,
             literal_context_mode,
             saved_dist_cache,
@@ -2242,7 +2246,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         *storage_ix = last_bytes_bits as usize;
         BrotliStoreUncompressedMetaBlock(
             alloc,
-            is_last,
+            is_last as i32,
             data,
             wrapped_last_flush_pos as usize,
             mask,
@@ -2306,10 +2310,11 @@ fn ChooseDistanceParams(params: &mut BrotliEncoderParams) {
 
 fn EncodeData<Alloc: BrotliAlloc, MetablockCallback>(
     s: &mut BrotliEncoderStateStruct<Alloc>,
-    is_last: i32,
-    force_flush: i32,
+    is_last: bool,
+    force_flush: bool,
     out_size: &mut usize,
-    callback: &mut MetablockCallback, //              mut output: &'a mut &'a mut [u8]
+    callback: &mut MetablockCallback,
+    // mut output: &'a mut &'a mut [u8]
 ) -> i32
 where
     MetablockCallback: FnMut(
@@ -2329,7 +2334,7 @@ where
     if s.is_last_block_emitted_ {
         return 0i32;
     }
-    if is_last != 0 {
+    if is_last {
         s.is_last_block_emitted_ = true;
     }
     if delta > InputBlockSize(s) as u64 {
@@ -2422,7 +2427,7 @@ where
     if s.params.quality == 0i32 || s.params.quality == 1i32 {
         let mut table_size: usize = 0;
         {
-            if delta == 0 && (is_last == 0) {
+            if delta == 0 && !is_last {
                 *out_size = catable_header_size;
                 return 1i32;
             }
@@ -2439,7 +2444,7 @@ where
                     &mut s.m8,
                     &mut data[((wrapped_last_processed_pos & mask) as usize)..],
                     bytes as usize,
-                    is_last,
+                    is_last as i32,
                     table,
                     table_size,
                     &mut s.cmd_depths_[..],
@@ -2454,7 +2459,7 @@ where
                     &mut s.m8,
                     &mut data[((wrapped_last_processed_pos & mask) as usize)..],
                     bytes as usize,
-                    is_last,
+                    is_last as i32,
                     s.command_buf_.slice_mut(),
                     s.literal_buf_.slice_mut(),
                     table,
@@ -2569,27 +2574,18 @@ where
         let max_literals: usize = max_length.wrapping_div(8);
         let max_commands: usize = max_length.wrapping_div(8);
         let processed_bytes: usize = s.input_pos_.wrapping_sub(s.last_flush_pos_) as usize;
-        let next_input_fits_metablock: i32 =
-            if !!(processed_bytes.wrapping_add(InputBlockSize(s)) <= max_length) {
-                1i32
-            } else {
-                0i32
-            };
-        let should_flush: i32 = if !!(s.params.quality < 4i32
-            && (s.num_literals_.wrapping_add(s.num_commands_) >= 0x2fffusize))
+        let next_input_fits_metablock =
+            processed_bytes.wrapping_add(InputBlockSize(s)) <= max_length;
+        let should_flush =
+            s.params.quality < 4 && s.num_literals_.wrapping_add(s.num_commands_) >= 0x2fff;
+        if !is_last
+            && !force_flush
+            && !should_flush
+            && next_input_fits_metablock
+            && s.num_literals_ < max_literals
+            && s.num_commands_ < max_commands
         {
-            1i32
-        } else {
-            0i32
-        };
-        if is_last == 0
-            && (force_flush == 0)
-            && (should_flush == 0)
-            && (next_input_fits_metablock != 0)
-            && (s.num_literals_ < max_literals)
-            && (s.num_commands_ < max_commands)
-        {
-            if UpdateLastProcessedPos(s) != 0 {
+            if UpdateLastProcessedPos(s) {
                 HasherReset(&mut s.hasher_);
             }
             *out_size = catable_header_size;
@@ -2608,7 +2604,7 @@ where
         s.num_literals_ = s.num_literals_.wrapping_add(s.last_insert_len_);
         s.last_insert_len_ = 0usize;
     }
-    if is_last == 0 && (s.input_pos_ == s.last_flush_pos_) {
+    if !is_last && s.input_pos_ == s.last_flush_pos_ {
         *out_size = catable_header_size;
         return 1i32;
     }
@@ -2647,7 +2643,7 @@ where
             | ((s.storage_.slice()[1 + (storage_ix >> 3)] as u16) << 8);
         s.last_bytes_bits_ = (storage_ix & 7u32 as usize) as u8;
         s.last_flush_pos_ = s.input_pos_;
-        if UpdateLastProcessedPos(s) != 0 {
+        if UpdateLastProcessedPos(s) {
             HasherReset(&mut s.hasher_);
         }
         let data = &s.ringbuffer_.data_mo.slice()[s.ringbuffer_.buffer_index..];
@@ -2752,7 +2748,7 @@ fn ProcessMetadata<
         }
         if s.input_pos_ != s.last_flush_pos_ {
             let mut avail_out: usize = s.available_out_;
-            let result: i32 = EncodeData(s, 0i32, 1i32, &mut avail_out, metablock_callback);
+            let result: i32 = EncodeData(s, false, true, &mut avail_out, metablock_callback);
             s.available_out_ = avail_out;
             if result == 0 {
                 return 0i32;
@@ -2886,19 +2882,17 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
                 || op as i32 != BrotliEncoderOperation::BROTLI_OPERATION_PROCESS as i32)
         {
             let block_size: usize = brotli_min_size_t(block_size_limit, *available_in);
-            let is_last: i32 = (*available_in == block_size
-                && (op as i32 == BrotliEncoderOperation::BROTLI_OPERATION_FINISH as i32))
-                as i32;
-            let force_flush: i32 = (*available_in == block_size
-                && (op as i32 == BrotliEncoderOperation::BROTLI_OPERATION_FLUSH as i32))
-                as i32;
+            let is_last = *available_in == block_size
+                && op == BrotliEncoderOperation::BROTLI_OPERATION_FINISH;
+            let force_flush =
+                *available_in == block_size && op == BrotliEncoderOperation::BROTLI_OPERATION_FLUSH;
             let max_out_size: usize = (2usize).wrapping_mul(block_size).wrapping_add(503);
             let mut inplace: i32 = 1i32;
             let storage: &mut [u8];
             let mut storage_ix: usize = s.last_bytes_bits_ as usize;
             let mut table_size: usize = 0;
 
-            if force_flush != 0 && (block_size == 0usize) {
+            if force_flush && block_size == 0 {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
                 {
                     {
@@ -2921,7 +2915,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
                     &mut s.m8,
                     &(next_in_array)[*next_in_offset..],
                     block_size,
-                    is_last,
+                    is_last as i32,
                     table,
                     table_size,
                     &mut s.cmd_depths_[..],
@@ -2936,7 +2930,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
                     &mut s.m8,
                     &(next_in_array)[*next_in_offset..],
                     block_size,
-                    is_last,
+                    is_last as i32,
                     command_buf.slice_mut(),
                     literal_buf.slice_mut(),
                     table,
@@ -2965,10 +2959,10 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
             s.last_bytes_ =
                 storage[(storage_ix >> 3)] as u16 | ((storage[1 + (storage_ix >> 3)] as u16) << 8);
             s.last_bytes_bits_ = (storage_ix & 7u32 as usize) as u8;
-            if force_flush != 0 {
+            if force_flush {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
             }
-            if is_last != 0 {
+            if is_last {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FINISHED;
             }
             {
@@ -3099,20 +3093,10 @@ pub fn BrotliEncoderCompressStream<
             && (remaining_block_size == 0usize
                 || op as i32 != BrotliEncoderOperation::BROTLI_OPERATION_PROCESS as i32)
         {
-            let is_last: i32 = if !!(*available_in == 0usize
-                && (op as i32 == BrotliEncoderOperation::BROTLI_OPERATION_FINISH as i32))
-            {
-                1i32
-            } else {
-                0i32
-            };
-            let force_flush: i32 = if !!(*available_in == 0usize
-                && (op as i32 == BrotliEncoderOperation::BROTLI_OPERATION_FLUSH as i32))
-            {
-                1i32
-            } else {
-                0i32
-            };
+            let is_last =
+                *available_in == 0 && op == BrotliEncoderOperation::BROTLI_OPERATION_FINISH;
+            let force_flush =
+                *available_in == 0 && op == BrotliEncoderOperation::BROTLI_OPERATION_FLUSH;
 
             UpdateSizeHint(s, *available_in);
             let mut avail_out = s.available_out_;
@@ -3123,10 +3107,10 @@ pub fn BrotliEncoderCompressStream<
             if result == 0 {
                 return 0i32;
             }
-            if force_flush != 0 {
+            if force_flush {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
             }
-            if is_last != 0 {
+            if is_last {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FINISHED;
             }
             {
@@ -3146,8 +3130,8 @@ pub fn BrotliEncoderCompressStream<
 }
 
 pub fn BrotliEncoderIsFinished<Alloc: BrotliAlloc>(s: &BrotliEncoderStateStruct<Alloc>) -> i32 {
-    if !!(s.stream_state_ as i32 == BrotliEncoderStreamState::BROTLI_STREAM_FINISHED as i32
-        && (BrotliEncoderHasMoreOutput(s) == 0))
+    if s.stream_state_ == BrotliEncoderStreamState::BROTLI_STREAM_FINISHED
+        && BrotliEncoderHasMoreOutput(s) == 0
     {
         1i32
     } else {
@@ -3156,7 +3140,7 @@ pub fn BrotliEncoderIsFinished<Alloc: BrotliAlloc>(s: &BrotliEncoderStateStruct<
 }
 
 pub fn BrotliEncoderHasMoreOutput<Alloc: BrotliAlloc>(s: &BrotliEncoderStateStruct<Alloc>) -> i32 {
-    if !!(s.available_out_ != 0usize) {
+    if s.available_out_ != 0 {
         1i32
     } else {
         0i32
@@ -3220,7 +3204,13 @@ pub fn BrotliEncoderWriteData<
     output: &'a mut &'a mut [u8],
     metablock_callback: &mut MetablockCallback,
 ) -> i32 {
-    let ret = EncodeData(s, is_last, force_flush, out_size, metablock_callback);
+    let ret = EncodeData(
+        s,
+        is_last != 0,
+        force_flush != 0,
+        out_size,
+        metablock_callback,
+    );
     *output = s.storage_.slice_mut();
     ret
 }

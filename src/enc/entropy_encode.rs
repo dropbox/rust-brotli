@@ -67,9 +67,9 @@ pub struct SortHuffmanTree {}
 impl HuffmanComparator for SortHuffmanTree {
     fn Cmp(&self, v0: &HuffmanTree, v1: &HuffmanTree) -> bool {
         if v0.total_count_ != v1.total_count_ {
-            !!(v0.total_count_ < v1.total_count_)
+            v0.total_count_ < v1.total_count_
         } else {
-            !!(v0.index_right_or_value_ as i32 > v1.index_right_or_value_ as i32)
+            v0.index_right_or_value_ > v1.index_right_or_value_
         }
     }
 }
@@ -448,12 +448,12 @@ pub fn DecideOverRleUse(
         }
         i = i.wrapping_add(reps);
     }
-    *use_rle_for_non_zero = if !!(total_reps_non_zero > count_reps_non_zero.wrapping_mul(2)) {
+    *use_rle_for_non_zero = if total_reps_non_zero > count_reps_non_zero.wrapping_mul(2) {
         1i32
     } else {
         0i32
     };
-    *use_rle_for_zero = if !!(total_reps_zero > count_reps_zero.wrapping_mul(2)) {
+    *use_rle_for_zero = if total_reps_zero > count_reps_zero.wrapping_mul(2) {
         1i32
     } else {
         0i32
