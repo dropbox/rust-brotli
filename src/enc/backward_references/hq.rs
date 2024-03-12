@@ -139,11 +139,7 @@ pub fn BrotliZopfliCreateCommands(
                 let len_code: usize = ZopfliNodeLengthCode(next) as usize;
                 let max_distance: usize =
                     brotli_min_size_t(block_start.wrapping_add(pos), max_backward_limit);
-                let is_dictionary: i32 = if !!(distance > max_distance.wrapping_add(gap)) {
-                    1i32
-                } else {
-                    0i32
-                };
+                let is_dictionary = distance > max_distance.wrapping_add(gap);
                 let dist_code: usize = ZopfliNodeDistanceCode(next) as usize;
                 InitCommand(
                     &mut commands[i],
@@ -153,7 +149,7 @@ pub fn BrotliZopfliCreateCommands(
                     len_code,
                     dist_code,
                 );
-                if is_dictionary == 0 && (dist_code > 0usize) {
+                if !is_dictionary && dist_code > 0 {
                     dist_cache[3] = dist_cache[2];
                     dist_cache[2] = dist_cache[1];
                     dist_cache[1] = dist_cache[0];
@@ -882,12 +878,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                         {
                             let mut match_: BackwardMatch = BackwardMatch(matches[j]);
                             let dist: usize = match_.distance() as usize;
-                            let is_dictionary_match: i32 =
-                                if !!(dist > max_distance.wrapping_add(gap)) {
-                                    1i32
-                                } else {
-                                    0i32
-                                };
+                            let is_dictionary_match = dist > max_distance.wrapping_add(gap);
                             let dist_code: usize = dist.wrapping_add(16).wrapping_sub(1);
                             let mut dist_symbol: u16 = 0;
                             let mut distextra: u32 = 0;
@@ -908,13 +899,13 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                 );
                             let max_match_len: usize = BackwardMatchLength(&mut match_);
                             if len < max_match_len
-                                && (is_dictionary_match != 0 || max_match_len > max_zopfli_len)
+                                && (is_dictionary_match || max_match_len > max_zopfli_len)
                             {
                                 len = max_match_len;
                             }
                             while len <= max_match_len {
                                 {
-                                    let len_code: usize = if is_dictionary_match != 0 {
+                                    let len_code: usize = if is_dictionary_match {
                                         BackwardMatchLengthCode(&mut match_)
                                     } else {
                                         len
@@ -1480,7 +1471,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                     } else {
                         <Alloc as Allocator<u64>>::AllocatedMemory::default()
                     };
-                    if !!(0i32 == 0) && (matches_size != 0usize) {
+                    if matches_size != 0 {
                         for (dst, src) in new_array
                             .slice_mut()
                             .split_at_mut(matches_size)

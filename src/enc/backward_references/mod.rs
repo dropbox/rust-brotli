@@ -367,7 +367,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
         let mut best_len: usize = best_len_in;
         let cached_backward: usize = distance_cache[0] as usize;
         let mut prev_ix: usize = cur_ix.wrapping_sub(cached_backward);
-        let mut is_match_found: i32 = 0i32;
+        let mut is_match_found = false;
         out.len_x_code = 0usize;
         if prev_ix < cur_ix {
             prev_ix &= ring_buffer_mask as u32 as usize;
@@ -388,7 +388,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                         self.buckets_.slice_mut()[key as usize] = cur_ix as u32;
                         return true;
                     } else {
-                        is_match_found = 1i32;
+                        is_match_found = true;
                     }
                 }
             }
@@ -440,12 +440,12 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                         out.distance = backward;
                         out.score = score;
                         compare_char = data[cur_ix_masked.wrapping_add(best_len)] as i32;
-                        is_match_found = 1i32;
+                        is_match_found = true;
                     }
                 }
             }
         }
-        if dictionary.is_some() && self.buckets_.USE_DICTIONARY() != 0 && (is_match_found == 0) {
+        if dictionary.is_some() && self.buckets_.USE_DICTIONARY() != 0 && !is_match_found {
             is_match_found = SearchInStaticDictionary(
                 dictionary.unwrap(),
                 dictionary_hash,
@@ -455,13 +455,13 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                 max_backward.wrapping_add(gap),
                 max_distance,
                 out,
-                1i32,
+                true,
             );
         }
         self.buckets_.slice_mut()
             [(key as usize).wrapping_add((cur_ix >> 3).wrapping_rem(bucket_sweep as usize))] =
             cur_ix as u32;
-        is_match_found != 0
+        is_match_found
     }
 }
 impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H2Sub<AllocU32> {
@@ -735,7 +735,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
         let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
         let mut best_score: u64 = out.score;
         let mut best_len: usize = best_len_in;
-        let mut is_match_found: i32 = 0i32;
+        let mut is_match_found = false;
         out.len_x_code = 0usize;
         for i in 0..H9_NUM_LAST_DISTANCES_TO_CHECK {
             let idx = kDistanceCacheIndex[i] as usize;
@@ -767,7 +767,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
                         out.len = best_len;
                         out.distance = backward;
                         out.score = best_score;
-                        is_match_found = 1i32;
+                        is_match_found = true;
                     }
                 }
             }
@@ -821,7 +821,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
                             out.len = best_len;
                             out.distance = backward;
                             out.score = best_score;
-                            is_match_found = 1;
+                            is_match_found = true;
                             if cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask {
                                 break;
                             }
@@ -833,7 +833,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
             bucket[*self_num_key as usize & H9_BLOCK_MASK] = cur_ix as u32;
             *self_num_key = self_num_key.wrapping_add(1);
         }
-        if is_match_found == 0 && dictionary.is_some() {
+        if !is_match_found && dictionary.is_some() {
             let (_, cur_data) = data.split_at(cur_ix_masked);
             is_match_found = SearchInStaticDictionary(
                 dictionary.unwrap(),
@@ -844,10 +844,10 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
                 max_backward.wrapping_add(gap),
                 max_distance,
                 out,
-                0i32,
+                false,
             );
         }
-        is_match_found != 0
+        is_match_found
     }
 
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
@@ -1665,7 +1665,7 @@ impl<
     ) -> bool {
         let opts = self.Opts();
         let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
-        let mut is_match_found: i32 = 0i32;
+        let mut is_match_found = false;
         let mut best_score: u64 = out.score;
         let mut best_len: usize = out.len;
         let mut i: usize;
@@ -1707,7 +1707,7 @@ impl<
                                 out.len = best_len;
                                 out.distance = backward;
                                 out.score = best_score;
-                                is_match_found = 1i32;
+                                is_match_found = true;
                             }
                         }
                     }
@@ -1763,7 +1763,7 @@ impl<
                             out.len = best_len;
                             out.distance = backward;
                             out.score = best_score;
-                            is_match_found = 1i32;
+                            is_match_found = true;
                         }
                     }
                 }
@@ -1772,7 +1772,7 @@ impl<
                 cur_ix as u32;
             *num_ref_mut = num_ref_mut.wrapping_add(1);
         }
-        if is_match_found == 0 && dictionary.is_some() {
+        if !is_match_found && dictionary.is_some() {
             let (_, cur_data) = data.split_at(cur_ix_masked);
             is_match_found = SearchInStaticDictionary(
                 dictionary.unwrap(),
@@ -1783,10 +1783,10 @@ impl<
                 max_backward.wrapping_add(gap),
                 max_distance,
                 out,
-                0i32,
+                false,
             );
         }
-        is_match_found != 0
+        is_match_found
     }
 }
 
@@ -1936,19 +1936,19 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(
     max_backward: usize,
     max_distance: usize,
     out: &mut HasherSearchResult,
-    shallow: i32,
-) -> i32 {
+    shallow: bool,
+) -> bool {
     let mut key: usize;
     let mut i: usize;
-    let mut is_match_found: i32 = 0i32;
+    let mut is_match_found = false;
     let opts = handle.Opts();
     let xself: &mut Struct1 = handle.GetHasherCommon();
     if xself.dict_num_matches < xself.dict_num_lookups >> 7 {
-        return 0i32;
+        return false;
     }
     key = (Hash14(data) << 1) as usize; //FIXME: works for any kind of hasher??
     i = 0usize;
-    while i < if shallow != 0 { 1u32 } else { 2u32 } as usize {
+    while i < if shallow { 1 } else { 2 } {
         {
             let item: usize = dictionary_hash[key] as usize;
             xself.dict_num_lookups = xself.dict_num_lookups.wrapping_add(1);
@@ -1965,7 +1965,7 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(
                 );
                 if item_matches != 0 {
                     xself.dict_num_matches = xself.dict_num_matches.wrapping_add(1);
-                    is_match_found = 1i32;
+                    is_match_found = true;
                 }
             }
         }
