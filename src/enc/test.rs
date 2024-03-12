@@ -58,9 +58,11 @@ fn oneshot_compress(
         unsafe { define_allocator_memory_pool!(96, u64, [0; 32 * 1024], calloc) };
     let stack_f64_buffer =
         unsafe { define_allocator_memory_pool!(48, super::util::floatX, [0; 128 * 1024], calloc) };
-    let mut stack_global_buffer_v8 = define_allocator_memory_pool!(64, v8, [v8::default(); 1024 * 16], stack);
+    let mut stack_global_buffer_v8 =
+        define_allocator_memory_pool!(64, v8, [v8::default(); 1024 * 16], stack);
     let mf8 = StackAllocatedFreelist64::<v8>::new_allocator(&mut stack_global_buffer_v8, bzero);
-    let mut stack_16x16_buffer = define_allocator_memory_pool!(64, s16, [s16::default(); 1024 * 16], stack);
+    let mut stack_16x16_buffer =
+        define_allocator_memory_pool!(64, s16, [s16::default(); 1024 * 16], stack);
     let m16x16 = StackAllocatedFreelist64::<s16>::new_allocator(&mut stack_16x16_buffer, bzero);
 
     let stack_hl_buffer =

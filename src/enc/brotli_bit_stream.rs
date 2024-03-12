@@ -924,9 +924,7 @@ pub fn BrotliStoreHuffmanTree(
     i = 0usize;
     while i < huffman_tree_size {
         {
-            let _rhs = 1;
-            let _lhs = &mut huffman_tree_histogram[huffman_tree[i] as usize];
-            *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+            huffman_tree_histogram[huffman_tree[i] as usize] += 1;
         }
         i = i.wrapping_add(1);
     }
@@ -1665,14 +1663,10 @@ fn BuildAndStoreBlockSplitCode(
         {
             let type_code: usize = NextBlockTypeCode(&mut type_code_calculator, types[i]);
             if i != 0usize {
-                let _rhs = 1;
-                let _lhs = &mut type_histo[type_code];
-                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                type_histo[type_code] += 1;
             }
             {
-                let _rhs = 1;
-                let _lhs = &mut length_histo[BlockLengthPrefixCode(lengths[i]) as usize];
-                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                length_histo[BlockLengthPrefixCode(lengths[i]) as usize] += 1;
             }
         }
         i = i.wrapping_add(1);
@@ -1970,9 +1964,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(
     i = 0usize;
     while i < num_rle_symbols {
         {
-            let _rhs = 1;
-            let _lhs = &mut histogram[(rle_symbols.slice()[i] & kSymbolMask) as usize];
-            *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+            histogram[(rle_symbols.slice()[i] & kSymbolMask) as usize] += 1;
         }
         i = i.wrapping_add(1);
     }
@@ -2869,9 +2861,7 @@ pub fn BrotliStoreMetaBlockFast<Cb, Alloc: BrotliAlloc>(
                 while j != 0usize {
                     {
                         {
-                            let _rhs = 1;
-                            let _lhs = &mut histogram[input[(pos & mask)] as usize];
-                            *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                            histogram[input[(pos & mask)] as usize] += 1;
                         }
                         pos = pos.wrapping_add(1);
                     }

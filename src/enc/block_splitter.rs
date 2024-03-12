@@ -563,9 +563,7 @@ fn ClusterBlocks<
             {
                 0i32;
                 {
-                    let _rhs = 1;
-                    let _lhs = &mut block_lengths.slice_mut()[block_idx];
-                    *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                    block_lengths.slice_mut()[block_idx] += 1;
                 }
                 if i.wrapping_add(1) == length
                     || block_ids[i] as i32 != block_ids[i.wrapping_add(1)] as i32

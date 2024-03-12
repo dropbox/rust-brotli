@@ -1248,22 +1248,16 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
             let cmdcode: usize = (commands[i]).cmd_prefix_ as usize;
             let mut j: usize;
             {
-                let _rhs = 1;
-                let _lhs = &mut histogram_cmd[cmdcode];
-                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                histogram_cmd[cmdcode] += 1;
             }
             if cmdcode >= 128usize {
-                let _rhs = 1;
-                let _lhs = &mut histogram_dist[distcode];
-                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                histogram_dist[distcode] += 1;
             }
             j = 0usize;
             while j < inslength {
                 {
-                    let _rhs = 1;
-                    let _lhs = &mut histogram_literal
-                        [(ringbuffer[(pos.wrapping_add(j) & ringbuffer_mask)] as usize)];
-                    *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                    histogram_literal
+                        [(ringbuffer[(pos.wrapping_add(j) & ringbuffer_mask)] as usize)] += 1;
                 }
                 j = j.wrapping_add(1);
             }

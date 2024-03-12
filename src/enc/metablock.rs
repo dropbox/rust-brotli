@@ -643,9 +643,8 @@ fn BlockSplitterFinishBlock<
             xself.target_block_size_ = xself.min_block_size_;
         } else {
             {
-                let _rhs = xself.block_size_ as u32;
-                let _lhs = &mut split.lengths.slice_mut()[xself.num_blocks_.wrapping_sub(1)];
-                *_lhs = (*_lhs).wrapping_add(_rhs);
+                split.lengths.slice_mut()[xself.num_blocks_.wrapping_sub(1)] +=
+                    xself.block_size_ as u32;
             }
             histograms[xself.last_histogram_ix_[0]] = combined_histo[0].clone();
             xself.last_entropy_[0] = combined_entropy[0];
@@ -733,9 +732,7 @@ fn ContextBlockSplitterFinishBlock<
                         combined_entropy[jx] =
                             BitsEntropy(combined_histo.slice()[jx].slice(), xself.alphabet_size_);
                         {
-                            let _rhs = combined_entropy[jx] - entropy[i] - xself.last_entropy_[jx];
-                            let _lhs = &mut diff[j];
-                            *_lhs += _rhs;
+                            diff[j] += combined_entropy[jx] - entropy[i] - xself.last_entropy_[jx];
                         }
                     }
                     j = j.wrapping_add(1);

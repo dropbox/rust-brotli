@@ -189,9 +189,7 @@ pub fn BrotliHistogramCombine<
         HistogramSelfAddHistogram(out, (best_idx1 as usize), (best_idx2 as usize));
         (out[(best_idx1 as usize)]).set_bit_cost((pairs[0]).cost_combo);
         {
-            let _rhs = cluster_size[(best_idx2 as usize)];
-            let _lhs = &mut cluster_size[(best_idx1 as usize)];
-            *_lhs = (*_lhs).wrapping_add(_rhs);
+            cluster_size[(best_idx1 as usize)] += cluster_size[(best_idx2 as usize)];
         }
         i = 0usize;
         while i < symbols_size {

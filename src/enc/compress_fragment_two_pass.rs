@@ -422,9 +422,7 @@ fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> bool 
         i = 0usize;
         while i < input_size {
             {
-                let _rhs = 1;
-                let _lhs = &mut literal_histo[input[i] as usize];
-                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                literal_histo[input[i] as usize] += 1;
             }
             i = i.wrapping_add(43);
         }
@@ -578,9 +576,7 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
     i = 0usize;
     while i < num_literals {
         {
-            let _rhs = 1;
-            let _lhs = &mut lit_histo[literals[i] as usize];
-            *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+            lit_histo[literals[i] as usize] += 1;
         }
         i = i.wrapping_add(1);
     }
@@ -600,32 +596,22 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
             let code: u32 = commands[i] & 0xffu32;
             0i32;
             {
-                let _rhs = 1;
-                let _lhs = &mut cmd_histo[code as usize];
-                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                cmd_histo[code as usize] += 1;
             }
         }
         i = i.wrapping_add(1);
     }
     {
-        let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[1];
-        *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+        cmd_histo[1] += 1;
     }
     {
-        let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[2];
-        *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+        cmd_histo[2] += 1;
     }
     {
-        let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[64];
-        *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+        cmd_histo[64] += 1;
     }
     {
-        let _rhs = 1i32;
-        let _lhs = &mut cmd_histo[84];
-        *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+        cmd_histo[84] += 1;
     }
     BuildAndStoreCommandPrefixCode(
         &mut cmd_histo[..],

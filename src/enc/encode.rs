@@ -1403,9 +1403,7 @@ fn ShouldCompress(
         while i < t {
             {
                 {
-                    let _rhs = 1;
-                    let _lhs = &mut literal_histo[data[(pos as usize & mask)] as usize];
-                    *_lhs = (*_lhs).wrapping_add(_rhs as u32);
+                    literal_histo[data[(pos as usize & mask)] as usize] += 1;
                 }
                 pos = pos.wrapping_add(kSampleRate);
             }
@@ -1822,14 +1820,10 @@ fn ChooseContextMap(
     while i < 9usize {
         {
             {
-                let _rhs = bigram_histo[i];
-                let _lhs = &mut monogram_histo[i.wrapping_rem(3)];
-                *_lhs = (*_lhs).wrapping_add(_rhs);
+                monogram_histo[i.wrapping_rem(3)] += bigram_histo[i];
             }
             {
-                let _rhs = bigram_histo[i];
-                let _lhs = &mut two_prefix_histo[i.wrapping_rem(6)];
-                *_lhs = (*_lhs).wrapping_add(_rhs);
+                two_prefix_histo[i.wrapping_rem(6)] += bigram_histo[i];
             }
         }
         i = i.wrapping_add(1);
@@ -1841,13 +1835,11 @@ fn ChooseContextMap(
     i = 0usize;
     while i < 3usize {
         {
-            let _rhs = ShannonEntropy(
+            entropy[3] += ShannonEntropy(
                 &bigram_histo[(3usize).wrapping_mul(i)..],
                 3usize,
                 &mut dummy,
             );
-            let _lhs = &mut entropy[3];
-            *_lhs += _rhs;
         }
         i = i.wrapping_add(1);
     }
@@ -1857,19 +1849,13 @@ fn ChooseContextMap(
     0i32;
     entropy[0] = 1.0 as super::util::floatX / total as (super::util::floatX);
     {
-        let _rhs = entropy[0];
-        let _lhs = &mut entropy[1];
-        *_lhs *= _rhs;
+        entropy[1] *= entropy[0];
     }
     {
-        let _rhs = entropy[0];
-        let _lhs = &mut entropy[2];
-        *_lhs *= _rhs;
+        entropy[2] *= entropy[0];
     }
     {
-        let _rhs = entropy[0];
-        let _lhs = &mut entropy[3];
-        *_lhs *= _rhs;
+        entropy[3] *= entropy[0];
     }
     if quality < 7i32 {
         entropy[3] = entropy[1] * 10i32 as (super::util::floatX);
