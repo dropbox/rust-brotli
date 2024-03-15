@@ -360,25 +360,20 @@ pub fn RecomputeDistancePrefixes(
     distance_postfix_bits: u32,
     dist: &BrotliDistanceParams,
 ) {
-    let mut i: usize;
     if num_direct_distance_codes == 0u32 && (distance_postfix_bits == 0u32) {
         return;
     }
-    i = 0usize;
-    while i < num_commands {
-        {
-            let cmd: &mut Command = &mut cmds[i];
-            if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
-                PrefixEncodeCopyDistance(
-                    CommandRestoreDistanceCode(cmd, dist) as usize,
-                    num_direct_distance_codes as usize,
-                    distance_postfix_bits as (u64),
-                    &mut cmd.dist_prefix_,
-                    &mut cmd.dist_extra_,
-                );
-            }
+    for i in 0usize..num_commands {
+        let cmd: &mut Command = &mut cmds[i];
+        if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
+            PrefixEncodeCopyDistance(
+                CommandRestoreDistanceCode(cmd, dist) as usize,
+                num_direct_distance_codes as usize,
+                distance_postfix_bits as (u64),
+                &mut cmd.dist_prefix_,
+                &mut cmd.dist_extra_,
+            );
         }
-        i = i.wrapping_add(1);
     }
 }
 
