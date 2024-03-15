@@ -41,9 +41,7 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
             stack[level as usize] = (pool[(p as usize)]).index_right_or_value_ as i32;
             p = (pool[(p as usize)]).index_left_ as i32;
             {
-                {
-                    continue;
-                }
+                continue;
             }
         } else {
             let pp = pool[(p as usize)];
@@ -96,9 +94,7 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(
                         _old
                     } == 0
                     {
-                        {
-                            break;
-                        }
+                        break;
                     }
                 }
                 items[k] = tmp;
@@ -182,9 +178,7 @@ pub fn BrotliCreateHuffmanTree(
             if n == 1 {
                 depth[((tree[0]).index_right_or_value_ as usize)] = 1u8;
                 {
-                    {
-                        break 'break1;
-                    }
+                    break 'break1;
                 }
             }
             SortHuffmanTreeItems(tree, n, SortHuffmanTree {});
@@ -229,9 +223,7 @@ pub fn BrotliCreateHuffmanTree(
                 depth,
                 tree_limit,
             ) {
-                {
-                    break 'break1;
-                }
+                break 'break1;
             }
         }
         count_limit = count_limit.wrapping_mul(2);
@@ -502,9 +494,7 @@ fn BrotliWriteHuffmanTreeRepetitions(
             *tree_size = tree_size.wrapping_add(1);
             repetitions >>= 2i32;
             if repetitions == 0usize {
-                {
-                    break;
-                }
+                break;
             }
             repetitions = repetitions.wrapping_sub(1);
         }
@@ -545,9 +535,7 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(
             *tree_size = tree_size.wrapping_add(1);
             repetitions >>= 3i32;
             if repetitions == 0usize {
-                {
-                    break;
-                }
+                break;
             }
             repetitions = repetitions.wrapping_sub(1);
         }

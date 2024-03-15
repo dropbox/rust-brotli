@@ -342,82 +342,80 @@ where
         *item = 0;
     }
     for (byte_ix, data_byte_ix) in data[..length].iter().enumerate() {
-        {
-            let block_id_ptr = &mut block_id[byte_ix];
-            let ix: usize = byte_ix.wrapping_mul(bitmaplen);
-            let insert_cost_ix: usize =
-                u64::from(data_byte_ix.clone()).wrapping_mul(num_histograms as u64) as usize;
-            let mut min_cost: super::util::floatX = 1e38 as super::util::floatX;
-            let mut block_switch_cost: super::util::floatX = block_switch_bitcost;
-            if false {
-                // nonvectorized version: same code below
-                for (k, insert_cost_iter) in insert_cost
-                    [insert_cost_ix..(insert_cost_ix + num_histograms)]
-                    .iter()
-                    .enumerate()
-                {
-                    let cost_iter = &mut cost[(k >> 3)][k & 7];
-                    *cost_iter += *insert_cost_iter;
-                    if *cost_iter < min_cost {
-                        min_cost = *cost_iter;
-                        *block_id_ptr = k as u8;
-                    }
-                }
-            } else {
-                // main (vectorized) loop
-                let insert_cost_slice = insert_cost.split_at(insert_cost_ix).1;
-                for (v_index, cost_iter) in cost
-                    .split_at_mut(num_histograms >> 3)
-                    .0
-                    .iter_mut()
-                    .enumerate()
-                {
-                    let base_index = v_index << 3;
-                    let mut local_insert_cost = [0.0 as super::util::floatX; 8];
-                    local_insert_cost
-                        .clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
-                    for sub_index in 0usize..8usize {
-                        cost_iter[sub_index] += local_insert_cost[sub_index];
-                        let final_cost = cost_iter[sub_index];
-                        if final_cost < min_cost {
-                            min_cost = final_cost;
-                            *block_id_ptr = (base_index + sub_index) as u8;
-                        }
-                    }
-                }
-                let vectorized_offset = ((num_histograms >> 3) << 3);
-                let mut k = vectorized_offset;
-                //remainder loop for
-                for insert_cost_iter in insert_cost
-                    .split_at(insert_cost_ix + vectorized_offset)
-                    .1
-                    .split_at(num_histograms & 7)
-                    .0
-                    .iter()
-                {
-                    let cost_iter = &mut cost[(k >> 3)];
-                    cost_iter[k & 7] += *insert_cost_iter;
-                    if cost_iter[k & 7] < min_cost {
-                        min_cost = cost_iter[k & 7];
-                        *block_id_ptr = k as u8;
-                    }
-                    k += 1;
+        let block_id_ptr = &mut block_id[byte_ix];
+        let ix: usize = byte_ix.wrapping_mul(bitmaplen);
+        let insert_cost_ix: usize =
+            u64::from(data_byte_ix.clone()).wrapping_mul(num_histograms as u64) as usize;
+        let mut min_cost: super::util::floatX = 1e38 as super::util::floatX;
+        let mut block_switch_cost: super::util::floatX = block_switch_bitcost;
+        if false {
+            // nonvectorized version: same code below
+            for (k, insert_cost_iter) in insert_cost
+                [insert_cost_ix..(insert_cost_ix + num_histograms)]
+                .iter()
+                .enumerate()
+            {
+                let cost_iter = &mut cost[(k >> 3)][k & 7];
+                *cost_iter += *insert_cost_iter;
+                if *cost_iter < min_cost {
+                    min_cost = *cost_iter;
+                    *block_id_ptr = k as u8;
                 }
             }
-            if byte_ix < 2000usize {
-                block_switch_cost *= (0.77 as super::util::floatX
-                    + 0.07 as super::util::floatX * byte_ix as (super::util::floatX)
-                        / 2000i32 as (super::util::floatX));
+        } else {
+            // main (vectorized) loop
+            let insert_cost_slice = insert_cost.split_at(insert_cost_ix).1;
+            for (v_index, cost_iter) in cost
+                .split_at_mut(num_histograms >> 3)
+                .0
+                .iter_mut()
+                .enumerate()
+            {
+                let base_index = v_index << 3;
+                let mut local_insert_cost = [0.0 as super::util::floatX; 8];
+                local_insert_cost
+                    .clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
+                for sub_index in 0usize..8usize {
+                    cost_iter[sub_index] += local_insert_cost[sub_index];
+                    let final_cost = cost_iter[sub_index];
+                    if final_cost < min_cost {
+                        min_cost = final_cost;
+                        *block_id_ptr = (base_index + sub_index) as u8;
+                    }
+                }
             }
-            update_cost_and_signal(
-                num_histograms as u32,
-                ix,
-                min_cost,
-                block_switch_cost,
-                cost,
-                switch_signal,
-            );
+            let vectorized_offset = ((num_histograms >> 3) << 3);
+            let mut k = vectorized_offset;
+            //remainder loop for
+            for insert_cost_iter in insert_cost
+                .split_at(insert_cost_ix + vectorized_offset)
+                .1
+                .split_at(num_histograms & 7)
+                .0
+                .iter()
+            {
+                let cost_iter = &mut cost[(k >> 3)];
+                cost_iter[k & 7] += *insert_cost_iter;
+                if cost_iter[k & 7] < min_cost {
+                    min_cost = cost_iter[k & 7];
+                    *block_id_ptr = k as u8;
+                }
+                k += 1;
+            }
         }
+        if byte_ix < 2000usize {
+            block_switch_cost *= (0.77 as super::util::floatX
+                + 0.07 as super::util::floatX * byte_ix as (super::util::floatX)
+                    / 2000i32 as (super::util::floatX));
+        }
+        update_cost_and_signal(
+            num_histograms as u32,
+            ix,
+            min_cost,
+            block_switch_cost,
+            cost,
+            switch_signal,
+        );
     }
     {
         let mut byte_ix: usize = length.wrapping_sub(1);

@@ -832,9 +832,7 @@ fn BrotliStoreHuffmanTreeOfHuffmanTreeToBitMask(
                     as i32
                     != 0i32
                 {
-                    {
-                        break 'break5;
-                    }
+                    break 'break5;
                 }
             }
             codes_to_store = codes_to_store.wrapping_sub(1);
@@ -940,9 +938,7 @@ pub fn BrotliStoreHuffmanTree(
                 } else if num_codes == 1i32 {
                     num_codes = 2i32;
                     {
-                        {
-                            break 'break3;
-                        }
+                        break 'break3;
                     }
                 }
             }
@@ -1117,9 +1113,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                         k -= 1;
                     }
                     if BrotliSetDepth(2i32 * n - 1i32, tree.slice_mut(), depth, 14i32) {
-                        {
-                            break 'break11;
-                        }
+                        break 'break11;
                     }
                 }
             }
@@ -1574,9 +1568,7 @@ fn BuildAndStoreHuffmanTree(
                 if count < 4usize {
                     s4[count] = i;
                 } else if count > 4usize {
-                    {
-                        break 'break31;
-                    }
+                    break 'break31;
                 }
                 count = count.wrapping_add(1);
             }
@@ -1919,9 +1911,7 @@ fn RunLengthCodeZeros(
                     v[*out_size] = run_length_prefix.wrapping_add(extra_bits << 9);
                     *out_size = out_size.wrapping_add(1);
                     {
-                        {
-                            break;
-                        }
+                        break;
                     }
                 } else {
                     let extra_bits: u32 = (1u32 << max_prefix).wrapping_sub(1);

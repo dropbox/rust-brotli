@@ -597,15 +597,13 @@ fn BlockSplitterFinishBlock<
         let mut diff: [super::util::floatX; 2] =
             [0.0 as super::util::floatX, 0.0 as super::util::floatX];
         for j in 0..2 {
-            {
-                let last_histogram_ix: usize = xself.last_histogram_ix_[j];
-                HistogramAddHistogram(&mut combined_histo[j], &histograms[last_histogram_ix]);
-                combined_entropy[j] = BitsEntropy(
-                    &mut combined_histo[j].slice_mut()[0..],
-                    xself.alphabet_size_,
-                );
-                diff[j] = combined_entropy[j] - entropy - xself.last_entropy_[j];
-            }
+            let last_histogram_ix: usize = xself.last_histogram_ix_[j];
+            HistogramAddHistogram(&mut combined_histo[j], &histograms[last_histogram_ix]);
+            combined_entropy[j] = BitsEntropy(
+                &mut combined_histo[j].slice_mut()[0..],
+                xself.alphabet_size_,
+            );
+            diff[j] = combined_entropy[j] - entropy - xself.last_entropy_[j];
         }
         if split.num_types < 256usize
             && (diff[0] > xself.split_threshold_)

@@ -515,9 +515,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                     len = len.wrapping_add(1);
                 }
                 if matchlen < l || l.wrapping_add(6) >= max_length {
-                    {
-                        continue;
-                    }
+                    continue;
                 }
                 let s: &[u8] = data.split_at(l as usize).1;
                 if s[0] as i32 == b' ' as i32 {
@@ -1124,9 +1122,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                 );
                 has_found_match = 1i32;
                 if l.wrapping_add(2) >= max_length {
-                    {
-                        continue;
-                    }
+                    continue;
                 }
                 let s: &[u8] = data.split_at(l.wrapping_add(1) as usize).1;
                 if s[0] as i32 == b' ' as i32 {
@@ -1221,9 +1217,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                 );
                 has_found_match = 1i32;
                 if l.wrapping_add(2) >= max_length {
-                    {
-                        continue;
-                    }
+                    continue;
                 }
                 let s: &[u8] = data.split_at(l.wrapping_add(1)).1;
                 if s[0] as i32 == b' ' as i32 {

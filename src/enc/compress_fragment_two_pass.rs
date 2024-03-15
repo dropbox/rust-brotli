@@ -212,9 +212,7 @@ fn CreateCommands(
                             if next_ip > ip_limit {
                                 goto_emit_remainder = 1i32;
                                 {
-                                    {
-                                        break 'break3;
-                                    }
+                                    break 'break3;
                                 }
                             }
                             next_hash = Hash(&base_ip[next_ip..], shift, min_match);
@@ -225,9 +223,7 @@ fn CreateCommands(
                             {
                                 table[(hash as usize)] = ip_index.wrapping_sub(0) as i32;
                                 {
-                                    {
-                                        break 'break3;
-                                    }
+                                    break 'break3;
                                 }
                             }
                             candidate = table[(hash as usize)] as usize;
@@ -248,9 +244,7 @@ fn CreateCommands(
                 }
             }
             if goto_emit_remainder != 0 {
-                {
-                    break;
-                }
+                break;
             }
             {
                 let base: usize = ip_index;
@@ -283,9 +277,7 @@ fn CreateCommands(
                 if ip_index >= ip_limit {
                     goto_emit_remainder = 1i32;
                     {
-                        {
-                            break;
-                        }
+                        break;
                     }
                 }
                 {
@@ -342,9 +334,7 @@ fn CreateCommands(
                 if ip_index >= ip_limit {
                     goto_emit_remainder = 1i32;
                     {
-                        {
-                            break;
-                        }
+                        break;
                     }
                 }
                 {

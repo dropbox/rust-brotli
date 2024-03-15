@@ -178,9 +178,7 @@ pub fn BrotliHistogramCombine<
             cost_diff_threshold = 1e38 as super::util::floatX;
             min_cluster_size = max_clusters;
             {
-                {
-                    continue;
-                }
+                continue;
             }
         }
         /* Take the best pair from the top of heap. */
@@ -229,9 +227,7 @@ pub fn BrotliHistogramCombine<
                             || (p).idx2 == best_idx2
                         {
                             /* Remove invalid pair from the queue. */
-                            {
-                                break 'continue12;
-                            }
+                            break 'continue12;
                         }
                         if HistogramPairIsLess(&pairs[0], &p) {
                             /* Replace the top of the queue if needed. */

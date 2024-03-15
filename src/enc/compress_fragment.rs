@@ -458,10 +458,8 @@ fn EmitCopyLenLastDistance(
 }
 
 fn HashBytesAtOffset(v: u64, offset: i32, shift: usize) -> u32 {
-    {
-        let h: u64 = (v >> (8i32 * offset) << 24).wrapping_mul(kHashMul32 as (u64));
-        (h >> shift) as u32
-    }
+    let h: u64 = (v >> (8i32 * offset) << 24).wrapping_mul(kHashMul32 as (u64));
+    (h >> shift) as u32
 }
 
 fn EmitCopyLen(
