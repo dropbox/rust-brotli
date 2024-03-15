@@ -496,7 +496,7 @@ fn BrotliWriteHuffmanTreeRepetitions(
     } else {
         let start: usize = *tree_size;
         repetitions = repetitions.wrapping_sub(3);
-        while 1i32 != 0 {
+        loop {
             tree[*tree_size] = 16u8;
             extra_bits_data[*tree_size] = (repetitions & 0x3usize) as u8;
             *tree_size = tree_size.wrapping_add(1);
@@ -539,7 +539,7 @@ fn BrotliWriteHuffmanTreeRepetitionsZeros(
     } else {
         let start: usize = *tree_size;
         repetitions = repetitions.wrapping_sub(3);
-        while 1i32 != 0 {
+        loop {
             tree[*tree_size] = 17u8;
             extra_bits_data[*tree_size] = (repetitions & 0x7usize) as u8;
             *tree_size = tree_size.wrapping_add(1);

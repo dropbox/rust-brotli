@@ -2709,7 +2709,7 @@ fn ProcessMetadata<
     {
         return 0i32;
     }
-    while 1i32 != 0 {
+    loop {
         if InjectFlushOrPushOutput(s, available_out, next_out_array, next_out_offset, total_out)
             != 0
         {
@@ -2844,7 +2844,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
             literal_buf = <Alloc as Allocator<u8>>::alloc_cell(&mut s.m8, buf_size);
         }
     }
-    while 1i32 != 0 {
+    loop {
         if InjectFlushOrPushOutput(s, available_out, next_out_array, next_out_offset, total_out)
             != 0
         {
@@ -3044,7 +3044,7 @@ pub fn BrotliEncoderCompressStream<
             total_out,
         );
     }
-    while 1i32 != 0 {
+    loop {
         let remaining_block_size: usize = RemainingInputBlockSize(s);
         if remaining_block_size != 0usize && (*available_in != 0usize) {
             let copy_input_size: usize = brotli_min_size_t(remaining_block_size, *available_in);
