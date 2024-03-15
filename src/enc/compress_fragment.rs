@@ -760,11 +760,8 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                             'break15: loop {
                                 {
                                     let hash = next_hash;
-                                    let bytes_between_hash_lookups: u32 = {
-                                        let _old = skip;
-                                        skip = skip.wrapping_add(1);
-                                        _old
-                                    } >> 5;
+                                    let bytes_between_hash_lookups: u32 = skip >> 5;
+                                    skip = skip.wrapping_add(1);
                                     ip_index = next_ip;
                                     next_ip =
                                         ip_index.wrapping_add(bytes_between_hash_lookups as usize);

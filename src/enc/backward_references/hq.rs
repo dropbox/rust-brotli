@@ -571,11 +571,8 @@ fn StartPosQueueSize(xself: &StartPosQueue) -> usize {
 }
 
 fn StartPosQueuePush(xself: &mut StartPosQueue, posdata: &PosData) {
-    let mut offset: usize = !{
-        let _old = xself.idx_;
-        xself.idx_ = xself.idx_.wrapping_add(1);
-        _old
-    } & 7usize;
+    let mut offset: usize = !xself.idx_ & 7usize;
+    xself.idx_ = xself.idx_.wrapping_add(1);
     let len: usize = StartPosQueueSize(xself);
     let mut i: usize;
     let q: &mut [PosData; 8] = &mut xself.q_;
@@ -1518,11 +1515,8 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                 if match_len > 325usize {
                     let skip: usize = match_len.wrapping_sub(1);
                     let tmp = matches.slice()[(cur_match_end.wrapping_sub(1) as usize)];
-                    matches.slice_mut()[{
-                        let _old = cur_match_pos;
-                        cur_match_pos = cur_match_pos.wrapping_add(1);
-                        _old
-                    }] = tmp;
+                    matches.slice_mut()[cur_match_pos] = tmp;
+                    cur_match_pos = cur_match_pos.wrapping_add(1);
                     num_matches.slice_mut()[i] = 1u32;
                     hasher.StoreRange(
                         ringbuffer,

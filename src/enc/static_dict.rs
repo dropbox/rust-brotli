@@ -450,11 +450,8 @@ pub fn BrotliFindAllStaticDictionaryMatches(
         let mut offset: usize = kStaticDictionaryBuckets[Hash(data) as usize] as usize;
         let mut end: i32 = (offset == 0) as i32;
         while end == 0 {
-            let mut w: DictWord = kStaticDictionaryWords[{
-                let _old = offset;
-                offset = offset.wrapping_add(1);
-                _old
-            }];
+            let mut w: DictWord = kStaticDictionaryWords[offset];
+            offset = offset.wrapping_add(1);
             let l: usize = (w.len() as i32 & 0x1fi32) as usize;
             let n: usize = 1usize << dictionary.size_bits_by_length[l] as i32;
             let id: usize = w.idx() as usize;
@@ -1101,11 +1098,8 @@ pub fn BrotliFindAllStaticDictionaryMatches(
             kStaticDictionaryBuckets[Hash(data.split_at(1).1) as usize] as usize;
         let mut end: i32 = (offset == 0) as i32;
         while end == 0 {
-            let mut w: DictWord = kStaticDictionaryWords[{
-                let _old = offset;
-                offset = offset.wrapping_add(1);
-                _old
-            }];
+            let mut w: DictWord = kStaticDictionaryWords[offset];
+            offset = offset.wrapping_add(1);
             let l: usize = (w.len() as i32 & 0x1fi32) as usize;
             let n: usize = 1usize << dictionary.size_bits_by_length[l] as i32;
             let id: usize = w.idx() as usize;
@@ -1321,11 +1315,8 @@ pub fn BrotliFindAllStaticDictionaryMatches(
             kStaticDictionaryBuckets[Hash(data.split_at(2).1) as usize] as usize;
         let mut end: i32 = (offset == 0) as i32;
         while end == 0 {
-            let mut w: DictWord = kStaticDictionaryWords[{
-                let _old = offset;
-                offset = offset.wrapping_add(1);
-                _old
-            }];
+            let mut w: DictWord = kStaticDictionaryWords[offset];
+            offset = offset.wrapping_add(1);
             let l: usize = (w.len() as i32 & 0x1fi32) as usize;
             let n: usize = 1usize << dictionary.size_bits_by_length[l] as i32;
             let id: usize = w.idx() as usize;
@@ -1386,11 +1377,8 @@ pub fn BrotliFindAllStaticDictionaryMatches(
             kStaticDictionaryBuckets[Hash(data.split_at(5).1) as usize] as usize;
         let mut end: i32 = (offset == 0) as i32;
         while end == 0 {
-            let mut w: DictWord = kStaticDictionaryWords[{
-                let _old = offset;
-                offset = offset.wrapping_add(1);
-                _old
-            }];
+            let mut w: DictWord = kStaticDictionaryWords[offset];
+            offset = offset.wrapping_add(1);
             let l: usize = (w.len() as i32 & 0x1fi32) as usize;
             let n: usize = 1usize << dictionary.size_bits_by_length[l] as i32;
             let id: usize = w.idx() as usize;

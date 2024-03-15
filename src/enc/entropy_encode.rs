@@ -175,16 +175,8 @@ pub fn BrotliCreateHuffmanTree(
                 i = i.wrapping_sub(1);
                 if data[i] != 0 {
                     let count: u32 = brotli_max_uint32_t(data[i], count_limit);
-                    InitHuffmanTree(
-                        &mut tree[{
-                            let _old = n;
-                            n = n.wrapping_add(1);
-                            _old
-                        }],
-                        count,
-                        -1i16,
-                        i as i16,
-                    );
+                    InitHuffmanTree(&mut tree[n], count, -1i16, i as i16);
+                    n = n.wrapping_add(1);
                 }
             }
             if n == 1 {

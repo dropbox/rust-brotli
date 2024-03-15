@@ -593,15 +593,9 @@ fn ClusterBlocks<
                         {
                             HistogramAddItem(
                                 &mut histograms.slice_mut()[j],
-                                u64::from(
-                                    data[{
-                                        let _old = pos;
-                                        pos = pos.wrapping_add(1);
-                                        _old
-                                    }]
-                                    .clone(),
-                                ) as usize,
+                                u64::from(data[pos].clone()) as usize,
                             );
+                            pos = pos.wrapping_add(1);
                         }
                         k = k.wrapping_add(1);
                     }
@@ -670,16 +664,11 @@ fn ClusterBlocks<
             j = 0usize;
             while j < num_new_clusters {
                 {
-                    all_histograms.slice_mut()[{
-                        let _old = all_histograms_size;
-                        all_histograms_size = all_histograms_size.wrapping_add(1);
-                        _old
-                    }] = histograms.slice()[(new_clusters[j] as usize)].clone();
-                    cluster_size.slice_mut()[{
-                        let _old = cluster_size_size;
-                        cluster_size_size = cluster_size_size.wrapping_add(1);
-                        _old
-                    }] = sizes[new_clusters[j] as usize];
+                    all_histograms.slice_mut()[all_histograms_size] =
+                        histograms.slice()[new_clusters[j] as usize].clone();
+                    all_histograms_size = all_histograms_size.wrapping_add(1);
+                    cluster_size.slice_mut()[cluster_size_size] = sizes[new_clusters[j] as usize];
+                    cluster_size_size = cluster_size_size.wrapping_add(1);
                     remap[new_clusters[j] as usize] = j as u32;
                 }
                 j = j.wrapping_add(1);
@@ -750,17 +739,8 @@ fn ClusterBlocks<
                 j = 0usize;
                 while j < block_lengths.slice()[i] as usize {
                     {
-                        HistogramAddItem(
-                            &mut histo,
-                            u64::from(
-                                data[{
-                                    let _old = pos;
-                                    pos = pos.wrapping_add(1);
-                                    _old
-                                }]
-                                .clone(),
-                            ) as usize,
-                        );
+                        HistogramAddItem(&mut histo, u64::from(data[pos].clone()) as usize);
+                        pos = pos.wrapping_add(1);
                     }
                     j = j.wrapping_add(1);
                 }
@@ -790,12 +770,9 @@ fn ClusterBlocks<
                     j = j.wrapping_add(1);
                 }
                 histogram_symbols.slice_mut()[i] = best_out;
-                if new_index.slice()[(best_out as usize)] == kInvalidIndex {
-                    new_index.slice_mut()[(best_out as usize)] = {
-                        let _old = next_index;
-                        next_index = next_index.wrapping_add(1);
-                        _old
-                    };
+                if new_index.slice()[best_out as usize] == kInvalidIndex {
+                    new_index.slice_mut()[best_out as usize] = next_index;
+                    next_index = next_index.wrapping_add(1);
                 }
             }
             i = i.wrapping_add(1);
@@ -1102,11 +1079,8 @@ pub fn BrotliSplitBlock<
             {
                 let cmd = &cmds[i];
                 if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
-                    distance_prefixes.slice_mut()[{
-                        let _old = j;
-                        j = j.wrapping_add(1);
-                        _old
-                    }] = cmd.dist_prefix_ & 0x3ff;
+                    distance_prefixes.slice_mut()[j] = cmd.dist_prefix_ & 0x3ff;
+                    j = j.wrapping_add(1);
                 }
             }
             i = i.wrapping_add(1);
