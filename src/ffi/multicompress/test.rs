@@ -100,7 +100,7 @@ fn test_compress_empty_workpool() {
     assert_eq!(ret, 1);
     let mut rt_size = 256;
     let mut rt_buffer = [0u8; 256];
-    assert!(encoded_size != 0);
+    assert_ne!(encoded_size, 0);
     let ret2 = unsafe {
         super::super::decompressor::CBrotliDecoderDecompress(
             encoded_size,
@@ -151,7 +151,7 @@ fn test_compress_empty_multi_raw() {
     assert_eq!(ret, 1);
     let mut rt_size = 256;
     let mut rt_buffer = [0u8; 256];
-    assert!(encoded_size != 0);
+    assert_ne!(encoded_size, 0);
     let ret2 = unsafe {
         super::super::decompressor::CBrotliDecoderDecompress(
             encoded_size,
@@ -201,7 +201,7 @@ fn test_compress_null_multi_raw() {
     assert_eq!(ret, 1);
     let mut rt_size = 256;
     let mut rt_buffer = [0u8; 256];
-    assert!(encoded_size != 0);
+    assert_ne!(encoded_size, 0);
     let ret2 = unsafe {
         super::super::decompressor::CBrotliDecoderDecompress(
             encoded_size,
@@ -252,7 +252,7 @@ fn test_compress_empty_multi_raw_one_thread() {
     assert_eq!(ret, 1);
     let mut rt_size = 256;
     let mut rt_buffer = [0u8; 256];
-    assert!(encoded_size != 0);
+    assert_ne!(encoded_size, 0);
     let ret2 = unsafe {
         super::super::decompressor::CBrotliDecoderDecompress(
             encoded_size,
@@ -303,7 +303,7 @@ fn test_compress_empty_multi_catable() {
     assert_eq!(ret, 1);
     let mut rt_size = 256;
     let mut rt_buffer = [0u8; 256];
-    assert!(encoded_size != 0);
+    assert_ne!(encoded_size, 0);
     let ret2 = unsafe {
         super::super::decompressor::CBrotliDecoderDecompress(
             encoded_size,

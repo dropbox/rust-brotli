@@ -792,7 +792,7 @@ static kBlockLengthPrefixCode: [PrefixCodeRange; BROTLI_NUM_BLOCK_LEN_SYMBOLS] =
 ];
 
 fn BrotliWriteBits(n_bits: u8, bits: u64, pos: &mut usize, array: &mut [u8]) {
-    assert!((bits >> n_bits as usize) == 0);
+    assert_eq!(bits >> n_bits, 0);
     assert!(n_bits <= 56);
     let ptr_offset: usize = ((*pos >> 3) as u32) as usize;
     let mut v = array[ptr_offset] as u64;

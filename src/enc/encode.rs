@@ -1605,7 +1605,7 @@ pub fn BrotliEncoderCompress<
             return 1i32;
         }
     }
-    assert!(is_fallback != 0);
+    assert_ne!(is_fallback, 0);
     *encoded_size = 0usize;
     if max_out_size == 0 {
         return 0i32;

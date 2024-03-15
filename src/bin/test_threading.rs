@@ -77,7 +77,7 @@ fn multi_threaded_split_compression_test(
     if observed_size > expected_size {
         assert_eq!(observed_size, expected_size);
     }
-    assert!(observed_size != 0);
+    assert_ne!(observed_size, 0);
     let mut compressed_version = UnlimitedBuffer::new(&output.slice()[..observed_size]);
     let mut rt = UnlimitedBuffer::new(&[]);
     match super::decompress(&mut compressed_version, &mut rt, 65536, Rebox::default()) {
@@ -179,7 +179,7 @@ fn thread_spawn_per_job_split_compression_test(
     if observed_size > expected_size {
         assert_eq!(observed_size, expected_size);
     }
-    assert!(observed_size != 0);
+    assert_ne!(observed_size, 0);
     let mut compressed_version = UnlimitedBuffer::new(&output.slice()[..observed_size]);
     let mut rt = UnlimitedBuffer::new(&[]);
     match super::decompress(&mut compressed_version, &mut rt, 65536, Rebox::default()) {

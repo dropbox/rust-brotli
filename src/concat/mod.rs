@@ -376,7 +376,7 @@ impl BroCatli {
                     .clone_from_slice(&realigned_header[1..]);
             }
         } else {
-            assert!(self.window_size != 0);
+            assert_ne!(self.window_size, 0);
         }
         let to_copy = core::cmp::min(
             out_bytes.len() - *out_offset,
@@ -495,7 +495,7 @@ impl BroCatli {
         }
         let mut to_copy =
             core::cmp::min(out_bytes.len() - *out_offset, in_bytes.len() - *in_offset);
-        assert!(to_copy != 0);
+        assert_ne!(to_copy, 0);
         if to_copy == 1 {
             out_bytes[*out_offset] = self.last_bytes[0];
             self.last_bytes[0] = self.last_bytes[1];
@@ -707,7 +707,7 @@ mod test {
         assert_eq!(res, super::BroCatliResult::NeedsMoreInput);
         res = bcat.finish(&mut out_bytes[..], &mut out_offset);
         assert_eq!(res, super::BroCatliResult::Success);
-        assert!(out_offset != 0);
+        assert_ne!(out_offset, 0);
         assert_eq!(&out_bytes[..out_offset], &[b';']);
     }
 }

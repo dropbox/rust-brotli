@@ -120,10 +120,10 @@ fn compute_combined_cost(
     let cm_max = mixing_cdf[15];
     for i in 0..NUM_SPEEDS_TO_TRY {
         if stride_pdf[i] == 0 {
-            assert!(stride_pdf[i] != 0);
+            assert_ne!(stride_pdf[i], 0);
         }
         if stride_max[i] == 0 {
-            assert!(stride_max[i] != 0);
+            assert_ne!(stride_max[i], 0);
         }
 
         let w = (1 << (BLEND_FIXED_POINT_PRECISION - 2)); // a quarter of weight to stride
@@ -162,10 +162,10 @@ fn compute_cost(singleton_cost: &mut [floatX; NUM_SPEEDS_TO_TRY], cdfs: &[u16], 
     max.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
     for i in 0..NUM_SPEEDS_TO_TRY {
         if pdf[i] == 0 {
-            assert!(pdf[i] != 0);
+            assert_ne!(pdf[i], 0);
         }
         if max[i] == 0 {
-            assert!(max[i] != 0);
+            assert_ne!(max[i], 0);
         }
         let del = FastLog2u16(pdf[i]) - FastLog2u16(max[i]);
         singleton_cost[i] -= del;
@@ -184,12 +184,12 @@ fn update_cdf(cdfs: &mut [u16], nibble_u8: u8) {
     for nibble in 0..16 {
         for speed_index in 0..NUM_SPEEDS_TO_TRY {
             if nibble == 0 {
-                assert!(cdfs[overall_index + speed_index] != 0);
+                assert_ne!(cdfs[overall_index + speed_index], 0);
             } else {
-                assert!(
+                assert_ne!(
                     cdfs[overall_index + speed_index]
-                        - cdfs[overall_index + speed_index - NUM_SPEEDS_TO_TRY]
-                        != 0
+                        - cdfs[overall_index + speed_index - NUM_SPEEDS_TO_TRY],
+                    0
                 );
             }
         }
@@ -209,12 +209,12 @@ fn update_cdf(cdfs: &mut [u16], nibble_u8: u8) {
     for nibble in 0..16 {
         for speed_index in 0..NUM_SPEEDS_TO_TRY {
             if nibble == 0 {
-                assert!(cdfs[overall_index + speed_index] != 0);
+                assert_ne!(cdfs[overall_index + speed_index], 0);
             } else {
-                assert!(
+                assert_ne!(
                     cdfs[overall_index + speed_index]
-                        - cdfs[overall_index + speed_index - NUM_SPEEDS_TO_TRY]
-                        != 0
+                        - cdfs[overall_index + speed_index - NUM_SPEEDS_TO_TRY],
+                    0
                 );
             }
         }
