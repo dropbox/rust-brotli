@@ -71,7 +71,7 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
     free_func: brotli_free_func,
     opaque: *mut c_void,
 ) -> *mut BrotliEncoderState {
-    match catch_panic_cstate(|| {
+    catch_panic_cstate(|| {
         let allocators = CAllocator {
             alloc_func,
             free_func,
@@ -98,13 +98,11 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
         } else {
             brotli_new_compressor_without_custom_alloc(to_box)
         }
-    }) {
-        Ok(ret) => ret,
-        Err(err) => {
-            error_print(err);
-            core::ptr::null_mut()
-        }
-    }
+    })
+    .unwrap_or_else(|err| {
+        error_print(err);
+        core::ptr::null_mut()
+    })
 }
 
 #[no_mangle]
@@ -186,7 +184,7 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
     encoded_size: *mut usize,
     encoded_buffer: *mut u8,
 ) -> i32 {
-    match catch_panic(|| {
+    catch_panic(|| {
         let input_buf = slice_from_raw_parts_or_nil(input_buffer, input_size);
         let encoded_buf = slice_from_raw_parts_or_nil_mut(encoded_buffer, *encoded_size);
         let allocators = CAllocator {
@@ -234,13 +232,11 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
             encoded_buf,
             &mut |_a, _b, _c, _d| (),
         )
-    }) {
-        Ok(ret) => ret,
-        Err(panic_err) => {
-            error_print(panic_err);
-            0
-        }
-    }
+    })
+    .unwrap_or_else(|panic_err| {
+        error_print(panic_err);
+        0
+    })
 }
 
 #[no_mangle]
@@ -273,7 +269,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressStream(
     output_buf_ptr: *mut *mut u8,
     total_out: *mut usize,
 ) -> i32 {
-    match catch_panic(|| {
+    catch_panic(|| {
         let mut input_offset = 0usize;
         let mut output_offset = 0usize;
         let result;
@@ -332,13 +328,11 @@ pub unsafe extern "C" fn BrotliEncoderCompressStream(
             }
         }
         result
-    }) {
-        Ok(ret) => ret,
-        Err(panic_err) => {
-            error_print(panic_err);
-            0
-        }
-    }
+    })
+    .unwrap_or_else(|panic_err| {
+        error_print(panic_err);
+        0
+    })
 }
 
 #[no_mangle]
