@@ -497,7 +497,6 @@ fn BuildAndStoreCommandPrefixCode(
     memcpy(bits, (56usize), &cmd_bits[..], 48usize, 8usize);
     BrotliConvertBitDepthsToSymbols(&mut depth[64..], 64usize, &mut bits[64..]);
     {
-        let mut i: usize;
         for item in cmd_depth[..64].iter_mut() {
             *item = 0;
         }
@@ -507,16 +506,11 @@ fn BuildAndStoreCommandPrefixCode(
         memcpy(&mut cmd_depth[..], 128usize, depth, (40usize), 8usize);
         memcpy(&mut cmd_depth[..], 192usize, depth, (48usize), 8usize);
         memcpy(&mut cmd_depth[..], 384usize, depth, (56usize), 8usize);
-        i = 0usize;
-        while i < 8usize {
-            {
-                cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] = depth[i];
-                cmd_depth[(256usize).wrapping_add((8usize).wrapping_mul(i))] =
-                    depth[i.wrapping_add(8)];
-                cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] =
-                    depth[i.wrapping_add(16)];
-            }
-            i = i.wrapping_add(1);
+        for i in 0usize..8usize {
+            cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] = depth[i];
+            cmd_depth[(256usize).wrapping_add((8usize).wrapping_mul(i))] = depth[i.wrapping_add(8)];
+            cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] =
+                depth[i.wrapping_add(16)];
         }
         BrotliStoreHuffmanTree(
             &mut cmd_depth[..],
@@ -562,14 +556,10 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
     let mut cmd_bits: [u16; 128] = [0; 128];
     let mut cmd_histo: [u32; 128] = [0; 128];
     let mut i: usize;
-    i = 0usize;
-    while i < num_literals {
-        {
-            let _rhs = 1;
-            let _lhs = &mut lit_histo[literals[i] as usize];
-            *_lhs = (*_lhs).wrapping_add(_rhs as u32);
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..num_literals {
+        let _rhs = 1;
+        let _lhs = &mut lit_histo[literals[i] as usize];
+        *_lhs = (*_lhs).wrapping_add(_rhs as u32);
     }
     BrotliBuildAndStoreHuffmanTreeFast(
         mht,
@@ -621,40 +611,36 @@ fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
         storage_ix,
         storage,
     );
-    i = 0usize;
-    while i < num_commands {
-        {
-            let cmd: u32 = commands[i];
-            let code: u32 = cmd & 0xffu32;
-            let extra: u32 = cmd >> 8;
-            0i32;
-            BrotliWriteBits(
-                cmd_depths[code as usize] as usize,
-                cmd_bits[code as usize] as (u64),
-                storage_ix,
-                storage,
-            );
-            BrotliWriteBits(
-                kNumExtraBits[code as usize] as usize,
-                extra as (u64),
-                storage_ix,
-                storage,
-            );
-            if code < 24u32 {
-                let insert: u32 = kInsertOffset[code as usize].wrapping_add(extra);
-                for literal in literals[..(insert as usize)].iter() {
-                    let lit: u8 = *literal;
-                    BrotliWriteBits(
-                        lit_depths[lit as usize] as usize,
-                        lit_bits[lit as usize] as (u64),
-                        storage_ix,
-                        storage,
-                    );
-                }
-                literals = &literals[insert as usize..];
+    for i in 0usize..num_commands {
+        let cmd: u32 = commands[i];
+        let code: u32 = cmd & 0xffu32;
+        let extra: u32 = cmd >> 8;
+        0i32;
+        BrotliWriteBits(
+            cmd_depths[code as usize] as usize,
+            cmd_bits[code as usize] as (u64),
+            storage_ix,
+            storage,
+        );
+        BrotliWriteBits(
+            kNumExtraBits[code as usize] as usize,
+            extra as (u64),
+            storage_ix,
+            storage,
+        );
+        if code < 24u32 {
+            let insert: u32 = kInsertOffset[code as usize].wrapping_add(extra);
+            for literal in literals[..(insert as usize)].iter() {
+                let lit: u8 = *literal;
+                BrotliWriteBits(
+                    lit_depths[lit as usize] as usize,
+                    lit_bits[lit as usize] as (u64),
+                    storage_ix,
+                    storage,
+                );
             }
+            literals = &literals[insert as usize..];
         }
-        i = i.wrapping_add(1);
     }
 }
 fn EmitUncompressedMetaBlock(

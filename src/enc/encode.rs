@@ -777,7 +777,6 @@ fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(
     let mut new_data = m.alloc_cell(
         ((2u32).wrapping_add(buflen) as usize).wrapping_add(kSlackForEightByteHashingEverywhere),
     );
-    let mut i: usize;
     if !rb.data_mo.slice().is_empty() {
         let lim: usize = ((2u32).wrapping_add(rb.cur_size_) as usize)
             .wrapping_add(kSlackForEightByteHashingEverywhere);
@@ -789,15 +788,11 @@ fn RingBufferInitBuffer<AllocU8: alloc::Allocator<u8>>(
     rb.buffer_index = 2usize;
     rb.data_mo.slice_mut()[(rb.buffer_index.wrapping_sub(2))] = 0;
     rb.data_mo.slice_mut()[(rb.buffer_index.wrapping_sub(1))] = 0;
-    i = 0usize;
-    while i < kSlackForEightByteHashingEverywhere {
-        {
-            rb.data_mo.slice_mut()[rb
-                .buffer_index
-                .wrapping_add(rb.cur_size_ as usize)
-                .wrapping_add(i)] = 0;
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..kSlackForEightByteHashingEverywhere {
+        rb.data_mo.slice_mut()[rb
+            .buffer_index
+            .wrapping_add(rb.cur_size_ as usize)
+            .wrapping_add(i)] = 0;
     }
 }
 
@@ -1817,18 +1812,14 @@ fn ChooseContextMap(
     entropy[2] = ShannonEntropy(&two_prefix_histo[..], 3usize, &mut dummy)
         + ShannonEntropy(&two_prefix_histo[3..], 3usize, &mut dummy);
     entropy[3] = 0i32 as (super::util::floatX);
-    i = 0usize;
-    while i < 3usize {
-        {
-            let _rhs = ShannonEntropy(
-                &bigram_histo[(3usize).wrapping_mul(i)..],
-                3usize,
-                &mut dummy,
-            );
-            let _lhs = &mut entropy[3];
-            *_lhs += _rhs;
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..3usize {
+        let _rhs = ShannonEntropy(
+            &bigram_histo[(3usize).wrapping_mul(i)..],
+            3usize,
+            &mut dummy,
+        );
+        let _lhs = &mut entropy[3];
+        *_lhs += _rhs;
     }
     let total: usize = monogram_histo[0]
         .wrapping_add(monogram_histo[1])

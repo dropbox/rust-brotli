@@ -248,7 +248,6 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF: Allocator<floatX>>(
     let cost_dist = xself.cost_dist_.slice_mut();
     let cost_cmd = &mut xself.cost_cmd_[..];
     let num_bytes: usize = xself.num_bytes_;
-    let mut i: usize;
     BrotliEstimateBitCostsForLiterals(
         position,
         num_bytes,
@@ -257,30 +256,16 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF: Allocator<floatX>>(
         &mut literal_costs[1..],
     );
     literal_costs[0] = 0.0 as (floatX);
-    i = 0usize;
-    while i < num_bytes {
-        {
-            literal_carry = literal_carry as floatX + literal_costs[i.wrapping_add(1)] as floatX;
-            literal_costs[i.wrapping_add(1)] =
-                (literal_costs[i] as floatX + literal_carry) as floatX;
-            literal_carry -=
-                (literal_costs[i.wrapping_add(1)] as floatX - literal_costs[i] as floatX);
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..num_bytes {
+        literal_carry = literal_carry as floatX + literal_costs[i.wrapping_add(1)] as floatX;
+        literal_costs[i.wrapping_add(1)] = (literal_costs[i] as floatX + literal_carry) as floatX;
+        literal_carry -= (literal_costs[i.wrapping_add(1)] as floatX - literal_costs[i] as floatX);
     }
-    i = 0usize;
-    while i < BROTLI_NUM_COMMAND_SYMBOLS {
-        {
-            cost_cmd[i] = FastLog2((11u64).wrapping_add(i as (u64))) as (floatX);
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..BROTLI_NUM_COMMAND_SYMBOLS {
+        cost_cmd[i] = FastLog2((11u64).wrapping_add(i as (u64))) as (floatX);
     }
-    i = 0usize;
-    while i < xself.distance_histogram_size as usize {
-        {
-            cost_dist[i] = FastLog2((20u64).wrapping_add(i as (u64))) as (floatX);
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..xself.distance_histogram_size as usize {
+        cost_dist[i] = FastLog2((20u64).wrapping_add(i as (u64))) as (floatX);
     }
     xself.min_cost_cmd_ = FastLog2(11) as (floatX);
 }
@@ -870,63 +855,57 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                 }
                 {
                     let mut len: usize = min_len;
-                    j = 0usize;
-                    while j < num_matches {
-                        {
-                            let mut match_: BackwardMatch = BackwardMatch(matches[j]);
-                            let dist: usize = match_.distance() as usize;
-                            let is_dictionary_match = dist > max_distance.wrapping_add(gap);
-                            let dist_code: usize = dist.wrapping_add(16).wrapping_sub(1);
-                            let mut dist_symbol: u16 = 0;
-                            let mut distextra: u32 = 0;
+                    for j in 0usize..num_matches {
+                        let mut match_: BackwardMatch = BackwardMatch(matches[j]);
+                        let dist: usize = match_.distance() as usize;
+                        let is_dictionary_match = dist > max_distance.wrapping_add(gap);
+                        let dist_code: usize = dist.wrapping_add(16).wrapping_sub(1);
+                        let mut dist_symbol: u16 = 0;
+                        let mut distextra: u32 = 0;
 
-                            PrefixEncodeCopyDistance(
-                                dist_code,
-                                params.dist.num_direct_distance_codes as usize,
-                                u64::from(params.dist.distance_postfix_bits),
-                                &mut dist_symbol,
-                                &mut distextra,
+                        PrefixEncodeCopyDistance(
+                            dist_code,
+                            params.dist.num_direct_distance_codes as usize,
+                            u64::from(params.dist.distance_postfix_bits),
+                            &mut dist_symbol,
+                            &mut distextra,
+                        );
+                        let distnumextra: u32 = u32::from(dist_symbol) >> 10;
+                        let dist_cost: floatX = base_cost
+                            + distnumextra as (floatX)
+                            + ZopfliCostModelGetDistanceCost(
+                                model,
+                                (dist_symbol as i32 & 0x3ff) as usize,
                             );
-                            let distnumextra: u32 = u32::from(dist_symbol) >> 10;
-                            let dist_cost: floatX = base_cost
-                                + distnumextra as (floatX)
-                                + ZopfliCostModelGetDistanceCost(
-                                    model,
-                                    (dist_symbol as i32 & 0x3ff) as usize,
-                                );
-                            let max_match_len: usize = BackwardMatchLength(&mut match_);
-                            if len < max_match_len
-                                && (is_dictionary_match || max_match_len > max_zopfli_len)
+                        let max_match_len: usize = BackwardMatchLength(&mut match_);
+                        if len < max_match_len
+                            && (is_dictionary_match || max_match_len > max_zopfli_len)
+                        {
+                            len = max_match_len;
+                        }
+                        while len <= max_match_len {
                             {
-                                len = max_match_len;
-                            }
-                            while len <= max_match_len {
-                                {
-                                    let len_code: usize = if is_dictionary_match {
-                                        BackwardMatchLengthCode(&mut match_)
-                                    } else {
-                                        len
-                                    };
-                                    let copycode: u16 = GetCopyLengthCode(len_code);
-                                    let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0i32);
-                                    let cost: floatX = dist_cost
-                                        + GetCopyExtra(copycode) as (floatX)
-                                        + ZopfliCostModelGetCommandCost(model, cmdcode);
-                                    if let Union1::cost(nodeCost) = (nodes[pos.wrapping_add(len)]).u
-                                    {
-                                        if cost < nodeCost {
-                                            UpdateZopfliNode(
-                                                nodes, pos, start, len, len_code, dist, 0usize,
-                                                cost,
-                                            );
-                                            result = brotli_max_size_t(result, len);
-                                        }
+                                let len_code: usize = if is_dictionary_match {
+                                    BackwardMatchLengthCode(&mut match_)
+                                } else {
+                                    len
+                                };
+                                let copycode: u16 = GetCopyLengthCode(len_code);
+                                let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0i32);
+                                let cost: floatX = dist_cost
+                                    + GetCopyExtra(copycode) as (floatX)
+                                    + ZopfliCostModelGetCommandCost(model, cmdcode);
+                                if let Union1::cost(nodeCost) = (nodes[pos.wrapping_add(len)]).u {
+                                    if cost < nodeCost {
+                                        UpdateZopfliNode(
+                                            nodes, pos, start, len, len_code, dist, 0usize, cost,
+                                        );
+                                        result = brotli_max_size_t(result, len);
                                     }
                                 }
-                                len = len.wrapping_add(1);
                             }
+                            len = len.wrapping_add(1);
                         }
-                        j = j.wrapping_add(1);
                     }
                 }
             }
@@ -1169,24 +1148,16 @@ fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cos
     let mut missing_symbol_sum: u64;
 
     let mut i: usize;
-    i = 0usize;
-    while i < histogram_size {
-        {
-            sum = sum.wrapping_add(u64::from(histogram[i]));
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..histogram_size {
+        sum = sum.wrapping_add(u64::from(histogram[i]));
     }
     let log2sum: floatX = FastLog2(sum) as (floatX);
     missing_symbol_sum = sum;
     if literal_histogram == 0 {
-        i = 0usize;
-        while i < histogram_size {
-            {
-                if histogram[i] == 0u32 {
-                    missing_symbol_sum = missing_symbol_sum.wrapping_add(1);
-                }
+        for i in 0usize..histogram_size {
+            if histogram[i] == 0u32 {
+                missing_symbol_sum = missing_symbol_sum.wrapping_add(1);
             }
-            i = i.wrapping_add(1);
         }
     }
     let missing_symbol_cost: floatX =
@@ -1243,7 +1214,6 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
             let copylength: usize = CommandCopyLen(&commands[i]) as usize;
             let distcode: usize = ((commands[i]).dist_prefix_ as i32 & 0x3ff) as usize;
             let cmdcode: usize = (commands[i]).cmd_prefix_ as usize;
-            let mut j: usize;
             {
                 let _rhs = 1;
                 let _lhs = &mut histogram_cmd[cmdcode];
@@ -1254,15 +1224,11 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
                 let _lhs = &mut histogram_dist[distcode];
                 *_lhs = (*_lhs).wrapping_add(_rhs as u32);
             }
-            j = 0usize;
-            while j < inslength {
-                {
-                    let _rhs = 1;
-                    let _lhs = &mut histogram_literal
-                        [(ringbuffer[(pos.wrapping_add(j) & ringbuffer_mask)] as usize)];
-                    *_lhs = (*_lhs).wrapping_add(_rhs as u32);
-                }
-                j = j.wrapping_add(1);
+            for j in 0usize..inslength {
+                let _rhs = 1;
+                let _lhs = &mut histogram_literal
+                    [(ringbuffer[(pos.wrapping_add(j) & ringbuffer_mask)] as usize)];
+                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
             }
             pos = pos.wrapping_add(inslength.wrapping_add(copylength));
         }
@@ -1286,12 +1252,8 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
         0i32,
         xself.cost_dist_.slice_mut(),
     );
-    i = 0usize;
-    while i < 704usize {
-        {
-            min_cost_cmd = brotli_min_float(min_cost_cmd, cost_cmd[i]);
-        }
-        i = i.wrapping_add(1);
+    for i in 0usize..704usize {
+        min_cost_cmd = brotli_min_float(min_cost_cmd, cost_cmd[i]);
     }
     xself.min_cost_cmd_ = min_cost_cmd;
     {
@@ -1299,18 +1261,14 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
         let mut literal_carry: floatX = 0.0;
         let num_bytes: usize = xself.num_bytes_;
         literal_costs[0] = 0.0 as (floatX);
-        i = 0usize;
-        while i < num_bytes {
-            {
-                literal_carry += cost_literal
-                    [(ringbuffer[(position.wrapping_add(i) & ringbuffer_mask)] as usize)]
-                    as floatX;
-                literal_costs[i.wrapping_add(1)] =
-                    (literal_costs[i] as floatX + literal_carry) as floatX;
-                literal_carry -=
-                    (literal_costs[i.wrapping_add(1)] as floatX - literal_costs[i] as floatX);
-            }
-            i = i.wrapping_add(1);
+        for i in 0usize..num_bytes {
+            literal_carry += cost_literal
+                [(ringbuffer[(position.wrapping_add(i) & ringbuffer_mask)] as usize)]
+                as floatX;
+            literal_costs[i.wrapping_add(1)] =
+                (literal_costs[i] as floatX + literal_carry) as floatX;
+            literal_carry -=
+                (literal_costs[i.wrapping_add(1)] as floatX - literal_costs[i] as floatX);
         }
     }
 }
@@ -1565,66 +1523,57 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
     if !(0i32 == 0) {
         return;
     }
-    i = 0usize;
-    while i < 2usize {
-        {
-            BrotliInitZopfliNodes(nodes.slice_mut(), num_bytes.wrapping_add(1));
-            if i == 0usize {
-                ZopfliCostModelSetFromLiteralCosts(
-                    &mut model,
-                    position,
-                    ringbuffer,
-                    ringbuffer_mask,
-                );
-            } else {
-                ZopfliCostModelSetFromCommands(
-                    &mut model,
-                    position,
-                    ringbuffer,
-                    ringbuffer_mask,
-                    commands,
-                    num_commands.wrapping_sub(orig_num_commands),
-                    orig_last_insert_len,
-                );
-            }
-            *num_commands = orig_num_commands;
-            *num_literals = orig_num_literals;
-            *last_insert_len = orig_last_insert_len;
-            for (i, j) in dist_cache
-                .split_at_mut(4)
-                .0
-                .iter_mut()
-                .zip(orig_dist_cache.split_at(4).0)
-            {
-                *i = *j;
-            }
-            *num_commands = num_commands.wrapping_add(ZopfliIterate(
-                num_bytes,
+    for i in 0usize..2usize {
+        BrotliInitZopfliNodes(nodes.slice_mut(), num_bytes.wrapping_add(1));
+        if i == 0usize {
+            ZopfliCostModelSetFromLiteralCosts(&mut model, position, ringbuffer, ringbuffer_mask);
+        } else {
+            ZopfliCostModelSetFromCommands(
+                &mut model,
                 position,
                 ringbuffer,
                 ringbuffer_mask,
-                params,
-                max_backward_limit,
-                gap,
-                dist_cache,
-                &mut model,
-                num_matches.slice(),
-                matches.slice(),
-                nodes.slice_mut(),
-            ));
-            BrotliZopfliCreateCommands(
-                num_bytes,
-                position,
-                max_backward_limit,
-                nodes.slice(),
-                dist_cache,
-                last_insert_len,
-                params,
                 commands,
-                num_literals,
+                num_commands.wrapping_sub(orig_num_commands),
+                orig_last_insert_len,
             );
         }
-        i = i.wrapping_add(1);
+        *num_commands = orig_num_commands;
+        *num_literals = orig_num_literals;
+        *last_insert_len = orig_last_insert_len;
+        for (i, j) in dist_cache
+            .split_at_mut(4)
+            .0
+            .iter_mut()
+            .zip(orig_dist_cache.split_at(4).0)
+        {
+            *i = *j;
+        }
+        *num_commands = num_commands.wrapping_add(ZopfliIterate(
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            params,
+            max_backward_limit,
+            gap,
+            dist_cache,
+            &mut model,
+            num_matches.slice(),
+            matches.slice(),
+            nodes.slice_mut(),
+        ));
+        BrotliZopfliCreateCommands(
+            num_bytes,
+            position,
+            max_backward_limit,
+            nodes.slice(),
+            dist_cache,
+            last_insert_len,
+            params,
+            commands,
+            num_literals,
+        );
     }
     CleanupZopfliCostModel(alloc, &mut model);
     {

@@ -197,14 +197,10 @@ pub fn BrotliEstimateBitCostsForLiterals(
         let window_half: usize = 2000usize;
         let mut in_window: usize = brotli_min_size_t(window_half, len);
         let mut i: usize;
-        i = 0usize;
-        while i < in_window {
-            {
-                let _rhs = 1;
-                let _lhs = &mut histogram[data[(pos.wrapping_add(i) & mask)] as usize];
-                *_lhs = (*_lhs).wrapping_add(_rhs as usize);
-            }
-            i = i.wrapping_add(1);
+        for i in 0usize..in_window {
+            let _rhs = 1;
+            let _lhs = &mut histogram[data[(pos.wrapping_add(i) & mask)] as usize];
+            *_lhs = (*_lhs).wrapping_add(_rhs as usize);
         }
         i = 0usize;
         while i < len {

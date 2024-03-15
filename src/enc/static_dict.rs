@@ -368,19 +368,14 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
                 0
             }
         } else {
-            let mut i: usize;
-            i = 0usize;
-            while i < w.len() as usize {
-                {
-                    if dict[i] as i32 >= b'a' as i32 && (dict[i] as i32 <= b'z' as i32) {
-                        if dict[i] as i32 ^ 32i32 != data[i] as i32 {
-                            return 0;
-                        }
-                    } else if dict[i] as i32 != data[i] as i32 {
+            for i in 0usize..w.len() as usize {
+                if dict[i] as i32 >= b'a' as i32 && (dict[i] as i32 <= b'z' as i32) {
+                    if dict[i] as i32 ^ 32i32 != data[i] as i32 {
                         return 0;
                     }
+                } else if dict[i] as i32 != data[i] as i32 {
+                    return 0;
                 }
-                i = i.wrapping_add(1);
             }
             1
         }

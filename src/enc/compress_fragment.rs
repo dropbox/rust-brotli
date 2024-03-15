@@ -50,14 +50,10 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
     let mut histogram_total: usize;
     let mut i: usize;
     if input_size < (1i32 << 15) as usize {
-        i = 0usize;
-        while i < input_size {
-            {
-                let _rhs = 1;
-                let _lhs = &mut histogram[input[i] as usize];
-                *_lhs = (*_lhs).wrapping_add(_rhs as u32);
-            }
-            i = i.wrapping_add(1);
+        for i in 0usize..input_size {
+            let _rhs = 1;
+            let _lhs = &mut histogram[input[i] as usize];
+            *_lhs = (*_lhs).wrapping_add(_rhs as u32);
         }
         histogram_total = input_size;
         i = 0usize;
@@ -115,15 +111,11 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
     );
     {
         let mut literal_ratio: usize = 0usize;
-        i = 0usize;
-        while i < 256usize {
-            {
-                if histogram[i] != 0 {
-                    literal_ratio = literal_ratio
-                        .wrapping_add(histogram[i].wrapping_mul(depths[i] as u32) as usize);
-                }
+        for i in 0usize..256usize {
+            if histogram[i] != 0 {
+                literal_ratio = literal_ratio
+                    .wrapping_add(histogram[i].wrapping_mul(depths[i] as u32) as usize);
             }
-            i = i.wrapping_add(1);
         }
         literal_ratio
             .wrapping_mul(125)
@@ -300,19 +292,14 @@ fn EmitLiterals(
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
-    let mut j: usize;
-    j = 0usize;
-    while j < len {
-        {
-            let lit: u8 = input[j];
-            BrotliWriteBits(
-                depth[(lit as usize)] as usize,
-                bits[(lit as usize)] as (u64),
-                storage_ix,
-                storage,
-            );
-        }
-        j = j.wrapping_add(1);
+    for j in 0usize..len {
+        let lit: u8 = input[j];
+        BrotliWriteBits(
+            depth[(lit as usize)] as usize,
+            bits[(lit as usize)] as (u64),
+            storage_ix,
+            storage,
+        );
     }
 }
 
@@ -564,13 +551,9 @@ fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> bool {
         let mut r: super::util::floatX = (FastLog2(total as u64) + 0.5 as super::util::floatX)
             * total as (super::util::floatX)
             + 200i32 as (super::util::floatX);
-        i = 0usize;
-        while i < 256usize {
-            {
-                r -= histo[i] as (super::util::floatX)
-                    * (depths[i] as (super::util::floatX) + FastLog2(histo[i] as u64));
-            }
-            i = i.wrapping_add(1);
+        for i in 0usize..256usize {
+            r -= histo[i] as (super::util::floatX)
+                * (depths[i] as (super::util::floatX) + FastLog2(histo[i] as u64));
         }
         r >= 0.0
     }
@@ -633,7 +616,6 @@ fn BuildAndStoreCommandPrefixCode(
     memcpy(bits, (56usize), &cmd_bits[..], 56usize, 8usize);
     BrotliConvertBitDepthsToSymbols(&mut depth[64..], 64usize, &mut bits[64..]);
     {
-        let mut i: usize;
         for item in cmd_depth[..64].iter_mut() {
             *item = 0;
         }
@@ -642,17 +624,13 @@ fn BuildAndStoreCommandPrefixCode(
         memcpy(&mut cmd_depth[..], 128usize, depth, (16usize), 8usize);
         memcpy(&mut cmd_depth[..], 192usize, depth, (24usize), 8usize);
         memcpy(&mut cmd_depth[..], 384usize, depth, (32usize), 8usize);
-        i = 0usize;
-        while i < 8usize {
-            {
-                cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] =
-                    depth[i.wrapping_add(40)];
-                cmd_depth[(256usize).wrapping_add((8usize).wrapping_mul(i))] =
-                    depth[i.wrapping_add(48)];
-                cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] =
-                    depth[i.wrapping_add(56)];
-            }
-            i = i.wrapping_add(1);
+        for i in 0usize..8usize {
+            cmd_depth[(128usize).wrapping_add((8usize).wrapping_mul(i))] =
+                depth[i.wrapping_add(40)];
+            cmd_depth[(256usize).wrapping_add((8usize).wrapping_mul(i))] =
+                depth[i.wrapping_add(48)];
+            cmd_depth[(448usize).wrapping_add((8usize).wrapping_mul(i))] =
+                depth[i.wrapping_add(56)];
         }
         BrotliStoreHuffmanTree(
             &mut cmd_depth[..],
