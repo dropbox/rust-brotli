@@ -204,11 +204,8 @@ fn CreateCommands(
                     'break3: loop {
                         {
                             let hash: u32 = next_hash;
-                            let bytes_between_hash_lookups: u32 = ({
-                                let _old = skip;
-                                skip = skip.wrapping_add(1);
-                                _old
-                            }) >> 5;
+                            let bytes_between_hash_lookups: u32 = skip >> 5;
+                            skip = skip.wrapping_add(1);
                             ip_index = next_ip;
                             0i32;
                             next_ip = ip_index.wrapping_add(bytes_between_hash_lookups as usize);

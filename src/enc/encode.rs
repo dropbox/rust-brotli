@@ -1457,16 +1457,10 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
         output[0] = 6u8;
         return 1;
     }
-    output[{
-        let _old = result;
-        result = result.wrapping_add(1);
-        _old
-    }] = 0x21u8;
-    output[{
-        let _old = result;
-        result = result.wrapping_add(1);
-        _old
-    }] = 0x3u8;
+    output[result] = 0x21u8;
+    result = result.wrapping_add(1);
+    output[result] = 0x3u8;
+    result = result.wrapping_add(1);
     while size > 0usize {
         let mut nibbles: u32 = 0u32;
 
@@ -1481,27 +1475,15 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
         let bits: u32 = nibbles << 1
             | chunk_size.wrapping_sub(1) << 3
             | 1u32 << (19u32).wrapping_add((4u32).wrapping_mul(nibbles));
-        output[{
-            let _old = result;
-            result = result.wrapping_add(1);
-            _old
-        }] = bits as u8;
-        output[{
-            let _old = result;
-            result = result.wrapping_add(1);
-            _old
-        }] = (bits >> 8) as u8;
-        output[{
-            let _old = result;
-            result = result.wrapping_add(1);
-            _old
-        }] = (bits >> 16) as u8;
+        output[result] = bits as u8;
+        result = result.wrapping_add(1);
+        output[result] = (bits >> 8) as u8;
+        result = result.wrapping_add(1);
+        output[result] = (bits >> 16) as u8;
+        result = result.wrapping_add(1);
         if nibbles == 2u32 {
-            output[{
-                let _old = result;
-                result = result.wrapping_add(1);
-                _old
-            }] = (bits >> 24) as u8;
+            output[result] = (bits >> 24) as u8;
+            result = result.wrapping_add(1);
         }
         output[result..(result + chunk_size as usize)]
             .clone_from_slice(&input[offset..(offset + chunk_size as usize)]);
@@ -1509,11 +1491,8 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
         offset = offset.wrapping_add(chunk_size as usize);
         size = size.wrapping_sub(chunk_size as usize);
     }
-    output[{
-        let _old = result;
-        result = result.wrapping_add(1);
-        _old
-    }] = 3u8;
+    output[result] = 3u8;
+    result = result.wrapping_add(1);
     result
 }
 pub fn BrotliEncoderCompress<
@@ -2594,13 +2573,10 @@ where
     }
     if s.last_insert_len_ > 0usize {
         InitInsertCommand(
-            &mut s.commands_.slice_mut()[{
-                let _old = s.num_commands_;
-                s.num_commands_ = s.num_commands_.wrapping_add(1);
-                _old
-            }],
+            &mut s.commands_.slice_mut()[s.num_commands_],
             s.last_insert_len_,
         );
+        s.num_commands_ = s.num_commands_.wrapping_add(1);
         s.num_literals_ = s.num_literals_.wrapping_add(s.last_insert_len_);
         s.last_insert_len_ = 0usize;
     }
