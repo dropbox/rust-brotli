@@ -2737,14 +2737,10 @@ fn ProcessMetadata<
         if InjectFlushOrPushOutput(s, available_out, next_out_array, next_out_offset, total_out)
             != 0
         {
-            {
-                continue;
-            }
+            continue;
         }
         if s.available_out_ != 0usize {
-            {
-                break;
-            }
+            break;
         }
         if s.input_pos_ != s.last_flush_pos_ {
             let mut avail_out: usize = s.available_out_;
@@ -2754,9 +2750,7 @@ fn ProcessMetadata<
                 return 0i32;
             }
             {
-                {
-                    continue;
-                }
+                continue;
             }
         }
         if s.stream_state_ as i32 == BrotliEncoderStreamState::BROTLI_STREAM_METADATA_HEAD as i32 {
@@ -2764,18 +2758,14 @@ fn ProcessMetadata<
             s.available_out_ = WriteMetadataHeader(s);
             s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_METADATA_BODY;
             {
-                {
-                    continue;
-                }
+                continue;
             }
         } else {
             if s.remaining_metadata_bytes_ == 0u32 {
                 s.remaining_metadata_bytes_ = !(0u32);
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING;
                 {
-                    {
-                        break;
-                    }
+                    break;
                 }
             }
             if *available_out != 0 {
@@ -2807,9 +2797,7 @@ fn ProcessMetadata<
                 s.available_out_ = copy as usize;
             }
             {
-                {
-                    continue;
-                }
+                continue;
             }
         }
     }
@@ -2872,9 +2860,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
         if InjectFlushOrPushOutput(s, available_out, next_out_array, next_out_offset, total_out)
             != 0
         {
-            {
-                continue;
-            }
+            continue;
         }
         if s.available_out_ == 0usize
             && (s.stream_state_ as i32 == BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING as i32)
@@ -2895,9 +2881,7 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
             if force_flush && block_size == 0 {
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED;
                 {
-                    {
-                        continue;
-                    }
+                    continue;
                 }
             }
             if max_out_size <= *available_out {
@@ -2966,15 +2950,11 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FINISHED;
             }
             {
-                {
-                    continue;
-                }
+                continue;
             }
         }
         {
-            {
-                break;
-            }
+            break;
         }
     }
     if command_buf.slice().len() == kCompressFragmentTwoPassBlockSize
@@ -3076,17 +3056,13 @@ pub fn BrotliEncoderCompressStream<
             *next_in_offset += copy_input_size;
             *available_in = available_in.wrapping_sub(copy_input_size);
             {
-                {
-                    continue;
-                }
+                continue;
             }
         }
         if InjectFlushOrPushOutput(s, available_out, next_out_array, next_out_offset, total_out)
             != 0
         {
-            {
-                continue;
-            }
+            continue;
         }
         if s.available_out_ == 0usize
             && (s.stream_state_ as i32 == BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING as i32)
@@ -3114,15 +3090,11 @@ pub fn BrotliEncoderCompressStream<
                 s.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_FINISHED;
             }
             {
-                {
-                    continue;
-                }
+                continue;
             }
         }
         {
-            {
-                break;
-            }
+            break;
         }
     }
     CheckFlushComplete(s);

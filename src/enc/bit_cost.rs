@@ -266,9 +266,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 s[count as usize] = i;
                 count += 1;
                 if count > 4i32 {
-                    {
-                        break 'break1;
-                    }
+                    break 'break1;
                 }
             }
         }
@@ -346,9 +344,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 }
                 i += reps as usize;
                 if i == data_size {
-                    {
-                        break;
-                    }
+                    break;
                 }
                 if reps < 3 {
                     depth_histo[0] += reps

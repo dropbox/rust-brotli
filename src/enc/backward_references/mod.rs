@@ -2463,9 +2463,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                         } < 4i32
                             && (position.wrapping_add(hasher.HashTypeLength()) < pos_end)
                         {
-                            {
-                                break 'continue7;
-                            }
+                            break 'continue7;
                         }
                     }
                     break 'break6;
