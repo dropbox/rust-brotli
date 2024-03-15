@@ -109,7 +109,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
         return 0;
     }
     let num_threads = core::cmp::min(desired_num_threads, MAX_THREADS);
-    match compressor::catch_panic(|| {
+    compressor::catch_panic(|| {
         let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
         let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
         let input_slice = slice_from_raw_parts_or_nil(input, input_size);
@@ -204,13 +204,11 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
             }
             Err(_err) => 0,
         }
-    }) {
-        Ok(ret) => ret,
-        Err(panic_err) => {
-            error_print(panic_err);
-            0
-        }
-    }
+    })
+    .unwrap_or_else(|panic_err| {
+        error_print(panic_err);
+        0
+    })
 }
 
 #[repr(C)]
@@ -246,7 +244,7 @@ pub unsafe extern "C" fn BrotliEncoderCreateWorkPool(
     free_func: brotli_free_func,
     opaque: *mut c_void,
 ) -> *mut BrotliEncoderWorkPool {
-    match catch_panic_wstate(|| {
+    catch_panic_wstate(|| {
         let allocators = CAllocator {
             alloc_func,
             free_func,
@@ -271,13 +269,11 @@ pub unsafe extern "C" fn BrotliEncoderCreateWorkPool(
         } else {
             brotli_new_work_pool_without_custom_alloc(to_box)
         }
-    }) {
-        Ok(ret) => ret,
-        Err(err) => {
-            error_print(err);
-            core::ptr::null_mut()
-        }
-    }
+    })
+    .unwrap_or_else(|err| {
+        error_print(err);
+        core::ptr::null_mut()
+    })
 }
 #[cfg(feature = "std")]
 unsafe fn free_work_pool_no_custom_alloc(_work_pool: *mut BrotliEncoderWorkPool) {
@@ -329,7 +325,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
         return 0;
     }
     if work_pool.is_null() {
-        match compressor::catch_panic(|| {
+        return compressor::catch_panic(|| {
             BrotliEncoderCompressMulti(
                 num_params,
                 param_keys,
@@ -343,16 +339,14 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
                 free_func,
                 alloc_opaque_per_thread,
             )
-        }) {
-            Ok(ret) => return ret, // no panic
-            Err(panic_err) => {
-                error_print(panic_err); // print panic
-                return 0; // fail
-            }
-        }
+        })
+        .unwrap_or_else(|panic_err| {
+            error_print(panic_err); // print panic
+            0 // fail
+        });
     }
     let work_pool_wrapper = UnsafeUnwindBox(work_pool);
-    match compressor::catch_panic(|| {
+    compressor::catch_panic(|| {
         let null_opaques = [core::ptr::null_mut::<c_void>(); MAX_THREADS];
         let alloc_opaque = if alloc_opaque_per_thread.is_null() {
             &null_opaques[..]
@@ -424,13 +418,11 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
             }
             Err(_err) => 0,
         }
-    }) {
-        Ok(ret) => ret, // no panic
-        Err(panic_err) => {
-            error_print(panic_err); // print panic
-            0 // fail
-        }
-    }
+    })
+    .unwrap_or_else(|panic_err| {
+        error_print(panic_err); // print panic
+        0 // fail
+    })
 }
 
 #[cfg(all(feature = "std", not(feature = "pass-through-ffi-panics")))]
