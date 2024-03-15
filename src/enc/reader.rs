@@ -219,12 +219,11 @@ impl<ErrType, R: CustomRead<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: Br
                     }
                 }
             }
-            let op: BrotliEncoderOperation;
-            if avail_in == 0 {
-                op = BrotliEncoderOperation::BROTLI_OPERATION_FINISH;
+            let op = if avail_in == 0 {
+                BrotliEncoderOperation::BROTLI_OPERATION_FINISH
             } else {
-                op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
-            }
+                BrotliEncoderOperation::BROTLI_OPERATION_PROCESS
+            };
             let ret = self.state.0.compress_stream(
                 op,
                 &mut avail_in,
