@@ -331,39 +331,39 @@ pub fn FastLog2f64(v: u64) -> floatX {
 pub fn FastLog2u64(v: u64) -> floatX {
     let bsr_8 = 56i8 - v.leading_zeros() as i8;
     let offset = bsr_8 & -((bsr_8 >= 0) as i8);
-    offset as floatX + kLog2Table[(v >> offset) as u8 as usize] as (floatX)
+    (offset as floatX) + (kLog2Table[(v >> offset) as u8 as usize] as floatX)
 }
 
 #[inline(always)]
 pub fn FastLog2u32(v: i32) -> floatX {
     let bsr_8 = 24i8 - v.leading_zeros() as i8;
     let offset = bsr_8 & -((bsr_8 >= 0) as i8);
-    offset as floatX + kLog2Table[(v >> offset) as u8 as usize] as (floatX)
+    (offset as floatX) + (kLog2Table[(v >> offset) as u8 as usize] as floatX)
 }
 
 #[inline(always)]
 pub fn xFastLog2u16(v: u16) -> floatX {
     let bsr_8 = 8i8 - v.leading_zeros() as i8;
     let offset = (bsr_8 & -((bsr_8 >= 0) as i8));
-    offset as floatX + kLog2Table[(v >> offset) as u8 as usize] as (floatX)
+    (offset as floatX) + (kLog2Table[(v >> offset) as u8 as usize] as floatX)
 }
 
 #[cfg(feature = "std")]
 #[inline(always)]
-pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
-    (2 as super::util::floatX).powf(v)
+pub fn FastPow2(v: floatX) -> floatX {
+    (2 as floatX).powf(v)
 }
 
 #[cfg(not(feature = "std"))]
 #[inline(always)]
-pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
-    assert!(v >= 0 as super::util::floatX);
+pub fn FastPow2(v: floatX) -> floatX {
+    assert!(v >= 0 as floatX);
     let round_down = v as i32;
-    let remainder = v - round_down as super::util::floatX;
-    let mut x = 1 as super::util::floatX;
+    let remainder = v - round_down as floatX;
+    let mut x = 1 as floatX;
     // (1 + (x/n) * ln2) ^ n
     // let n = 8
-    x += remainder * (0.693147180559945309417232121458 / 256.0) as super::util::floatX;
+    x += remainder * (0.693147180559945309417232121458 / 256.0) as floatX;
     x *= x;
     x *= x;
     x *= x;
@@ -372,7 +372,7 @@ pub fn FastPow2(v: super::util::floatX) -> super::util::floatX {
     x *= x;
     x *= x;
     x *= x;
-    return (1 << round_down) as super::util::floatX * x;
+    return (1 << round_down) as floatX * x;
 }
 
 #[inline(always)]

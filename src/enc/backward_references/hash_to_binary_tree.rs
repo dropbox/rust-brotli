@@ -22,7 +22,7 @@ use enc::static_dict::{
 };
 use enc::util::{brotli_max_size_t, floatX, FastLog2, Log2FloorNonZero};
 
-pub const kInfinity: floatX = 1.7e38 as floatX;
+pub const kInfinity: floatX = 1.7e38;
 #[derive(Clone, Copy, Debug)]
 pub enum Union1 {
     cost(floatX),

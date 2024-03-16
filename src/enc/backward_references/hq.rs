@@ -257,9 +257,9 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF: Allocator<floatX>>(
     );
     literal_costs[0] = 0.0 as (floatX);
     for i in 0usize..num_bytes {
-        literal_carry = literal_carry as floatX + literal_costs[i.wrapping_add(1)] as floatX;
-        literal_costs[i.wrapping_add(1)] = (literal_costs[i] as floatX + literal_carry) as floatX;
-        literal_carry -= (literal_costs[i.wrapping_add(1)] as floatX - literal_costs[i] as floatX);
+        literal_carry = literal_carry + literal_costs[i.wrapping_add(1)];
+        literal_costs[i.wrapping_add(1)] = literal_costs[i] + literal_carry;
+        literal_carry -= literal_costs[i.wrapping_add(1)] - literal_costs[i];
     }
     for i in 0..BROTLI_NUM_COMMAND_SYMBOLS {
         cost_cmd[i] = FastLog2(11 + i as u64);
@@ -645,7 +645,7 @@ fn ComputeMinimumCopyLength(
     {
         len = len.wrapping_add(1);
         if len == next_len_offset {
-            min_cost += 1.0 as floatX;
+            min_cost += 1.0;
             next_len_offset = next_len_offset.wrapping_add(next_len_bucket);
             next_len_bucket = next_len_bucket.wrapping_mul(2);
         }
@@ -1202,7 +1202,7 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
     let mut histogram_literal = [0u32; BROTLI_NUM_LITERAL_SYMBOLS];
     let mut histogram_cmd = [0u32; BROTLI_NUM_COMMAND_SYMBOLS];
     let mut histogram_dist = [0u32; BROTLI_SIMPLE_DISTANCE_ALPHABET_SIZE];
-    let mut cost_literal = [0.0 as floatX; BROTLI_NUM_LITERAL_SYMBOLS];
+    let mut cost_literal = [0.0; BROTLI_NUM_LITERAL_SYMBOLS];
     let mut pos: usize = position.wrapping_sub(last_insert_len);
     let mut min_cost_cmd: floatX = kInfinity;
     let mut i: usize;
@@ -1262,13 +1262,10 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
         let num_bytes: usize = xself.num_bytes_;
         literal_costs[0] = 0.0 as (floatX);
         for i in 0usize..num_bytes {
-            literal_carry += cost_literal
-                [(ringbuffer[(position.wrapping_add(i) & ringbuffer_mask)] as usize)]
-                as floatX;
-            literal_costs[i.wrapping_add(1)] =
-                (literal_costs[i] as floatX + literal_carry) as floatX;
-            literal_carry -=
-                (literal_costs[i.wrapping_add(1)] as floatX - literal_costs[i] as floatX);
+            literal_carry +=
+                cost_literal[ringbuffer[position.wrapping_add(i) & ringbuffer_mask] as usize];
+            literal_costs[i.wrapping_add(1)] = literal_costs[i] + literal_carry;
+            literal_carry -= literal_costs[i.wrapping_add(1)] - literal_costs[i];
         }
     }
 }

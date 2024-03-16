@@ -43,7 +43,7 @@ use super::metablock::{
 };
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
 use super::utf8_util::BrotliIsMostlyUTF8;
-use super::util::{brotli_min_size_t, Log2FloorNonZero};
+use super::util::{brotli_min_size_t, floatX, Log2FloorNonZero};
 use core;
 use enc::input_pair::InputReferenceMut;
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
@@ -84,7 +84,7 @@ use enc::input_pair::InputReferenceMut;
 
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 
-static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
+static kMinUTF8Ratio: floatX = 0.75;
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
     pub size_: u32,
@@ -1380,14 +1380,12 @@ fn ShouldCompress(
     num_commands: usize,
 ) -> i32 {
     if num_commands < (bytes >> 8).wrapping_add(2)
-        && num_literals as (super::util::floatX)
-            > 0.99 as super::util::floatX * bytes as (super::util::floatX)
+        && (num_literals as floatX) > 0.99 * (bytes as floatX)
     {
         let mut literal_histo = [0u32; 256];
         static kSampleRate: u32 = 13u32;
-        static kMinEntropy: super::util::floatX = 7.92 as super::util::floatX;
-        let bit_cost_threshold: super::util::floatX =
-            bytes as (super::util::floatX) * kMinEntropy / kSampleRate as (super::util::floatX);
+        static kMinEntropy: floatX = 7.92;
+        let bit_cost_threshold: floatX = (bytes as floatX) * kMinEntropy / (kSampleRate as floatX);
         let t: usize = bytes
             .wrapping_add(kSampleRate as usize)
             .wrapping_sub(1)
@@ -1791,7 +1789,7 @@ fn ChooseContextMap(
 
     let mut i: usize;
     let mut dummy: usize = 0;
-    let mut entropy: [super::util::floatX; 4] = [0.0 as super::util::floatX; 4];
+    let mut entropy = [0.0 as floatX; 4];
     i = 0usize;
     while i < 9usize {
         {
@@ -1811,7 +1809,7 @@ fn ChooseContextMap(
     entropy[1] = ShannonEntropy(&monogram_histo[..], 3usize, &mut dummy);
     entropy[2] = ShannonEntropy(&two_prefix_histo[..], 3usize, &mut dummy)
         + ShannonEntropy(&two_prefix_histo[3..], 3usize, &mut dummy);
-    entropy[3] = 0i32 as (super::util::floatX);
+    entropy[3] = 0.0;
     for i in 0usize..3usize {
         entropy[3] += ShannonEntropy(
             &bigram_histo[(3usize).wrapping_mul(i)..],
@@ -1823,18 +1821,16 @@ fn ChooseContextMap(
         .wrapping_add(monogram_histo[1])
         .wrapping_add(monogram_histo[2]) as usize;
     0i32;
-    entropy[0] = 1.0 as super::util::floatX / total as (super::util::floatX);
+    entropy[0] = 1.0 / (total as floatX);
     entropy[1] *= entropy[0];
     entropy[2] *= entropy[0];
     entropy[3] *= entropy[0];
     if quality < 7i32 {
-        entropy[3] = entropy[1] * 10i32 as (super::util::floatX);
+        entropy[3] = entropy[1] * 10.0;
     }
-    if entropy[1] - entropy[2] < 0.2 as super::util::floatX
-        && (entropy[1] - entropy[3] < 0.2 as super::util::floatX)
-    {
+    if entropy[1] - entropy[2] < 0.2 && entropy[1] - entropy[3] < 0.2 {
         *num_literal_contexts = 1;
-    } else if entropy[2] - entropy[3] < 0.02 as super::util::floatX {
+    } else if entropy[2] - entropy[3] < 0.02 {
         *num_literal_contexts = 2usize;
         *literal_context_map = &kStaticContextMapSimpleUTF8[..];
     } else {
@@ -1886,7 +1882,7 @@ fn ShouldUseComplexStaticContextMap(
         let mut combined_histo: [u32; 32] = [0; 32];
         let mut context_histo: [[u32; 32]; 13] = [[0; 32]; 13];
         let mut total = 0u32;
-        let mut entropy = [0.0 as super::util::floatX; 3];
+        let mut entropy = [0.0 as floatX; 3];
         let mut dummy = 0usize;
         let utf8_lut = BROTLI_CONTEXT_LUT(ContextType::CONTEXT_UTF8);
         while start_pos + 64 <= end_pos {
@@ -1910,12 +1906,12 @@ fn ShouldUseComplexStaticContextMap(
             start_pos += 4096;
         }
         entropy[1] = ShannonEntropy(&combined_histo[..], 32, &mut dummy);
-        entropy[2] = 0.0 as super::util::floatX;
+        entropy[2] = 0.0;
         for i in 0..13 {
             assert!(i < 13);
             entropy[2] += ShannonEntropy(&context_histo[i][..], 32, &mut dummy);
         }
-        entropy[0] = (1.0 as super::util::floatX) / (total as super::util::floatX);
+        entropy[0] = 1.0 / (total as floatX);
         entropy[1] *= entropy[0];
         entropy[2] *= entropy[0];
         /* The triggering heuristics below were tuned by compressing the individual
