@@ -491,18 +491,18 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
             );
 
             let adv_score = score[WhichPrior::ADV as usize];
-            if adv_score + epsilon < stride_score as floatX
+            if adv_score + epsilon < (stride_score as floatX)
                 && adv_score + epsilon < cm_score
                 && adv_score + epsilon < slow_cm_score
                 && adv_score + epsilon < fast_cm_score
             {
                 bitmask[i] = 1;
-            } else if slow_cm_score + epsilon < stride_score as floatX
+            } else if slow_cm_score + epsilon < (stride_score as floatX)
                 && slow_cm_score + epsilon < cm_score
                 && slow_cm_score + epsilon < fast_cm_score
             {
                 bitmask[i] = 2;
-            } else if fast_cm_score + epsilon < stride_score as floatX
+            } else if fast_cm_score + epsilon < (stride_score as floatX)
                 && fast_cm_score + epsilon < cm_score
             {
                 bitmask[i] = 3;

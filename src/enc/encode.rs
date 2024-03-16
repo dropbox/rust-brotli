@@ -37,9 +37,8 @@ use super::metablock::{
 };
 pub use super::parameters::BrotliEncoderParameter;
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
-use super::util::Log2FloorNonZero;
+use super::util::{floatX, Log2FloorNonZero};
 use crate::enc::combined_alloc::{alloc_default, allocate};
-use crate::enc::floatX;
 use crate::enc::input_pair::InputReferenceMut;
 use crate::enc::utf8_util::is_mostly_utf8;
 
@@ -81,7 +80,7 @@ use crate::enc::utf8_util::is_mostly_utf8;
 
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 
-static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
+static kMinUTF8Ratio: floatX = 0.75;
 
 pub struct RingBuffer<AllocU8: alloc::Allocator<u8>> {
     pub size_: u32,
@@ -1308,7 +1307,7 @@ fn should_compress(
 
     if num_commands < (bytes >> 8) + 2 && num_literals as floatX > 0.99 * bytes as floatX {
         let mut literal_histo = [0u32; 256];
-        let bit_cost_threshold = bytes as floatX * K_MIN_ENTROPY / K_SAMPLE_RATE as floatX;
+        let bit_cost_threshold = (bytes as floatX) * K_MIN_ENTROPY / (K_SAMPLE_RATE as floatX);
         let t = bytes
             .wrapping_add(K_SAMPLE_RATE as usize)
             .wrapping_sub(1)
@@ -1733,7 +1732,7 @@ fn ChooseContextMap(
 
     let mut i: usize;
     let mut dummy: usize = 0;
-    let mut entropy: [super::util::floatX; 4] = [0.0 as super::util::floatX; 4];
+    let mut entropy = [0.0 as floatX; 4];
     i = 0usize;
     while i < 9usize {
         {
@@ -1753,7 +1752,7 @@ fn ChooseContextMap(
     entropy[1] = ShannonEntropy(&monogram_histo[..], 3usize, &mut dummy);
     entropy[2] = ShannonEntropy(&two_prefix_histo[..], 3usize, &mut dummy)
         + ShannonEntropy(&two_prefix_histo[3..], 3usize, &mut dummy);
-    entropy[3] = 0i32 as (super::util::floatX);
+    entropy[3] = 0.0;
     for i in 0usize..3usize {
         entropy[3] += ShannonEntropy(
             &bigram_histo[(3usize).wrapping_mul(i)..],
@@ -1764,18 +1763,16 @@ fn ChooseContextMap(
     let total: usize = monogram_histo[0]
         .wrapping_add(monogram_histo[1])
         .wrapping_add(monogram_histo[2]) as usize;
-    entropy[0] = 1.0 as super::util::floatX / total as (super::util::floatX);
+    entropy[0] = 1.0 / (total as floatX);
     entropy[1] *= entropy[0];
     entropy[2] *= entropy[0];
     entropy[3] *= entropy[0];
     if quality < 7i32 {
-        entropy[3] = entropy[1] * 10i32 as (super::util::floatX);
+        entropy[3] = entropy[1] * 10.0;
     }
-    if entropy[1] - entropy[2] < 0.2 as super::util::floatX
-        && (entropy[1] - entropy[3] < 0.2 as super::util::floatX)
-    {
+    if entropy[1] - entropy[2] < 0.2 && entropy[1] - entropy[3] < 0.2 {
         *num_literal_contexts = 1;
-    } else if entropy[2] - entropy[3] < 0.02 as super::util::floatX {
+    } else if entropy[2] - entropy[3] < 0.02 {
         *num_literal_contexts = 2usize;
         *literal_context_map = &kStaticContextMapSimpleUTF8[..];
     } else {
@@ -1827,7 +1824,7 @@ fn ShouldUseComplexStaticContextMap(
         let mut combined_histo: [u32; 32] = [0; 32];
         let mut context_histo: [[u32; 32]; 13] = [[0; 32]; 13];
         let mut total = 0u32;
-        let mut entropy = [0.0 as super::util::floatX; 3];
+        let mut entropy = [0.0 as floatX; 3];
         let mut dummy = 0usize;
         let utf8_lut = BROTLI_CONTEXT_LUT(ContextType::CONTEXT_UTF8);
         while start_pos + 64 <= end_pos {
@@ -1851,12 +1848,12 @@ fn ShouldUseComplexStaticContextMap(
             start_pos += 4096;
         }
         entropy[1] = ShannonEntropy(&combined_histo[..], 32, &mut dummy);
-        entropy[2] = 0.0 as super::util::floatX;
+        entropy[2] = 0.0;
         for i in 0..13 {
             assert!(i < 13);
             entropy[2] += ShannonEntropy(&context_histo[i][..], 32, &mut dummy);
         }
-        entropy[0] = (1.0 as super::util::floatX) / (total as super::util::floatX);
+        entropy[0] = 1.0 / (total as floatX);
         entropy[1] *= entropy[0];
         entropy[2] *= entropy[0];
         /* The triggering heuristics below were tuned by compressing the individual

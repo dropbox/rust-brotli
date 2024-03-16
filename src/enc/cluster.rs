@@ -26,8 +26,8 @@ impl Default for HistogramPair {
         HistogramPair {
             idx1: 0,
             idx2: 0,
-            cost_combo: 0.0 as super::util::floatX,
-            cost_diff: 0.0 as super::util::floatX,
+            cost_combo: 0.0,
+            cost_diff: 0.0,
         }
     }
 }
@@ -77,7 +77,7 @@ fn BrotliCompareAndPushToQueue<
         }
         p.idx1 = idx1;
         p.idx2 = idx2;
-        p.cost_diff = 0.5 as super::util::floatX
+        p.cost_diff = 0.5
             * ClusterCostDiff(
                 cluster_size[idx1 as usize] as usize,
                 cluster_size[idx2 as usize] as usize,
@@ -91,8 +91,8 @@ fn BrotliCompareAndPushToQueue<
             p.cost_combo = (out[idx1 as usize]).bit_cost();
             is_good_pair = true;
         } else {
-            let threshold: super::util::floatX = if *num_pairs == 0usize {
-                1e38 as super::util::floatX
+            let threshold = if *num_pairs == 0 {
+                1e38
             } else {
                 pairs[0].cost_diff.max(0.0)
             };
@@ -136,7 +136,7 @@ pub fn BrotliHistogramCombine<
     max_num_pairs: usize,
     scratch_space: &mut HistogramType::i32vec,
 ) -> usize {
-    let mut cost_diff_threshold: super::util::floatX = 0.0 as super::util::floatX;
+    let mut cost_diff_threshold: super::util::floatX = 0.0;
     let mut min_cluster_size: usize = 1;
     let mut num_pairs: usize = 0usize;
     {
@@ -160,7 +160,7 @@ pub fn BrotliHistogramCombine<
     while num_clusters > min_cluster_size {
         let mut i: usize;
         if (pairs[0]).cost_diff >= cost_diff_threshold {
-            cost_diff_threshold = 1e38 as super::util::floatX;
+            cost_diff_threshold = 1e38;
             min_cluster_size = max_clusters;
             {
                 continue;
@@ -252,7 +252,7 @@ pub fn BrotliHistogramBitCostDistance<
     scratch_space: &mut HistogramType::i32vec,
 ) -> super::util::floatX {
     if histogram.total_count() == 0usize {
-        0.0 as super::util::floatX
+        0.0
     } else {
         let mut tmp: HistogramType = histogram.clone();
         HistogramAddHistogram(&mut tmp, candidate);
