@@ -3,6 +3,11 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+## What's new in 3.5
+Updated SIMD support.
+Better CI integration.
+Cleaned up some of the clippy warnings.
+
 ## What's new in 3.4
 Brotli decompressor's reader and writer has better behavior when operating upon brotli streams with extra bits at the end.
 Optional features like stdsimd are now tested or disabled for now.
