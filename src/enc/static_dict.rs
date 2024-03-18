@@ -461,23 +461,19 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                     minlen = max(minlen, l.wrapping_sub(9));
                 }
                 let maxlen: usize = min(matchlen, l.wrapping_sub(2));
-                len = minlen;
-                while len <= maxlen {
-                    {
-                        //eprint!("Ddding match {} {} {} {}\n", w.len(), w.transform(), w.idx(), len);
-                        AddMatch(
-                            id.wrapping_add(
-                                (kOmitLastNTransforms[l.wrapping_sub(len)] as usize)
-                                    .wrapping_mul(n),
-                            ),
-                            len,
-                            l,
-                            matches,
-                        );
-                        has_found_match = 1i32;
-                    }
-                    len = len.wrapping_add(1);
+                for len in minlen..=maxlen {
+                    //eprint!("Ddding match {} {} {} {}\n", w.len(), w.transform(), w.idx(), len);
+                    AddMatch(
+                        id.wrapping_add(
+                            (kOmitLastNTransforms[l.wrapping_sub(len)] as usize).wrapping_mul(n),
+                        ),
+                        len,
+                        l,
+                        matches,
+                    );
+                    has_found_match = 1i32;
                 }
+
                 if matchlen < l || l.wrapping_add(6) >= max_length {
                     continue;
                 }

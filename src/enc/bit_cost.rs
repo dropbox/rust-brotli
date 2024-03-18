@@ -294,16 +294,11 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         for i in 0usize..4usize {
             histo[i] = histogram.slice()[s[i]];
         }
-        for i in 0usize..4usize {
-            let mut j: usize;
-            j = i.wrapping_add(1);
-            while j < 4usize {
-                {
-                    if histo[j] > histo[i] {
-                        histo.swap(j, i);
-                    }
+        for i in 0..4 {
+            for j in i + 1..4 {
+                if histo[j] > histo[i] {
+                    histo.swap(j, i);
                 }
-                j = j.wrapping_add(1);
             }
         }
         let h23: u32 = histo[2].wrapping_add(histo[3]);
