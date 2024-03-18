@@ -1824,7 +1824,6 @@ fn ChooseContextMap(
     let total: usize = monogram_histo[0]
         .wrapping_add(monogram_histo[1])
         .wrapping_add(monogram_histo[2]) as usize;
-    0i32;
     entropy[0] = 1.0 as super::util::floatX / total as (super::util::floatX);
     {
         let _rhs = entropy[0];
@@ -2894,8 +2893,6 @@ fn BrotliEncoderCompressStreamFast<Alloc: BrotliAlloc>(
             *available_in = available_in.wrapping_sub(block_size);
             if inplace != 0 {
                 let out_bytes: usize = storage_ix >> 3;
-                0i32;
-                0i32;
                 *next_out_offset += out_bytes;
                 *available_out = available_out.wrapping_sub(out_bytes);
                 s.total_out_ = s.total_out_.wrapping_add(out_bytes as u64);

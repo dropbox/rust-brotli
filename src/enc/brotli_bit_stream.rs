@@ -906,7 +906,7 @@ pub fn BrotliStoreHuffmanTree(
     let mut i: usize;
     let mut num_codes: i32 = 0i32;
     let mut code: usize = 0usize;
-    0i32;
+
     BrotliWriteHuffmanTree(
         depths,
         num,
@@ -1798,7 +1798,7 @@ fn MoveToFrontTransform(v_in: &[u32], v_size: usize, v_out: &mut [u32]) {
         }
         i = i.wrapping_add(1);
     }
-    0i32;
+
     i = 0usize;
     while i <= max_value as usize {
         {
@@ -1810,7 +1810,6 @@ fn MoveToFrontTransform(v_in: &[u32], v_size: usize, v_out: &mut [u32]) {
         let mtf_size: usize = max_value.wrapping_add(1) as usize;
         for i in 0usize..v_size {
             let index: usize = IndexOf(&mtf[..], mtf_size, v_in[i] as u8);
-            0i32;
             v_out[i] = index as u32;
             MoveToFront(&mut mtf[..], index);
         }
@@ -1866,7 +1865,6 @@ fn RunLengthCodeZeros(
     *out_size = 0usize;
     i = 0usize;
     while i < in_size {
-        0i32;
         if v[i] != 0u32 {
             v[*out_size] = (v[i]).wrapping_add(*max_run_length_prefix);
             i = i.wrapping_add(1);
