@@ -15,15 +15,14 @@ pub struct HuffmanTree {
     pub index_right_or_value_: i16,
 }
 
-pub fn NewHuffmanTree(count: u32, left: i16, right: i16) -> HuffmanTree {
-    HuffmanTree {
-        total_count_: count,
-        index_left_: left,
-        index_right_or_value_: right,
+impl HuffmanTree {
+    pub fn new(count: u32, left: i16, right: i16) -> Self {
+        Self {
+            total_count_: count,
+            index_left_: left,
+            index_right_or_value_: right,
+        }
     }
-}
-pub fn InitHuffmanTree(xself: &mut HuffmanTree, count: u32, left: i16, right: i16) {
-    *xself = NewHuffmanTree(count, left, right);
 }
 
 pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_depth: i32) -> bool {
@@ -152,14 +151,8 @@ pub fn BrotliCreateHuffmanTree(
     tree: &mut [HuffmanTree],
     depth: &mut [u8],
 ) {
-    let mut count_limit: u32;
-    let mut sentinel: HuffmanTree = HuffmanTree {
-        total_count_: 0,
-        index_left_: 0,
-        index_right_or_value_: 0,
-    };
-    InitHuffmanTree(&mut sentinel, !(0u32), -1i16, -1i16);
-    count_limit = 1u32;
+    let sentinel = HuffmanTree::new(u32::MAX, -1, -1);
+    let mut count_limit = 1u32;
     'break1: loop {
         {
             let mut n: usize = 0usize;
@@ -171,7 +164,7 @@ pub fn BrotliCreateHuffmanTree(
                 i = i.wrapping_sub(1);
                 if data[i] != 0 {
                     let count: u32 = brotli_max_uint32_t(data[i], count_limit);
-                    InitHuffmanTree(&mut tree[n], count, -1i16, i as i16);
+                    tree[n] = HuffmanTree::new(count, -1, i as i16);
                     n = n.wrapping_add(1);
                 }
             }

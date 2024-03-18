@@ -35,8 +35,7 @@ use super::constants::{
 use super::context_map_entropy::{speed_to_tuple, ContextMapEntropy, SpeedAndMax};
 use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, BrotliSetDepth,
-    BrotliWriteHuffmanTree, HuffmanComparator, HuffmanTree, InitHuffmanTree, NewHuffmanTree,
-    SortHuffmanTreeItems,
+    BrotliWriteHuffmanTree, HuffmanComparator, HuffmanTree, SortHuffmanTreeItems,
 };
 use super::find_stride;
 use super::histogram::{
@@ -1038,21 +1037,13 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                 l = length;
                 while l != 0 {
                     l = l.wrapping_sub(1);
-                    if histogram[(l as usize)] != 0 {
-                        if histogram[(l as usize)] >= count_limit {
-                            InitHuffmanTree(
-                                &mut tree.slice_mut()[(node_index as usize)],
-                                histogram[(l as usize)],
-                                -1i16,
-                                l as i16,
-                            );
+                    if histogram[l as usize] != 0 {
+                        if histogram[l as usize] >= count_limit {
+                            tree.slice_mut()[node_index as usize] =
+                                HuffmanTree::new(histogram[l as usize], -1, l as i16);
                         } else {
-                            InitHuffmanTree(
-                                &mut tree.slice_mut()[(node_index as usize)],
-                                count_limit,
-                                -1i16,
-                                l as i16,
-                            );
+                            tree.slice_mut()[node_index as usize] =
+                                HuffmanTree::new(count_limit, -1, l as i16);
                         }
                         node_index = node_index.wrapping_add(1);
                     }
@@ -1064,7 +1055,7 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
                     let mut j: i32 = n + 1i32;
                     let mut k: i32;
                     SortHuffmanTreeItems(tree.slice_mut(), n as usize, SimpleSortHuffmanTree {});
-                    let sentinel: HuffmanTree = NewHuffmanTree(!(0u32), -1i16, -1i16);
+                    let sentinel = HuffmanTree::new(u32::MAX, -1, -1);
                     tree.slice_mut()[(node_index.wrapping_add(1) as usize)] = sentinel;
                     tree.slice_mut()[(node_index as usize)] = sentinel;
                     node_index = node_index.wrapping_add(2);

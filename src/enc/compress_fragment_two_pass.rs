@@ -5,7 +5,7 @@ use super::super::alloc;
 use super::bit_cost::BitsEntropy;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
 use super::entropy_encode::{
-    BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree, NewHuffmanTree,
+    BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
 };
 use super::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
@@ -466,7 +466,7 @@ fn BuildAndStoreCommandPrefixCode(
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
-    let mut tree: [HuffmanTree; 129] = [NewHuffmanTree(0, 0, 0); 129];
+    let mut tree = [HuffmanTree::new(0, 0, 0); 129];
     let mut cmd_depth: [u8; 704] = [0; 704];
     let mut cmd_bits: [u16; 64] = [0; 64];
     BrotliCreateHuffmanTree(histogram, 64usize, 15i32, &mut tree[..], depth);
