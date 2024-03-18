@@ -261,8 +261,8 @@ fn ZopfliCostModelSetFromLiteralCosts<AllocF: Allocator<floatX>>(
         literal_costs[i.wrapping_add(1)] = (literal_costs[i] as floatX + literal_carry) as floatX;
         literal_carry -= (literal_costs[i.wrapping_add(1)] as floatX - literal_costs[i] as floatX);
     }
-    for i in 0usize..BROTLI_NUM_COMMAND_SYMBOLS {
-        cost_cmd[i] = FastLog2((11u64).wrapping_add(i as (u64))) as (floatX);
+    for i in 0..BROTLI_NUM_COMMAND_SYMBOLS {
+        cost_cmd[i] = FastLog2(11 + i as u64);
     }
     for i in 0usize..xself.distance_histogram_size as usize {
         cost_dist[i] = FastLog2((20u64).wrapping_add(i as (u64))) as (floatX);
