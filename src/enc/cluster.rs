@@ -138,23 +138,18 @@ pub fn BrotliHistogramCombine<
     {
         /* We maintain a vector of histogram pairs, with the property that the pair
         with the maximum bit cost reduction is the first. */
-        for idx1 in 0usize..num_clusters {
-            let mut idx2: usize;
-            idx2 = idx1.wrapping_add(1);
-            while idx2 < num_clusters {
-                {
-                    BrotliCompareAndPushToQueue(
-                        out,
-                        cluster_size,
-                        clusters[idx1],
-                        clusters[idx2],
-                        max_num_pairs,
-                        scratch_space,
-                        pairs,
-                        &mut num_pairs,
-                    );
-                }
-                idx2 = idx2.wrapping_add(1);
+        for idx1 in 0..num_clusters {
+            for idx2 in idx1 + 1..num_clusters {
+                BrotliCompareAndPushToQueue(
+                    out,
+                    cluster_size,
+                    clusters[idx1],
+                    clusters[idx2],
+                    max_num_pairs,
+                    scratch_space,
+                    pairs,
+                    &mut num_pairs,
+                );
             }
         }
     }

@@ -75,52 +75,40 @@ pub fn SortHuffmanTreeItems<Comparator: HuffmanComparator>(
     comparator: Comparator,
 ) {
     static gaps: [usize; 6] = [132, 57, 23, 10, 4, 1];
-    if n < 13usize {
-        let mut i: usize;
-        i = 1;
-        while i < n {
-            {
-                let mut tmp: HuffmanTree = items[i];
-                let mut k: usize = i;
-                let mut j: usize = i.wrapping_sub(1);
-                while comparator.Cmp(&mut tmp, &mut items[j]) {
-                    items[k] = items[j];
-                    k = j;
-                    if {
-                        let _old = j;
-                        j = j.wrapping_sub(1);
-                        _old
-                    } == 0
-                    {
-                        break;
-                    }
+    if n < 13 {
+        for i in 1..n {
+            let mut tmp: HuffmanTree = items[i];
+            let mut k: usize = i;
+            let mut j: usize = i.wrapping_sub(1);
+            while comparator.Cmp(&mut tmp, &mut items[j]) {
+                items[k] = items[j];
+                k = j;
+                if {
+                    let _old = j;
+                    j = j.wrapping_sub(1);
+                    _old
+                } == 0
+                {
+                    break;
                 }
-                items[k] = tmp;
             }
-            i = i.wrapping_add(1);
+            items[k] = tmp;
         }
     } else {
         let mut g: i32 = if n < 57usize { 2i32 } else { 0i32 };
         while g < 6i32 {
             {
                 let gap: usize = gaps[g as usize];
-                let mut i: usize;
-                i = gap;
-                while i < n {
-                    {
-                        let mut j: usize = i;
-                        let mut tmp: HuffmanTree = items[i];
-                        while j >= gap
-                            && (comparator.Cmp(&mut tmp, &mut items[j.wrapping_sub(gap)]))
+                for i in gap..n {
+                    let mut j: usize = i;
+                    let mut tmp: HuffmanTree = items[i];
+                    while j >= gap && (comparator.Cmp(&mut tmp, &mut items[j.wrapping_sub(gap)])) {
                         {
-                            {
-                                items[j] = items[j.wrapping_sub(gap)];
-                            }
-                            j = j.wrapping_sub(gap);
+                            items[j] = items[j.wrapping_sub(gap)];
                         }
-                        items[j] = tmp;
+                        j = j.wrapping_sub(gap);
                     }
-                    i = i.wrapping_add(1);
+                    items[j] = tmp;
                 }
             }
             g += 1;
@@ -231,7 +219,6 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
     let mut limit: usize;
     let mut sum: usize;
     let streak_limit: usize = 1240usize;
-    let mut i: usize;
     for i in 0usize..length {
         if counts[i] != 0 {
             nonzero_count = nonzero_count.wrapping_add(1);
@@ -262,18 +249,11 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
         }
         if smallest_nonzero < 4u32 {
             let zeros: usize = length.wrapping_sub(nonzeros);
-            if zeros < 6usize {
-                i = 1;
-                while i < length.wrapping_sub(1) {
-                    {
-                        if counts[i.wrapping_sub(1)] != 0u32
-                            && (counts[i] == 0u32)
-                            && (counts[i.wrapping_add(1)] != 0u32)
-                        {
-                            counts[i] = 1u32;
-                        }
+            if zeros < 6 {
+                for i in 1..length.wrapping_sub(1) {
+                    if counts[i - 1] != 0 && counts[i] == 0 && counts[i + 1] != 0 {
+                        counts[i] = 1;
                     }
-                    i = i.wrapping_add(1);
                 }
             }
         }
@@ -287,24 +267,20 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
     {
         let mut symbol: u32 = counts[0];
         let mut step: usize = 0usize;
-        i = 0usize;
-        while i <= length {
-            {
-                if i == length || counts[i] != symbol {
-                    if symbol == 0u32 && (step >= 5usize) || symbol != 0u32 && (step >= 7usize) {
-                        for k in 0usize..step {
-                            good_for_rle[i.wrapping_sub(k).wrapping_sub(1)] = 1u8;
-                        }
+        for i in 0..=length {
+            if i == length || counts[i] != symbol {
+                if symbol == 0u32 && (step >= 5usize) || symbol != 0u32 && (step >= 7usize) {
+                    for k in 0usize..step {
+                        good_for_rle[i.wrapping_sub(k).wrapping_sub(1)] = 1u8;
                     }
-                    step = 1;
-                    if i != length {
-                        symbol = counts[i];
-                    }
-                } else {
-                    step = step.wrapping_add(1);
                 }
+                step = 1;
+                if i != length {
+                    symbol = counts[i];
+                }
+            } else {
+                step = step.wrapping_add(1);
             }
-            i = i.wrapping_add(1);
         }
     }
     stride = 0usize;
@@ -313,63 +289,59 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
         .wrapping_div(3)
         .wrapping_add(420) as usize;
     sum = 0usize;
-    i = 0usize;
-    while i <= length {
+    for i in 0..=length {
+        if i == length
+            || good_for_rle[i] != 0
+            || i != 0usize && (good_for_rle[i.wrapping_sub(1)] != 0)
+            || ((256u32).wrapping_mul(counts[i]) as usize)
+                .wrapping_sub(limit)
+                .wrapping_add(streak_limit)
+                >= (2usize).wrapping_mul(streak_limit)
         {
-            if i == length
-                || good_for_rle[i] != 0
-                || i != 0usize && (good_for_rle[i.wrapping_sub(1)] != 0)
-                || ((256u32).wrapping_mul(counts[i]) as usize)
-                    .wrapping_sub(limit)
-                    .wrapping_add(streak_limit)
-                    >= (2usize).wrapping_mul(streak_limit)
-            {
-                if stride >= 4usize || stride >= 3usize && (sum == 0usize) {
-                    let mut count: usize = sum
-                        .wrapping_add(stride.wrapping_div(2))
-                        .wrapping_div(stride);
-                    if count == 0usize {
-                        count = 1;
-                    }
-                    if sum == 0usize {
-                        count = 0usize;
-                    }
-                    for k in 0usize..stride {
-                        counts[i.wrapping_sub(k).wrapping_sub(1)] = count as u32;
-                    }
+            if stride >= 4usize || stride >= 3usize && (sum == 0usize) {
+                let mut count: usize = sum
+                    .wrapping_add(stride.wrapping_div(2))
+                    .wrapping_div(stride);
+                if count == 0usize {
+                    count = 1;
                 }
-                stride = 0usize;
-                sum = 0usize;
-                if i < length.wrapping_sub(2) {
-                    limit = (256u32)
-                        .wrapping_mul(
-                            (counts[i])
-                                .wrapping_add(counts[i.wrapping_add(1)])
-                                .wrapping_add(counts[i.wrapping_add(2)]),
-                        )
-                        .wrapping_div(3)
-                        .wrapping_add(420) as usize;
-                } else if i < length {
-                    limit = (256u32).wrapping_mul(counts[i]) as usize;
-                } else {
-                    limit = 0usize;
+                if sum == 0usize {
+                    count = 0usize;
+                }
+                for k in 0usize..stride {
+                    counts[i.wrapping_sub(k).wrapping_sub(1)] = count as u32;
                 }
             }
-            stride = stride.wrapping_add(1);
-            if i != length {
-                sum = sum.wrapping_add(counts[i] as usize);
-                if stride >= 4usize {
-                    limit = (256usize)
-                        .wrapping_mul(sum)
-                        .wrapping_add(stride.wrapping_div(2))
-                        .wrapping_div(stride);
-                }
-                if stride == 4usize {
-                    limit = limit.wrapping_add(120);
-                }
+            stride = 0usize;
+            sum = 0usize;
+            if i < length.wrapping_sub(2) {
+                limit = (256u32)
+                    .wrapping_mul(
+                        (counts[i])
+                            .wrapping_add(counts[i.wrapping_add(1)])
+                            .wrapping_add(counts[i.wrapping_add(2)]),
+                    )
+                    .wrapping_div(3)
+                    .wrapping_add(420) as usize;
+            } else if i < length {
+                limit = (256u32).wrapping_mul(counts[i]) as usize;
+            } else {
+                limit = 0usize;
             }
         }
-        i = i.wrapping_add(1);
+        stride = stride.wrapping_add(1);
+        if i != length {
+            sum = sum.wrapping_add(counts[i] as usize);
+            if stride >= 4usize {
+                limit = (256usize)
+                    .wrapping_mul(sum)
+                    .wrapping_add(stride.wrapping_div(2))
+                    .wrapping_div(stride);
+            }
+            if stride == 4usize {
+                limit = limit.wrapping_add(120);
+            }
+        }
     }
 }
 
@@ -596,7 +568,6 @@ pub fn BrotliConvertBitDepthsToSymbols(depth: &[u8], len: usize, bits: &mut [u16
 
     let mut bl_count: [u16; MAX_HUFFMAN_BITS] = [0; MAX_HUFFMAN_BITS];
     let mut next_code: [u16; MAX_HUFFMAN_BITS] = [0; MAX_HUFFMAN_BITS];
-    let mut i: usize;
     let mut code: i32 = 0i32;
     for i in 0usize..len {
         let _rhs = 1;
@@ -605,13 +576,9 @@ pub fn BrotliConvertBitDepthsToSymbols(depth: &[u8], len: usize, bits: &mut [u16
     }
     bl_count[0] = 0u16;
     next_code[0] = 0u16;
-    i = 1;
-    while i < MAX_HUFFMAN_BITS {
-        {
-            code = (code + bl_count[i.wrapping_sub(1)] as i32) << 1;
-            next_code[i] = code as u16;
-        }
-        i = i.wrapping_add(1);
+    for i in 1..MAX_HUFFMAN_BITS {
+        code = (code + bl_count[i - 1] as i32) << 1;
+        next_code[i] = code as u16;
     }
     for i in 0usize..len {
         if depth[i] != 0 {

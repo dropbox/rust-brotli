@@ -846,21 +846,15 @@ fn BrotliStoreHuffmanTreeOfHuffmanTreeToBitMask(
         }
     }
     BrotliWriteBits(2, skip_some, storage_ix, storage);
-    {
-        let mut i: u64;
-        i = skip_some;
-        while i < codes_to_store {
-            {
-                let l: usize = code_length_bitdepth[(kStorageOrder[i as usize] as usize)] as usize;
-                BrotliWriteBits(
-                    kHuffmanBitLengthHuffmanCodeBitLengths[l],
-                    kHuffmanBitLengthHuffmanCodeSymbols[l] as u64,
-                    storage_ix,
-                    storage,
-                );
-            }
-            i = i.wrapping_add(1);
-        }
+
+    for i in skip_some..codes_to_store {
+        let l = code_length_bitdepth[kStorageOrder[i as usize] as usize] as usize;
+        BrotliWriteBits(
+            kHuffmanBitLengthHuffmanCodeBitLengths[l],
+            kHuffmanBitLengthHuffmanCodeSymbols[l] as u64,
+            storage_ix,
+            storage,
+        );
     }
 }
 
@@ -1107,26 +1101,14 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
     }
     BrotliConvertBitDepthsToSymbols(depth, length as usize, bits);
     if count <= 4 {
-        let mut i: u64;
         BrotliWriteBits(2, 1, storage_ix, storage);
         BrotliWriteBits(2, count.wrapping_sub(1), storage_ix, storage);
-        i = 0;
-        while i < count {
-            {
-                let mut j: u64;
-                j = i.wrapping_add(1);
-                while j < count {
-                    {
-                        if (depth[(symbols[j as usize] as usize)] as i32)
-                            < depth[(symbols[i as usize] as usize)] as i32
-                        {
-                            symbols.swap(j as usize, i as usize);
-                        }
-                    }
-                    j = j.wrapping_add(1);
+        for i in 0..count as usize {
+            for j in i + 1..count as usize {
+                if depth[symbols[j] as usize] < depth[symbols[i] as usize] {
+                    symbols.swap(j, i);
                 }
             }
-            i = i.wrapping_add(1);
         }
         if count == 2 {
             BrotliWriteBits(max_bits as u8, symbols[0], storage_ix, storage);
@@ -1486,16 +1468,11 @@ fn StoreSimpleHuffmanTree(
     BrotliWriteBits(2, 1, storage_ix, storage);
     BrotliWriteBits(2, num_symbols.wrapping_sub(1) as u64, storage_ix, storage);
     {
-        for i in 0usize..num_symbols {
-            let mut j: usize;
-            j = i.wrapping_add(1);
-            while j < num_symbols {
-                {
-                    if (depths[symbols[j]] as i32) < depths[symbols[i]] as i32 {
-                        symbols.swap(j, i);
-                    }
+        for i in 0..num_symbols {
+            for j in i + 1..num_symbols {
+                if depths[symbols[j]] < depths[symbols[i]] {
+                    symbols.swap(j, i);
                 }
-                j = j.wrapping_add(1);
             }
         }
     }
@@ -1705,17 +1682,12 @@ fn StoreTrivialContextMap(
         let mut histogram: [u32; 272] = [0; 272];
         let mut depths: [u8; 272] = [0; 272];
         let mut bits: [u16; 272] = [0; 272];
-        let mut i: usize;
         BrotliWriteBits(1u8, 1u64, storage_ix, storage);
         BrotliWriteBits(4u8, repeat_code.wrapping_sub(1) as u64, storage_ix, storage);
         histogram[repeat_code] = num_types as u32;
-        histogram[0] = 1u32;
-        i = context_bits;
-        while i < alphabet_size {
-            {
-                histogram[i] = 1u32;
-            }
-            i = i.wrapping_add(1);
+        histogram[0] = 1;
+        for i in context_bits..alphabet_size {
+            histogram[i] = 1;
         }
         BuildAndStoreHuffmanTree(
             &mut histogram[..],
@@ -1773,29 +1745,19 @@ fn MoveToFront(v: &mut [u8], index: usize) {
 }
 
 fn MoveToFrontTransform(v_in: &[u32], v_size: usize, v_out: &mut [u32]) {
-    let mut i: usize;
     let mut mtf: [u8; 256] = [0; 256];
     let mut max_value: u32;
     if v_size == 0usize {
         return;
     }
     max_value = v_in[0];
-    i = 1;
-    while i < v_size {
-        {
-            if v_in[i] > max_value {
-                max_value = v_in[i];
-            }
+    for i in 1..v_size {
+        if v_in[i] > max_value {
+            max_value = v_in[i];
         }
-        i = i.wrapping_add(1);
     }
-
-    i = 0usize;
-    while i <= max_value as usize {
-        {
-            mtf[i] = i as u8;
-        }
-        i = i.wrapping_add(1);
+    for i in 0..=max_value as usize {
+        mtf[i] = i as u8;
     }
     {
         let mtf_size: usize = max_value.wrapping_add(1) as usize;
@@ -2129,7 +2091,7 @@ fn StoreSymbolWithContext<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
 }
 
 fn CommandCopyLen(xself: &Command) -> u32 {
-  xself.copy_len_ & 0x1ffffffu32
+    xself.copy_len_ & 0x1ffffffu32
 }
 
 fn CommandDistanceContext(xself: &Command) -> u32 {
