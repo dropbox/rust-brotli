@@ -376,12 +376,12 @@ impl<'a> BackwardMatchMut<'a> {
     pub fn set_length_and_code(&mut self, data: u32) {
         *self.0 = u64::from((*self.0) as u32) | (u64::from(data) << 32);
     }
-}
 
-#[inline(always)]
-pub fn InitBackwardMatch(xself: &mut BackwardMatchMut, dist: usize, len: usize) {
-    xself.set_distance(dist as u32);
-    xself.set_length_and_code((len << 5) as u32);
+    #[inline(always)]
+    pub fn init_backward_match(&mut self, dist: usize, len: usize) {
+        self.set_distance(dist as u32);
+        self.set_length_and_code((len << 5) as u32);
+    }
 }
 
 macro_rules! LeftChildIndexH10 {
@@ -472,11 +472,8 @@ where
                 ));
                 if matches_offset != matches.len() && (len > *best_len) {
                     *best_len = len;
-                    InitBackwardMatch(
-                        &mut BackwardMatchMut(&mut matches[matches_offset]),
-                        backward,
-                        len,
-                    );
+                    BackwardMatchMut(&mut matches[matches_offset])
+                        .init_backward_match(backward, len);
                     matches_offset += 1;
                 }
                 if len >= max_comp_len {

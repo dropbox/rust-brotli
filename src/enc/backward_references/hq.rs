@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_imports)]
 use super::hash_to_binary_tree::{
-    kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, InitBackwardMatch,
-    StoreAndFindMatchesH10, Union1, ZopfliNode, H10,
+    kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, StoreAndFindMatchesH10,
+    Union1, ZopfliNode, H10,
 };
 use super::{
     kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
@@ -395,11 +395,8 @@ where
                     );
                     if len > best_len {
                         best_len = len;
-                        InitBackwardMatch(
-                            &mut BackwardMatchMut(&mut matches[matches_offset]),
-                            backward,
-                            len,
-                        );
+                        BackwardMatchMut(&mut matches[matches_offset])
+                            .init_backward_match(backward, len);
                         matches_offset += 1;
                     }
                 }
