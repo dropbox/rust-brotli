@@ -125,7 +125,7 @@ fn CountLiterals(cmds: &[Command], num_commands: usize) -> usize {
 }
 
 fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0x1ffffffu32
+    xself.copy_len_ & 0x01ff_ffff
 }
 
 fn CopyLiteralsToByteArray(
@@ -973,7 +973,7 @@ pub fn BrotliSplitBlock<
         for i in 0usize..num_commands {
             let cmd = &cmds[i];
             if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
-                distance_prefixes.slice_mut()[j] = cmd.dist_prefix_ & 0x3ff;
+                distance_prefixes.slice_mut()[j] = cmd.dist_prefix_ & 0x03ff;
                 j = j.wrapping_add(1);
             }
         }

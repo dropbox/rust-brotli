@@ -16,7 +16,7 @@ impl<'a> SliceWrapper<u8> for InputReference<'a> {
 
 impl<'a> Freezable for InputReference<'a> {
     fn freeze(&self) -> super::interface::SliceOffset {
-        debug_assert!(self.data.len() <= 0xffffffff);
+        debug_assert!(self.data.len() <= 0xffff_ffff);
         super::interface::SliceOffset(self.orig_offset, self.data.len() as u32)
     }
 }

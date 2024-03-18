@@ -16,21 +16,14 @@ use super::static_dict::{
 use super::util::{floatX, Log2FloorNonZero};
 use core::cmp::{max, min};
 
-static kBrotliMinWindowBits: i32 = 10i32;
-
-static kBrotliMaxWindowBits: i32 = 24i32;
-
-pub static kInvalidMatch: u32 = 0xfffffffu32;
-
-static kCutoffTransformsCount: u32 = 10u32;
-
-static kCutoffTransforms: u64 = 0x71b520au64 << 32 | 0xda2d3200u32 as (u64);
-
-pub static kHashMul32: u32 = 0x1e35a7bdu32;
-
-pub static kHashMul64: u64 = 0x1e35a7bdu64 << 32 | 0x1e35a7bdu64;
-
-pub static kHashMul64Long: u64 = 0x1fe35a7bu32 as (u64) << 32 | 0xd3579bd3u32 as (u64);
+static kBrotliMinWindowBits: i32 = 10;
+static kBrotliMaxWindowBits: i32 = 24;
+pub static kInvalidMatch: u32 = 0x0fff_ffff;
+static kCutoffTransformsCount: u32 = 10;
+static kCutoffTransforms: u64 = 0x071b_520a_da2d_3200;
+pub static kHashMul32: u32 = 0x1e35_a7bd;
+pub static kHashMul64: u64 = 0x1e35_a7bd_1e35_a7bd;
+pub static kHashMul64Long: u64 = 0x1fe3_5a7b_d357_9bd3;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[repr(C)]
@@ -946,8 +939,8 @@ impl AdvHashSpecialization for HQ5Sub {
     }
     #[inline(always)]
     fn get_hash_mask(&self) -> u64 {
-        //return 0xffffffffffffffffu64;
-        0xffffffffu64 // make it 32 bit
+        //return 0xffff_ffff_ffff_ffff;
+        0xffff_ffff // make it 32 bit
     }
     #[inline(always)]
     fn get_k_hash_mul(&self) -> u64 {
@@ -993,8 +986,8 @@ impl AdvHashSpecialization for HQ7Sub {
     }
     #[inline(always)]
     fn get_hash_mask(&self) -> u64 {
-        //return 0xffffffffffffffffu64;
-        0xffffffffu64 // make it 32 bit
+        //return 0xffff_ffff_ffff_ffff;
+        0xffff_ffff // make it 32 bit
     }
     #[inline(always)]
     fn get_k_hash_mul(&self) -> u64 {
@@ -1041,8 +1034,8 @@ impl AdvHashSpecialization for H5Sub {
         self.block_mask_
     }
     fn get_hash_mask(&self) -> u64 {
-        //return 0xffffffffffffffffu64;
-        0xffffffffu64 // make it 32 bit
+        //return 0xffff_ffff_ffff_ffff;
+        0xffff_ffff // make it 32 bit
     }
     fn get_k_hash_mul(&self) -> u64 {
         kHashMul32 as u64
@@ -1115,7 +1108,8 @@ impl AdvHashSpecialization for H6Sub {
 }
 
 fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> u64 {
-    (39u64).wrapping_add((0x1ca10u64 >> (distance_short_code & 0xeusize) & 0xeu64))
+    // FIXME?: double bitwise AND with the same value?
+    (39u64).wrapping_add((0x0001_ca10_u64 >> (distance_short_code & 0x0e) & 0x0e))
 }
 
 impl<
@@ -1146,7 +1140,7 @@ impl<
             let chunk_count = (ix_end - ix_start) / 4;
             for chunk_id in 0..chunk_count {
                 let i = (ix_start + chunk_id * 4) & mask;
-                let ffffffff = 0xffffffff;
+                let ffffffff = 0xffff_ffff;
                 let word = u64::from(data[i])
                     | (u64::from(data[i + 1]) << 8)
                     | (u64::from(data[i + 2]) << 16)
@@ -1229,7 +1223,7 @@ impl<
                 );
                 for quad_index in 0..(REG_SIZE >> 2) {
                     let i = quad_index << 2;
-                    let ffffffff = 0xffffffff;
+                    let ffffffff = 0xffff_ffff;
                     let word = u64::from(data64[i])
                         | (u64::from(data64[i + 1]) << 8)
                         | (u64::from(data64[i + 2]) << 16)
@@ -1311,7 +1305,7 @@ impl<
                     .clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
                 for quad_index in 0..(REG_SIZE >> 2) {
                     let i = quad_index << 2;
-                    let ffffffff = 0xffffffff;
+                    let ffffffff = 0xffff_ffff;
                     let word = u64::from(data64[i])
                         | (u64::from(data64[i + 1]) << 8)
                         | (u64::from(data64[i + 2]) << 16)
@@ -1505,13 +1499,13 @@ impl<
             | (u64::from(data[li + 7]) << 56);
         let hi = (ix + 8) & mask;
         let hword = u64::from(data[hi]) | (u64::from(data[hi + 1]) << 8);
-        let mixed0 = ((((lword & 0xffffffff) * self.specialization.get_k_hash_mul())
+        let mixed0 = ((((lword & 0xffff_ffff) * self.specialization.get_k_hash_mul())
             & self.specialization.get_hash_mask())
             >> shift) as usize;
-        let mixed1 = (((((lword >> 16) & 0xffffffff) * self.specialization.get_k_hash_mul())
+        let mixed1 = (((((lword >> 16) & 0xffff_ffff) * self.specialization.get_k_hash_mul())
             & self.specialization.get_hash_mask())
             >> shift) as usize;
-        let mixed2 = (((((lword >> 32) & 0xffffffff) * self.specialization.get_k_hash_mul())
+        let mixed2 = (((((lword >> 32) & 0xffff_ffff) * self.specialization.get_k_hash_mul())
             & self.specialization.get_hash_mask())
             >> shift) as usize;
         let mixed3 = ((((((hword & 0xffff) << 16) | ((lword >> 48) & 0xffff))

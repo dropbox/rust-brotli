@@ -21,7 +21,7 @@ pub struct Command {
 }
 
 pub fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0x1ffffffu32
+    xself.copy_len_ & 0x01ff_ffff
 }
 
 pub fn CommandDistanceContext(xself: &Command) -> u32 {
@@ -45,9 +45,9 @@ pub fn ComputeDistanceCode(distance: usize, max_distance: usize, dist_cache: &[i
         } else if distance == dist_cache[1] as usize {
             return 1;
         } else if offset0 < 7usize {
-            return (0x9750468i32 >> (4usize).wrapping_mul(offset0) & 0xfi32) as usize;
+            return (0x0975_0468_i32 >> (4usize).wrapping_mul(offset0) & 0xfi32) as usize;
         } else if offset1 < 7usize {
-            return (0xfdb1acei32 >> (4usize).wrapping_mul(offset1) & 0xfi32) as usize;
+            return (0x0fdb_1ace_i32 >> (4usize).wrapping_mul(offset1) & 0xfi32) as usize;
         } else if distance == dist_cache[2] as usize {
             return 2usize;
         } else if distance == dist_cache[3] as usize {

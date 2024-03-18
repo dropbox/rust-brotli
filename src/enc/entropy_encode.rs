@@ -430,7 +430,7 @@ fn BrotliWriteHuffmanTreeRepetitions(
         repetitions = repetitions.wrapping_sub(3);
         loop {
             tree[*tree_size] = 16u8;
-            extra_bits_data[*tree_size] = (repetitions & 0x3usize) as u8;
+            extra_bits_data[*tree_size] = (repetitions & 0x03) as u8;
             *tree_size = tree_size.wrapping_add(1);
             repetitions >>= 2i32;
             if repetitions == 0usize {
