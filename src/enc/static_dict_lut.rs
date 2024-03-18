@@ -1,9 +1,9 @@
 #![allow(dead_code)]
-pub static kInvalidMatch: u32 = 0xfffffff;
+pub static kInvalidMatch: u32 = 0x0fff_ffff;
 
 pub static kDictNumBits: i32 = 15;
 
-pub static kDictHashMul32: u32 = 0x1e35a7bd;
+pub static kDictHashMul32: u32 = 0x1e35_a7bd;
 pub static kStaticDictionaryBuckets: [u16; 32768] = [
     1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 6, 0, 0, 0, 0, 0, 20, 0, 0, 0, 21, 0, 22, 0, 0, 0, 0, 0, 0, 0, 0,
     23, 0, 0, 25, 0, 29, 0, 53, 0, 0, 0, 0, 0, 0, 55, 0, 0, 0, 0, 0, 0, 61, 76, 0, 0, 0, 94, 0, 0,

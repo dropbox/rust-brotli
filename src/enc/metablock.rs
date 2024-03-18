@@ -122,7 +122,7 @@ fn ComputeDistanceCost(
                     &mut dist_extra,
                 );
             }
-            HistogramAddItem(&mut histo, (dist_prefix & 0x3FF) as usize);
+            HistogramAddItem(&mut histo, (dist_prefix & 0x03ff) as usize);
             extra_bits += (dist_prefix >> 10) as f64;
         }
     }

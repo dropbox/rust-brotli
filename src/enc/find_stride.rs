@@ -605,7 +605,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
                     .split_at(input.len() >> 3)
                     .1,
                 scratch,
-                0xa,
+                0x0a,
                 Some(5..7),
                 Some(7..0xa),
             );

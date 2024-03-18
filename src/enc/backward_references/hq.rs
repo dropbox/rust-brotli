@@ -70,7 +70,7 @@ pub fn BrotliInitZopfliNodes(array: &mut [ZopfliNode], length: usize) {
 impl ZopfliNode {
     #[inline(always)]
     fn copy_length(&self) -> u32 {
-        self.length & 0x1ffffffu32
+        self.length & 0x01ff_ffff
     }
 
     #[inline(always)]
@@ -121,7 +121,7 @@ pub fn BrotliZopfliCreateCommands(
         {
             let next: &ZopfliNode = &nodes[pos.wrapping_add(offset as usize)];
             let copy_length = next.copy_length() as usize;
-            let mut insert_length: usize = (next.dcode_insert_length & 0x7ffffff) as usize;
+            let mut insert_length: usize = (next.dcode_insert_length & 0x07ff_ffff) as usize;
             pos = pos.wrapping_add(insert_length);
             offset = match next.u {
                 Union1::next(off) => off,
@@ -458,7 +458,7 @@ fn ComputeDistanceShortcut(
     nodes: &[ZopfliNode],
 ) -> u32 {
     let clen: usize = nodes[pos].copy_length() as usize;
-    let ilen: usize = ((nodes[pos]).dcode_insert_length) as usize & 0x7ffffff;
+    let ilen: usize = ((nodes[pos]).dcode_insert_length) as usize & 0x07ff_ffff;
     let dist: usize = nodes[pos].copy_distance() as usize;
     if pos == 0usize {
         0u32
@@ -494,7 +494,7 @@ fn ComputeDistanceCache(
         _ => 0,
     } as usize;
     while idx < 4i32 && (p > 0usize) {
-        let ilen: usize = ((nodes[p]).dcode_insert_length) as usize & 0x7ffffff;
+        let ilen: usize = ((nodes[p]).dcode_insert_length) as usize & 0x07ff_ffff;
         let clen = nodes[p].copy_length() as usize;
         let dist = nodes[p].copy_distance() as usize;
         dist_cache[({
@@ -821,7 +821,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                         let distnumextra: u32 = u32::from(dist_symbol) >> 10;
                         let dist_cost = base_cost
                             + (distnumextra as floatX)
-                            + model.get_distance_cost((dist_symbol as i32 & 0x3ff) as usize);
+                            + model.get_distance_cost((dist_symbol as i32 & 0x03ff) as usize);
                         let max_match_len: usize = BackwardMatchLength(&mut match_);
                         if len < max_match_len
                             && (is_dictionary_match || max_match_len > max_zopfli_len)
@@ -873,7 +873,7 @@ impl ZopfliNode {
     #[inline(always)]
     fn command_length(&self) -> u32 {
         self.copy_length()
-            .wrapping_add(self.dcode_insert_length & 0x7ffffff)
+            .wrapping_add(self.dcode_insert_length & 0x07ff_ffff)
     }
 }
 
@@ -881,7 +881,7 @@ impl ZopfliNode {
 fn ComputeShortestPathFromNodes(num_bytes: usize, nodes: &mut [ZopfliNode]) -> usize {
     let mut index: usize = num_bytes;
     let mut num_commands: usize = 0usize;
-    while ((nodes[index]).dcode_insert_length & 0x7ffffff) == 0 && ((nodes[index]).length == 1u32) {
+    while (nodes[index].dcode_insert_length & 0x07ff_ffff) == 0 && nodes[index].length == 1 {
         index = index.wrapping_sub(1);
     }
     nodes[index].u = Union1::next(!(0u32));
@@ -1147,7 +1147,7 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
             {
                 let inslength: usize = (commands[i]).insert_len_ as usize;
                 let copylength: usize = CommandCopyLen(&commands[i]) as usize;
-                let distcode: usize = ((commands[i]).dist_prefix_ as i32 & 0x3ff) as usize;
+                let distcode: usize = (commands[i].dist_prefix_ as i32 & 0x03ff) as usize;
                 let cmdcode: usize = (commands[i]).cmd_prefix_ as usize;
                 {
                     let _rhs = 1;

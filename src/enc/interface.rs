@@ -572,7 +572,7 @@ pub trait Unfreezable {
 
 impl<'a> From<InputReference<'a>> for SliceOffset {
     fn from(f: InputReference<'a>) -> Self {
-        debug_assert!(f.data.len() <= 0xffffffff);
+        debug_assert!(f.data.len() <= 0xffff_ffff);
         SliceOffset(f.orig_offset, f.data.len() as u32)
     }
 }
@@ -759,7 +759,7 @@ pub fn u8_to_speed(data: u8) -> u16 {
         0
     } else {
         let log_val = (data >> 3) - 1;
-        let rem = (u16::from(data) & 0x7) << log_val;
+        let rem = (u16::from(data) & 0x07) << log_val;
         (1u16 << log_val) | (rem >> 3)
     }
 }
