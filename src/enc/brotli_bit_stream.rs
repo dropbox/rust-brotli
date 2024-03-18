@@ -22,9 +22,7 @@ use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
 };
 use super::super::transform::TransformDictionaryWord;
-use super::command::{
-    Command, CommandDistanceIndexAndOffset, GetCopyLengthCode, GetInsertLengthCode,
-};
+use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode};
 use super::constants::{
     kCodeLengthBits, kCodeLengthDepth, kCopyBase, kCopyExtra, kInsBase, kInsExtra,
     kNonZeroRepsBits, kNonZeroRepsDepth, kSigned3BitContextLookup, kStaticCommandCodeBits,
@@ -308,10 +306,10 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
             input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize, mb_len));
         recoder_state.num_bytes_encoded += inserts.len();
         let _copy_cursor = input.len() - interim.len();
-        // let distance_context = CommandDistanceContext(cmd);
+        // let distance_context = cmd.distance_context();
         let copylen_code: u32 = CommandCopyLenCode(cmd);
 
-        let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, &params.dist);
+        let (prev_dist_index, dist_offset) = cmd.distance_index_and_offset(&params.dist);
         let final_distance: usize;
         if prev_dist_index == 0 {
             final_distance = dist_offset as usize;
@@ -2156,16 +2154,8 @@ fn StoreSymbolWithContext<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
 }
 
 fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0xffffffu32
-}
-
-fn CommandDistanceContext(xself: &Command) -> u32 {
-    let r: u32 = (xself.cmd_prefix_ as i32 >> 6) as u32;
-    let c: u32 = (xself.cmd_prefix_ as i32 & 7i32) as u32;
-    if (r == 0u32 || r == 2u32 || r == 4u32 || r == 7u32) && (c <= 2u32) {
-        return c;
-    }
-    3u32
+    // BUG?  this method differs from Command::copy_len
+    xself.copy_len_ & 0x00ff_ffff
 }
 
 fn CleanupBlockEncoder<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
@@ -2402,11 +2392,10 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
                 if mb.distance_context_map_size == 0usize {
                     StoreSymbol(&mut distance_enc, dist_code, storage_ix, storage);
                 } else {
-                    let context: usize = CommandDistanceContext(&cmd) as usize;
                     StoreSymbolWithContext(
                         &mut distance_enc,
                         dist_code,
-                        context,
+                        cmd.distance_context() as usize,
                         mb.distance_context_map.slice(),
                         storage_ix,
                         storage,

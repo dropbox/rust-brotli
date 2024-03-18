@@ -428,8 +428,7 @@ fn ExtendLastCommand<Alloc: BrotliAlloc>(
         max_backward_distance
     };
     let cmd_dist: u64 = s.dist_cache_[0] as u64;
-    let distance_code: u32 =
-        super::command::CommandRestoreDistanceCode(last_command, &s.params.dist);
+    let distance_code: u32 = last_command.restore_distance_code(&s.params.dist);
     if (distance_code < BROTLI_NUM_DISTANCE_SHORT_CODES
         || distance_code as u64 - (BROTLI_NUM_DISTANCE_SHORT_CODES - 1) as u64 == cmd_dist)
     {
@@ -1361,14 +1360,6 @@ fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u
         is_last as i32,
     );
     handle.StitchToPreviousBlock(input_size, position, data, mask);
-}
-
-pub fn InitInsertCommand(xself: &mut Command, insertlen: usize) {
-    xself.insert_len_ = insertlen as u32;
-    xself.copy_len_ = (4i32 << 25) as u32;
-    xself.dist_extra_ = 0u32;
-    xself.dist_prefix_ = (1u16 << 10) | BROTLI_NUM_DISTANCE_SHORT_CODES as u16;
-    GetLengthCode(insertlen, 4usize, 0i32, &mut xself.cmd_prefix_);
 }
 
 fn ShouldCompress(
@@ -2563,10 +2554,7 @@ where
         }
     }
     if s.last_insert_len_ > 0usize {
-        InitInsertCommand(
-            &mut s.commands_.slice_mut()[s.num_commands_],
-            s.last_insert_len_,
-        );
+        s.commands_.slice_mut()[s.num_commands_].init_insert(s.last_insert_len_);
         s.num_commands_ = s.num_commands_.wrapping_add(1);
         s.num_literals_ = s.num_literals_.wrapping_add(s.last_insert_len_);
         s.last_insert_len_ = 0usize;

@@ -11,8 +11,8 @@ use alloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
 use enc::command::{
-    BrotliDistanceParams, CombineLengthCodes, Command, CommandCopyLen, ComputeDistanceCode,
-    GetCopyLengthCode, GetInsertLengthCode, InitCommand, PrefixEncodeCopyDistance,
+    BrotliDistanceParams, CombineLengthCodes, Command, ComputeDistanceCode, GetCopyLengthCode,
+    GetInsertLengthCode, PrefixEncodeCopyDistance,
 };
 use enc::constants::{kCopyExtra, kInsExtra};
 use enc::dictionary_hash::kStaticDictionaryHash;
@@ -141,8 +141,7 @@ pub fn BrotliZopfliCreateCommands(
                     brotli_min_size_t(block_start.wrapping_add(pos), max_backward_limit);
                 let is_dictionary = distance > max_distance.wrapping_add(gap);
                 let dist_code: usize = ZopfliNodeDistanceCode(next) as usize;
-                InitCommand(
-                    &mut commands[i],
+                commands[i].init(
                     &params.dist,
                     insert_length,
                     copy_length,
@@ -1211,7 +1210,7 @@ fn ZopfliCostModelSetFromCommands<AllocF: Allocator<floatX>>(
     while i < num_commands {
         {
             let inslength: usize = (commands[i]).insert_len_ as usize;
-            let copylength: usize = CommandCopyLen(&commands[i]) as usize;
+            let copylength: usize = commands[i].copy_len() as usize;
             let distcode: usize = ((commands[i]).dist_prefix_ as i32 & 0x3ff) as usize;
             let cmdcode: usize = (commands[i]).cmd_prefix_ as usize;
             {
