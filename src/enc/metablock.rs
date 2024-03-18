@@ -722,11 +722,7 @@ fn ContextBlockSplitterFinishBlock<
                     );
                     combined_entropy[jx] =
                         BitsEntropy(combined_histo.slice()[jx].slice(), xself.alphabet_size_);
-                    {
-                        let _rhs = combined_entropy[jx] - entropy[i] - xself.last_entropy_[jx];
-                        let _lhs = &mut diff[j];
-                        *_lhs += _rhs;
-                    }
+                    diff[j] += combined_entropy[jx] - entropy[i] - xself.last_entropy_[jx];
                 }
                 j = j.wrapping_add(1);
             }

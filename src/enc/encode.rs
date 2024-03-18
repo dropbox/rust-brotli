@@ -1813,34 +1813,20 @@ fn ChooseContextMap(
         + ShannonEntropy(&two_prefix_histo[3..], 3usize, &mut dummy);
     entropy[3] = 0i32 as (super::util::floatX);
     for i in 0usize..3usize {
-        let _rhs = ShannonEntropy(
+        entropy[3] += ShannonEntropy(
             &bigram_histo[(3usize).wrapping_mul(i)..],
             3usize,
             &mut dummy,
         );
-        let _lhs = &mut entropy[3];
-        *_lhs += _rhs;
     }
     let total: usize = monogram_histo[0]
         .wrapping_add(monogram_histo[1])
         .wrapping_add(monogram_histo[2]) as usize;
     0i32;
     entropy[0] = 1.0 as super::util::floatX / total as (super::util::floatX);
-    {
-        let _rhs = entropy[0];
-        let _lhs = &mut entropy[1];
-        *_lhs *= _rhs;
-    }
-    {
-        let _rhs = entropy[0];
-        let _lhs = &mut entropy[2];
-        *_lhs *= _rhs;
-    }
-    {
-        let _rhs = entropy[0];
-        let _lhs = &mut entropy[3];
-        *_lhs *= _rhs;
-    }
+    entropy[1] *= entropy[0];
+    entropy[2] *= entropy[0];
+    entropy[3] *= entropy[0];
     if quality < 7i32 {
         entropy[3] = entropy[1] * 10i32 as (super::util::floatX);
     }
