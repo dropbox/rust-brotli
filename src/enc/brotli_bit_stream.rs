@@ -308,7 +308,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
         recoder_state.num_bytes_encoded += inserts.len();
         let _copy_cursor = input.len() - interim.len();
         // let distance_context = CommandDistanceContext(cmd);
-        let copylen_code: u32 = CommandCopyLenCode(cmd);
+        let copylen_code = cmd.copy_len_code();
 
         let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, &params.dist);
         let final_distance: usize;
@@ -1372,44 +1372,47 @@ fn StoreCompressedMetaBlockHeader(
     }
 }
 
-fn NewBlockTypeCodeCalculator() -> BlockTypeCodeCalculator {
-    BlockTypeCodeCalculator {
-        last_type: 1,
-        second_last_type: 0,
+impl BlockTypeCodeCalculator {
+    fn new() -> Self {
+        Self {
+            last_type: 1,
+            second_last_type: 0,
+        }
     }
 }
 
-fn NewBlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
-    histogram_length: usize,
-    num_block_types: usize,
-    block_types: &'a [u8],
-    block_lengths: &'a [u32],
-    num_blocks: usize,
-) -> BlockEncoder<'a, Alloc> {
-    let block_len: usize;
-    if num_blocks != 0 && !block_lengths.is_empty() {
-        block_len = block_lengths[0] as usize;
-    } else {
-        block_len = 0;
-    }
-    BlockEncoder::<Alloc> {
-        histogram_length_: histogram_length,
-        num_block_types_: num_block_types,
-        block_types_: block_types,
-        block_lengths_: block_lengths,
-        num_blocks_: num_blocks,
-        block_split_code_: BlockSplitCode {
-            type_code_calculator: NewBlockTypeCodeCalculator(),
-            type_depths: [0; 258],
-            type_bits: [0; 258],
-            length_depths: [0; 26],
-            length_bits: [0; 26],
-        },
-        block_ix_: 0,
-        block_len_: block_len,
-        entropy_ix_: 0,
-        depths_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-        bits_: <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+impl<'a, Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'a, Alloc> {
+    fn new(
+        histogram_length: usize,
+        num_block_types: usize,
+        block_types: &'a [u8],
+        block_lengths: &'a [u32],
+        num_blocks: usize,
+    ) -> Self {
+        let block_len = if num_blocks != 0 && !block_lengths.is_empty() {
+            block_lengths[0] as usize
+        } else {
+            0
+        };
+        Self {
+            histogram_length_: histogram_length,
+            num_block_types_: num_block_types,
+            block_types_: block_types,
+            block_lengths_: block_lengths,
+            num_blocks_: num_blocks,
+            block_split_code_: BlockSplitCode {
+                type_code_calculator: BlockTypeCodeCalculator::new(),
+                type_depths: [0; 258],
+                type_bits: [0; 258],
+                length_depths: [0; 26],
+                length_bits: [0; 26],
+            },
+            block_ix_: 0,
+            block_len_: block_len,
+            entropy_ix_: 0,
+            depths_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
+            bits_: <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+        }
     }
 }
 
@@ -1605,7 +1608,7 @@ fn BuildAndStoreBlockSplitCode(
     let mut type_histo: [u32; 258] = [0; 258];
     let mut length_histo: [u32; 26] = [0; 26];
     let mut i: usize;
-    let mut type_code_calculator = NewBlockTypeCodeCalculator();
+    let mut type_code_calculator = BlockTypeCodeCalculator::new();
     i = 0usize;
     while i < num_blocks {
         {
@@ -1649,22 +1652,24 @@ fn BuildAndStoreBlockSplitCode(
     }
 }
 
-fn BuildAndStoreBlockSwitchEntropyCodes<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
-    xself: &mut BlockEncoder<'_, Alloc>,
-    tree: &mut [HuffmanTree],
-    storage_ix: &mut usize,
-    storage: &mut [u8],
-) {
-    BuildAndStoreBlockSplitCode(
-        xself.block_types_,
-        xself.block_lengths_,
-        xself.num_blocks_,
-        xself.num_block_types_,
-        tree,
-        &mut xself.block_split_code_,
-        storage_ix,
-        storage,
-    );
+impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
+    fn build_and_store_block_switch_entropy_codes(
+        &mut self,
+        tree: &mut [HuffmanTree],
+        storage_ix: &mut usize,
+        storage: &mut [u8],
+    ) {
+        BuildAndStoreBlockSplitCode(
+            self.block_types_,
+            self.block_lengths_,
+            self.num_blocks_,
+            self.num_block_types_,
+            tree,
+            &mut self.block_split_code_,
+            storage_ix,
+            storage,
+        );
+    }
 }
 
 fn StoreTrivialContextMap(
@@ -1918,40 +1923,70 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(
     m.free_cell(rle_symbols);
 }
 
-fn BuildAndStoreEntropyCodes<
-    Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>,
-    HistogramType: SliceWrapper<u32>,
->(
-    m: &mut Alloc,
-    xself: &mut BlockEncoder<Alloc>,
-    histograms: &[HistogramType],
-    histograms_size: usize,
-    alphabet_size: usize,
-    tree: &mut [HuffmanTree],
-    storage_ix: &mut usize,
-    storage: &mut [u8],
-) {
-    let table_size: usize = histograms_size.wrapping_mul(xself.histogram_length_);
-    xself.depths_ = if table_size != 0 {
-        <Alloc as Allocator<u8>>::alloc_cell(m, table_size)
-    } else {
-        <Alloc as Allocator<u8>>::AllocatedMemory::default()
-    };
-    xself.bits_ = if table_size != 0 {
-        <Alloc as Allocator<u16>>::alloc_cell(m, table_size)
-    } else {
-        <Alloc as Allocator<u16>>::AllocatedMemory::default()
-    };
-    {
-        for i in 0usize..histograms_size {
-            let ix: usize = i.wrapping_mul(xself.histogram_length_);
-            BuildAndStoreHuffmanTree(
-                &(histograms[i]).slice()[0..],
-                xself.histogram_length_,
-                alphabet_size,
-                tree,
-                &mut xself.depths_.slice_mut()[ix..],
-                &mut xself.bits_.slice_mut()[ix..],
+impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
+    fn build_and_store_entropy_codes<HistogramType: SliceWrapper<u32>>(
+        &mut self,
+        m: &mut Alloc,
+        histograms: &[HistogramType],
+        histograms_size: usize,
+        alphabet_size: usize,
+        tree: &mut [HuffmanTree],
+        storage_ix: &mut usize,
+        storage: &mut [u8],
+    ) {
+        let table_size: usize = histograms_size.wrapping_mul(self.histogram_length_);
+        self.depths_ = if table_size != 0 {
+            <Alloc as Allocator<u8>>::alloc_cell(m, table_size)
+        } else {
+            <Alloc as Allocator<u8>>::AllocatedMemory::default()
+        };
+        self.bits_ = if table_size != 0 {
+            <Alloc as Allocator<u16>>::alloc_cell(m, table_size)
+        } else {
+            <Alloc as Allocator<u16>>::AllocatedMemory::default()
+        };
+        {
+            for i in 0usize..histograms_size {
+                let ix: usize = i.wrapping_mul(self.histogram_length_);
+                BuildAndStoreHuffmanTree(
+                    &(histograms[i]).slice()[0..],
+                    self.histogram_length_,
+                    alphabet_size,
+                    tree,
+                    &mut self.depths_.slice_mut()[ix..],
+                    &mut self.bits_.slice_mut()[ix..],
+                    storage_ix,
+                    storage,
+                );
+            }
+        }
+    }
+
+    fn store_symbol(&mut self, symbol: usize, storage_ix: &mut usize, storage: &mut [u8]) {
+        if self.block_len_ == 0usize {
+            let block_ix: usize = {
+                self.block_ix_ = self.block_ix_.wrapping_add(1);
+                self.block_ix_
+            };
+            let block_len: u32 = self.block_lengths_[block_ix];
+            let block_type: u8 = self.block_types_[block_ix];
+            self.block_len_ = block_len as usize;
+            self.entropy_ix_ = (block_type as usize).wrapping_mul(self.histogram_length_);
+            StoreBlockSwitch(
+                &mut self.block_split_code_,
+                block_len,
+                block_type,
+                0i32,
+                storage_ix,
+                storage,
+            );
+        }
+        self.block_len_ = self.block_len_.wrapping_sub(1);
+        {
+            let ix: usize = self.entropy_ix_.wrapping_add(symbol);
+            BrotliWriteBits(
+                self.depths_.slice()[ix],
+                self.bits_.slice()[ix] as (u64),
                 storage_ix,
                 storage,
             );
@@ -1959,47 +1994,14 @@ fn BuildAndStoreEntropyCodes<
     }
 }
 
-fn StoreSymbol<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
-    xself: &mut BlockEncoder<Alloc>,
-    symbol: usize,
-    storage_ix: &mut usize,
-    storage: &mut [u8],
-) {
-    if xself.block_len_ == 0usize {
-        let block_ix: usize = {
-            xself.block_ix_ = xself.block_ix_.wrapping_add(1);
-            xself.block_ix_
-        };
-        let block_len: u32 = xself.block_lengths_[block_ix];
-        let block_type: u8 = xself.block_types_[block_ix];
-        xself.block_len_ = block_len as usize;
-        xself.entropy_ix_ = (block_type as usize).wrapping_mul(xself.histogram_length_);
-        StoreBlockSwitch(
-            &mut xself.block_split_code_,
-            block_len,
-            block_type,
-            0i32,
-            storage_ix,
-            storage,
-        );
-    }
-    xself.block_len_ = xself.block_len_.wrapping_sub(1);
-    {
-        let ix: usize = xself.entropy_ix_.wrapping_add(symbol);
-        BrotliWriteBits(
-            xself.depths_.slice()[ix],
-            xself.bits_.slice()[ix] as (u64),
-            storage_ix,
-            storage,
-        );
+impl Command {
+    fn copy_len_code(&self) -> u32 {
+        let modifier = self.copy_len_ >> 25;
+        let delta: i32 = ((modifier | ((modifier & 0x40) << 1)) as u8) as i8 as i32;
+        ((self.copy_len_ & 0x1ffffff) as i32 + delta) as u32
     }
 }
 
-fn CommandCopyLenCode(xself: &Command) -> u32 {
-    let modifier = xself.copy_len_ >> 25;
-    let delta: i32 = ((modifier | ((modifier & 0x40) << 1)) as u8) as i8 as i32;
-    ((xself.copy_len_ & 0x1ffffff) as i32 + delta) as u32
-}
 fn GetInsertExtra(inscode: u16) -> u32 {
     kInsExtra[inscode as usize]
 }
@@ -2017,7 +2019,7 @@ fn GetCopyExtra(copycode: u16) -> u32 {
 }
 
 fn StoreCommandExtra(cmd: &Command, storage_ix: &mut usize, storage: &mut [u8]) {
-    let copylen_code: u32 = CommandCopyLenCode(cmd);
+    let copylen_code = cmd.copy_len_code();
     let inscode: u16 = GetInsertLengthCode(cmd.insert_len_ as usize);
     let copycode: u16 = GetCopyLengthCode(copylen_code as usize);
     let insnumextra: u32 = GetInsertExtra(inscode);
@@ -2048,45 +2050,47 @@ fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
     //  0u8
 }
 
-fn StoreSymbolWithContext<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
-    xself: &mut BlockEncoder<Alloc>,
-    symbol: usize,
-    context: usize,
-    context_map: &[u32],
-    storage_ix: &mut usize,
-    storage: &mut [u8],
-    context_bits: usize,
-) {
-    if xself.block_len_ == 0usize {
-        let block_ix: usize = {
-            xself.block_ix_ = xself.block_ix_.wrapping_add(1);
-            xself.block_ix_
-        };
-        let block_len: u32 = xself.block_lengths_[block_ix];
-        let block_type: u8 = xself.block_types_[block_ix];
-        xself.block_len_ = block_len as usize;
-        xself.entropy_ix_ = (block_type as usize) << context_bits;
-        StoreBlockSwitch(
-            &mut xself.block_split_code_,
-            block_len,
-            block_type,
-            0i32,
-            storage_ix,
-            storage,
-        );
-    }
-    xself.block_len_ = xself.block_len_.wrapping_sub(1);
-    {
-        let histo_ix: usize = context_map[xself.entropy_ix_.wrapping_add(context)] as usize;
-        let ix: usize = histo_ix
-            .wrapping_mul(xself.histogram_length_)
-            .wrapping_add(symbol);
-        BrotliWriteBits(
-            xself.depths_.slice()[ix],
-            xself.bits_.slice()[ix] as (u64),
-            storage_ix,
-            storage,
-        );
+impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
+    fn store_symbol_with_context(
+        &mut self,
+        symbol: usize,
+        context: usize,
+        context_map: &[u32],
+        storage_ix: &mut usize,
+        storage: &mut [u8],
+        context_bits: usize,
+    ) {
+        if self.block_len_ == 0 {
+            let block_ix: usize = {
+                self.block_ix_ = self.block_ix_.wrapping_add(1);
+                self.block_ix_
+            };
+            let block_len: u32 = self.block_lengths_[block_ix];
+            let block_type: u8 = self.block_types_[block_ix];
+            self.block_len_ = block_len as usize;
+            self.entropy_ix_ = (block_type as usize) << context_bits;
+            StoreBlockSwitch(
+                &mut self.block_split_code_,
+                block_len,
+                block_type,
+                0,
+                storage_ix,
+                storage,
+            );
+        }
+        self.block_len_ = self.block_len_.wrapping_sub(1);
+        {
+            let histo_ix: usize = context_map[self.entropy_ix_.wrapping_add(context)] as usize;
+            let ix: usize = histo_ix
+                .wrapping_mul(self.histogram_length_)
+                .wrapping_add(symbol);
+            BrotliWriteBits(
+                self.depths_.slice()[ix],
+                self.bits_.slice()[ix] as (u64),
+                storage_ix,
+                storage,
+            );
+        }
     }
 }
 
@@ -2103,12 +2107,11 @@ fn CommandDistanceContext(xself: &Command) -> u32 {
     3u32
 }
 
-fn CleanupBlockEncoder<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
-    m: &mut Alloc,
-    xself: &mut BlockEncoder<Alloc>,
-) {
-    <Alloc as Allocator<u8>>::free_cell(m, core::mem::take(&mut xself.depths_));
-    <Alloc as Allocator<u16>>::free_cell(m, core::mem::take(&mut xself.bits_));
+impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
+    fn cleanup(&mut self, m: &mut Alloc) {
+        <Alloc as Allocator<u8>>::free_cell(m, core::mem::take(&mut self.depths_));
+        <Alloc as Allocator<u16>>::free_cell(m, core::mem::take(&mut self.bits_));
+    }
 }
 
 pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
@@ -2177,30 +2180,30 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
     } else {
         <Alloc as Allocator<HuffmanTree>>::AllocatedMemory::default()
     };
-    literal_enc = NewBlockEncoder::<Alloc>(
+    literal_enc = BlockEncoder::new(
         BROTLI_NUM_LITERAL_SYMBOLS,
         mb.literal_split.num_types,
         mb.literal_split.types.slice(),
         mb.literal_split.lengths.slice(),
         mb.literal_split.num_blocks,
     );
-    command_enc = NewBlockEncoder::<Alloc>(
+    command_enc = BlockEncoder::new(
         BROTLI_NUM_COMMAND_SYMBOLS,
         mb.command_split.num_types,
         mb.command_split.types.slice(),
         mb.command_split.lengths.slice(),
         mb.command_split.num_blocks,
     );
-    distance_enc = NewBlockEncoder::<Alloc>(
+    distance_enc = BlockEncoder::new(
         num_effective_distance_symbols,
         mb.distance_split.num_types,
         mb.distance_split.types.slice(),
         mb.distance_split.lengths.slice(),
         mb.distance_split.num_blocks,
     );
-    BuildAndStoreBlockSwitchEntropyCodes(&mut literal_enc, tree.slice_mut(), storage_ix, storage);
-    BuildAndStoreBlockSwitchEntropyCodes(&mut command_enc, tree.slice_mut(), storage_ix, storage);
-    BuildAndStoreBlockSwitchEntropyCodes(&mut distance_enc, tree.slice_mut(), storage_ix, storage);
+    literal_enc.build_and_store_block_switch_entropy_codes(tree.slice_mut(), storage_ix, storage);
+    command_enc.build_and_store_block_switch_entropy_codes(tree.slice_mut(), storage_ix, storage);
+    distance_enc.build_and_store_block_switch_entropy_codes(tree.slice_mut(), storage_ix, storage);
     BrotliWriteBits(2, dist.distance_postfix_bits as (u64), storage_ix, storage);
     BrotliWriteBits(
         4,
@@ -2249,9 +2252,8 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
             storage,
         );
     }
-    BuildAndStoreEntropyCodes(
+    literal_enc.build_and_store_entropy_codes(
         alloc,
-        &mut literal_enc,
         mb.literal_histograms.slice(),
         mb.literal_histograms_size,
         BROTLI_NUM_LITERAL_SYMBOLS,
@@ -2259,9 +2261,8 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
         storage_ix,
         storage,
     );
-    BuildAndStoreEntropyCodes(
+    command_enc.build_and_store_entropy_codes(
         alloc,
-        &mut command_enc,
         mb.command_histograms.slice(),
         mb.command_histograms_size,
         BROTLI_NUM_COMMAND_SYMBOLS,
@@ -2269,9 +2270,8 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
         storage_ix,
         storage,
     );
-    BuildAndStoreEntropyCodes(
+    distance_enc.build_and_store_entropy_codes(
         alloc,
-        &mut distance_enc,
         mb.distance_histograms.slice(),
         mb.distance_histograms_size,
         num_distance_symbols as usize,
@@ -2285,19 +2285,14 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
     for i in 0usize..n_commands {
         let cmd: Command = commands[i];
         let cmd_code: usize = cmd.cmd_prefix_ as usize;
-        StoreSymbol(&mut command_enc, cmd_code, storage_ix, storage);
+        command_enc.store_symbol(cmd_code, storage_ix, storage);
         StoreCommandExtra(&cmd, storage_ix, storage);
         if mb.literal_context_map_size == 0usize {
             let mut j: usize;
             j = cmd.insert_len_ as usize;
             while j != 0usize {
                 {
-                    StoreSymbol(
-                        &mut literal_enc,
-                        input[(pos & mask)] as usize,
-                        storage_ix,
-                        storage,
-                    );
+                    literal_enc.store_symbol(input[(pos & mask)] as usize, storage_ix, storage);
                     pos = pos.wrapping_add(1);
                 }
                 j = j.wrapping_sub(1);
@@ -2310,8 +2305,7 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
                     let context: usize =
                         Context(prev_byte, prev_byte2, literal_context_mode) as usize;
                     let literal: u8 = input[(pos & mask)];
-                    StoreSymbolWithContext(
-                        &mut literal_enc,
+                    literal_enc.store_symbol_with_context(
                         literal as usize,
                         context,
                         mb.literal_context_map.slice(),
@@ -2335,11 +2329,10 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
                 let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10; //FIXME: from command
                 let distextra: u64 = cmd.dist_extra_ as (u64);
                 if mb.distance_context_map_size == 0usize {
-                    StoreSymbol(&mut distance_enc, dist_code, storage_ix, storage);
+                    distance_enc.store_symbol(dist_code, storage_ix, storage);
                 } else {
                     let context: usize = CommandDistanceContext(&cmd) as usize;
-                    StoreSymbolWithContext(
-                        &mut distance_enc,
+                    distance_enc.store_symbol_with_context(
                         dist_code,
                         context,
                         mb.distance_context_map.slice(),
@@ -2352,9 +2345,9 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
             }
         }
     }
-    CleanupBlockEncoder(alloc, &mut distance_enc);
-    CleanupBlockEncoder(alloc, &mut command_enc);
-    CleanupBlockEncoder(alloc, &mut literal_enc);
+    distance_enc.cleanup(alloc);
+    command_enc.cleanup(alloc);
+    literal_enc.cleanup(alloc);
     if is_last != 0 {
         JumpToByteBoundary(storage_ix, storage);
     }
