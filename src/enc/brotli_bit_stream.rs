@@ -22,9 +22,7 @@ use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
 };
 use super::super::transform::TransformDictionaryWord;
-use super::command::{
-    Command, CommandDistanceIndexAndOffset, GetCopyLengthCode, GetInsertLengthCode,
-};
+use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode};
 use super::constants::{
     kCodeLengthBits, kCodeLengthDepth, kCopyBase, kCopyExtra, kInsBase, kInsExtra,
     kNonZeroRepsBits, kNonZeroRepsDepth, kSigned3BitContextLookup, kStaticCommandCodeBits,
@@ -307,10 +305,10 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
         let (inserts, interim) = input_iter.split_at(min(cmd.insert_len_ as usize, mb_len));
         recoder_state.num_bytes_encoded += inserts.len();
         let _copy_cursor = input.len() - interim.len();
-        // let distance_context = CommandDistanceContext(cmd);
+        // let distance_context = cmd.distance_context();
         let copylen_code = cmd.copy_len_code();
 
-        let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, &params.dist);
+        let (prev_dist_index, dist_offset) = cmd.distance_index_and_offset(&params.dist);
         let final_distance: usize;
         if prev_dist_index == 0 {
             final_distance = dist_offset as usize;
@@ -2089,19 +2087,6 @@ impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
     }
 }
 
-fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0x01ff_ffff
-}
-
-fn CommandDistanceContext(xself: &Command) -> u32 {
-    let r: u32 = (xself.cmd_prefix_ as i32 >> 6) as u32;
-    let c: u32 = (xself.cmd_prefix_ as i32 & 7i32) as u32;
-    if (r == 0u32 || r == 2u32 || r == 4u32 || r == 7u32) && (c <= 2u32) {
-        return c;
-    }
-    3u32
-}
-
 impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
     fn cleanup(&mut self, m: &mut Alloc) {
         <Alloc as Allocator<u8>>::free_cell(m, core::mem::take(&mut self.depths_));
@@ -2315,8 +2300,8 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
                 j = j.wrapping_sub(1);
             }
         }
-        pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
-        if CommandCopyLen(&cmd) != 0 {
+        pos = pos.wrapping_add(cmd.copy_len() as usize);
+        if cmd.copy_len() != 0 {
             prev_byte2 = input[(pos.wrapping_sub(2) & mask)];
             prev_byte = input[(pos.wrapping_sub(1) & mask)];
             if cmd.cmd_prefix_ as i32 >= 128i32 {
@@ -2326,10 +2311,9 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
                 if mb.distance_context_map_size == 0usize {
                     distance_enc.store_symbol(dist_code, storage_ix, storage);
                 } else {
-                    let context: usize = CommandDistanceContext(&cmd) as usize;
                     distance_enc.store_symbol_with_context(
                         dist_code,
-                        context,
+                        cmd.distance_context() as usize,
                         mb.distance_context_map.slice(),
                         storage_ix,
                         storage,
@@ -2371,8 +2355,8 @@ fn BuildHistograms(
             }
             j = j.wrapping_sub(1);
         }
-        pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
-        if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
+        pos = pos.wrapping_add(cmd.copy_len() as usize);
+        if cmd.copy_len() != 0 && cmd.cmd_prefix_ >= 128 {
             HistogramAddItem(dist_histo, cmd.dist_prefix_ as usize & 0x03ff);
         }
     }
@@ -2418,8 +2402,8 @@ fn StoreDataWithHuffmanCodes(
             }
             j = j.wrapping_sub(1);
         }
-        pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
-        if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
+        pos = pos.wrapping_add(cmd.copy_len() as usize);
+        if cmd.copy_len() != 0 && cmd.cmd_prefix_ >= 128 {
             let dist_code: usize = cmd.dist_prefix_ as usize & 0x03ff;
             let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10;
             let distextra: u32 = cmd.dist_extra_;
@@ -2728,7 +2712,7 @@ pub fn BrotliStoreMetaBlockFast<Cb, Alloc: BrotliAlloc>(
                 j = j.wrapping_sub(1);
             }
             num_literals = num_literals.wrapping_add(cmd.insert_len_ as usize);
-            pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
+            pos = pos.wrapping_add(cmd.copy_len() as usize);
         }
         BrotliBuildAndStoreHuffmanTreeFast(
             m,

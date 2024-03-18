@@ -479,8 +479,8 @@ impl<SliceType: SliceWrapper<u8> + Default> Command<SliceType> {
         F: FnMut(SliceType),
     {
         match self {
-            &mut Command::Literal(ref mut lit) => apply_func(core::mem::take(&mut lit.data)),
-            &mut Command::PredictionMode(ref mut pm) => {
+            Command::Literal(ref mut lit) => apply_func(core::mem::take(&mut lit.data)),
+            Command::PredictionMode(ref mut pm) => {
                 apply_func(core::mem::take(&mut pm.literal_context_map));
                 apply_func(core::mem::take(
                     &mut pm.predmode_speed_and_distance_context_map,
@@ -669,58 +669,54 @@ pub trait CommandProcessor<'a> {
     }
 }
 
-pub fn thaw_pair<'a, SliceType: Unfreezable + SliceWrapper<u8>>(
-    xself: &Command<SliceType>,
-    data: &InputPair<'a>,
-) -> Command<InputReference<'a>> {
-    match *xself {
-        Command::Literal(ref lit) => Command::Literal(LiteralCommand {
-            data: lit.data.thaw_pair(data).unwrap(),
-            prob: FeatureFlagSliceType::default(),
-            high_entropy: lit.high_entropy,
-        }),
-        Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
-            literal_context_map: pm.literal_context_map.thaw_pair(data).unwrap(),
-            predmode_speed_and_distance_context_map: pm
-                .predmode_speed_and_distance_context_map
-                .thaw_pair(data)
-                .unwrap(),
-        }),
-        Command::Dict(ref d) => Command::Dict(*d),
-        Command::Copy(ref c) => Command::Copy(*c),
-        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
-        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
-        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
+impl<SliceType: Unfreezable + SliceWrapper<u8>> Command<SliceType> {
+    pub fn thaw_pair<'a>(&self, data: &InputPair<'a>) -> Command<InputReference<'a>> {
+        match self {
+            Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+                data: lit.data.thaw_pair(data).unwrap(),
+                prob: FeatureFlagSliceType::default(),
+                high_entropy: lit.high_entropy,
+            }),
+            Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+                literal_context_map: pm.literal_context_map.thaw_pair(data).unwrap(),
+                predmode_speed_and_distance_context_map: pm
+                    .predmode_speed_and_distance_context_map
+                    .thaw_pair(data)
+                    .unwrap(),
+            }),
+            Command::Dict(ref d) => Command::Dict(*d),
+            Command::Copy(ref c) => Command::Copy(*c),
+            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
+            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
+            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
+        }
     }
-}
 
-pub fn thaw<'a, SliceType: Unfreezable + SliceWrapper<u8>>(
-    xself: &Command<SliceType>,
-    data: &'a [u8],
-) -> Command<InputReference<'a>> {
-    match *xself {
-        Command::Literal(ref lit) => Command::Literal(LiteralCommand {
-            data: lit.data.thaw(data),
-            prob: FeatureFlagSliceType::default(),
-            high_entropy: lit.high_entropy,
-        }),
-        Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
-            literal_context_map: pm.literal_context_map.thaw(data),
-            predmode_speed_and_distance_context_map: pm
-                .predmode_speed_and_distance_context_map
-                .thaw(data),
-        }),
-        Command::Dict(ref d) => Command::Dict(*d),
-        Command::Copy(ref c) => Command::Copy(*c),
-        Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
-        Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
-        Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
+    pub fn thaw<'a>(&self, data: &'a [u8]) -> Command<InputReference<'a>> {
+        match self {
+            Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+                data: lit.data.thaw(data),
+                prob: FeatureFlagSliceType::default(),
+                high_entropy: lit.high_entropy,
+            }),
+            Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+                literal_context_map: pm.literal_context_map.thaw(data),
+                predmode_speed_and_distance_context_map: pm
+                    .predmode_speed_and_distance_context_map
+                    .thaw(data),
+            }),
+            Command::Dict(ref d) => Command::Dict(*d),
+            Command::Copy(ref c) => Command::Copy(*c),
+            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
+            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
+            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
+        }
     }
 }
 
 impl<SliceType: SliceWrapper<u8> + Freezable> Command<SliceType> {
     pub fn freeze(&self) -> Command<SliceOffset> {
-        match *self {
+        match self {
             Command::Literal(ref lit) => Command::Literal(LiteralCommand {
                 data: lit.data.freeze(),
                 prob: FeatureFlagSliceType::default(),

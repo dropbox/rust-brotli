@@ -427,7 +427,7 @@ where
             );
             util::write_one(&tmp);
             for cmd in data.iter() {
-                util::write_one(&brotli::thaw_pair(cmd, &mb));
+                util::write_one(&cmd.thaw_pair(&mb));
             }
         };
     if params.log_meta_block {

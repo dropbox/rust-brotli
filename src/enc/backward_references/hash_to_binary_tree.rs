@@ -9,8 +9,8 @@ use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
 use core::cmp::{max, min};
 use enc::command::{
-    CombineLengthCodes, Command, CommandCopyLen, ComputeDistanceCode, GetCopyLengthCode,
-    GetInsertLengthCode, InitCommand, PrefixEncodeCopyDistance,
+    CombineLengthCodes, Command, ComputeDistanceCode, GetCopyLengthCode, GetInsertLengthCode,
+    PrefixEncodeCopyDistance,
 };
 use enc::constants::{kCopyExtra, kInsExtra};
 use enc::dictionary_hash::kStaticDictionaryHash;
