@@ -8,10 +8,7 @@ use super::block_splitter::BrotliSplitBlock;
 use super::brotli_bit_stream::MetaBlockSplit;
 use super::cluster::BrotliClusterHistograms;
 use super::combined_alloc::BrotliAlloc;
-use super::command::{
-    BrotliDistanceParams, Command, CommandCopyLen, CommandRestoreDistanceCode,
-    PrefixEncodeCopyDistance,
-};
+use super::command::{BrotliDistanceParams, Command, PrefixEncodeCopyDistance};
 use super::constants::BROTLI_MAX_NPOSTFIX;
 use super::encode::{
     BROTLI_DISTANCE_ALPHABET_SIZE, BROTLI_LARGE_MAX_DISTANCE_BITS, BROTLI_MAX_ALLOWED_DISTANCE,
@@ -73,8 +70,8 @@ fn RecomputeDistancePrefixes(
     }
 
     for cmd in cmds.split_at_mut(num_commands).0.iter_mut() {
-        if (CommandCopyLen(cmd) != 0 && cmd.cmd_prefix_ >= 128) {
-            let ret = CommandRestoreDistanceCode(cmd, orig_params);
+        if (cmd.copy_len() != 0 && cmd.cmd_prefix_ >= 128) {
+            let ret = cmd.restore_distance_code(orig_params);
             PrefixEncodeCopyDistance(
                 ret as usize,
                 new_params.num_direct_distance_codes as usize,
@@ -106,11 +103,11 @@ fn ComputeDistanceCost(
         equal_params = true;
     }
     for cmd in cmds.split_at(num_commands).0 {
-        if CommandCopyLen(cmd) != 0 && cmd.cmd_prefix_ >= 128 {
-            if (equal_params) {
+        if cmd.copy_len() != 0 && cmd.cmd_prefix_ >= 128 {
+            if equal_params {
                 dist_prefix = cmd.dist_prefix_;
             } else {
-                let distance = CommandRestoreDistanceCode(cmd, orig_params);
+                let distance = cmd.restore_distance_code(orig_params);
                 if distance > new_params.max_distance as u32 {
                     return false;
                 }
@@ -982,8 +979,8 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             }
             j = j.wrapping_sub(1);
         }
-        pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
-        if CommandCopyLen(&cmd) != 0 {
+        pos = pos.wrapping_add(cmd.copy_len() as usize);
+        if cmd.copy_len() != 0 {
             prev_byte2 = ringbuffer[(pos.wrapping_sub(2) & mask)];
             prev_byte = ringbuffer[(pos.wrapping_sub(1) & mask)];
             if cmd.cmd_prefix_ as i32 >= 128i32 {

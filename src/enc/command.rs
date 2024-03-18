@@ -20,17 +20,27 @@ pub struct Command {
     pub dist_prefix_: u16,
 }
 
-pub fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0x01ff_ffff
-}
+impl Command {
+    pub fn copy_len(&self) -> u32 {
+        self.copy_len_ & 0x01ff_ffff
+    }
 
-pub fn CommandDistanceContext(xself: &Command) -> u32 {
-    let r: u32 = (xself.cmd_prefix_ as i32 >> 6) as u32;
-    let c: u32 = (xself.cmd_prefix_ as i32 & 7i32) as u32;
-    if (r == 0u32 || r == 2u32 || r == 4u32 || r == 7u32) && (c <= 2u32) {
-        c
-    } else {
-        3u32
+    pub fn distance_context(&self) -> u32 {
+        let r: u32 = (self.cmd_prefix_ as i32 >> 6) as u32;
+        let c: u32 = (self.cmd_prefix_ as i32 & 7i32) as u32;
+        if (r == 0 || r == 2 || r == 4 || r == 7) && c <= 2 {
+            c
+        } else {
+            3
+        }
+    }
+
+    pub fn init_insert(&mut self, insertlen: usize) {
+        self.insert_len_ = insertlen as u32;
+        self.copy_len_ = (4i32 << 25) as u32;
+        self.dist_extra_ = 0u32;
+        self.dist_prefix_ = (1u16 << 10) | BROTLI_NUM_DISTANCE_SHORT_CODES as u16;
+        GetLengthCode(insertlen, 4usize, 0i32, &mut self.cmd_prefix_);
     }
 }
 
@@ -156,75 +166,78 @@ pub fn PrefixEncodeCopyDistance(
         //*extra_bits = (nbits << 24 | dist.wrapping_sub(offset) >> postfix_bits) as u32;
     }
 }
-pub fn CommandRestoreDistanceCode(xself: &Command, dist: &BrotliDistanceParams) -> u32 {
-    if (xself.dist_prefix_ as i32 & 0x3ff)
-        < BROTLI_NUM_DISTANCE_SHORT_CODES as i32 + dist.num_direct_distance_codes as i32
-    {
-        xself.dist_prefix_ as u32 & 0x3ff
-    } else {
-        let dcode = xself.dist_prefix_ as u32 & 0x3ff;
-        let nbits: u32 = u32::from(xself.dist_prefix_ >> 10);
-        let extra: u32 = xself.dist_extra_;
-        let postfix_mask = (1u32 << dist.distance_postfix_bits) - 1;
-        let hcode = dcode
-            .wrapping_sub(dist.num_direct_distance_codes)
-            .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES)
-            >> dist.distance_postfix_bits;
-        let lcode = dcode
-            .wrapping_sub(dist.num_direct_distance_codes)
-            .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES)
-            & postfix_mask;
-        let offset = (2u32.wrapping_add((hcode & 1)) << nbits).wrapping_sub(4);
-        (offset.wrapping_add(extra) << dist.distance_postfix_bits)
-            .wrapping_add(lcode)
-            .wrapping_add(dist.num_direct_distance_codes)
-            .wrapping_add(BROTLI_NUM_DISTANCE_SHORT_CODES)
-    }
-}
 
-// returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate
-pub fn CommandDistanceIndexAndOffset(cmd: &Command, dist: &BrotliDistanceParams) -> (usize, isize) {
-    let n_postfix = dist.distance_postfix_bits;
-    let n_direct = dist.num_direct_distance_codes;
-    let dextra = cmd.dist_extra_;
-    let dprefix = cmd.dist_prefix_ & 0x3ff;
-    let n_dist_bits = cmd.dist_prefix_ >> 10;
-    if u32::from(dprefix) < BROTLI_NUM_DISTANCE_SHORT_CODES {
-        let table: [(usize, isize); 16] = [
-            (1, 0),
-            (2, 0),
-            (3, 0),
-            (4, 0),
-            (1, -1),
-            (1, 1),
-            (1, -2),
-            (1, 2),
-            (1, -3),
-            (1, 3),
-            (2, -1),
-            (2, 1),
-            (2, -2),
-            (2, 2),
-            (2, -3),
-            (2, 3),
-        ];
-        //eprint!("AA {:?} {:?} -> {:?}\n",*cmd, *dist, table[dprefix as usize]);
-        return table[dprefix as usize];
+impl Command {
+    pub fn restore_distance_code(&self, dist: &BrotliDistanceParams) -> u32 {
+        if (self.dist_prefix_ as i32 & 0x3ff)
+            < BROTLI_NUM_DISTANCE_SHORT_CODES as i32 + dist.num_direct_distance_codes as i32
+        {
+            self.dist_prefix_ as u32 & 0x3ff
+        } else {
+            let dcode = self.dist_prefix_ as u32 & 0x3ff;
+            let nbits: u32 = u32::from(self.dist_prefix_ >> 10);
+            let extra: u32 = self.dist_extra_;
+            let postfix_mask = (1u32 << dist.distance_postfix_bits) - 1;
+            let hcode = dcode
+                .wrapping_sub(dist.num_direct_distance_codes)
+                .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES)
+                >> dist.distance_postfix_bits;
+            let lcode = dcode
+                .wrapping_sub(dist.num_direct_distance_codes)
+                .wrapping_sub(BROTLI_NUM_DISTANCE_SHORT_CODES)
+                & postfix_mask;
+            let offset = (2u32.wrapping_add((hcode & 1)) << nbits).wrapping_sub(4);
+            (offset.wrapping_add(extra) << dist.distance_postfix_bits)
+                .wrapping_add(lcode)
+                .wrapping_add(dist.num_direct_distance_codes)
+                .wrapping_add(BROTLI_NUM_DISTANCE_SHORT_CODES)
+        }
     }
-    if (dprefix as usize) < BROTLI_NUM_DISTANCE_SHORT_CODES as usize + n_direct as usize {
-        let ret = dprefix as isize + 1 - BROTLI_NUM_DISTANCE_SHORT_CODES as isize;
-        //eprint!("BB {:?} {:?} -> {:?}\n",*cmd, *dist, ret);
-        return (0, ret);
-    }
-    let postfix_mask = (1 << n_postfix) - 1;
-    let dcode = dprefix as u32 - BROTLI_NUM_DISTANCE_SHORT_CODES - n_direct;
-    let hcode = dcode >> n_postfix;
-    let lcode = dcode & postfix_mask;
-    let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;
 
-    let ret = (((offset + dextra) << n_postfix) + lcode + n_direct + 1) as isize;
-    //assert!(ret != 0);
-    (0, ret)
+    // returns which distance code to use ( 0 means none, 1 means last, 2 means penultimate, 3 means the prior to penultimate
+    pub fn distance_index_and_offset(&self, dist: &BrotliDistanceParams) -> (usize, isize) {
+        let n_postfix = dist.distance_postfix_bits;
+        let n_direct = dist.num_direct_distance_codes;
+        let dextra = self.dist_extra_;
+        let dprefix = self.dist_prefix_ & 0x3ff;
+        let n_dist_bits = self.dist_prefix_ >> 10;
+        if u32::from(dprefix) < BROTLI_NUM_DISTANCE_SHORT_CODES {
+            let table: [(usize, isize); 16] = [
+                (1, 0),
+                (2, 0),
+                (3, 0),
+                (4, 0),
+                (1, -1),
+                (1, 1),
+                (1, -2),
+                (1, 2),
+                (1, -3),
+                (1, 3),
+                (2, -1),
+                (2, 1),
+                (2, -2),
+                (2, 2),
+                (2, -3),
+                (2, 3),
+            ];
+            //eprint!("AA {:?} {:?} -> {:?}\n",*self, *dist, table[dprefix as usize]);
+            return table[dprefix as usize];
+        }
+        if (dprefix as usize) < BROTLI_NUM_DISTANCE_SHORT_CODES as usize + n_direct as usize {
+            let ret = dprefix as isize + 1 - BROTLI_NUM_DISTANCE_SHORT_CODES as isize;
+            //eprint!("BB {:?} {:?} -> {:?}\n",*self, *dist, ret);
+            return (0, ret);
+        }
+        let postfix_mask = (1 << n_postfix) - 1;
+        let dcode = dprefix as u32 - BROTLI_NUM_DISTANCE_SHORT_CODES - n_direct;
+        let hcode = dcode >> n_postfix;
+        let lcode = dcode & postfix_mask;
+        let offset = ((2 + (hcode & 1)) << n_dist_bits) - 4;
+
+        let ret = (((offset + dextra) << n_postfix) + lcode + n_direct + 1) as isize;
+        //assert!(ret != 0);
+        (0, ret)
+    }
 }
 
 mod test {
@@ -289,9 +302,9 @@ mod test {
         cmd.cmd_prefix_ = 297;
         cmd.dist_prefix_ = 2089;
 
-        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param), (0, 46));
+        assert_eq!(cmd.distance_index_and_offset(&param), (0, 46));
         assert_eq!(
-            super::CommandDistanceIndexAndOffset(&cmd, &param),
+            cmd.distance_index_and_offset(&param),
             helperCommandDistanceIndexAndOffset(&cmd, &param)
         );
         cmd = super::Command {
@@ -301,9 +314,9 @@ mod test {
             cmd_prefix_: 281,
             dist_prefix_: 6,
         };
-        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param), (1, -2));
+        assert_eq!(cmd.distance_index_and_offset(&param), (1, -2));
         assert_eq!(
-            super::CommandDistanceIndexAndOffset(&cmd, &param),
+            cmd.distance_index_and_offset(&param),
             helperCommandDistanceIndexAndOffset(&cmd, &param)
         );
         cmd = super::Command {
@@ -313,9 +326,9 @@ mod test {
             cmd_prefix_: 137,
             dist_prefix_: 27,
         };
-        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param), (0, 12));
+        assert_eq!(cmd.distance_index_and_offset(&param), (0, 12));
         assert_eq!(
-            super::CommandDistanceIndexAndOffset(&cmd, &param),
+            cmd.distance_index_and_offset(&param),
             helperCommandDistanceIndexAndOffset(&cmd, &param)
         );
         cmd = super::Command {
@@ -325,16 +338,13 @@ mod test {
             cmd_prefix_: 170,
             dist_prefix_: 11377,
         };
+        assert_eq!(cmd.distance_index_and_offset(&param), (0, 17574));
         assert_eq!(
-            super::CommandDistanceIndexAndOffset(&cmd, &param),
-            (0, 17574)
-        );
-        assert_eq!(
-            super::CommandDistanceIndexAndOffset(&cmd, &param),
+            cmd.distance_index_and_offset(&param),
             helperCommandDistanceIndexAndOffset(&cmd, &param)
         );
-        super::super::encode::InitInsertCommand(&mut cmd, 24);
-        assert_eq!(super::CommandDistanceIndexAndOffset(&cmd, &param), (0, 1));
+        cmd.init_insert(24);
+        assert_eq!(cmd.distance_index_and_offset(&param), (0, 1));
     }
     /*
     #[test]
@@ -365,9 +375,9 @@ pub fn RecomputeDistancePrefixes(
     }
     for i in 0usize..num_commands {
         let cmd: &mut Command = &mut cmds[i];
-        if CommandCopyLen(cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
+        if cmd.copy_len() != 0 && cmd.cmd_prefix_ >= 128 {
             PrefixEncodeCopyDistance(
-                CommandRestoreDistanceCode(cmd, dist) as usize,
+                cmd.restore_distance_code(dist) as usize,
                 num_direct_distance_codes as usize,
                 distance_postfix_bits as (u64),
                 &mut cmd.dist_prefix_,
@@ -377,56 +387,52 @@ pub fn RecomputeDistancePrefixes(
     }
 }
 
-pub fn InitCommand(
-    xself: &mut Command,
-    dist: &BrotliDistanceParams,
-    insertlen: usize,
-    copylen: usize,
-    copylen_code: usize,
-    distance_code: usize,
-) {
-    xself.insert_len_ = insertlen as u32;
-    let copylen_code_delta = (copylen_code as i32 - copylen as i32) as i8;
-    xself.copy_len_ = (copylen as u32 | (u32::from(copylen_code_delta as u8) << 25));
-    PrefixEncodeCopyDistance(
-        distance_code,
-        dist.num_direct_distance_codes as usize,
-        u64::from(dist.distance_postfix_bits),
-        &mut xself.dist_prefix_,
-        &mut xself.dist_extra_,
-    );
-    GetLengthCode(
-        insertlen,
-        copylen_code,
-        if (xself.dist_prefix_ & 0x3ff) == 0 {
-            1
-        } else {
-            0
-        },
-        &mut xself.cmd_prefix_,
-    );
-}
-pub fn NewCommand(
-    dist: &BrotliDistanceParams,
-    insertlen: usize,
-    copylen: usize,
-    copylen_code: usize,
-    distance_code: usize,
-) -> Command {
-    let mut xself: Command = Command {
-        insert_len_: insertlen as u32,
-        copy_len_: (copylen | ((copylen_code ^ copylen) << 25)) as u32,
-        dist_extra_: 0,
-        cmd_prefix_: 0,
-        dist_prefix_: 0,
-    };
-    InitCommand(
-        &mut xself,
-        dist,
-        insertlen,
-        copylen,
-        copylen_code,
-        distance_code,
-    );
-    xself
+impl Command {
+    pub fn init(
+        &mut self,
+        dist: &BrotliDistanceParams,
+        insertlen: usize,
+        copylen: usize,
+        copylen_code: usize,
+        distance_code: usize,
+    ) {
+        self.insert_len_ = insertlen as u32;
+        let copylen_code_delta = (copylen_code as i32 - copylen as i32) as i8;
+        self.copy_len_ = (copylen as u32 | (u32::from(copylen_code_delta as u8) << 25));
+        PrefixEncodeCopyDistance(
+            distance_code,
+            dist.num_direct_distance_codes as usize,
+            u64::from(dist.distance_postfix_bits),
+            &mut self.dist_prefix_,
+            &mut self.dist_extra_,
+        );
+        GetLengthCode(
+            insertlen,
+            copylen_code,
+            if (self.dist_prefix_ & 0x3ff) == 0 {
+                1
+            } else {
+                0
+            },
+            &mut self.cmd_prefix_,
+        );
+    }
+
+    pub fn new(
+        dist: &BrotliDistanceParams,
+        insertlen: usize,
+        copylen: usize,
+        copylen_code: usize,
+        distance_code: usize,
+    ) -> Self {
+        let mut cmd = Command {
+            insert_len_: insertlen as u32,
+            copy_len_: (copylen | ((copylen_code ^ copylen) << 25)) as u32,
+            dist_extra_: 0,
+            cmd_prefix_: 0,
+            dist_prefix_: 0,
+        };
+        cmd.init(dist, insertlen, copylen, copylen_code, distance_code);
+        cmd
+    }
 }

@@ -51,8 +51,6 @@ pub use enc::input_pair::InputPair;
 pub use enc::input_pair::InputReference;
 pub use enc::input_pair::InputReferenceMut;
 pub use enc::interface;
-pub use enc::interface::thaw;
-pub use enc::interface::thaw_pair;
 pub use enc::interface::SliceOffset;
 #[cfg(feature = "ffi-api")]
 pub mod ffi;

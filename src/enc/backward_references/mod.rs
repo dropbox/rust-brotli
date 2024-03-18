@@ -5,7 +5,7 @@ pub mod hq;
 mod test;
 
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::command::{BrotliDistanceParams, Command, ComputeDistanceCode, InitCommand};
+use super::command::{BrotliDistanceParams, Command, ComputeDistanceCode};
 use super::dictionary_hash::kStaticDictionaryHash;
 use super::hash_to_binary_tree::{H10Buckets, H10DefaultParams, ZopfliNode, H10};
 use super::static_dict::BrotliDictionary;
@@ -2472,13 +2472,10 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                     hasher.PrepareDistanceCache(dist_cache);
                 }
                 new_commands_count += 1;
-                InitCommand(
-                    {
-                        let (mut _old, new_commands) =
-                            core::mem::take(&mut commands).split_at_mut(1);
-                        commands = new_commands;
-                        &mut _old[0]
-                    },
+
+                let (old, new_commands) = core::mem::take(&mut commands).split_at_mut(1);
+                commands = new_commands;
+                old[0].init(
                     &params.dist,
                     insert_length,
                     sr.len,
