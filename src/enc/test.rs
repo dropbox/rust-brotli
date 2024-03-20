@@ -8,11 +8,7 @@ use super::super::alloc::{
     bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
 };
 use super::cluster::HistogramPair;
-use super::encode::{
-    BrotliEncoderCompressStream, BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-    BrotliEncoderIsFinished, BrotliEncoderOperation, BrotliEncoderParameter,
-    BrotliEncoderSetParameter,
-};
+use super::encode::{BrotliEncoderOperation, BrotliEncoderParameter};
 use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
 use super::StaticCommand;
 use super::ZopfliNode;
@@ -31,6 +27,7 @@ use super::interface;
 use super::pdf::PDF;
 use brotli_decompressor::HuffmanCode;
 use core::ops;
+use enc::encode::BrotliEncoderStateStruct;
 
 declare_stack_allocator_struct!(MemPool, 128, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);
@@ -46,7 +43,7 @@ fn oneshot_compress(
     magic: bool,
     in_batch_size: usize,
     out_batch_size: usize,
-) -> (i32, usize) {
+) -> (bool, usize) {
     let stack_u8_buffer =
         unsafe { define_allocator_memory_pool!(96, u8, [0; 24 * 1024 * 1024], calloc) };
     let stack_u16_buffer =
@@ -113,7 +110,7 @@ fn oneshot_compress(
     let mhp = CallocatedFreelist2048::<HistogramPair>::new_allocator(stack_hp_buffer.data, bzero);
     let mct = CallocatedFreelist2048::<ContextType>::new_allocator(stack_ct_buffer.data, bzero);
     let mht = CallocatedFreelist2048::<HuffmanTree>::new_allocator(stack_ht_buffer.data, bzero);
-    let mut s_orig = BrotliEncoderCreateInstance(CombiningAllocator::new(
+    let mut s_orig = BrotliEncoderStateStruct::new(CombiningAllocator::new(
         stack_u8_allocator,
         stack_u16_allocator,
         stack_i32_allocator,
@@ -138,21 +135,19 @@ fn oneshot_compress(
     {
         let s = &mut s_orig;
 
-        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_QUALITY, quality);
+        s.set_parameter(BrotliEncoderParameter::BROTLI_PARAM_QUALITY, quality);
         if magic {
-            BrotliEncoderSetParameter(
-                s,
+            s.set_parameter(
                 BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER,
                 magic as u32,
             );
         }
         if quality >= 10 {
-            BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_Q9_5, 1);
+            s.set_parameter(BrotliEncoderParameter::BROTLI_PARAM_Q9_5, 1);
         }
-        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_LGWIN, lgwin);
-        BrotliEncoderSetParameter(s, BrotliEncoderParameter::BROTLI_PARAM_MODE, 0); // gen, text, font
-        BrotliEncoderSetParameter(
-            s,
+        s.set_parameter(BrotliEncoderParameter::BROTLI_PARAM_LGWIN, lgwin);
+        s.set_parameter(BrotliEncoderParameter::BROTLI_PARAM_MODE, 0); // gen, text, font
+        s.set_parameter(
             BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
             input.len() as u32,
         );
@@ -194,8 +189,7 @@ fn oneshot_compress(
                     _,
                 >| ();
 
-            let result = BrotliEncoderCompressStream(
-                s,
+            let result = s.compress_stream(
                 op,
                 &mut available_in,
                 input,
@@ -206,18 +200,16 @@ fn oneshot_compress(
                 &mut total_out,
                 &mut nop_callback,
             );
-            if result <= 0 {
+            if !result {
                 return (result, next_out_offset);
             }
-            if BrotliEncoderIsFinished(s) != 0 {
+            if s.is_finished() {
                 break;
             }
         }
-
-        BrotliEncoderDestroyInstance(s);
     }
 
-    (1, next_out_offset)
+    (true, next_out_offset)
 }
 
 fn oneshot_decompress(compressed: &[u8], output: &mut [u8]) -> (BrotliResult, usize, usize) {
@@ -272,7 +264,7 @@ fn oneshot(
         in_buffer_size,
         out_buffer_size,
     );
-    if success == 0 {
+    if !success {
         //return (BrotliResult::ResultFailure, 0, 0);
         available_in = compressed.len();
     }
