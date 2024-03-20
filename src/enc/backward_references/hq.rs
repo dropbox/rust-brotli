@@ -421,12 +421,8 @@ where
         );
         matches_offset += loc_offset;
     }
-    i = 0usize;
-    while i <= 37usize {
-        {
-            dict_matches[i] = kInvalidMatch;
-        }
-        i = i.wrapping_add(1);
+    for i in 0..=37 {
+        dict_matches[i] = kInvalidMatch
     }
     {
         let minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1));
@@ -441,28 +437,23 @@ where
         {
             assert!(params.use_dictionary);
             let maxlen: usize = brotli_min_size_t(37usize, max_length);
-            let mut l: usize;
-            l = minlen;
-            while l <= maxlen {
-                {
-                    let dict_id: u32 = dict_matches[l];
-                    if dict_id < kInvalidMatch {
-                        let distance: usize = max_backward
-                            .wrapping_add(gap)
-                            .wrapping_add((dict_id >> 5) as usize)
-                            .wrapping_add(1);
-                        if distance <= params.dist.max_distance {
-                            InitDictionaryBackwardMatch(
-                                &mut BackwardMatchMut(&mut matches[matches_offset]),
-                                distance,
-                                l,
-                                (dict_id & 31u32) as usize,
-                            );
-                            matches_offset += 1;
-                        }
+            for l in minlen..=maxlen {
+                let dict_id: u32 = dict_matches[l];
+                if dict_id < kInvalidMatch {
+                    let distance: usize = max_backward
+                        .wrapping_add(gap)
+                        .wrapping_add((dict_id >> 5) as usize)
+                        .wrapping_add(1);
+                    if distance <= params.dist.max_distance {
+                        InitDictionaryBackwardMatch(
+                            &mut BackwardMatchMut(&mut matches[matches_offset]),
+                            distance,
+                            l,
+                            (dict_id & 31u32) as usize,
+                        );
+                        matches_offset += 1;
                     }
                 }
-                l = l.wrapping_add(1);
             }
         }
     }
@@ -559,20 +550,13 @@ fn StartPosQueuePush(xself: &mut StartPosQueue, posdata: &PosData) {
     let mut offset: usize = !xself.idx_ & 7usize;
     xself.idx_ = xself.idx_.wrapping_add(1);
     let len: usize = StartPosQueueSize(xself);
-    let mut i: usize;
     let q: &mut [PosData; 8] = &mut xself.q_;
     q[offset] = *posdata;
-    i = 1usize;
-    while i < len {
-        {
-            if (q[(offset & 7usize)]).costdiff > (q[(offset.wrapping_add(1) & 7usize)]).costdiff {
-                let mut __brotli_swap_tmp: PosData = q[(offset & 7usize)];
-                q[(offset & 7usize)] = q[(offset.wrapping_add(1) & 7usize)];
-                q[(offset.wrapping_add(1) & 7usize)] = __brotli_swap_tmp;
-            }
-            offset = offset.wrapping_add(1);
+    for _i in 1..len {
+        if q[offset & 7].costdiff > q[(offset + 1) & 7].costdiff {
+            q.swap(offset & 7, (offset + 1) & 7);
         }
-        i = i.wrapping_add(1);
+        offset = offset.wrapping_add(1);
     }
 }
 
@@ -806,43 +790,35 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                             {
                                 let dist_cost: floatX =
                                     base_cost + ZopfliCostModelGetDistanceCost(model, j);
-                                let mut l: usize;
-                                l = best_len.wrapping_add(1);
-                                while l <= len {
-                                    {
-                                        let copycode: u16 = GetCopyLengthCode(l);
-                                        let cmdcode: u16 = CombineLengthCodes(
-                                            inscode,
-                                            copycode,
-                                            (j == 0usize) as i32,
-                                        );
-                                        let cost: floatX = (if (cmdcode as i32) < 128i32 {
-                                            base_cost
-                                        } else {
-                                            dist_cost
-                                        }) + GetCopyExtra(copycode) as (floatX)
-                                            + ZopfliCostModelGetCommandCost(model, cmdcode);
-                                        if cost
-                                            < match (nodes[pos.wrapping_add(l)]).u {
-                                                Union1::cost(cost) => cost,
-                                                _ => 0.0,
-                                            }
-                                        {
-                                            UpdateZopfliNode(
-                                                nodes,
-                                                pos,
-                                                start,
-                                                l,
-                                                l,
-                                                backward,
-                                                j.wrapping_add(1),
-                                                cost,
-                                            );
-                                            result = brotli_max_size_t(result, l);
+                                for l in best_len.wrapping_add(1)..=len {
+                                    let copycode: u16 = GetCopyLengthCode(l);
+                                    let cmdcode: u16 =
+                                        CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
+                                    let cost: floatX = (if (cmdcode as i32) < 128i32 {
+                                        base_cost
+                                    } else {
+                                        dist_cost
+                                    }) + GetCopyExtra(copycode) as (floatX)
+                                        + ZopfliCostModelGetCommandCost(model, cmdcode);
+                                    if cost
+                                        < match (nodes[pos.wrapping_add(l)]).u {
+                                            Union1::cost(cost) => cost,
+                                            _ => 0.0,
                                         }
-                                        best_len = l;
+                                    {
+                                        UpdateZopfliNode(
+                                            nodes,
+                                            pos,
+                                            start,
+                                            l,
+                                            l,
+                                            backward,
+                                            j.wrapping_add(1),
+                                            cost,
+                                        );
+                                        result = brotli_max_size_t(result, l);
                                     }
-                                    l = l.wrapping_add(1);
+                                    best_len = l;
                                 }
                             }
                         }
