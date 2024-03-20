@@ -106,7 +106,7 @@ fn compute_huffman_table_index_for_context_map(
 
 pub fn Context(p1: u8, p2: u8, mode: ContextType) -> u8 {
     match mode {
-        ContextType::CONTEXT_LSB6 => (p1 as i32 & 0x3fi32) as u8,
+        ContextType::CONTEXT_LSB6 => p1 & 0x3f,
         ContextType::CONTEXT_MSB6 => (p1 as i32 >> 2) as u8,
         ContextType::CONTEXT_UTF8 => {
             (kUTF8ContextLookup[p1 as usize] as i32

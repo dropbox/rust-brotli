@@ -969,12 +969,7 @@ pub fn BrotliStoreHuffmanTree(
 }
 
 fn StoreStaticCodeLengthCode(storage_ix: &mut usize, storage: &mut [u8]) {
-    BrotliWriteBits(
-        40,
-        0xffu32 as (u64) << 32 | 0x55555554u32 as (u64),
-        storage_ix,
-        storage,
-    );
+    BrotliWriteBits(40, 0xff_5555_5554, storage_ix, storage);
 }
 
 pub struct SimpleSortHuffmanTree {}
@@ -2063,7 +2058,7 @@ fn StoreSymbol<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
 fn CommandCopyLenCode(xself: &Command) -> u32 {
     let modifier = xself.copy_len_ >> 25;
     let delta: i32 = ((modifier | ((modifier & 0x40) << 1)) as u8) as i8 as i32;
-    ((xself.copy_len_ & 0x1ffffff) as i32 + delta) as u32
+    ((xself.copy_len_ & 0x01ff_ffff) as i32 + delta) as u32
 }
 fn GetInsertExtra(inscode: u16) -> u32 {
     kInsExtra[inscode as usize]
@@ -2156,7 +2151,7 @@ fn StoreSymbolWithContext<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
 }
 
 fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0xffffffu32
+    xself.copy_len_ & 0x00ff_ffff
 }
 
 fn CommandDistanceContext(xself: &Command) -> u32 {
@@ -2396,7 +2391,7 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
             prev_byte2 = input[(pos.wrapping_sub(2) & mask)];
             prev_byte = input[(pos.wrapping_sub(1) & mask)];
             if cmd.cmd_prefix_ as i32 >= 128i32 {
-                let dist_code: usize = cmd.dist_prefix_ as usize & 0x3ff;
+                let dist_code: usize = cmd.dist_prefix_ as usize & 0x03ff;
                 let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10; //FIXME: from command
                 let distextra: u64 = cmd.dist_extra_ as (u64);
                 if mb.distance_context_map_size == 0usize {
@@ -2450,7 +2445,7 @@ fn BuildHistograms(
         }
         pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
         if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
-            HistogramAddItem(dist_histo, cmd.dist_prefix_ as usize & 0x3ff);
+            HistogramAddItem(dist_histo, cmd.dist_prefix_ as usize & 0x03ff);
         }
     }
 }
@@ -2497,7 +2492,7 @@ fn StoreDataWithHuffmanCodes(
         }
         pos = pos.wrapping_add(CommandCopyLen(&cmd) as usize);
         if CommandCopyLen(&cmd) != 0 && (cmd.cmd_prefix_ as i32 >= 128i32) {
-            let dist_code: usize = cmd.dist_prefix_ as usize & 0x3ff;
+            let dist_code: usize = cmd.dist_prefix_ as usize & 0x03ff;
             let distnumextra: u32 = u32::from(cmd.dist_prefix_) >> 10;
             let distextra: u32 = cmd.dist_extra_;
             BrotliWriteBits(
@@ -2631,17 +2626,12 @@ pub fn BrotliStoreMetaBlockTrivial<Alloc: BrotliAlloc, Cb>(
 }
 
 fn StoreStaticCommandHuffmanTree(storage_ix: &mut usize, storage: &mut [u8]) {
-    BrotliWriteBits(
-        56,
-        0x926244u32 as (u64) << 32 | 0x16307003,
-        storage_ix,
-        storage,
-    );
-    BrotliWriteBits(3, 0x0u64, storage_ix, storage);
+    BrotliWriteBits(56, 0x0092_6244_1630_7003, storage_ix, storage);
+    BrotliWriteBits(3, 0, storage_ix, storage);
 }
 
 fn StoreStaticDistanceHuffmanTree(storage_ix: &mut usize, storage: &mut [u8]) {
-    BrotliWriteBits(28, 0x369dc03u64, storage_ix, storage);
+    BrotliWriteBits(28, 0x0369_dc03, storage_ix, storage);
 }
 
 struct BlockSplitRef<'a> {

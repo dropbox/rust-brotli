@@ -168,25 +168,25 @@ fn test_bulk_store_range_off_spec() {
     assert!(hasher_d == hasher_c);
     hasher_a.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        0xfff,
+        0x0fff,
         15,
         RANDOM_THEN_UNICODE.len() - 8,
     );
     hasher_c.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        0xfff,
+        0x0fff,
         15,
         RANDOM_THEN_UNICODE.len() - 8,
     );
     hasher_c.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        0xfff,
+        0x0fff,
         RANDOM_THEN_UNICODE.len(),
         RANDOM_THEN_UNICODE.len() - 8,
     ); // noop
     for i in 15..RANDOM_THEN_UNICODE.len() - 8 {
-        hasher_b.Store(RANDOM_THEN_UNICODE, 0xfff, i);
-        hasher_d.Store(RANDOM_THEN_UNICODE, 0xfff, i);
+        hasher_b.Store(RANDOM_THEN_UNICODE, 0x0fff, i);
+        hasher_d.Store(RANDOM_THEN_UNICODE, 0x0fff, i);
     }
     assert_eq!(hasher_a.buckets.slice(), hasher_c.buckets.slice());
     assert_eq!(hasher_b.buckets.slice(), hasher_d.buckets.slice());

@@ -81,7 +81,7 @@ fn fix_weights(weights: &mut [i32; 2]) {
 #[allow(dead_code)]
 #[inline(always)]
 fn normalize_weights(weights: &mut [i32; 2]) {
-    if ((weights[0] | weights[1]) & 0x7f000000) != 0 {
+    if ((weights[0] | weights[1]) & 0x7f00_0000) != 0 {
         fix_weights(weights);
     }
 }

@@ -359,8 +359,8 @@ pub const BROTLI_LARGE_MAX_WBITS: u32 = 30;
 
 pub const BROTLI_MAX_DISTANCE_BITS: u32 = 24;
 pub const BROTLI_MAX_WINDOW_BITS: usize = BROTLI_MAX_DISTANCE_BITS as usize;
-pub const BROTLI_MAX_DISTANCE: usize = 0x3FFFFFC;
-pub const BROTLI_MAX_ALLOWED_DISTANCE: usize = 0x7FFFFFC;
+pub const BROTLI_MAX_DISTANCE: usize = 0x03FF_FFFC;
+pub const BROTLI_MAX_ALLOWED_DISTANCE: usize = 0x07FF_FFFC;
 pub const BROTLI_NUM_DISTANCE_SHORT_CODES: u32 = 16;
 pub fn BROTLI_DISTANCE_ALPHABET_SIZE(NPOSTFIX: u32, NDIRECT: u32, MAXNBITS: u32) -> u32 {
     BROTLI_NUM_DISTANCE_SHORT_CODES + (NDIRECT) + ((MAXNBITS) << ((NPOSTFIX) + 1))
@@ -420,7 +420,7 @@ fn ExtendLastCommand<Alloc: BrotliAlloc>(
 
     let mask = s.ringbuffer_.mask_;
     let max_backward_distance: u64 = (1u64 << s.params.lgwin) - BROTLI_WINDOW_GAP as u64;
-    let last_copy_len = u64::from(last_command.copy_len_) & 0x1ffffff;
+    let last_copy_len = u64::from(last_command.copy_len_) & 0x01ff_ffff;
     let last_processed_pos: u64 = s.last_processed_pos_ - last_copy_len;
     let max_distance: u64 = if last_processed_pos < max_backward_distance {
         last_processed_pos
@@ -450,7 +450,7 @@ fn ExtendLastCommand<Alloc: BrotliAlloc>(
         /* The copy length is at most the metablock size, and thus expressible. */
         GetLengthCode(
             last_command.insert_len_ as usize,
-            ((last_command.copy_len_ & 0x1FFFFFF) as i32 + (last_command.copy_len_ >> 25) as i32)
+            ((last_command.copy_len_ & 0x01FF_FFFF) as i32 + (last_command.copy_len_ >> 25) as i32)
                 as usize,
             ((last_command.dist_prefix_ & 0x3FF) == 0) as i32,
             &mut last_command.cmd_prefix_,
@@ -3095,7 +3095,7 @@ pub fn BrotliEncoderTakeOutput<'a, Alloc: BrotliAlloc>(
 }
 
 pub fn BrotliEncoderVersion() -> u32 {
-    0x1000f01u32
+    0x0100_0f01
 }
 
 pub fn BrotliEncoderInputBlockSize<Alloc: BrotliAlloc>(
