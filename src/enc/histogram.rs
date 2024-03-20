@@ -3,7 +3,7 @@
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::block_split::BlockSplit;
-use super::command::{Command, CommandCopyLen, CommandDistanceContext};
+use super::command::Command;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::vectorization::Mem256i;
 use core;
@@ -533,14 +533,14 @@ pub fn BrotliBuildHistogramsWithContext<'a, Alloc: alloc::Allocator<u8> + alloc:
             }
             j = j.wrapping_sub(1);
         }
-        pos = pos.wrapping_add(CommandCopyLen(cmd) as usize);
-        if CommandCopyLen(cmd) != 0 {
+        pos = pos.wrapping_add(cmd.copy_len() as usize);
+        if cmd.copy_len() != 0 {
             prev_byte2 = ringbuffer[(pos.wrapping_sub(2) & mask)];
             prev_byte = ringbuffer[(pos.wrapping_sub(1) & mask)];
             if cmd.cmd_prefix_ as i32 >= 128i32 {
                 BlockSplitIteratorNext(&mut dist_it);
                 let context: usize =
-                    (dist_it.type_ << 2).wrapping_add(CommandDistanceContext(cmd) as usize);
+                    (dist_it.type_ << 2).wrapping_add(cmd.distance_context() as usize);
                 HistogramAddItem(
                     &mut copy_dist_histograms[(context as usize)],
                     cmd.dist_prefix_ as usize & 0x3ff,
