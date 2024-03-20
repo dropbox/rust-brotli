@@ -1,4 +1,4 @@
-use core;
+use core::cmp::min;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -378,7 +378,7 @@ impl BroCatli {
         } else {
             assert_ne!(self.window_size, 0);
         }
-        let to_copy = core::cmp::min(
+        let to_copy = min(
             out_bytes.len() - *out_offset,
             usize::from(
                 new_stream_pending.num_bytes_read - new_stream_pending.num_bytes_written.unwrap(),
@@ -434,7 +434,7 @@ impl BroCatli {
                     {
                         let dst = &mut new_stream_pending.bytes_so_far
                             [usize::from(new_stream_pending.num_bytes_read)..];
-                        let to_copy = core::cmp::min(dst.len(), in_bytes.len() - *in_offset);
+                        let to_copy = min(dst.len(), in_bytes.len() - *in_offset);
                         dst[..to_copy]
                             .clone_from_slice(in_bytes.split_at(*in_offset).1.split_at(to_copy).0);
                         *in_offset += to_copy;
@@ -493,8 +493,7 @@ impl BroCatli {
         if in_bytes.len() == *in_offset {
             return BroCatliResult::NeedsMoreInput;
         }
-        let mut to_copy =
-            core::cmp::min(out_bytes.len() - *out_offset, in_bytes.len() - *in_offset);
+        let mut to_copy = min(out_bytes.len() - *out_offset, in_bytes.len() - *in_offset);
         assert_ne!(to_copy, 0);
         if to_copy == 1 {
             out_bytes[*out_offset] = self.last_bytes[0];

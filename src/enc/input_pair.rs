@@ -2,6 +2,7 @@ use super::super::alloc::SliceWrapper;
 use super::super::alloc::SliceWrapperMut;
 use super::interface::Freezable;
 use core;
+use core::cmp::min;
 #[derive(Copy, Clone, Default, Debug)]
 pub struct InputReference<'a> {
     pub data: &'a [u8],
@@ -58,7 +59,7 @@ impl<'a> From<&'a InputReferenceMut<'a>> for InputReference<'a> {
 #[derive(Clone, Debug, Copy)]
 pub struct InputPair<'a>(pub InputReference<'a>, pub InputReference<'a>);
 
-impl<'a> core::cmp::PartialEq for InputPair<'a> {
+impl<'a> PartialEq for InputPair<'a> {
     fn eq(&self, other: &InputPair<'_>) -> bool {
         if self.0.len() + self.1.len() != other.0.len() + other.1.len() {
             return false;
@@ -103,10 +104,7 @@ impl<'a> InputPair<'a> {
     pub fn split_at(&self, loc: usize) -> (InputPair<'a>, InputPair<'a>) {
         if loc >= self.0.len() {
             let offset_from_self_1 = loc - self.0.len();
-            let (first, second) = self
-                .1
-                .data
-                .split_at(core::cmp::min(offset_from_self_1, self.1.len()));
+            let (first, second) = self.1.data.split_at(min(offset_from_self_1, self.1.len()));
             return (
                 InputPair::<'a>(
                     self.0,
@@ -124,7 +122,7 @@ impl<'a> InputPair<'a> {
                 ),
             );
         }
-        let (first, second) = self.0.data.split_at(core::cmp::min(loc, self.0.len()));
+        let (first, second) = self.0.data.split_at(min(loc, self.0.len()));
         (
             InputPair::<'a>(
                 InputReference::<'a> {

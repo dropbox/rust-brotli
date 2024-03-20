@@ -3,11 +3,11 @@ use super::bit_cost::BrotliPopulationCost;
 use super::histogram::{
     CostAccessors, HistogramAddHistogram, HistogramClear, HistogramSelfAddHistogram,
 };
-use super::util::brotli_min_size_t;
 use super::util::FastLog2;
 use alloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
+use core::cmp::min;
 #[derive(Clone, Copy)]
 pub struct HistogramPair {
     pub idx1: u32,
@@ -34,15 +34,6 @@ fn ClusterCostDiff(size_a: usize, size_b: usize) -> super::util::floatX {
     size_a as (super::util::floatX) * FastLog2(size_a as u64)
         + size_b as (super::util::floatX) * FastLog2(size_b as u64)
         - size_c as (super::util::floatX) * FastLog2(size_c as u64)
-}
-
-#[inline(always)]
-fn brotli_max_double(a: super::util::floatX, b: super::util::floatX) -> super::util::floatX {
-    if a > b {
-        a
-    } else {
-        b
-    }
 }
 
 #[inline(always)]
@@ -99,7 +90,7 @@ fn BrotliCompareAndPushToQueue<
             let threshold: super::util::floatX = if *num_pairs == 0usize {
                 1e38 as super::util::floatX
             } else {
-                brotli_max_double(0.0 as super::util::floatX, (pairs[0]).cost_diff)
+                pairs[0].cost_diff.max(0.0)
             };
 
             let mut combo: HistogramType = out[idx1 as usize].clone();
@@ -419,8 +410,7 @@ pub fn BrotliClusterHistograms<
     i = 0usize;
     while i < in_size {
         {
-            let num_to_combine: usize =
-                brotli_min_size_t(in_size.wrapping_sub(i), max_input_histograms);
+            let num_to_combine: usize = min(in_size.wrapping_sub(i), max_input_histograms);
 
             for j in 0usize..num_to_combine {
                 clusters.slice_mut()[num_clusters.wrapping_add(j)] = i.wrapping_add(j) as u32;
@@ -442,7 +432,7 @@ pub fn BrotliClusterHistograms<
         i = i.wrapping_add(max_input_histograms);
     }
     {
-        let max_num_pairs: usize = brotli_min_size_t(
+        let max_num_pairs: usize = min(
             (64usize).wrapping_mul(num_clusters),
             num_clusters.wrapping_div(2).wrapping_mul(num_clusters),
         );
