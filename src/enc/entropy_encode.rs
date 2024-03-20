@@ -30,7 +30,6 @@ pub fn BrotliSetDepth(p0: i32, pool: &mut [HuffmanTree], depth: &mut [u8], max_d
     let mut stack: [i32; 16] = [0; 16];
     let mut level: i32 = 0i32;
     let mut p: i32 = p0;
-    0i32;
     stack[0] = -1i32;
     loop {
         if (pool[(p as usize)]).index_left_ as i32 >= 0i32 {
@@ -443,7 +442,6 @@ fn BrotliWriteHuffmanTreeRepetitions(
     tree: &mut [u8],
     extra_bits_data: &mut [u8],
 ) {
-    0i32;
     if previous_value as i32 != value as i32 {
         tree[*tree_size] = value;
         extra_bits_data[*tree_size] = 0u8;

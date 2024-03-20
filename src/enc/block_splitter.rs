@@ -389,7 +389,6 @@ where
         let mut cur_id: u8 = block_id[byte_ix];
         while byte_ix > 0usize {
             let mask: u8 = (1u32 << (cur_id as i32 & 7i32)) as u8;
-            0i32;
             byte_ix -= 1;
             ix = ix.wrapping_sub(bitmaplen);
             if switch_signal[ix.wrapping_add((cur_id as i32 >> 3) as usize)] as i32 & mask as i32
@@ -417,7 +416,6 @@ fn RemapBlockIds(
         new_id[i] = kInvalidId;
     }
     for i in 0usize..length {
-        0i32;
         if new_id[(block_ids[i] as usize)] as i32 == kInvalidId as i32 {
             new_id[(block_ids[i] as usize)] = {
                 let _old = next_id;
@@ -428,9 +426,7 @@ fn RemapBlockIds(
     }
     for i in 0usize..length {
         block_ids[i] = new_id[(block_ids[i] as usize)] as u8;
-        0i32;
     }
-    0i32;
     next_id as usize
 }
 
@@ -507,7 +503,6 @@ fn ClusterBlocks<
         i = 0usize;
         while i < length {
             {
-                0i32;
                 {
                     let _rhs = 1;
                     let _lhs = &mut block_lengths.slice_mut()[block_idx];
@@ -521,7 +516,6 @@ fn ClusterBlocks<
             }
             i = i.wrapping_add(1);
         }
-        0i32;
     }
     i = 0usize;
     while i < num_blocks {
@@ -610,8 +604,6 @@ fn ClusterBlocks<
                     (num_clusters as u32).wrapping_add(remap[symbols[j] as usize]);
             }
             num_clusters = num_clusters.wrapping_add(num_new_clusters);
-            0i32;
-            0i32;
         }
         i = i.wrapping_add(64);
     }

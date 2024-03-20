@@ -1117,7 +1117,6 @@ pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
     let initial_storage_ix: usize = *storage_ix;
     let table_bits: usize = Log2FloorNonZero(table_size as u64) as usize;
     if input_size == 0usize {
-        0i32;
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
