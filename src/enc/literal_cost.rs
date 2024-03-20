@@ -1,26 +1,19 @@
 #![allow(dead_code)]
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::FastLog2f64;
+use core::cmp::min;
 
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
-
-fn brotli_min_size_t(a: usize, b: usize) -> usize {
-    if a < b {
-        a
-    } else {
-        b
-    }
-}
 
 fn UTF8Position(last: usize, c: usize, clamp: usize) -> usize {
     if c < 128usize {
         0usize
     } else if c >= 192usize {
-        brotli_min_size_t(1usize, clamp)
+        min(1usize, clamp)
     } else if last < 0xe0usize {
         0usize
     } else {
-        brotli_min_size_t(2usize, clamp)
+        min(2usize, clamp)
     }
 }
 
@@ -61,7 +54,7 @@ fn EstimateBitCostsForLiteralsUTF8(
     let max_utf8: usize = DecideMultiByteStatsLevel(pos, len, mask, data);
     let mut histogram = [[0usize; 256]; 3];
     let window_half: usize = 495usize;
-    let in_window: usize = brotli_min_size_t(window_half, len);
+    let in_window: usize = min(window_half, len);
     let mut in_window_utf8 = [0usize; 3];
     let mut i: usize;
     {
@@ -195,7 +188,7 @@ pub fn BrotliEstimateBitCostsForLiterals(
         let mut histogram: [usize; 256] = [0; 256];
 
         let window_half: usize = 2000usize;
-        let mut in_window: usize = brotli_min_size_t(window_half, len);
+        let mut in_window: usize = min(window_half, len);
         let mut i: usize;
         for i in 0usize..in_window {
             let _rhs = 1;

@@ -1,6 +1,7 @@
 #![cfg(test)]
 use super::{s16, v8};
 use core;
+use core::cmp::min;
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
 use super::super::alloc::{
@@ -15,7 +16,7 @@ use super::encode::{
 use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
 use super::StaticCommand;
 use super::ZopfliNode;
-use enc::util::brotli_min_size_t;
+
 extern "C" {
     fn calloc(n_elem: usize, el_size: usize) -> *mut u8;
 }
@@ -156,10 +157,8 @@ fn oneshot_compress(
             input.len() as u32,
         );
         loop {
-            let mut available_in: usize =
-                brotli_min_size_t(input.len() - next_in_offset, in_batch_size);
-            let mut available_out: usize =
-                brotli_min_size_t(output.len() - next_out_offset, out_batch_size);
+            let mut available_in: usize = min(input.len() - next_in_offset, in_batch_size);
+            let mut available_out: usize = min(output.len() - next_out_offset, out_batch_size);
             if available_out == 0 {
                 panic!("No output buffer space");
             }
@@ -574,7 +573,7 @@ impl Buffer {
 #[cfg(feature="std")]
 impl io::Read for Buffer {
   fn read(self: &mut Self, buf: &mut [u8]) -> io::Result<usize> {
-    let bytes_to_read = ::core::cmp::min(buf.len(), self.data.len() - self.read_offset);
+    let bytes_to_read = min(buf.len(), self.data.len() - self.read_offset);
     if bytes_to_read > 0 {
       buf[0..bytes_to_read]
         .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);

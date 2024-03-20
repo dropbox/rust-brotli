@@ -7,6 +7,7 @@ use super::{
 use alloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
+use core::cmp::{max, min};
 use enc::command::{
     CombineLengthCodes, Command, CommandCopyLen, ComputeDistanceCode, GetCopyLengthCode,
     GetInsertLengthCode, InitCommand, PrefixEncodeCopyDistance,
@@ -20,7 +21,7 @@ use enc::static_dict::{
 use enc::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
-use enc::util::{brotli_max_size_t, floatX, FastLog2, Log2FloorNonZero};
+use enc::util::{floatX, FastLog2, Log2FloorNonZero};
 
 pub const kInfinity: floatX = 1.7e38 as floatX;
 #[derive(Clone, Copy, Debug)]
@@ -441,7 +442,7 @@ where
 {
     let mut matches_offset = 0usize;
     let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
-    let max_comp_len: usize = core::cmp::min(max_length, 128usize);
+    let max_comp_len: usize = min(max_length, 128usize);
     let should_reroot_tree = max_length >= 128;
     let key = xself.HashBytes(&data[cur_ix_masked..]);
     let forest: &mut [u32] = xself.forest.slice_mut();
@@ -467,7 +468,7 @@ where
                 break 'break16;
             }
             {
-                let cur_len: usize = core::cmp::min(best_len_left, best_len_right);
+                let cur_len: usize = min(best_len_left, best_len_right);
 
                 let len: usize = cur_len.wrapping_add(FindMatchLengthWithLimit(
                     &data[cur_ix_masked.wrapping_add(cur_len)..],

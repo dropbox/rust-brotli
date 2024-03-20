@@ -7,6 +7,7 @@ use super::brotli::concat::{BroCatli, BroCatliResult};
 use super::brotli::enc::BrotliEncoderParams;
 use super::integration_tests::UnlimitedBuffer;
 use brotli_decompressor::{CustomRead, CustomWrite};
+use core::cmp::{max, min};
 static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
 static ALICE: &[u8] = include_bytes!("../../testdata/alice29.txt");
 static UKKONOOA: &[u8] = include_bytes!("../../testdata/ukkonooa");
@@ -133,10 +134,9 @@ fn concat_many_subsets(
         [(brotli_files.len(), 4096 * 1024), (4, 1), (3, 3), (2, 4096)];
     for plan_bs in test_plans.iter() {
         let files_len = files.len();
-        for index in 0..(brotli_files.len() - core::cmp::min(plan_bs.0 - 1, files_len)) {
-            let file_subset = &mut files[index..core::cmp::min(index + plan_bs.0, files_len)];
-            let brotli_subset =
-                &mut brotli_files[index..core::cmp::min(index + plan_bs.0, files_len)];
+        for index in 0..(brotli_files.len() - min(plan_bs.0 - 1, files_len)) {
+            let file_subset = &mut files[index..min(index + plan_bs.0, files_len)];
+            let brotli_subset = &mut brotli_files[index..min(index + plan_bs.0, files_len)];
             concat(file_subset, brotli_subset, window_override, plan_bs.1);
         }
     }
@@ -381,18 +381,18 @@ fn test_concat() {
     ];
     let options_len = options.len();
     for (index, (src, dst)) in files.iter_mut().zip(ufiles.iter_mut()).enumerate() {
-        options[core::cmp::min(index, options_len - 1)].catable = true;
-        options[core::cmp::min(index, options_len - 1)].use_dictionary = false;
-        options[core::cmp::min(index, options_len - 1)].appendable = false;
-        options[core::cmp::min(index, options_len - 1)].quality =
-            core::cmp::max(2, options[core::cmp::min(index, options_len - 1)].quality);
+        options[min(index, options_len - 1)].catable = true;
+        options[min(index, options_len - 1)].use_dictionary = false;
+        options[min(index, options_len - 1)].appendable = false;
+        options[min(index, options_len - 1)].quality =
+            max(2, options[min(index, options_len - 1)].quality);
         // ^^^ there's an artificial limitation of using 18 as the minimum window size for quality 0,1
         // since this test depends on different window sizes for each stream, exclude q={0,1}
         super::compress(
             src,
             dst,
             4096,
-            &options[core::cmp::min(index, options_len - 1)],
+            &options[min(index, options_len - 1)],
             &[],
             1,
         )

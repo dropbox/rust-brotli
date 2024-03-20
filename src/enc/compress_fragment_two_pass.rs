@@ -11,8 +11,9 @@ use super::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
     BROTLI_UNALIGNED_STORE64,
 };
-use super::util::{brotli_min_size_t, Log2FloorNonZero};
+use super::util::Log2FloorNonZero;
 use core;
+use core::cmp::min;
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 
 // returns number of commands inserted
@@ -175,7 +176,7 @@ fn CreateCommands(
     let kInputMarginBytes: usize = 16usize;
 
     if block_size >= kInputMarginBytes {
-        let len_limit: usize = brotli_min_size_t(
+        let len_limit: usize = min(
             block_size.wrapping_sub(min_match),
             input_size.wrapping_sub(kInputMarginBytes),
         );
@@ -658,7 +659,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
 ) {
     let mut input_index: usize = 0usize;
     while input_size > 0usize {
-        let block_size: usize = brotli_min_size_t(input_size, kCompressFragmentTwoPassBlockSize);
+        let block_size: usize = min(input_size, kCompressFragmentTwoPassBlockSize);
         let mut num_literals: usize = 0;
         let mut num_commands: usize = 0;
         {

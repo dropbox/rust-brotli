@@ -1,4 +1,4 @@
-use core;
+use core::cmp::{max, min};
 pub const kNumDistanceCacheEntries: usize = 4;
 
 use super::super::dictionary::{
@@ -141,7 +141,7 @@ pub fn FindMatchLengthWithLimitMin4(s1: &[u8], s2: &[u8], limit: usize) -> usize
         return 0;
     }
     if limit <= 4 || beyond_ok {
-        return core::cmp::min(limit, 4);
+        return min(limit, 4);
     }
     ComplexFindMatchLengthWithLimit(s1_rest, s2_rest, limit - 5) + 5
 }
@@ -383,27 +383,9 @@ pub fn IsMatch(dictionary: &BrotliDictionary, w: DictWord, data: &[u8], max_leng
 }
 
 #[allow(unused)]
-fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
-    if a < b {
-        a
-    } else {
-        b
-    }
-}
-
-#[allow(unused)]
 fn AddMatch(distance: usize, len: usize, len_code: usize, mut matches: &mut [u32]) {
     let match_: u32 = (distance << 5).wrapping_add(len_code) as u32;
-    matches[len] = brotli_min_uint32_t(matches[len], match_);
-}
-
-#[allow(unused)]
-fn brotli_min_size_t(a: usize, b: usize) -> usize {
-    if a < b {
-        a
-    } else {
-        b
-    }
+    matches[len] = min(matches[len], match_);
 }
 
 #[allow(unused)]
@@ -416,20 +398,7 @@ fn DictMatchLength(
 ) -> usize {
     let offset: usize =
         (dictionary.offsets_by_length[len] as usize).wrapping_add(len.wrapping_mul(id));
-    FindMatchLengthWithLimit(
-        dictionary.data.split_at(offset).1,
-        data,
-        brotli_min_size_t(len, maxlen),
-    )
-}
-
-#[allow(unused)]
-fn brotli_max_size_t(a: usize, b: usize) -> usize {
-    if a > b {
-        a
-    } else {
-        b
-    }
+    FindMatchLengthWithLimit(dictionary.data.split_at(offset).1, data, min(len, maxlen))
 }
 
 #[allow(unused)]
@@ -489,9 +458,9 @@ pub fn BrotliFindAllStaticDictionaryMatches(
                 }
                 minlen = min_length;
                 if l > 9usize {
-                    minlen = brotli_max_size_t(minlen, l.wrapping_sub(9));
+                    minlen = max(minlen, l.wrapping_sub(9));
                 }
-                let maxlen: usize = brotli_min_size_t(matchlen, l.wrapping_sub(2));
+                let maxlen: usize = min(matchlen, l.wrapping_sub(2));
                 len = minlen;
                 while len <= maxlen {
                     {
