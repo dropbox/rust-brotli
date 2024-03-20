@@ -1,34 +1,11 @@
 #![allow(dead_code)]
 #![allow(clippy::excessive_precision)]
 
-use core;
-
 #[cfg(feature = "float64")]
 pub type floatX = f64;
 
 #[cfg(not(feature = "float64"))]
 pub type floatX = f32;
-
-#[inline(always)]
-pub fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
-    core::cmp::max(a, b)
-}
-#[inline(always)]
-pub fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
-    core::cmp::min(a, b)
-}
-#[inline(always)]
-pub fn brotli_min_size_t(a: usize, b: usize) -> usize {
-    core::cmp::min(a, b)
-}
-#[inline(always)]
-pub fn brotli_max_size_t(a: usize, b: usize) -> usize {
-    core::cmp::max(a, b)
-}
-#[inline(always)]
-pub fn brotli_max_uint8_t(a: u8, b: u8) -> u8 {
-    core::cmp::max(a, b)
-}
 
 static kLog2Table: [f32; 256] = [
     0.0000000000000000,

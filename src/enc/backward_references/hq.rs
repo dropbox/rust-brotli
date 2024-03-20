@@ -10,6 +10,7 @@ use super::{
 use alloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
+use core::cmp::{max, min};
 use enc::command::{
     BrotliDistanceParams, CombineLengthCodes, Command, CommandCopyLen, ComputeDistanceCode,
     GetCopyLengthCode, GetInsertLengthCode, InitCommand, PrefixEncodeCopyDistance,
@@ -24,7 +25,7 @@ use enc::static_dict::{
 use enc::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
-use enc::util::{brotli_max_size_t, floatX, FastLog2, FastLog2f64, Log2FloorNonZero};
+use enc::util::{floatX, FastLog2, FastLog2f64, Log2FloorNonZero};
 
 const BROTLI_WINDOW_GAP: usize = 16;
 const BROTLI_MAX_STATIC_DICTIONARY_MATCH_LEN: usize = 37;
@@ -85,11 +86,6 @@ impl ZopfliNode {
     }
 }
 
-#[inline(always)]
-fn brotli_min_size_t(a: usize, b: usize) -> usize {
-    core::cmp::min(a, b)
-}
-
 impl ZopfliNode {
     #[inline(always)]
     fn distance_code(&self) -> u32 {
@@ -138,8 +134,7 @@ pub fn BrotliZopfliCreateCommands(
             {
                 let distance: usize = next.copy_distance() as usize;
                 let len_code: usize = next.length_code() as usize;
-                let max_distance: usize =
-                    brotli_min_size_t(block_start.wrapping_add(pos), max_backward_limit);
+                let max_distance: usize = min(block_start.wrapping_add(pos), max_backward_limit);
                 let is_dictionary = distance > max_distance.wrapping_add(gap);
                 let dist_code: usize = next.distance_code() as usize;
                 InitCommand(
@@ -232,7 +227,7 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
             } else {
                 AllocF::AllocatedMemory::default()
             },
-            distance_histogram_size: core::cmp::min(dist.alphabet_size, 544),
+        distance_histogram_size: min(dist.alphabet_size, 544),
         }
     }
 
@@ -315,14 +310,13 @@ pub fn StitchToPreviousBlockH10<
         These could not be calculated before, since they require knowledge
         of both the previous and the current block. */
         let i_start = position - Params::max_tree_comp_length() as usize;
-        let i_end = core::cmp::min(position, i_start.wrapping_add(num_bytes));
+        let i_end = min(position, i_start.wrapping_add(num_bytes));
         for i in i_start..i_end {
             /* Maximum distance is window size - 16, see section 9.1. of the spec.
             Furthermore, we have to make sure that we don't look further back
             from the start of the next block than the window size, otherwise we
             could access already overwritten areas of the ring-buffer. */
-            let max_backward =
-                handle.window_mask_ - core::cmp::max(BROTLI_WINDOW_GAP - 1, position - i);
+            let max_backward = handle.window_mask_ - max(BROTLI_WINDOW_GAP - 1, position - i);
             let mut _best_len = 0;
             /* We know that i + MAX_TREE_COMP_LENGTH <= position + num_bytes, i.e. the
             end of the current block and that we have at least
@@ -431,7 +425,7 @@ where
         i = i.wrapping_add(1);
     }
     {
-        let minlen: usize = brotli_max_size_t(4usize, best_len.wrapping_add(1));
+        let minlen = max(4, best_len.wrapping_add(1));
         if dictionary.is_some()
             && BrotliFindAllStaticDictionaryMatches(
                 dictionary.unwrap(),
@@ -442,7 +436,7 @@ where
             ) != 0
         {
             assert!(params.use_dictionary);
-            let maxlen: usize = brotli_min_size_t(37usize, max_length);
+            let maxlen = min(37, max_length);
             let mut l: usize;
             l = minlen;
             while l <= maxlen {
@@ -553,7 +547,7 @@ fn ComputeDistanceCache(
 
 #[inline(always)]
 fn StartPosQueueSize(xself: &StartPosQueue) -> usize {
-    brotli_min_size_t(xself.idx_, 8usize)
+    min(xself.idx_, 8)
 }
 
 fn StartPosQueuePush(xself: &mut StartPosQueue, posdata: &PosData) {
@@ -722,7 +716,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
 ) -> usize {
     let cur_ix: usize = block_start.wrapping_add(pos);
     let cur_ix_masked: usize = cur_ix & ringbuffer_mask;
-    let max_distance: usize = brotli_min_size_t(cur_ix, max_backward_limit);
+    let max_distance: usize = min(cur_ix, max_backward_limit);
     let max_len: usize = num_bytes.wrapping_sub(pos);
     let max_zopfli_len: usize = MaxZopfliLen(params);
     let max_iters: usize = MaxZopfliCandidates(params);
@@ -833,7 +827,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                                 j.wrapping_add(1),
                                                 cost,
                                             );
-                                            result = brotli_max_size_t(result, l);
+                                            result = max(result, l);
                                         }
                                         best_len = l;
                                     }
@@ -892,7 +886,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                         UpdateZopfliNode(
                                             nodes, pos, start, len, len_code, dist, 0usize, cost,
                                         );
-                                        result = brotli_max_size_t(result, len);
+                                        result = max(result, len);
                                     }
                                 }
                             }
@@ -990,7 +984,7 @@ where
     while i.wrapping_add(handle.HashTypeLength()).wrapping_sub(1) < num_bytes {
         {
             let pos: usize = position.wrapping_add(i);
-            let max_distance: usize = brotli_min_size_t(pos, max_backward_limit);
+            let max_distance: usize = min(pos, max_backward_limit);
             let mut skip: usize;
             let mut num_matches: usize = FindAllMatchesH10(
                 handle,
@@ -1032,14 +1026,14 @@ where
             if num_matches == 1usize
                 && (BackwardMatchLength(&BackwardMatch(matches[0])) > max_zopfli_len)
             {
-                skip = brotli_max_size_t(BackwardMatchLength(&BackwardMatch(matches[0])), skip);
+                skip = max(BackwardMatchLength(&BackwardMatch(matches[0])), skip);
             }
             if skip > 1usize {
                 handle.StoreRange(
                     ringbuffer,
                     ringbuffer_mask,
                     pos.wrapping_add(1),
-                    brotli_min_size_t(pos.wrapping_add(skip), store_end),
+                    min(pos.wrapping_add(skip), store_end),
                 );
                 skip = skip.wrapping_sub(1);
                 while skip != 0 {
@@ -1171,15 +1165,6 @@ fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cos
     }
 }
 
-#[inline(always)]
-fn brotli_min_float(a: floatX, b: floatX) -> floatX {
-    if a < b {
-        a
-    } else {
-        b
-    }
-}
-
 impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
     fn set_from_commands(
         &mut self,
@@ -1244,7 +1229,7 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
             self.cost_dist_.slice_mut(),
         );
         for i in 0usize..704usize {
-            min_cost_cmd = brotli_min_float(min_cost_cmd, cost_cmd[i]);
+        min_cost_cmd = min_cost_cmd.min(cost_cmd[i]);
         }
         self.min_cost_cmd_ = min_cost_cmd;
         {
@@ -1312,7 +1297,7 @@ fn ZopfliIterate<AllocF: Allocator<floatX>>(
                 && (BackwardMatchLength(&BackwardMatch(matches[cur_match_pos.wrapping_sub(1)]))
                     > max_zopfli_len)
             {
-                skip = brotli_max_size_t(
+                skip = max(
                     BackwardMatchLength(&BackwardMatch(matches[cur_match_pos.wrapping_sub(1)])),
                     skip,
                 );
@@ -1398,7 +1383,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
     while i.wrapping_add(hasher.HashTypeLength()).wrapping_sub(1) < num_bytes {
         {
             let pos: usize = position.wrapping_add(i);
-            let max_distance: usize = brotli_min_size_t(pos, max_backward_limit);
+            let max_distance: usize = min(pos, max_backward_limit);
             let max_length: usize = num_bytes.wrapping_sub(i);
 
             let mut j: usize;
@@ -1472,7 +1457,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                         ringbuffer,
                         ringbuffer_mask,
                         pos.wrapping_add(1),
-                        brotli_min_size_t(pos.wrapping_add(match_len), store_end),
+                        min(pos.wrapping_add(match_len), store_end),
                     );
                     for item in num_matches
                         .slice_mut()

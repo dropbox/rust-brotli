@@ -12,8 +12,9 @@ use super::histogram::{
     ClearHistograms, CostAccessors, HistogramAddHistogram, HistogramAddItem, HistogramAddVector,
     HistogramClear, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
-use super::util::{brotli_max_uint8_t, brotli_min_size_t, FastLog2};
+use super::util::FastLog2;
 use core;
+use core::cmp::{max, min};
 #[cfg(feature = "simd")]
 use core::simd::prelude::{SimdFloat, SimdPartialOrd};
 
@@ -482,10 +483,8 @@ fn ClusterBlocks<
     let mut cluster_size_capacity: usize = expected_num_clusters;
     let mut cluster_size = <Alloc as Allocator<u32>>::alloc_cell(alloc, cluster_size_capacity);
     let mut num_clusters: usize = 0usize;
-    let mut histograms = <Alloc as Allocator<HistogramType>>::alloc_cell(
-        alloc,
-        brotli_min_size_t(num_blocks, 64usize),
-    );
+    let mut histograms =
+        <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, min(num_blocks, 64));
     let mut max_num_pairs: usize = (64i32 * 64i32 / 2i32) as usize;
     let pairs_capacity: usize = max_num_pairs.wrapping_add(1);
     let mut pairs = <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity);
@@ -520,7 +519,7 @@ fn ClusterBlocks<
     i = 0usize;
     while i < num_blocks {
         {
-            let num_to_combine: usize = brotli_min_size_t(num_blocks.wrapping_sub(i), 64usize);
+            let num_to_combine: usize = min(num_blocks.wrapping_sub(i), 64);
 
             for j in 0usize..num_to_combine {
                 HistogramClear(&mut histograms.slice_mut()[j]);
@@ -608,7 +607,7 @@ fn ClusterBlocks<
         i = i.wrapping_add(64);
     }
     <Alloc as Allocator<HistogramType>>::free_cell(alloc, core::mem::take(&mut histograms));
-    max_num_pairs = brotli_min_size_t(
+    max_num_pairs = min(
         (64usize).wrapping_mul(num_clusters),
         num_clusters.wrapping_div(2).wrapping_mul(num_clusters),
     );
@@ -737,7 +736,7 @@ fn ClusterBlocks<
                 let id: u8 = new_index.slice()[(histogram_symbols.slice()[i] as usize)] as u8;
                 split.types.slice_mut()[block_idx] = id;
                 split.lengths.slice_mut()[block_idx] = cur_length;
-                max_type = brotli_max_uint8_t(max_type, id);
+                max_type = max(max_type, id);
                 cur_length = 0u32;
                 block_idx = block_idx.wrapping_add(1);
             }
@@ -951,7 +950,7 @@ pub fn BrotliSplitBlock<
     }
     {
         let mut insert_and_copy_codes = <Alloc as Allocator<u16>>::alloc_cell(alloc, num_commands);
-        for i in 0..core::cmp::min(num_commands, cmds.len()) {
+        for i in 0..min(num_commands, cmds.len()) {
             insert_and_copy_codes.slice_mut()[i] = (cmds[i]).cmd_prefix_;
         }
         SplitByteVector::<HistogramCommand, Alloc, u16>(

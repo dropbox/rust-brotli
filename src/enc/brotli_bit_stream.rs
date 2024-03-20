@@ -46,6 +46,7 @@ use super::interface::{CommandProcessor, StaticCommand};
 use super::pdf::PDF;
 use super::static_dict::kNumDistanceCacheEntries;
 use super::vectorization::Mem256f;
+use core::cmp::{max, min};
 pub struct PrefixCodeRange {
     pub offset: u32,
     pub nbits: u32,
@@ -303,8 +304,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
     }
     let mut mb_len = input.len();
     for cmd in commands.iter() {
-        let (inserts, interim) =
-            input_iter.split_at(core::cmp::min(cmd.insert_len_ as usize, mb_len));
+        let (inserts, interim) = input_iter.split_at(min(cmd.insert_len_ as usize, mb_len));
         recoder_state.num_bytes_encoded += inserts.len();
         let _copy_cursor = input.len() - interim.len();
         // let distance_context = CommandDistanceContext(cmd);
@@ -320,7 +320,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
         }
         let copy_len = copylen_code as usize;
         let actual_copy_len: usize;
-        let max_distance = core::cmp::min(
+        let max_distance = min(
             recoder_state.num_bytes_encoded,
             window_size_from_lgwin(params.lgwin),
         );
@@ -416,7 +416,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
                 );
             }
         } else {
-            actual_copy_len = core::cmp::min(mb_len, copy_len);
+            actual_copy_len = min(mb_len, copy_len);
             if actual_copy_len != 0 {
                 command_queue.push(interface::Command::Copy(interface::CopyCommand {
                     distance: final_distance as u32,
@@ -1807,22 +1807,6 @@ fn MoveToFrontTransform(v_in: &[u32], v_size: usize, v_out: &mut [u32]) {
     }
 }
 
-fn brotli_max_uint32_t(a: u32, b: u32) -> u32 {
-    if a > b {
-        a
-    } else {
-        b
-    }
-}
-
-fn brotli_min_uint32_t(a: u32, b: u32) -> u32 {
-    if a < b {
-        a
-    } else {
-        b
-    }
-}
-
 fn RunLengthCodeZeros(
     in_size: usize,
     v: &mut [u32],
@@ -1844,14 +1828,14 @@ fn RunLengthCodeZeros(
             }
             i = i.wrapping_add(1);
         }
-        max_reps = brotli_max_uint32_t(reps, max_reps);
+        max_reps = max(reps, max_reps);
     }
     max_prefix = if max_reps > 0u32 {
         Log2FloorNonZero(max_reps as (u64))
     } else {
         0u32
     };
-    max_prefix = brotli_min_uint32_t(max_prefix, *max_run_length_prefix);
+    max_prefix = min(max_prefix, *max_run_length_prefix);
     *max_run_length_prefix = max_prefix;
     *out_size = 0usize;
     i = 0usize;

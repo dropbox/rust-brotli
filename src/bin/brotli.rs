@@ -30,6 +30,7 @@ use brotli::enc::{
 use brotli::CustomRead;
 #[allow(unused_imports)]
 use brotli::HuffmanCode;
+use core::cmp::{max, min};
 use core::ops;
 mod validate;
 use std::env;
@@ -678,8 +679,8 @@ fn main() {
                 continue;
             }
             if argument.starts_with("-j") && !double_dash {
-                num_threads = core::cmp::min(
-                    core::cmp::max(
+                num_threads = min(
+                    max(
                         1,
                         argument
                             .trim_matches('-')

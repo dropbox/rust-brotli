@@ -13,7 +13,8 @@ use super::static_dict::{
     FindMatchLengthWithLimit, FindMatchLengthWithLimitMin4, BROTLI_UNALIGNED_LOAD32,
     BROTLI_UNALIGNED_LOAD64,
 };
-use super::util::{brotli_max_size_t, floatX, Log2FloorNonZero};
+use super::util::{floatX, Log2FloorNonZero};
+use core::cmp::{max, min};
 
 static kBrotliMinWindowBits: i32 = 10i32;
 
@@ -132,14 +133,6 @@ pub struct Struct1 {
 
 fn LiteralSpreeLengthForSparseSearch(params: &BrotliEncoderParams) -> usize {
     (if params.quality < 9 { 64i32 } else { 512i32 }) as usize
-}
-
-fn brotli_min_size_t(a: usize, b: usize) -> usize {
-    if a < b {
-        a
-    } else {
-        b
-    }
 }
 
 pub struct HasherSearchResult {
@@ -1730,7 +1723,7 @@ impl<
                 .0;
             assert!(bucket.len() > self.specialization.block_mask() as usize);
             if num_copy != 0 {
-                let down: usize = core::cmp::max(
+                let down: usize = max(
                     i32::from(num_copy) - self.specialization.block_size() as i32,
                     0,
                 ) as usize;
@@ -2395,7 +2388,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
     hasher.PrepareDistanceCache(dist_cache);
     while position.wrapping_add(hasher.HashTypeLength()) < pos_end {
         let mut max_length: usize = pos_end.wrapping_sub(position);
-        let mut max_distance: usize = brotli_min_size_t(position, max_backward_limit);
+        let mut max_distance: usize = min(position, max_backward_limit);
         let mut sr = HasherSearchResult {
             len: 0,
             len_x_code: 0,
@@ -2432,14 +2425,14 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                         score: 0,
                     };
                     sr2.len = if params.quality < 5 {
-                        brotli_min_size_t(sr.len.wrapping_sub(1), max_length)
+                        min(sr.len.wrapping_sub(1), max_length)
                     } else {
                         0usize
                     };
                     sr2.len_x_code = 0usize;
                     sr2.distance = 0usize;
                     sr2.score = kMinScore;
-                    max_distance = brotli_min_size_t(position.wrapping_add(1), max_backward_limit);
+                    max_distance = min(position.wrapping_add(1), max_backward_limit);
                     let is_match_found: bool = hasher.FindLongestMatch(
                         dictionary,
                         dictionary_hash,
@@ -2473,7 +2466,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             apply_random_heuristics = position
                 .wrapping_add((2usize).wrapping_mul(sr.len))
                 .wrapping_add(random_heuristics_window_size);
-            max_distance = brotli_min_size_t(position, max_backward_limit);
+            max_distance = min(position, max_backward_limit);
             {
                 let distance_code: usize =
                     ComputeDistanceCode(sr.distance, max_distance, dist_cache);
@@ -2505,7 +2498,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
                 ringbuffer,
                 ringbuffer_mask,
                 position.wrapping_add(2),
-                brotli_min_size_t(position.wrapping_add(sr.len), store_end),
+                min(position.wrapping_add(sr.len), store_end),
             );
             position = position.wrapping_add(sr.len);
         } else {
@@ -2513,8 +2506,7 @@ fn CreateBackwardReferences<AH: AnyHasher>(
             position = position.wrapping_add(1);
 
             if position > apply_random_heuristics {
-                let kMargin: usize =
-                    brotli_max_size_t(hasher.StoreLookahead().wrapping_sub(1), 4usize);
+                let kMargin: usize = max(hasher.StoreLookahead().wrapping_sub(1), 4);
                 if position.wrapping_add(16) >= pos_end.wrapping_sub(kMargin) {
                     insert_length = insert_length.wrapping_add(pos_end - position);
                     position = pos_end;

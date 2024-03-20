@@ -6,7 +6,7 @@
 
 /* Entropy encoding (Huffman) utilities. */
 #![allow(dead_code)]
-use super::util::brotli_max_uint32_t;
+use core::cmp::max;
 
 #[derive(Clone, Copy, Default)]
 pub struct HuffmanTree {
@@ -162,7 +162,7 @@ pub fn BrotliCreateHuffmanTree(
             while i != 0usize {
                 i = i.wrapping_sub(1);
                 if data[i] != 0 {
-                    let count: u32 = brotli_max_uint32_t(data[i], count_limit);
+                    let count: u32 = max(data[i], count_limit);
                     tree[n] = HuffmanTree::new(count, -1, i as i16);
                     n = n.wrapping_add(1);
                 }
