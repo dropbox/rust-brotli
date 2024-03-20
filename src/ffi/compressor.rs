@@ -111,7 +111,11 @@ pub unsafe extern "C" fn BrotliEncoderSetParameter(
     param: ::enc::encode::BrotliEncoderParameter,
     value: u32,
 ) -> i32 {
-    ::enc::encode::BrotliEncoderSetParameter(&mut (*state_ptr).compressor, param, value)
+    if ::enc::encode::BrotliEncoderSetParameter(&mut (*state_ptr).compressor, param, value) {
+        1
+    } else {
+        0
+    }
 }
 
 #[no_mangle]

@@ -143,7 +143,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
         };
         let mut params = BrotliEncoderParams::default();
         for (k, v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
-            if set_parameter(&mut params, *k, *v) == 0 {
+            if !set_parameter(&mut params, *k, *v) {
                 return 0;
             }
         }
@@ -357,7 +357,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
         let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
         let mut params = BrotliEncoderParams::default();
         for (k, v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
-            if set_parameter(&mut params, *k, *v) == 0 {
+            if !set_parameter(&mut params, *k, *v) {
                 return 0;
             }
         }
