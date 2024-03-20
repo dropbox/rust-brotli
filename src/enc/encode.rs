@@ -203,152 +203,94 @@ pub fn set_parameter(
     params: &mut BrotliEncoderParams,
     p: BrotliEncoderParameter,
     value: u32,
-) -> i32 {
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_MODE as i32 {
-        params.mode = match value {
-            0 => BrotliEncoderMode::BROTLI_MODE_GENERIC,
-            1 => BrotliEncoderMode::BROTLI_MODE_TEXT,
-            2 => BrotliEncoderMode::BROTLI_MODE_FONT,
-            3 => BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR,
-            4 => BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR,
-            5 => BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR,
-            6 => BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR,
-            _ => BrotliEncoderMode::BROTLI_MODE_GENERIC,
-        };
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_QUALITY as i32 {
-        params.quality = value as i32;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_STRIDE_DETECTION_QUALITY as i32 {
-        params.stride_detection_quality = value as u8;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY as i32 {
-        params.high_entropy_detection_quality = value as u8;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_CDF_ADAPTATION_DETECTION as i32 {
-        params.cdf_adaptation_detection = value as u8;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_Q9_5 as i32 {
-        params.q9_5 = (value != 0);
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_PRIOR_BITMASK_DETECTION as i32 {
-        params.prior_bitmask_detection = value as u8;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_SPEED as i32 {
-        params.literal_adaptation[1].0 = value as u16;
-        if params.literal_adaptation[0] == (0, 0) {
-            params.literal_adaptation[0].0 = value as u16;
+) -> bool {
+    use crate::enc::parameters::BrotliEncoderParameter::*;
+    match p {
+        BROTLI_PARAM_MODE => {
+            params.mode = match value {
+                0 => BrotliEncoderMode::BROTLI_MODE_GENERIC,
+                1 => BrotliEncoderMode::BROTLI_MODE_TEXT,
+                2 => BrotliEncoderMode::BROTLI_MODE_FONT,
+                3 => BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR,
+                4 => BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR,
+                5 => BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR,
+                6 => BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR,
+                _ => BrotliEncoderMode::BROTLI_MODE_GENERIC,
+            };
         }
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_SPEED_MAX as i32 {
-        params.literal_adaptation[1].1 = value as u16;
-        if params.literal_adaptation[0].1 == 0 {
-            params.literal_adaptation[0].1 = value as u16;
+        BROTLI_PARAM_QUALITY => params.quality = value as i32,
+        BROTLI_PARAM_STRIDE_DETECTION_QUALITY => params.stride_detection_quality = value as u8,
+        BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY => {
+            params.high_entropy_detection_quality = value as u8
         }
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED as i32 {
-        params.literal_adaptation[3].0 = value as u16;
-        if params.literal_adaptation[2] == (0, 0) {
-            params.literal_adaptation[2].0 = value as u16;
+        BROTLI_PARAM_CDF_ADAPTATION_DETECTION => params.cdf_adaptation_detection = value as u8,
+        BROTLI_PARAM_Q9_5 => params.q9_5 = (value != 0),
+        BROTLI_PARAM_PRIOR_BITMASK_DETECTION => params.prior_bitmask_detection = value as u8,
+        BROTLI_PARAM_SPEED => {
+            params.literal_adaptation[1].0 = value as u16;
+            if params.literal_adaptation[0] == (0, 0) {
+                params.literal_adaptation[0].0 = value as u16;
+            }
         }
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED_MAX as i32 {
-        params.literal_adaptation[3].1 = value as u16;
-        if params.literal_adaptation[2].1 == 0 {
-            params.literal_adaptation[2].1 = value as u16;
+        BROTLI_PARAM_SPEED_MAX => {
+            params.literal_adaptation[1].1 = value as u16;
+            if params.literal_adaptation[0].1 == 0 {
+                params.literal_adaptation[0].1 = value as u16;
+            }
         }
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_SPEED_LOW as i32 {
-        params.literal_adaptation[0].0 = value as u16;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_SPEED_LOW_MAX as i32 {
-        params.literal_adaptation[0].1 = value as u16;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED_LOW as i32 {
-        params.literal_adaptation[2].0 = value as u16;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_CM_SPEED_LOW_MAX as i32 {
-        params.literal_adaptation[2].1 = value as u16;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_LITERAL_BYTE_SCORE as i32 {
-        params.hasher.literal_byte_score = value as i32;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_METABLOCK_CALLBACK as i32 {
-        params.log_meta_block = value != 0;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_LGWIN as i32 {
-        params.lgwin = value as i32;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_LGBLOCK as i32 {
-        params.lgblock = value as i32;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING as i32 {
-        if value != 0u32 && (value != 1u32) {
-            return 0i32;
+        BROTLI_PARAM_CM_SPEED => {
+            params.literal_adaptation[3].0 = value as u16;
+            if params.literal_adaptation[2] == (0, 0) {
+                params.literal_adaptation[2].0 = value as u16;
+            }
         }
-        params.disable_literal_context_modeling = if value != 0 { 1i32 } else { 0i32 };
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT as i32 {
-        params.size_hint = value as usize;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_LARGE_WINDOW as i32 {
-        params.large_window = value != 0;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH as i32 {
-        params.avoid_distance_prefix_search = value != 0;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_CATABLE as i32 {
-        params.catable = value != 0;
-        if !params.appendable {
-            params.appendable = value != 0;
+        BROTLI_PARAM_CM_SPEED_MAX => {
+            params.literal_adaptation[3].1 = value as u16;
+            if params.literal_adaptation[2].1 == 0 {
+                params.literal_adaptation[2].1 = value as u16;
+            }
         }
-        params.use_dictionary = (value == 0);
-        return 1i32;
+        BROTLI_PARAM_SPEED_LOW => params.literal_adaptation[0].0 = value as u16,
+        BROTLI_PARAM_SPEED_LOW_MAX => params.literal_adaptation[0].1 = value as u16,
+        BROTLI_PARAM_CM_SPEED_LOW => params.literal_adaptation[2].0 = value as u16,
+        BROTLI_PARAM_CM_SPEED_LOW_MAX => params.literal_adaptation[2].1 = value as u16,
+        BROTLI_PARAM_LITERAL_BYTE_SCORE => params.hasher.literal_byte_score = value as i32,
+        BROTLI_METABLOCK_CALLBACK => params.log_meta_block = value != 0,
+        BROTLI_PARAM_LGWIN => params.lgwin = value as i32,
+        BROTLI_PARAM_LGBLOCK => params.lgblock = value as i32,
+        BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING => {
+            if value != 0 && value != 1 {
+                return false;
+            }
+            params.disable_literal_context_modeling = if value != 0 { 1 } else { 0 };
+        }
+        BROTLI_PARAM_SIZE_HINT => params.size_hint = value as usize,
+        BROTLI_PARAM_LARGE_WINDOW => params.large_window = value != 0,
+        BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH => {
+            params.avoid_distance_prefix_search = value != 0
+        }
+        BROTLI_PARAM_CATABLE => {
+            params.catable = value != 0;
+            if !params.appendable {
+                params.appendable = value != 0;
+            }
+            params.use_dictionary = (value == 0);
+        }
+        BROTLI_PARAM_APPENDABLE => params.appendable = value != 0,
+        BROTLI_PARAM_MAGIC_NUMBER => params.magic_number = value != 0,
+        BROTLI_PARAM_FAVOR_EFFICIENCY => params.favor_cpu_efficiency = value != 0,
+        _ => return false,
     }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_APPENDABLE as i32 {
-        params.appendable = value != 0;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_MAGIC_NUMBER as i32 {
-        params.magic_number = value != 0;
-        return 1i32;
-    }
-    if p as i32 == BrotliEncoderParameter::BROTLI_PARAM_FAVOR_EFFICIENCY as i32 {
-        params.favor_cpu_efficiency = value != 0;
-        return 1i32;
-    }
-    0i32
+    true
 }
 
 impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
-    pub fn set_parameter(&mut self, p: BrotliEncoderParameter, value: u32) -> i32 {
+    pub fn set_parameter(&mut self, p: BrotliEncoderParameter, value: u32) -> bool {
         if self.is_initialized_ {
-            return 0i32;
+            false
+        } else {
+            set_parameter(&mut self.params, p, value)
         }
-        set_parameter(&mut self.params, p, value)
     }
 }
 
