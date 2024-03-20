@@ -17,7 +17,8 @@ use super::entropy_encode::{
 use super::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
-use super::util::{brotli_min_size_t, brotli_min_uint32_t, FastLog2, Log2FloorNonZero};
+use super::util::{FastLog2, Log2FloorNonZero};
+use core::cmp::min;
 
 //static kHashMul32: u32 = 0x1e35a7bdu32;
 
@@ -59,7 +60,7 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
         i = 0usize;
         while i < 256usize {
             {
-                let adjust: u32 = (2u32).wrapping_mul(brotli_min_uint32_t(histogram[i], 11u32));
+                let adjust: u32 = (2u32).wrapping_mul(min(histogram[i], 11u32));
                 {
                     let _rhs = adjust;
                     let _lhs = &mut histogram[i];
@@ -87,8 +88,8 @@ fn BuildAndStoreLiteralPrefixCode<AllocHT: alloc::Allocator<HuffmanTree>>(
         i = 0usize;
         while i < 256usize {
             {
-                let adjust: u32 = (1u32)
-                    .wrapping_add((2u32).wrapping_mul(brotli_min_uint32_t(histogram[i], 11u32)));
+                let adjust: u32 =
+                    (1u32).wrapping_add((2u32).wrapping_mul(min(histogram[i], 11u32)));
                 {
                     let _rhs = adjust;
                     let _lhs = &mut histogram[i];
@@ -563,8 +564,7 @@ fn UpdateBits(mut n_bits: usize, mut bits: u32, mut pos: usize, array: &mut [u8]
     while n_bits > 0usize {
         let byte_pos: usize = pos >> 3;
         let n_unchanged_bits: usize = pos & 7usize;
-        let n_changed_bits: usize =
-            brotli_min_size_t(n_bits, (8usize).wrapping_sub(n_unchanged_bits));
+        let n_changed_bits: usize = min(n_bits, (8usize).wrapping_sub(n_unchanged_bits));
         let total_bits: usize = n_unchanged_bits.wrapping_add(n_changed_bits);
         let mask: u32 =
             !(1u32 << total_bits).wrapping_sub(1) | (1u32 << n_unchanged_bits).wrapping_sub(1);
@@ -673,7 +673,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
     let kInputMarginBytes = 16usize;
     let kMinMatchLen = 5usize;
     let mut metablock_start = 0usize;
-    let mut block_size = brotli_min_size_t(input_size, kFirstBlockSize);
+    let mut block_size = min(input_size, kFirstBlockSize);
     let mut total_block_size = block_size;
     let mut mlen_storage_ix = storage_ix.wrapping_add(3);
     let mut lit_depth = [0u8; 256];
@@ -715,7 +715,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
             last_distance = -1i32;
             ip_end = input_index.wrapping_add(block_size);
             if block_size >= kInputMarginBytes {
-                let len_limit: usize = brotli_min_size_t(
+                let len_limit: usize = min(
                     block_size.wrapping_sub(kMinMatchLen),
                     input_size.wrapping_sub(kInputMarginBytes),
                 );
@@ -951,7 +951,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
         } else if code_block_selection as i32 == CodeBlockState::EMIT_REMAINDER as i32 {
             input_index = input_index.wrapping_add(block_size);
             input_size = input_size.wrapping_sub(block_size);
-            block_size = brotli_min_size_t(input_size, kMergeBlockSize);
+            block_size = min(input_size, kMergeBlockSize);
             if input_size > 0
                 && (total_block_size.wrapping_add(block_size) <= (1i32 << 20) as usize)
                 && ShouldMergeBlock(&input_ptr[input_index..], block_size, &mut lit_depth[..])
@@ -1022,7 +1022,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
         } else if code_block_selection as i32 == CodeBlockState::NEXT_BLOCK as i32 {
             if input_size > 0 {
                 metablock_start = input_index;
-                block_size = brotli_min_size_t(input_size, kFirstBlockSize);
+                block_size = min(input_size, kFirstBlockSize);
                 total_block_size = block_size;
                 mlen_storage_ix = storage_ix.wrapping_add(3);
                 BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);

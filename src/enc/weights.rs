@@ -1,4 +1,4 @@
-use core;
+use core::cmp::{max, min};
 pub type Prob = u16;
 
 pub const BLEND_FIXED_POINT_PRECISION: i8 = 15;
@@ -57,7 +57,7 @@ impl Weights {
 fn compute_normalized_weight(model_weights: [i32; 2]) -> Prob {
     let total = i64::from(model_weights[0]) + i64::from(model_weights[1]);
     let leading_zeros = total.leading_zeros();
-    let shift = core::cmp::max(56 - (leading_zeros as i8), 0);
+    let shift = max(56 - (leading_zeros as i8), 0);
     let total_8bit = total >> shift;
     /*::probability::numeric::fast_divide_16bit_by_8bit(
     ((model_weights[0] >> shift) as u16)<< 8,
@@ -70,7 +70,7 @@ fn compute_normalized_weight(model_weights: [i32; 2]) -> Prob {
 #[allow(dead_code)]
 #[cold]
 fn fix_weights(weights: &mut [i32; 2]) {
-    let ilog = 32 - core::cmp::min(weights[0].leading_zeros(), weights[1].leading_zeros());
+    let ilog = 32 - min(weights[0].leading_zeros(), weights[1].leading_zeros());
     let max_log = 24;
     if ilog >= max_log {
         weights[0] >>= ilog - max_log;
@@ -143,5 +143,5 @@ fn compute_new_weight(
     let new_weight_adj = (error.wrapping_mul(efficacy)) >> log_geometric_probabilities;
     //    assert!(wi + new_weight_adj < (1i64 << 31));
     //print!("{} -> {} due to {:?} vs {}\n", wi as f64 / (weights[0] + weights[1]) as f64, (wi + new_weight_adj) as f64 /(weights[0] as i64 + new_weight_adj as i64 + weights[1] as i64) as f64, probs[index], weighted_prob);
-    core::cmp::max(1, wi.wrapping_add(new_weight_adj) as i32)
+    max(1, wi.wrapping_add(new_weight_adj) as i32)
 }

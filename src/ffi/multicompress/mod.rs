@@ -13,6 +13,7 @@ use brotli_decompressor::ffi::interface::{
 };
 use brotli_decompressor::ffi::{slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut};
 use core;
+use core::cmp::min;
 use enc::encode::{
     BrotliEncoderCompressStream, BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
     BrotliEncoderIsFinished, BrotliEncoderOperation, BrotliEncoderSetParameter,
@@ -108,7 +109,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
     if desired_num_threads == 0 {
         return 0;
     }
-    let num_threads = core::cmp::min(desired_num_threads, MAX_THREADS);
+    let num_threads = min(desired_num_threads, MAX_THREADS);
     compressor::catch_panic(|| {
         let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
         let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
@@ -252,7 +253,7 @@ pub unsafe extern "C" fn BrotliEncoderCreateWorkPool(
         };
         let to_box = BrotliEncoderWorkPool {
             custom_allocator: allocators.clone(),
-            work_pool: enc::new_work_pool(core::cmp::min(num_threads, MAX_THREADS)),
+            work_pool: enc::new_work_pool(min(num_threads, MAX_THREADS)),
         };
         if let Some(alloc) = alloc_func {
             if free_func.is_none() {
@@ -361,7 +362,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
                 return 0;
             }
         }
-        let num_threads = core::cmp::min(desired_num_threads, MAX_THREADS);
+        let num_threads = min(desired_num_threads, MAX_THREADS);
         let mut alloc_array: [_; MAX_THREADS] = [
             make_send_alloc!(alloc_func, free_func, alloc_opaque[0]),
             make_send_alloc!(alloc_func, free_func, alloc_opaque[1 % desired_num_threads]),

@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 use super::super::alloc::SliceWrapper;
 use super::histogram::CostAccessors;
-use core;
+use core::cmp::{max, min};
 #[cfg(feature = "simd")]
 use core::simd::prelude::SimdPartialOrd;
 
-use super::util::{brotli_max_uint32_t, floatX, FastLog2, FastLog2u16};
+use super::util::{floatX, FastLog2, FastLog2u16};
 use super::vectorization::{cast_f32_to_i32, cast_i32_to_f32, log2i, sum8, v256, v256i, Mem256i};
 
 static kCopyBase: [u32; 24] = [
@@ -91,7 +91,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
             let element = nnz_data.slice()[i >> 3][i & 7];
             let log2p = log2total - FastLog2u16(element as u16);
             // Approximate the bit depth by round(-log2(P(symbol)))
-            let depth = core::cmp::min((log2p + 0.5) as u8, 15u8);
+            let depth = min((log2p + 0.5) as u8, 15u8);
             bits += element as super::util::floatX * log2p;
             if (depth as usize > max_depth) {
                 max_depth = depth as usize;
@@ -118,9 +118,9 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
                 let ele = nnz_data_vec[i];
                 let log2p = log2total - FastLog2u16(ele as u16);
                 // Approximate the bit depth by round(-log2(P(symbol)))
-                let depth = core::cmp::min((log2p + 0.5) as i32, 15) as i32;
+                let depth = min((log2p + 0.5) as i32, 15) as i32;
                 bits += ele as super::util::floatX * log2p;
-                vec_max_depth[i] = core::cmp::max(vec_max_depth[i], depth);
+                vec_max_depth[i] = max(vec_max_depth[i], depth);
                 depth_histo_vec[i][depth as usize] += 1;
             }
         }
@@ -129,7 +129,7 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
             for j in 0..BROTLI_CODE_LENGTH_CODES {
                 depth_histo[j] += depth_histo_vec[i][j] as u32;
             }
-            max_depth = core::cmp::max(vec_max_depth[i], max_depth);
+            max_depth = max(vec_max_depth[i], max_depth);
         }
         if rem != 0 {
             let last_vec = nnz_data.slice()[nnz_srl_3];
@@ -138,9 +138,9 @@ fn CostComputation<T: SliceWrapper<Mem256i>>(
                 let element = last_vec[i];
                 let log2p = log2total - FastLog2u16(element as u16);
                 // Approximate the bit depth by round(-log2(P(symbol)))
-                let depth = core::cmp::min((log2p + 0.5) as i32, 15);
+                let depth = min((log2p + 0.5) as i32, 15);
                 bits += element as super::util::floatX * log2p;
-                max_depth = core::cmp::max(depth, max_depth);
+                max_depth = max(depth, max_depth);
                 depth_histo[depth as usize] += 1;
             }
         }
@@ -282,7 +282,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
         let histo0: u32 = histogram.slice()[s[0]];
         let histo1: u32 = histogram.slice()[s[1]];
         let histo2: u32 = histogram.slice()[s[2]];
-        let histomax: u32 = brotli_max_uint32_t(histo0, brotli_max_uint32_t(histo1, histo2));
+        let histomax: u32 = max(histo0, max(histo1, histo2));
         return kThreeSymbolHistogramCost
             + (2u32).wrapping_mul(histo0.wrapping_add(histo1).wrapping_add(histo2))
                 as super::util::floatX
@@ -307,7 +307,7 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
             }
         }
         let h23: u32 = histo[2].wrapping_add(histo[3]);
-        let histomax: u32 = brotli_max_uint32_t(h23, histo[0]);
+        let histomax: u32 = max(h23, histo[0]);
         return kFourSymbolHistogramCost
             + (3u32).wrapping_mul(h23) as super::util::floatX
             + (2u32).wrapping_mul(histo[0].wrapping_add(histo[1])) as super::util::floatX
@@ -376,8 +376,8 @@ pub fn BrotliPopulationCost<HistogramType: SliceWrapper<u32> + CostAccessors>(
                 let log2p: super::util::floatX = log2total - FastLog2u16(*histo as u16);
                 let mut depth: usize = (log2p + 0.5 as super::util::floatX) as usize;
                 bits += *histo as super::util::floatX * log2p;
-                depth = core::cmp::min(depth, 15);
-                max_depth = core::cmp::max(depth, max_depth);
+                depth = min(depth, 15);
+                max_depth = max(depth, max_depth);
                 depth_histo[depth] += 1;
             } else {
                 reps += 1;
