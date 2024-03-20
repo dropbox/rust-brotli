@@ -1,8 +1,7 @@
 use super::backward_references::{AnyHasher, BrotliEncoderParams, CloneWithAlloc, UnionHasher};
 use super::encode::{
-    BrotliEncoderCompressStream, BrotliEncoderCreateInstance, BrotliEncoderDestroyInstance,
-    BrotliEncoderMaxCompressedSize, BrotliEncoderOperation,
-    BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher, HasherSetup, SanitizeParams,
+    BrotliEncoderDestroyInstance, BrotliEncoderMaxCompressedSize, BrotliEncoderOperation,
+    HasherSetup, SanitizeParams,
 };
 use super::BrotliAlloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
@@ -11,8 +10,10 @@ use core::any;
 use core::marker::PhantomData;
 use core::mem;
 use core::ops::Range;
+use enc::encode::BrotliEncoderStateStruct;
 #[cfg(feature = "std")]
 use std;
+
 pub type PoisonedThreadError = ();
 
 #[cfg(feature = "std")]
@@ -338,7 +339,7 @@ where
         &mut alloc,
         BrotliEncoderMaxCompressedSize(range.end - range.start),
     );
-    let mut state = BrotliEncoderCreateInstance(alloc);
+    let mut state = BrotliEncoderStateStruct::new(alloc);
     state.params = input_and_params.1.clone();
     if thread_index != 0 {
         state.params.catable = true; // make sure we can concatenate this to the other work results
@@ -346,8 +347,7 @@ where
     }
     state.params.appendable = true; // make sure we are at least appendable, so that future items can be catted in
     if thread_index != 0 {
-        BrotliEncoderSetCustomDictionaryWithOptionalPrecomputedHasher(
-            &mut state,
+        state.set_custom_dictionary_with_optional_precomputed_hasher(
             range.start,
             &input_and_params.0.slice()[..range.start],
             hasher,
@@ -359,8 +359,7 @@ where
     loop {
         let mut next_in_offset = 0usize;
         let mut available_in = range.end - range.start;
-        let result = BrotliEncoderCompressStream(
-            &mut state,
+        let result = state.compress_stream(
             BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
             &mut available_in,
             &input_and_params.0.slice()[range.clone()],
@@ -373,7 +372,7 @@ where
         );
         let new_range = range.start + next_in_offset..range.end;
         range = new_range;
-        if result != 0 {
+        if result {
             compression_result = Ok(out_offset);
             break;
         } else if available_out == 0 {
