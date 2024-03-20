@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_imports)]
 use super::hash_to_binary_tree::{
-    kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, InitBackwardMatch,
-    StoreAndFindMatchesH10, Union1, ZopfliNode, H10,
+    kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, StoreAndFindMatchesH10,
+    Union1, ZopfliNode, H10,
 };
 use super::{
     kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
@@ -283,18 +283,6 @@ fn HashBytesH10(data: &[u8]) -> u32 {
     h >> (32i32 - 17i32)
 }
 
-#[inline(always)]
-fn InitDictionaryBackwardMatch(
-    xself: &mut BackwardMatchMut,
-    dist: usize,
-    len: usize,
-    len_code: usize,
-) {
-    xself.set_distance(dist as u32);
-    (*xself)
-        .set_length_and_code((len << 5 | if len == len_code { 0usize } else { len_code }) as u32);
-}
-
 pub fn StitchToPreviousBlockH10<
     AllocU32: Allocator<u32>,
     Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
@@ -397,11 +385,7 @@ where
                     );
                     if len > best_len {
                         best_len = len;
-                        InitBackwardMatch(
-                            &mut BackwardMatchMut(&mut matches[matches_offset]),
-                            backward,
-                            len,
-                        );
+                        BackwardMatchMut(&mut matches[matches_offset]).init(backward, len);
                         matches_offset += 1;
                     }
                 }
@@ -454,8 +438,7 @@ where
                             .wrapping_add((dict_id >> 5) as usize)
                             .wrapping_add(1);
                         if distance <= params.dist.max_distance {
-                            InitDictionaryBackwardMatch(
-                                &mut BackwardMatchMut(&mut matches[matches_offset]),
+                            BackwardMatchMut(&mut matches[matches_offset]).init_dictionary(
                                 distance,
                                 l,
                                 (dict_id & 31u32) as usize,
