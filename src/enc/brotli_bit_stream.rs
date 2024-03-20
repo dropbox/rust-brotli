@@ -312,13 +312,11 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
         let copylen_code: u32 = CommandCopyLenCode(cmd);
 
         let (prev_dist_index, dist_offset) = CommandDistanceIndexAndOffset(cmd, &params.dist);
-        let final_distance: usize;
-        if prev_dist_index == 0 {
-            final_distance = dist_offset as usize;
+        let final_distance = if prev_dist_index == 0 {
+            dist_offset as usize
         } else {
-            final_distance =
-                (local_dist_cache[prev_dist_index - 1] as isize + dist_offset) as usize;
-        }
+            (local_dist_cache[prev_dist_index - 1] as isize + dist_offset) as usize
+        };
         let copy_len = copylen_code as usize;
         let actual_copy_len: usize;
         let max_distance = core::cmp::min(
@@ -1413,12 +1411,11 @@ fn NewBlockEncoder<'a, Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
     block_lengths: &'a [u32],
     num_blocks: usize,
 ) -> BlockEncoder<'a, Alloc> {
-    let block_len: usize;
-    if num_blocks != 0 && !block_lengths.is_empty() {
-        block_len = block_lengths[0] as usize;
+    let block_len = if num_blocks != 0 && !block_lengths.is_empty() {
+        block_lengths[0] as usize
     } else {
-        block_len = 0;
-    }
+        0
+    };
     BlockEncoder::<Alloc> {
         histogram_length_: histogram_length,
         num_block_types_: num_block_types,

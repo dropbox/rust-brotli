@@ -1660,15 +1660,14 @@ fn UpdateSizeHint<Alloc: BrotliAlloc>(
         let delta: u64 = UnprocessedInputSize(s);
         let tail: u64 = available_in as u64;
         let limit: u32 = 1u32 << 30;
-        let total: u32;
-        if delta >= u64::from(limit)
+        let total: u32 = if delta >= u64::from(limit)
             || tail >= u64::from(limit)
             || delta.wrapping_add(tail) >= u64::from(limit)
         {
-            total = limit;
+            limit
         } else {
-            total = delta.wrapping_add(tail) as u32;
-        }
+            delta.wrapping_add(tail) as u32
+        };
         s.params.size_hint = total as usize;
     }
 }

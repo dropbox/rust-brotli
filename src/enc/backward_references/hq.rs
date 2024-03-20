@@ -775,7 +775,6 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                                 + i32::from(kDistanceCacheOffset[j]))
                                 as usize;
                             let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
-                            let len: usize;
                             let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
                             if cur_ix_masked.wrapping_add(best_len) > ringbuffer_mask {
                                 break 'break29;
@@ -783,66 +782,57 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                             if backward > max_distance.wrapping_add(gap) {
                                 break 'continue30;
                             }
-                            if backward <= max_distance {
-                                if prev_ix >= cur_ix {
-                                    break 'continue30;
-                                }
-                                prev_ix &= ringbuffer_mask;
-                                if prev_ix.wrapping_add(best_len) > ringbuffer_mask
-                                    || continuation as i32
-                                        != ringbuffer[(prev_ix.wrapping_add(best_len) as usize)]
-                                            as i32
-                                {
-                                    break 'continue30;
-                                }
-                                len = FindMatchLengthWithLimit(
-                                    &ringbuffer[(prev_ix as usize)..],
-                                    &ringbuffer[cur_ix_masked..],
-                                    max_len,
-                                );
-                            } else {
+                            if backward > max_distance {
                                 break 'continue30;
                             }
+
+                            if prev_ix >= cur_ix {
+                                break 'continue30;
+                            }
+                            prev_ix &= ringbuffer_mask;
+                            if prev_ix.wrapping_add(best_len) > ringbuffer_mask
+                                || continuation as i32
+                                    != ringbuffer[prev_ix.wrapping_add(best_len)] as i32
                             {
-                                let dist_cost: floatX =
-                                    base_cost + ZopfliCostModelGetDistanceCost(model, j);
-                                let mut l: usize;
-                                l = best_len.wrapping_add(1);
-                                while l <= len {
-                                    {
-                                        let copycode: u16 = GetCopyLengthCode(l);
-                                        let cmdcode: u16 = CombineLengthCodes(
-                                            inscode,
-                                            copycode,
-                                            (j == 0usize) as i32,
-                                        );
-                                        let cost: floatX = (if (cmdcode as i32) < 128i32 {
-                                            base_cost
-                                        } else {
-                                            dist_cost
-                                        }) + GetCopyExtra(copycode) as (floatX)
-                                            + ZopfliCostModelGetCommandCost(model, cmdcode);
-                                        if cost
-                                            < match (nodes[pos.wrapping_add(l)]).u {
-                                                Union1::cost(cost) => cost,
-                                                _ => 0.0,
-                                            }
-                                        {
-                                            UpdateZopfliNode(
-                                                nodes,
-                                                pos,
-                                                start,
-                                                l,
-                                                l,
-                                                backward,
-                                                j.wrapping_add(1),
-                                                cost,
-                                            );
-                                            result = brotli_max_size_t(result, l);
+                                break 'continue30;
+                            }
+
+                            let dist_cost = base_cost + ZopfliCostModelGetDistanceCost(model, j);
+                            let len = FindMatchLengthWithLimit(
+                                &ringbuffer[prev_ix..],
+                                &ringbuffer[cur_ix_masked..],
+                                max_len,
+                            );
+                            for l in best_len.wrapping_add(1)..=len {
+                                {
+                                    let copycode: u16 = GetCopyLengthCode(l);
+                                    let cmdcode: u16 =
+                                        CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
+                                    let cost: floatX = (if (cmdcode as i32) < 128i32 {
+                                        base_cost
+                                    } else {
+                                        dist_cost
+                                    }) + GetCopyExtra(copycode) as (floatX)
+                                        + ZopfliCostModelGetCommandCost(model, cmdcode);
+                                    if cost
+                                        < match (nodes[pos.wrapping_add(l)]).u {
+                                            Union1::cost(cost) => cost,
+                                            _ => 0.0,
                                         }
-                                        best_len = l;
+                                    {
+                                        UpdateZopfliNode(
+                                            nodes,
+                                            pos,
+                                            start,
+                                            l,
+                                            l,
+                                            backward,
+                                            j.wrapping_add(1),
+                                            cost,
+                                        );
+                                        result = brotli_max_size_t(result, l);
                                     }
-                                    l = l.wrapping_add(1);
+                                    best_len = l;
                                 }
                             }
                         }
