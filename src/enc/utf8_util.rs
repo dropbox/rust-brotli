@@ -1,5 +1,7 @@
 #![allow(dead_code)]
-static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
+pub use super::util::floatX;
+
+static kMinUTF8Ratio: floatX = 0.75;
 
 fn BrotliParseAsUTF8(symbol: &mut i32, input: &[u8], size: usize) -> usize {
     if input[0] as i32 & 0x80i32 == 0i32 {
@@ -52,7 +54,7 @@ pub fn BrotliIsMostlyUTF8(
     pos: usize,
     mask: usize,
     length: usize,
-    min_fraction: super::util::floatX,
+    min_fraction: floatX,
 ) -> i32 {
     let mut size_utf8: usize = 0usize;
     let mut i: usize = 0usize;
@@ -68,7 +70,7 @@ pub fn BrotliIsMostlyUTF8(
             size_utf8 = size_utf8.wrapping_add(bytes_read);
         }
     }
-    if size_utf8 as (super::util::floatX) > min_fraction * length as (super::util::floatX) {
+    if (size_utf8 as floatX) > min_fraction * (length as floatX) {
         1i32
     } else {
         0i32
