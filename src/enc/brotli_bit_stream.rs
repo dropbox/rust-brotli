@@ -2145,7 +2145,7 @@ fn StoreSymbolWithContext<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16>>(
 }
 
 fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0xffffffu32
+  xself.copy_len_ & 0x1ffffffu32
 }
 
 fn CommandDistanceContext(xself: &Command) -> u32 {

@@ -124,7 +124,7 @@ fn CountLiterals(cmds: &[Command], num_commands: usize) -> usize {
 }
 
 fn CommandCopyLen(xself: &Command) -> u32 {
-    xself.copy_len_ & 0xffffffu32
+    xself.copy_len_ & 0x1ffffffu32
 }
 
 fn CopyLiteralsToByteArray(
