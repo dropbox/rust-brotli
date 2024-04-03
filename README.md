@@ -3,6 +3,11 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+## What's new in 4.0.0
+Pinned to a rust-brotli-decompressor that can disable the ffi with the ffi-api
+flag.
+This can help avoid symbol conflicts with other brotli libs.
+
 ## What's new in 3.5
 Updated SIMD support.
 Better CI integration.
