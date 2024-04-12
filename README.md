@@ -3,6 +3,9 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+## What's new in 5.0.0
+* The FFI is no longer active by default to avoid ODR issues if multiple versions of brotli are included in several dependent crates.
+
 ## What's new in 4.0.0
 Pinned to a rust-brotli-decompressor that can disable the ffi with the ffi-api
 flag.
