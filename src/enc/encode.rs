@@ -2395,57 +2395,21 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         if self.num_commands_ != 0 && self.last_insert_len_ == 0 {
             self.extend_last_command(&mut bytes, &mut wrapped_last_processed_pos);
         }
-        if false {
-            // we are remapping 10 as quality=9.5 since Zopfli doesn't seem to offer much benefits here
-            panic!(
-                r####"
-    BrotliCreateZopfliBackwardReferences(m,
-                                         dictionary,
-                                         bytes as usize,
-                                         wrapped_last_processed_pos as usize,
-                                         data,
-                                         mask as usize,
-                                         &mut s.params,
-                                         s.hasher_,
-                                         s.dist_cache_.as_mut_ptr(),
-                                         &mut s.last_insert_len_,
-                                         &mut *s.commands_[((*s).num_commands_ as usize)..],
-                                         &mut s.num_commands_,
-                                         &mut s.num_literals_);"####
-            );
-        } else if false && self.params.quality == 11i32 {
-            panic!(
-                r####"BrotliCreateHqZopfliBackwardReferences(m,
-                                           dictionary,
-                                           bytes as usize,
-                                           wrapped_last_processed_pos as usize,
-                                           data,
-                                           mask as usize,
-                                           &mut s.params,
-                                           s.hasher_,
-                                           s.dist_cache_.as_mut_ptr(),
-                                           &mut s.last_insert_len_,
-                                           &mut *s.commands_[((*s).num_commands_ as usize)..],
-                                           &mut s.num_commands_,
-                                           &mut s.num_literals_);"####
-            );
-        } else {
-            BrotliCreateBackwardReferences(
-                &mut self.m8,
-                dictionary,
-                bytes as usize,
-                wrapped_last_processed_pos as usize,
-                &mut self.ringbuffer_.data_mo.slice_mut()[self.ringbuffer_.buffer_index..],
-                mask as usize,
-                &mut self.params,
-                &mut self.hasher_,
-                &mut self.dist_cache_,
-                &mut self.last_insert_len_,
-                &mut self.commands_.slice_mut()[self.num_commands_..],
-                &mut self.num_commands_,
-                &mut self.num_literals_,
-            );
-        }
+        BrotliCreateBackwardReferences(
+            &mut self.m8,
+            dictionary,
+            bytes as usize,
+            wrapped_last_processed_pos as usize,
+            &mut self.ringbuffer_.data_mo.slice_mut()[self.ringbuffer_.buffer_index..],
+            mask as usize,
+            &mut self.params,
+            &mut self.hasher_,
+            &mut self.dist_cache_,
+            &mut self.last_insert_len_,
+            &mut self.commands_.slice_mut()[self.num_commands_..],
+            &mut self.num_commands_,
+            &mut self.num_literals_,
+        );
         {
             let max_length: usize = MaxMetablockSize(&mut self.params);
             let max_literals: usize = max_length.wrapping_div(8);
