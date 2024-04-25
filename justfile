@@ -20,8 +20,7 @@ build-simd:
 
 # Build the brotli-ffi crate (in ./c dir)
 build-ffi:
-    # TODO change to this:   RUSTFLAGS='-D warnings' cargo build --workspace --all-targets --bins --tests --lib --benches --examples --manifest-path c/Cargo.toml
-    cargo build --workspace --all-targets --bins --tests --lib --benches --examples --manifest-path c/Cargo.toml
+    RUSTFLAGS='-D warnings' cargo build --workspace --all-targets --bins --tests --lib --benches --examples --manifest-path c/Cargo.toml
     # For now, use original make file for building/testing the FFI crate
     cd c && make
 
@@ -72,7 +71,7 @@ read-msrv:
 ci-test: sys-info (fmt "--check") build test test-doc
 
 # All stable tests to run for CI with the earliest supported Rust version. Assumes the Rust version is already set by rustup.
-ci-test-msrv: sys-info build test
+ci-test-msrv: sys-info build-brotli build-ffi test
 
 # Test if changes are backwards compatible (patch), or need a new minor/major version
 semver-checks:

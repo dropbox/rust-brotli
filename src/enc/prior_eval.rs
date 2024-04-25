@@ -1,4 +1,3 @@
-use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::backward_references::BrotliEncoderParams;
 use super::find_stride;
@@ -7,7 +6,6 @@ use super::interface;
 use super::ir_interpret::{push_base, IRInterpreter};
 use super::util::{floatX, FastLog2u16};
 use super::{s16, v8};
-use core;
 use core::cmp::min;
 #[cfg(feature = "simd")]
 use core::simd::prelude::SimdPartialOrd;

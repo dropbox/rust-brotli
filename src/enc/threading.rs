@@ -11,8 +11,6 @@ use core::marker::PhantomData;
 use core::mem;
 use core::ops::Range;
 use enc::encode::BrotliEncoderStateStruct;
-#[cfg(feature = "std")]
-use std;
 
 pub type PoisonedThreadError = ();
 

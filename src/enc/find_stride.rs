@@ -1,4 +1,3 @@
-use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::input_pair::{InputPair, InputReference};
 use super::interface;

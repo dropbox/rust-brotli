@@ -1,8 +1,6 @@
 #![allow(unknown_lints)]
 #![allow(unused_macros)]
 
-#[cfg(feature = "simd")]
-use core::simd::Simd;
 use enc::util::FastLog2;
 use enc::{s8, v8};
 pub type Mem256f = v8;

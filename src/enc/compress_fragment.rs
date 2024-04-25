@@ -9,7 +9,6 @@ use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHu
 // the hoops that BuildAndStoreCommandPrefixCode goes through are subtly different in order
 // (eg memcpy x+24, y instead of +24, y+40
 // pretty much assume compress_fragment_two_pass is a trap! except for BrotliStoreMetaBlockHeader
-use super::super::alloc;
 use super::compress_fragment_two_pass::{memcpy, BrotliStoreMetaBlockHeader, BrotliWriteBits};
 use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
