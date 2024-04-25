@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::backward_references::BrotliEncoderParams;
 use super::bit_cost::{BitsEntropy, BrotliPopulationCost};
@@ -20,7 +19,6 @@ use super::histogram::{
     HistogramAddHistogram, HistogramAddItem, HistogramClear, HistogramCommand, HistogramDistance,
     HistogramLiteral,
 };
-use core;
 use core::cmp::{max, min};
 
 pub fn BrotliInitDistanceParams(params: &mut BrotliEncoderParams, npostfix: u32, ndirect: u32) {

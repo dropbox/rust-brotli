@@ -2,7 +2,6 @@
 use super::backward_references::BrotliEncoderParams;
 use super::vectorization::{sum8i, v256, v256i, Mem256f};
 
-use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::bit_cost::BrotliPopulationCost;
 use super::block_split::BlockSplit;
@@ -13,7 +12,6 @@ use super::histogram::{
     HistogramClear, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
 use super::util::FastLog2;
-use core;
 use core::cmp::{max, min};
 #[cfg(feature = "simd")]
 use core::simd::prelude::{SimdFloat, SimdPartialOrd};

@@ -10,7 +10,6 @@ use enc::threading::{
 };
 use enc::BrotliAlloc;
 use enc::BrotliEncoderParams;
-use std;
 use std::thread::JoinHandle;
 
 // in-place thread create

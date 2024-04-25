@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 use super::backward_references::kHashMul32;
-//use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-use super::super::alloc;
 use super::bit_cost::BitsEntropy;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
 use super::entropy_encode::{
@@ -12,7 +10,6 @@ use super::static_dict::{
     BROTLI_UNALIGNED_STORE64,
 };
 use super::util::Log2FloorNonZero;
-use core;
 use core::cmp::min;
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 

@@ -4,9 +4,7 @@ use super::histogram::{
     CostAccessors, HistogramAddHistogram, HistogramClear, HistogramSelfAddHistogram,
 };
 use super::util::FastLog2;
-use alloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use core;
 use core::cmp::min;
 #[derive(Clone, Copy)]
 pub struct HistogramPair {

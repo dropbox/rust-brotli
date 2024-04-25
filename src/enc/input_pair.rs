@@ -1,7 +1,6 @@
 use super::super::alloc::SliceWrapper;
 use super::super::alloc::SliceWrapperMut;
 use super::interface::Freezable;
-use core;
 use core::cmp::min;
 #[derive(Copy, Clone, Default, Debug)]
 pub struct InputReference<'a> {

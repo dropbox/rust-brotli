@@ -5,7 +5,11 @@ extern crate std;
 
 pub extern crate brotli;
 pub use brotli::ffi::compressor::*;
+
+// FIXME: this is just wrong, and needs to be fixed
+#[allow(unknown_lints, ambiguous_glob_reexports)]
 pub use brotli::ffi::decompressor::*;
+
 pub use brotli::ffi::multicompress::*;
 pub use brotli::*;
 use core::ptr::null_mut;

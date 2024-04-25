@@ -25,7 +25,6 @@ use super::interface;
 pub use super::parameters::BrotliEncoderParameter;
 use alloc::Allocator;
 
-use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::command::{BrotliDistanceParams, Command, GetLengthCode};
 use super::compress_fragment::BrotliCompressFragmentFast;
@@ -44,7 +43,6 @@ use super::metablock::{
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::Log2FloorNonZero;
-use core;
 use core::cmp::{max, min};
 use enc::input_pair::InputReferenceMut;
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],

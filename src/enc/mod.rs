@@ -43,8 +43,6 @@ pub mod singlethreading;
 pub mod threading;
 pub mod worker_pool;
 #[cfg(feature = "simd")]
-use core::simd::{f32x8, i16x16, i32x8};
-#[cfg(feature = "simd")]
 pub type s16 = core::simd::i16x16;
 #[cfg(feature = "simd")]
 pub type v8 = core::simd::f32x8;

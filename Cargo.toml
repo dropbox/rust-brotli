@@ -1,6 +1,6 @@
 [package]
 name = "brotli"
-version = "5.0.0"
+version = "6.0.0"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
 description = "A brotli compressor and decompressor that with an interface avoiding the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. The default build also includes a stdlib allocator and stream interface. Disable this with --features=no-stdlib. All included code is safe."
 license = "BSD-3-Clause OR MIT"
@@ -11,6 +11,7 @@ keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
 categories = ["compression", "no-std"]
 readme = "README.md"
 autobins = false
+edition = "2015"
 rust-version = "1.56.0"
 
 [[bin]]

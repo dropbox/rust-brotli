@@ -2,8 +2,6 @@
 use super::super::alloc::SliceWrapper;
 use super::histogram::CostAccessors;
 use core::cmp::{max, min};
-#[cfg(feature = "simd")]
-use core::simd::prelude::SimdPartialOrd;
 
 use super::util::{FastLog2, FastLog2u16};
 use super::vectorization::Mem256i;

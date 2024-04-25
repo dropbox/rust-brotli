@@ -1,4 +1,3 @@
-use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::find_stride;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
@@ -6,7 +5,6 @@ use super::interface;
 pub use super::ir_interpret::{push_base, Context, IRInterpreter};
 use super::util::{floatX, FastLog2u16};
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
-use core;
 
 const DEFAULT_CM_SPEED_INDEX: usize = 8;
 const NUM_SPEEDS_TO_TRY: usize = 16;
