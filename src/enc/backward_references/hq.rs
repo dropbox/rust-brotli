@@ -704,84 +704,72 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                     + GetInsertExtra(inscode) as (floatX)
                     + model.get_literal_costs(0, pos);
                 let mut best_len: usize = min_len.wrapping_sub(1);
-                let mut j: usize = 0usize;
-                'break29: while j < 16usize && (best_len < max_len) {
-                    'continue30: loop {
-                        {
-                            let idx: usize = kDistanceCacheIndex[j] as usize;
-                            let distance_cache_len_minus_1 = 3;
-                            debug_assert_eq!(
-                                distance_cache_len_minus_1 + 1,
-                                posdata.distance_cache.len()
-                            );
-                            let backward: usize = (posdata.distance_cache
-                                [(idx & distance_cache_len_minus_1)]
-                                + i32::from(kDistanceCacheOffset[j]))
-                                as usize;
-                            let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
-                            let len: usize;
-                            let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
-                            if cur_ix_masked.wrapping_add(best_len) > ringbuffer_mask {
-                                break 'break29;
-                            }
-                            if backward > max_distance.wrapping_add(gap) {
-                                break 'continue30;
-                            }
-                            if backward <= max_distance {
-                                if prev_ix >= cur_ix {
-                                    break 'continue30;
-                                }
-                                prev_ix &= ringbuffer_mask;
-                                if prev_ix.wrapping_add(best_len) > ringbuffer_mask
-                                    || continuation as i32
-                                        != ringbuffer[(prev_ix.wrapping_add(best_len) as usize)]
-                                            as i32
-                                {
-                                    break 'continue30;
-                                }
-                                len = FindMatchLengthWithLimit(
-                                    &ringbuffer[(prev_ix as usize)..],
-                                    &ringbuffer[cur_ix_masked..],
-                                    max_len,
-                                );
-                            } else {
-                                break 'continue30;
-                            }
-                            {
-                                let dist_cost = base_cost + model.get_distance_cost(j);
-                                for l in best_len.wrapping_add(1)..=len {
-                                    let copycode: u16 = GetCopyLengthCode(l);
-                                    let cmdcode: u16 =
-                                        CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
-                                    let cost: floatX =
-                                        (if cmdcode < 128 { base_cost } else { dist_cost })
-                                            + (GetCopyExtra(copycode) as floatX)
-                                            + model.get_command_cost(cmdcode);
-                                    if cost
-                                        < match (nodes[pos.wrapping_add(l)]).u {
-                                            Union1::cost(cost) => cost,
-                                            _ => 0.0,
-                                        }
-                                    {
-                                        UpdateZopfliNode(
-                                            nodes,
-                                            pos,
-                                            start,
-                                            l,
-                                            l,
-                                            backward,
-                                            j.wrapping_add(1),
-                                            cost,
-                                        );
-                                        result = max(result, l);
-                                    }
-                                    best_len = l;
-                                }
-                            }
-                        }
+                for j in 0..16 {
+                    if best_len >= max_len {
                         break;
                     }
-                    j = j.wrapping_add(1);
+
+                    let idx: usize = kDistanceCacheIndex[j] as usize;
+                    let distance_cache_len_minus_1 = 3;
+                    debug_assert_eq!(distance_cache_len_minus_1 + 1, posdata.distance_cache.len());
+                    let backward: usize =
+                        (posdata.distance_cache[(idx & distance_cache_len_minus_1)]
+                            + i32::from(kDistanceCacheOffset[j])) as usize;
+                    let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
+                    let len: usize;
+                    let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
+                    if cur_ix_masked.wrapping_add(best_len) > ringbuffer_mask {
+                        break;
+                    }
+                    if backward > max_distance.wrapping_add(gap) {
+                        continue;
+                    }
+                    if backward > max_distance {
+                        continue;
+                    }
+                    if prev_ix >= cur_ix {
+                        continue;
+                    }
+                    prev_ix &= ringbuffer_mask;
+                    if prev_ix.wrapping_add(best_len) > ringbuffer_mask
+                        || continuation != ringbuffer[prev_ix.wrapping_add(best_len)]
+                    {
+                        continue;
+                    }
+                    len = FindMatchLengthWithLimit(
+                        &ringbuffer[prev_ix..],
+                        &ringbuffer[cur_ix_masked..],
+                        max_len,
+                    );
+
+                    let dist_cost = base_cost + model.get_distance_cost(j);
+                    for l in best_len.wrapping_add(1)..=len {
+                        let copycode: u16 = GetCopyLengthCode(l);
+                        let cmdcode: u16 =
+                            CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
+                        let cost: floatX = (if cmdcode < 128 { base_cost } else { dist_cost })
+                            + (GetCopyExtra(copycode) as floatX)
+                            + model.get_command_cost(cmdcode);
+                        if cost
+                            < match nodes[pos.wrapping_add(l)].u {
+                                Union1::cost(cost) => cost,
+                                _ => 0.0,
+                            }
+                        {
+                            UpdateZopfliNode(
+                                nodes,
+                                pos,
+                                start,
+                                l,
+                                l,
+                                backward,
+                                j.wrapping_add(1),
+                                cost,
+                            );
+                            result = max(result, l);
+                        }
+                        best_len = l;
+                    }
                 }
                 if k >= 2usize {
                     break 'continue28;
