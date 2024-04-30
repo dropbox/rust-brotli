@@ -345,35 +345,23 @@ where
         stop = 0usize;
     }
     i = cur_ix.wrapping_sub(1);
-    'break14: while i > stop && (best_len <= 2usize) {
-        'continue15: loop {
-            {
-                let mut prev_ix: usize = i;
-                let backward: usize = cur_ix.wrapping_sub(prev_ix);
-                if backward > max_backward {
-                    break 'break14;
-                }
-                prev_ix &= ring_buffer_mask;
-                if data[cur_ix_masked] as i32 != data[prev_ix] as i32
-                    || data[cur_ix_masked.wrapping_add(1)] as i32
-                        != data[prev_ix.wrapping_add(1)] as i32
-                {
-                    break 'continue15;
-                }
-                {
-                    let len: usize = FindMatchLengthWithLimit(
-                        &data[prev_ix..],
-                        &data[cur_ix_masked..],
-                        max_length,
-                    );
-                    if len > best_len {
-                        best_len = len;
-                        BackwardMatchMut(&mut matches[matches_offset]).init(backward, len);
-                        matches_offset += 1;
-                    }
-                }
-            }
+    while i > stop && best_len <= 2 {
+        let mut prev_ix: usize = i;
+        let backward: usize = cur_ix.wrapping_sub(prev_ix);
+        if backward > max_backward {
             break;
+        }
+        prev_ix &= ring_buffer_mask;
+        if data[cur_ix_masked] == data[prev_ix]
+            && data[cur_ix_masked.wrapping_add(1)] == data[prev_ix.wrapping_add(1)]
+        {
+            let len =
+                FindMatchLengthWithLimit(&data[prev_ix..], &data[cur_ix_masked..], max_length);
+            if len > best_len {
+                best_len = len;
+                BackwardMatchMut(&mut matches[matches_offset]).init(backward, len);
+                matches_offset += 1;
+            }
         }
         i = i.wrapping_sub(1);
     }
