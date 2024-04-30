@@ -1058,39 +1058,30 @@ pub fn BrotliCreateZopfliBackwardReferences<
 
 fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cost: &mut [floatX]) {
     let mut sum: u64 = 0;
-    let mut missing_symbol_sum: u64;
-
-    let mut i: usize;
-    for i in 0usize..histogram_size {
+    for i in 0..histogram_size {
         sum = sum.wrapping_add(u64::from(histogram[i]));
     }
-    let log2sum: floatX = FastLog2(sum) as (floatX);
-    missing_symbol_sum = sum;
+    let log2sum = FastLog2(sum);
+
+    let mut missing_symbol_sum = sum;
     if literal_histogram == 0 {
-        for i in 0usize..histogram_size {
-            if histogram[i] == 0u32 {
+        for i in 0..histogram_size {
+            if histogram[i] == 0 {
                 missing_symbol_sum = missing_symbol_sum.wrapping_add(1);
             }
         }
     }
-    let missing_symbol_cost: floatX =
-        FastLog2f64(missing_symbol_sum) as (floatX) + 2i32 as (floatX);
-    i = 0usize;
-    while i < histogram_size {
-        'continue56: loop {
-            {
-                if histogram[i] == 0u32 {
-                    cost[i] = missing_symbol_cost;
-                    break 'continue56;
-                }
-                cost[i] = log2sum - FastLog2(u64::from(histogram[i])) as (floatX);
-                if cost[i] < 1i32 as (floatX) {
-                    cost[i] = 1i32 as (floatX);
-                }
+
+    let missing_symbol_cost = FastLog2f64(missing_symbol_sum) + 2.0;
+    for i in 0..histogram_size {
+        if histogram[i] == 0 {
+            cost[i] = missing_symbol_cost;
+        } else {
+            cost[i] = log2sum - FastLog2(u64::from(histogram[i]));
+            if cost[i] < 1.0 {
+                cost[i] = 1.0;
             }
-            break;
         }
-        i = i.wrapping_add(1);
     }
 }
 
