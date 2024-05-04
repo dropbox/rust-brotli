@@ -1,7 +1,7 @@
 #![allow(unknown_lints)]
 #![allow(dead_code)]
-#![allow(unused_imports)]
 #![allow(unused_macros)]
+
 use core::cmp::{max, min};
 #[cfg(feature = "std")]
 use std::io::Write;
@@ -34,12 +34,11 @@ use super::histogram::{
     ContextType, HistogramAddItem, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use super::interface::{CommandProcessor, StaticCommand};
-use super::pdf::PDF;
+use super::interface::StaticCommand;
 use super::static_dict::kNumDistanceCacheEntries;
 use super::util::floatX;
-use super::vectorization::Mem256f;
-use super::{find_stride, interface, prior_eval, s16, stride_eval, v8};
+use super::{find_stride, interface, prior_eval, stride_eval};
+
 pub struct PrefixCodeRange {
     pub offset: u32,
     pub nbits: u32,
@@ -2955,8 +2954,10 @@ pub fn BrotliWriteMetadataMetaBlock(
     }
 }
 
+#[cfg(test)]
 mod test {
-    use super::{encode_base_128, MAX_SIZE_ENCODING};
+    use enc::brotli_bit_stream::{encode_base_128, MAX_SIZE_ENCODING};
+
     #[test]
     fn test_encode_base_128() {
         assert_eq!(encode_base_128(0), (1, [0u8; MAX_SIZE_ENCODING]));

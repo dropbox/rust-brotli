@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /* Copyright 2010 Google Inc. All Rights Reserved.
 
    Distributed under MIT license.
@@ -5,7 +7,6 @@
 */
 
 /* Entropy encoding (Huffman) utilities. */
-#![allow(dead_code)]
 use core::cmp::max;
 
 #[derive(Clone, Copy, Default)]

@@ -1,7 +1,9 @@
+use core;
 use core::cmp::min;
 #[cfg(feature = "simd")]
 use core::simd::prelude::SimdPartialOrd;
 
+use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::backward_references::BrotliEncoderParams;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};

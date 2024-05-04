@@ -1,9 +1,12 @@
 #![allow(dead_code)]
+
 use alloc::Allocator;
+use core;
 use core::cmp::{max, min};
 
 use enc::input_pair::InputReferenceMut;
 
+use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::backward_references::{
     AdvHashSpecialization, AdvHasher, AnyHasher, BasicHasher, BrotliCreateBackwardReferences,
@@ -12,13 +15,9 @@ use super::backward_references::{
     H9_BLOCK_BITS, H9_BLOCK_SIZE, H9_BUCKET_BITS, H9_NUM_LAST_DISTANCES_TO_CHECK,
 };
 use super::bit_cost::{BitsEntropy, ShannonEntropy};
-#[allow(unused_imports)]
-use super::block_split::BlockSplit;
-#[allow(unused_imports)]
 use super::brotli_bit_stream::{
-    BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree, BrotliStoreMetaBlock,
-    BrotliStoreMetaBlockFast, BrotliStoreMetaBlockTrivial, BrotliStoreUncompressedMetaBlock,
-    BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock, JumpToByteBoundary,
+    BrotliStoreMetaBlock, BrotliStoreMetaBlockFast, BrotliStoreMetaBlockTrivial,
+    BrotliStoreUncompressedMetaBlock, BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
     MetaBlockSplit, RecoderState,
 };
 use super::combined_alloc::BrotliAlloc;
@@ -28,10 +27,6 @@ use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWri
 use super::constants::{
     BROTLI_CONTEXT, BROTLI_CONTEXT_LUT, BROTLI_MAX_NDIRECT, BROTLI_MAX_NPOSTFIX,
     BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_WINDOW_GAP,
-};
-#[allow(unused_imports)]
-use super::entropy_encode::{
-    BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
 };
 use super::hash_to_binary_tree::InitializeH10;
 use super::histogram::{
@@ -46,6 +41,7 @@ pub use super::parameters::BrotliEncoderParameter;
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::Log2FloorNonZero;
+
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
 //                                          dictionary: &[BrotliDictionary],
 //                                          num_bytes: usize,

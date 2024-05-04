@@ -1,18 +1,19 @@
 #![no_std]
 #![cfg_attr(not(feature = "std"), feature(lang_items))]
+
+pub extern crate brotli;
 #[cfg(feature = "std")]
 extern crate std;
 
-pub extern crate brotli;
-pub use brotli::ffi::compressor::*;
+use core::ptr::null_mut;
 
+pub use brotli::ffi::compressor::*;
 // FIXME: this is just wrong, and needs to be fixed
 #[allow(unknown_lints, ambiguous_glob_reexports)]
 pub use brotli::ffi::decompressor::*;
-
 pub use brotli::ffi::multicompress::*;
 pub use brotli::*;
-use core::ptr::null_mut;
+
 #[cfg(feature = "std")]
 unsafe fn std_only_functions() {
     let _ =

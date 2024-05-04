@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 use core::cmp::{max, min};
 
 use super::super::alloc::SliceWrapper;

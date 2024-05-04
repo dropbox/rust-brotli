@@ -2,6 +2,8 @@ use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core::marker::PhantomData;
 use core::ops::Range;
 use core::{any, mem};
+#[cfg(feature = "std")]
+use std;
 
 use concat::{BroCatli, BroCatliResult};
 use enc::encode::BrotliEncoderStateStruct;

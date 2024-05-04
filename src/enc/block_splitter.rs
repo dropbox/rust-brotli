@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+
+use core;
 use core::cmp::{max, min};
 #[cfg(feature = "simd")]
 use core::simd::prelude::{SimdFloat, SimdPartialOrd};

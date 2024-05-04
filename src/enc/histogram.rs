@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
+use core;
 use core::cmp::min;
 
+use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::block_split::BlockSplit;
 use super::command::Command;

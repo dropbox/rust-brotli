@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "simd", allow(unused))]
+
 use core::ops::{Add, AddAssign, BitAnd, Index, IndexMut, Mul, Shr, Sub};
 
 #[derive(Default, Copy, Clone, Debug)]

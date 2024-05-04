@@ -1,35 +1,38 @@
 #![cfg(test)]
-use core;
-use core::cmp::min;
 
-use super::{s16, v8};
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
-use super::super::alloc::{
-    bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
-};
-use super::cluster::HistogramPair;
-use super::encode::{BrotliEncoderOperation, BrotliEncoderParameter};
-use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
-use super::{StaticCommand, ZopfliNode};
-
 extern "C" {
     fn calloc(n_elem: usize, el_size: usize) -> *mut u8;
 }
 extern "C" {
     fn free(ptr: *mut u8);
 }
+
+// FIXME: Remove this after https://github.com/dropbox/rust-alloc-no-stdlib/issues/19 is fixed
+use alloc::{
+    declare_stack_allocator_struct, define_allocator_memory_pool, define_stack_allocator_traits,
+    static_array,
+};
+use core;
+use core::cmp::min;
 use core::ops;
 
 use brotli_decompressor::HuffmanCode;
 use enc::encode::BrotliEncoderStateStruct;
 
+use super::super::alloc::{
+    bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
+};
 pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState};
+use super::cluster::HistogramPair;
 use super::combined_alloc::CombiningAllocator;
 use super::command::Command;
+use super::encode::{BrotliEncoderOperation, BrotliEncoderParameter};
 use super::entropy_encode::HuffmanTree;
-use super::interface;
+use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
 use super::pdf::PDF;
+use super::{interface, s16, v8, StaticCommand, ZopfliNode};
 
 declare_stack_allocator_struct!(MemPool, 128, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);
@@ -309,8 +312,9 @@ fn test_roundtrip_10x10y() {
 
 macro_rules! test_roundtrip_file {
     ($filedata : expr, $bufsize: expr, $quality: expr, $lgwin: expr, $magic: expr, $in_buf:expr, $out_buf:expr) => {{
-        let stack_u8_buffer =
-            unsafe { define_allocator_memory_pool!(4096, u8, [0; 18 * 1024 * 1024], calloc) };
+        let stack_u8_buffer = unsafe {
+            alloc::define_allocator_memory_pool!(4096, u8, [0; 18 * 1024 * 1024], calloc)
+        };
         let mut stack_u8_allocator =
             CallocatedFreelist4096::<u8>::new_allocator(stack_u8_buffer.data, bzero);
 

@@ -1,28 +1,19 @@
-#![allow(dead_code, unused_imports)]
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use core::cmp::{max, min};
+#![allow(dead_code)]
 
-use enc::command::{
-    CombineLengthCodes, Command, ComputeDistanceCode, GetCopyLengthCode, GetInsertLengthCode,
-    PrefixEncodeCopyDistance,
-};
-use enc::constants::{kCopyExtra, kInsExtra};
-use enc::dictionary_hash::kStaticDictionaryHash;
-use enc::literal_cost::BrotliEstimateBitCostsForLiterals;
-use enc::static_dict::{
-    kBrotliEncDictionary, BrotliDictionary, BrotliFindAllStaticDictionaryMatches,
-    FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
-};
-use enc::util::{floatX, FastLog2, Log2FloorNonZero};
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core::cmp::min;
+
+use enc::static_dict::{BrotliDictionary, FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32};
+use enc::util::floatX;
 use {alloc, core};
 
 use super::{
-    kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
-    kInvalidMatch, AnyHasher, BrotliEncoderParams, BrotliHasherParams, CloneWithAlloc, H9Opts,
-    HasherSearchResult, HowPrepared, Struct1,
+    kHashMul32, AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts, HasherSearchResult,
+    HowPrepared, Struct1,
 };
 
 pub const kInfinity: floatX = 1.7e38 as floatX;
+
 #[derive(Clone, Copy, Debug)]
 pub enum Union1 {
     cost(floatX),

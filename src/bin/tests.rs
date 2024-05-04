@@ -1,5 +1,7 @@
 #![cfg(test)]
+
 extern crate core;
+
 use core::cmp::min;
 use std::io;
 
@@ -7,6 +9,7 @@ struct Buffer {
     data: Vec<u8>,
     read_offset: usize,
 }
+
 impl Buffer {
     pub fn new(buf: &[u8]) -> Buffer {
         let mut ret = Buffer {

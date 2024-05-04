@@ -1,27 +1,27 @@
 #![cfg_attr(feature = "benchmark", feature(test))]
 
+extern crate alloc_no_stdlib;
+extern crate brotli;
+extern crate brotli_decompressor;
+extern crate core;
+#[cfg(feature = "validation")]
+extern crate sha2;
+
 pub mod integration_tests;
 mod test_broccoli;
 mod test_custom_dict;
 mod test_threading;
 mod tests;
 mod util;
+mod validate;
 
-extern crate brotli;
-extern crate brotli_decompressor;
-extern crate core;
-#[cfg(feature = "validation")]
-extern crate sha2;
-#[allow(unused_imports)]
-#[macro_use]
-extern crate alloc_no_stdlib;
 use core::cmp::{max, min};
 use core::ops;
+use std::env;
+use std::fs::File;
+use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 
-#[allow(unused_imports)]
-use alloc_no_stdlib::{
-    bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
-};
+use alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
 use brotli::enc::backward_references::BrotliEncoderMode;
 use brotli::enc::threading::{
     BrotliEncoderThreadError, CompressMulti, CompressionThreadResult, Owned, SendAlloc,
@@ -31,12 +31,6 @@ use brotli::enc::{
     UnionHasher, WorkerPool,
 };
 use brotli::CustomRead;
-#[allow(unused_imports)]
-use brotli::HuffmanCode;
-mod validate;
-use std::env;
-use std::fs::File;
-use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 
 const MAX_THREADS: usize = 16;
 

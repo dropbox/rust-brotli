@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 pub static kInvalidMatch: u32 = 0x0fff_ffff;
 
 pub static kDictNumBits: i32 = 15;

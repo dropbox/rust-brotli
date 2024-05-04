@@ -1,7 +1,9 @@
 #![cfg(feature = "std")]
+
 use alloc::{Allocator, SliceWrapper};
 use core::marker::PhantomData;
 use core::mem;
+use std;
 // in-place thread create
 use std::sync::RwLock;
 use std::thread::JoinHandle;
@@ -29,6 +31,7 @@ impl<T: Send + 'static, U: Send + 'static + AnyBoxConstructor> Joinable<T, U>
         }
     }
 }
+
 pub struct MultiThreadedOwnedRetriever<U: Send + 'static>(RwLock<U>);
 
 impl<U: Send + 'static> OwnedRetriever<U> for MultiThreadedOwnedRetriever<U> {

@@ -1,3 +1,4 @@
+use core;
 use core::cmp::min;
 
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};

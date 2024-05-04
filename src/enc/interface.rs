@@ -1,12 +1,13 @@
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-#[allow(unused_imports)] // right now just used in feature flag
 use core;
 
 use super::histogram;
 pub use super::input_pair::{InputPair, InputReference, InputReferenceMut};
+
 #[derive(Debug, Copy, Clone, Default)]
 pub struct BlockSwitch(pub u8);
-// Commands that can instantiate as a no-op should implement this.
+
+/// Commands that can instantiate as a no-op should implement this.
 pub trait Nop<T> {
     fn nop() -> T;
 }
