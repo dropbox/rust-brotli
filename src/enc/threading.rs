@@ -1,16 +1,17 @@
+use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core::marker::PhantomData;
+use core::ops::Range;
+use core::{any, mem};
+
+use concat::{BroCatli, BroCatliResult};
+use enc::encode::BrotliEncoderStateStruct;
+
 use super::backward_references::{AnyHasher, BrotliEncoderParams, CloneWithAlloc, UnionHasher};
 use super::encode::{
     BrotliEncoderDestroyInstance, BrotliEncoderMaxCompressedSize, BrotliEncoderOperation,
     HasherSetup, SanitizeParams,
 };
 use super::BrotliAlloc;
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use concat::{BroCatli, BroCatliResult};
-use core::any;
-use core::marker::PhantomData;
-use core::mem;
-use core::ops::Range;
-use enc::encode::BrotliEncoderStateStruct;
 
 pub type PoisonedThreadError = ();
 

@@ -3,11 +3,13 @@
 #![allow(dead_code)]
 extern crate brotli_decompressor;
 extern crate core;
+use core::cmp::{max, min};
+
+use brotli_decompressor::{CustomRead, CustomWrite};
+
 use super::brotli::concat::{BroCatli, BroCatliResult};
 use super::brotli::enc::BrotliEncoderParams;
 use super::integration_tests::UnlimitedBuffer;
-use brotli_decompressor::{CustomRead, CustomWrite};
-use core::cmp::{max, min};
 static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
 static ALICE: &[u8] = include_bytes!("../../testdata/alice29.txt");
 static UKKONOOA: &[u8] = include_bytes!("../../testdata/ukkonooa");

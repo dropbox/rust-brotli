@@ -3,17 +3,6 @@
 #![allow(dead_code)]
 extern crate brotli_decompressor;
 extern crate core;
-#[allow(unused_imports)]
-use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::brotli::BrotliResult;
-use super::brotli::BrotliState;
-#[cfg(feature = "std")]
-use super::brotli::{CompressorReader, CompressorWriter};
-#[cfg(feature = "std")]
-use super::brotli_decompressor::{Decompressor, DecompressorWriter};
-use super::HeapAllocator;
-use super::Rebox;
-use brotli::BrotliDecompressStream;
 use core::cmp::min;
 use std::io;
 #[cfg(feature = "std")]
@@ -21,6 +10,17 @@ use std::io::{Read, Write};
 use std::time::Duration;
 #[cfg(not(feature = "disable-timer"))]
 use std::time::SystemTime;
+
+use brotli::BrotliDecompressStream;
+
+#[allow(unused_imports)]
+use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
+use super::brotli::{BrotliResult, BrotliState};
+#[cfg(feature = "std")]
+use super::brotli::{CompressorReader, CompressorWriter};
+#[cfg(feature = "std")]
+use super::brotli_decompressor::{Decompressor, DecompressorWriter};
+use super::{HeapAllocator, Rebox};
 
 #[cfg(feature = "benchmark")]
 extern crate test;

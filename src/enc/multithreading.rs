@@ -2,19 +2,17 @@
 use alloc::{Allocator, SliceWrapper};
 use core::marker::PhantomData;
 use core::mem;
+// in-place thread create
+use std::sync::RwLock;
+use std::thread::JoinHandle;
+
 use enc::backward_references::UnionHasher;
 use enc::threading::{
     AnyBoxConstructor, BatchSpawnable, BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti,
     CompressionThreadResult, InternalOwned, InternalSendAlloc, Joinable, Owned, OwnedRetriever,
     PoisonedThreadError, SendAlloc,
 };
-use enc::BrotliAlloc;
-use enc::BrotliEncoderParams;
-use std::thread::JoinHandle;
-
-// in-place thread create
-
-use std::sync::RwLock;
+use enc::{BrotliAlloc, BrotliEncoderParams};
 
 pub struct MultiThreadedJoinable<T: Send + 'static, U: Send + 'static>(
     JoinHandle<T>,

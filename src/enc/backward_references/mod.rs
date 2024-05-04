@@ -4,17 +4,17 @@ pub mod hash_to_binary_tree;
 pub mod hq;
 mod test;
 
+use core::cmp::{max, min};
+
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::command::{BrotliDistanceParams, Command, ComputeDistanceCode};
 use super::dictionary_hash::kStaticDictionaryHash;
 use super::hash_to_binary_tree::{H10Buckets, H10DefaultParams, ZopfliNode, H10};
-use super::static_dict::BrotliDictionary;
 use super::static_dict::{
-    FindMatchLengthWithLimit, FindMatchLengthWithLimitMin4, BROTLI_UNALIGNED_LOAD32,
-    BROTLI_UNALIGNED_LOAD64,
+    BrotliDictionary, FindMatchLengthWithLimit, FindMatchLengthWithLimitMin4,
+    BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use super::util::{floatX, Log2FloorNonZero};
-use core::cmp::{max, min};
 
 static kBrotliMinWindowBits: i32 = 10;
 static kBrotliMaxWindowBits: i32 = 24;

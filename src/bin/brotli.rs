@@ -15,6 +15,9 @@ extern crate sha2;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc_no_stdlib;
+use core::cmp::{max, min};
+use core::ops;
+
 #[allow(unused_imports)]
 use alloc_no_stdlib::{
     bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
@@ -30,11 +33,8 @@ use brotli::enc::{
 use brotli::CustomRead;
 #[allow(unused_imports)]
 use brotli::HuffmanCode;
-use core::cmp::{max, min};
-use core::ops;
 mod validate;
 use std::env;
-
 use std::fs::File;
 use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 

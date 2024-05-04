@@ -1,14 +1,13 @@
-use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::backward_references::BrotliEncoderParams;
-use super::find_stride;
-use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use super::interface;
-use super::ir_interpret::{push_base, IRInterpreter};
-use super::util::{floatX, FastLog2u16};
-use super::{s16, v8};
 use core::cmp::min;
 #[cfg(feature = "simd")]
 use core::simd::prelude::SimdPartialOrd;
+
+use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use super::backward_references::BrotliEncoderParams;
+use super::input_pair::{InputPair, InputReference, InputReferenceMut};
+use super::ir_interpret::{push_base, IRInterpreter};
+use super::util::{floatX, FastLog2u16};
+use super::{find_stride, interface, s16, v8};
 
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;

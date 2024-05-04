@@ -4,7 +4,9 @@ use std::io::Write;
 #[cfg(feature = "std")]
 use std::{io, panic, thread};
 mod test;
-use super::compressor;
+use alloc::SliceWrapper;
+use core::cmp::min;
+
 #[allow(unused_imports)]
 use brotli_decompressor;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
@@ -12,16 +14,15 @@ use brotli_decompressor::ffi::interface::{
     brotli_alloc_func, brotli_free_func, c_void, CAllocator,
 };
 use brotli_decompressor::ffi::{slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut};
-use core;
-use core::cmp::min;
-use enc::encode::{BrotliEncoderOperation, BrotliEncoderStateStruct};
+use enc::backward_references::{BrotliEncoderParams, UnionHasher};
+use enc::encode::{
+    set_parameter, BrotliEncoderOperation, BrotliEncoderParameter, BrotliEncoderStateStruct,
+};
+use enc::threading::{Owned, SendAlloc};
+use {core, enc};
 
 use super::alloc_util::BrotliSubclassableAllocator;
-use alloc::SliceWrapper;
-use enc;
-use enc::backward_references::{BrotliEncoderParams, UnionHasher};
-use enc::encode::{set_parameter, BrotliEncoderParameter};
-use enc::threading::{Owned, SendAlloc};
+use super::compressor;
 pub const MAX_THREADS: usize = 16;
 
 struct SliceRef<'a>(&'a [u8]);

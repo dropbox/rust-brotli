@@ -27,29 +27,19 @@ pub use alloc_stdlib::HeapAlloc;
 pub mod enc;
 pub use self::enc::combined_alloc::CombiningAllocator;
 pub mod concat;
-pub use brotli_decompressor::dictionary;
-pub use brotli_decompressor::reader;
+pub use brotli_decompressor::io_wrappers::{CustomRead, CustomWrite};
+#[cfg(feature = "std")]
+pub use brotli_decompressor::io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 #[cfg(feature = "std")]
 pub use brotli_decompressor::reader::Decompressor;
 pub use brotli_decompressor::reader::DecompressorCustomIo;
-pub use brotli_decompressor::transform;
 pub use brotli_decompressor::transform::TransformDictionaryWord;
-pub use brotli_decompressor::writer;
-pub use brotli_decompressor::BrotliState;
-pub use brotli_decompressor::HuffmanCode; // so we can make custom allocator for decompression
-
-pub use brotli_decompressor::writer::DecompressorWriterCustomIo;
-
 #[cfg(feature = "std")]
 pub use brotli_decompressor::writer::DecompressorWriter;
-
-pub use brotli_decompressor::io_wrappers::{CustomRead, CustomWrite};
-
-#[cfg(feature = "std")]
-pub use brotli_decompressor::io_wrappers::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
-pub use enc::input_pair::InputPair;
-pub use enc::input_pair::InputReference;
-pub use enc::input_pair::InputReferenceMut;
+pub use brotli_decompressor::writer::DecompressorWriterCustomIo;
+pub use brotli_decompressor::HuffmanCode; // so we can make custom allocator for decompression
+pub use brotli_decompressor::{dictionary, reader, transform, writer, BrotliState};
+pub use enc::input_pair::{InputPair, InputReference, InputReferenceMut};
 pub use enc::interface;
 pub use enc::interface::SliceOffset;
 #[cfg(feature = "ffi-api")]
@@ -64,27 +54,22 @@ pub mod ffi;
 //                               mut total_out: &mut usize,
 //                               mut s: &mut BrotliState<AllocU8, AllocU32, AllocHC>);
 
-pub use brotli_decompressor::{BrotliDecompressStream, BrotliResult};
 #[cfg(feature = "std")]
-pub use enc::{BrotliCompress, BrotliCompressCustomAlloc};
-pub use enc::{BrotliCompressCustomIo, BrotliCompressCustomIoCustomDict};
-
+pub use brotli_decompressor::copy_from_to;
+#[cfg(feature = "std")]
+pub use brotli_decompressor::BrotliDecompress;
+#[cfg(feature = "std")]
+pub use brotli_decompressor::BrotliDecompressCustomAlloc;
+pub use brotli_decompressor::{
+    BrotliDecompressCustomIo, BrotliDecompressCustomIoCustomDict, BrotliDecompressStream,
+    BrotliResult,
+};
 #[cfg(feature = "std")]
 pub use enc::reader::CompressorReader;
 pub use enc::reader::CompressorReaderCustomIo;
-
 #[cfg(feature = "std")]
 pub use enc::writer::CompressorWriter;
 pub use enc::writer::CompressorWriterCustomIo;
-
 #[cfg(feature = "std")]
-pub use brotli_decompressor::BrotliDecompress;
-
-#[cfg(feature = "std")]
-pub use brotli_decompressor::BrotliDecompressCustomAlloc;
-
-pub use brotli_decompressor::BrotliDecompressCustomIo;
-pub use brotli_decompressor::BrotliDecompressCustomIoCustomDict;
-
-#[cfg(feature = "std")]
-pub use brotli_decompressor::copy_from_to;
+pub use enc::{BrotliCompress, BrotliCompressCustomAlloc};
+pub use enc::{BrotliCompressCustomIo, BrotliCompressCustomIoCustomDict};

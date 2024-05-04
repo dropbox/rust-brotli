@@ -1,5 +1,7 @@
 use core::marker::PhantomData;
 use core::mem;
+use std::collections::BTreeMap;
+use std::fmt;
 use std::thread::JoinHandle;
 
 use alloc_no_stdlib::{Allocator, SliceWrapper};
@@ -13,8 +15,6 @@ use brotli::enc::threading::{
 use brotli::enc::BrotliAlloc;
 use brotli::interface;
 use brotli::transform::TransformDictionaryWord;
-use std::collections::BTreeMap;
-use std::fmt;
 
 struct HexSlice<'a>(&'a [u8]);
 

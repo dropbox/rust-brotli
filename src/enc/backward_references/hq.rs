@@ -1,16 +1,7 @@
 #![allow(dead_code, unused_imports)]
-use super::hash_to_binary_tree::{
-    kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, StoreAndFindMatchesH10,
-    Union1, ZopfliNode, H10,
-};
-use super::{
-    kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
-    kInvalidMatch, AnyHasher, BrotliEncoderParams, BrotliHasherParams,
-};
-use alloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use core;
 use core::cmp::{max, min};
+
 use enc::command::{
     BrotliDistanceParams, CombineLengthCodes, Command, ComputeDistanceCode, GetCopyLengthCode,
     GetInsertLengthCode, PrefixEncodeCopyDistance,
@@ -21,11 +12,19 @@ use enc::encode;
 use enc::literal_cost::BrotliEstimateBitCostsForLiterals;
 use enc::static_dict::{
     kBrotliEncDictionary, BrotliDictionary, BrotliFindAllStaticDictionaryMatches,
-};
-use enc::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use enc::util::{floatX, FastLog2, FastLog2f64, Log2FloorNonZero};
+use {alloc, core};
+
+use super::hash_to_binary_tree::{
+    kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, StoreAndFindMatchesH10,
+    Union1, ZopfliNode, H10,
+};
+use super::{
+    kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
+    kInvalidMatch, AnyHasher, BrotliEncoderParams, BrotliHasherParams,
+};
 
 const BROTLI_WINDOW_GAP: usize = 16;
 const BROTLI_MAX_STATIC_DICTIONARY_MATCH_LEN: usize = 37;

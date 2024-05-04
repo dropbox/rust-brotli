@@ -2,26 +2,21 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_macros)]
-use super::combined_alloc::BrotliAlloc;
-use super::prior_eval;
-use super::stride_eval;
-use super::util::floatX;
-use super::{s16, v8};
+use core::cmp::{max, min};
 #[cfg(feature = "std")]
 use std::io::Write;
+
+use enc::backward_references::BrotliEncoderParams;
 use VERSION;
 
-use super::block_split::BlockSplit;
-use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use enc::backward_references::BrotliEncoderParams;
-
-use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use super::super::core;
 use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
 };
 use super::super::transform::TransformDictionaryWord;
+use super::super::{alloc, core};
+use super::block_split::BlockSplit;
+use super::combined_alloc::BrotliAlloc;
 use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode};
 use super::constants::{
     kCodeLengthBits, kCodeLengthDepth, kCopyBase, kCopyExtra, kInsBase, kInsExtra,
@@ -35,16 +30,16 @@ use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, BrotliSetDepth,
     BrotliWriteHuffmanTree, HuffmanComparator, HuffmanTree, SortHuffmanTreeItems,
 };
-use super::find_stride;
 use super::histogram::{
     ContextType, HistogramAddItem, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
-use super::interface;
+use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::interface::{CommandProcessor, StaticCommand};
 use super::pdf::PDF;
 use super::static_dict::kNumDistanceCacheEntries;
+use super::util::floatX;
 use super::vectorization::Mem256f;
-use core::cmp::{max, min};
+use super::{find_stride, interface, prior_eval, s16, stride_eval, v8};
 pub struct PrefixCodeRange {
     pub offset: u32,
     pub nbits: u32,
