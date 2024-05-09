@@ -202,7 +202,7 @@ where
     }
 }
 impl<
-        Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
+        Alloc: Allocator<u16> + Allocator<u32>,
         Buckets: Allocable<u32, Alloc> + SliceWrapperMut<u32> + SliceWrapper<u32>,
         Params: H10Params,
     > CloneWithAlloc<Alloc> for H10<Alloc, Buckets, Params>
@@ -440,73 +440,74 @@ pub fn StoreAndFindMatchesH10<
 where
     Buckets: PartialEq<Buckets>,
 {
-    let mut matches_offset = 0usize;
-    let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
-    let max_comp_len: usize = min(max_length, 128usize);
+    let mut matches_offset = 0_usize;
+    let cur_ix_masked = cur_ix & ring_buffer_mask;
+    let max_comp_len = min(max_length, 128);
     let should_reroot_tree = max_length >= 128;
     let key = xself.HashBytes(&data[cur_ix_masked..]);
-    let forest: &mut [u32] = xself.forest.slice_mut();
-    let mut prev_ix: usize = xself.buckets_.slice()[key] as usize;
-    let mut node_left: usize = LeftChildIndexH10!(xself, cur_ix);
-    let mut node_right: usize = RightChildIndexH10!(xself, cur_ix);
-    let mut best_len_left: usize = 0usize;
-    let mut best_len_right: usize = 0usize;
-    let mut depth_remaining: usize;
+    let forest = xself.forest.slice_mut();
+    let mut prev_ix = xself.buckets_.slice()[key] as usize;
+    let mut node_left = LeftChildIndexH10!(xself, cur_ix);
+    let mut node_right = RightChildIndexH10!(xself, cur_ix);
+    let mut best_len_left = 0_usize;
+    let mut best_len_right = 0_usize;
+    let mut depth_remaining = 64_usize;
+
     if should_reroot_tree {
         xself.buckets_.slice_mut()[key] = cur_ix as u32;
     }
-    depth_remaining = 64usize;
-    'break16: loop {
-        {
-            let backward: usize = cur_ix.wrapping_sub(prev_ix);
-            let prev_ix_masked: usize = prev_ix & ring_buffer_mask;
-            if backward == 0usize || backward > max_backward || depth_remaining == 0usize {
-                if should_reroot_tree {
-                    forest[node_left] = xself.invalid_pos_;
-                    forest[node_right] = xself.invalid_pos_;
-                }
-                break 'break16;
-            }
-            {
-                let cur_len: usize = min(best_len_left, best_len_right);
 
-                let len: usize = cur_len.wrapping_add(FindMatchLengthWithLimit(
-                    &data[cur_ix_masked.wrapping_add(cur_len)..],
-                    &data[prev_ix_masked.wrapping_add(cur_len)..],
-                    max_length.wrapping_sub(cur_len),
-                ));
-                if matches_offset != matches.len() && (len > *best_len) {
-                    *best_len = len;
-                    BackwardMatchMut(&mut matches[matches_offset]).init(backward, len);
-                    matches_offset += 1;
-                }
-                if len >= max_comp_len {
-                    if should_reroot_tree {
-                        forest[node_left] = forest[LeftChildIndexH10!(xself, prev_ix)];
-                        forest[node_right] = forest[RightChildIndexH10!(xself, prev_ix)];
-                    }
-                    break 'break16;
-                }
-                if data[cur_ix_masked.wrapping_add(len)] as i32
-                    > data[prev_ix_masked.wrapping_add(len)] as i32
-                {
-                    best_len_left = len;
-                    if should_reroot_tree {
-                        forest[node_left] = prev_ix as u32;
-                    }
-                    node_left = RightChildIndexH10!(xself, prev_ix);
-                    prev_ix = forest[node_left] as usize;
-                } else {
-                    best_len_right = len;
-                    if should_reroot_tree {
-                        forest[node_right] = prev_ix as u32;
-                    }
-                    node_right = LeftChildIndexH10!(xself, prev_ix);
-                    prev_ix = forest[node_right] as usize;
-                }
+    loop {
+        let backward = cur_ix.wrapping_sub(prev_ix);
+        let prev_ix_masked = prev_ix & ring_buffer_mask;
+        if backward == 0 || backward > max_backward || depth_remaining == 0 {
+            if should_reroot_tree {
+                forest[node_left] = xself.invalid_pos_;
+                forest[node_right] = xself.invalid_pos_;
             }
+            break;
         }
+
+        let cur_len = min(best_len_left, best_len_right);
+
+        let len = cur_len.wrapping_add(FindMatchLengthWithLimit(
+            &data[cur_ix_masked.wrapping_add(cur_len)..],
+            &data[prev_ix_masked.wrapping_add(cur_len)..],
+            max_length.wrapping_sub(cur_len),
+        ));
+
+        if matches_offset != matches.len() && len > *best_len {
+            *best_len = len;
+            BackwardMatchMut(&mut matches[matches_offset]).init(backward, len);
+            matches_offset += 1;
+        }
+
+        if len >= max_comp_len {
+            if should_reroot_tree {
+                forest[node_left] = forest[LeftChildIndexH10!(xself, prev_ix)];
+                forest[node_right] = forest[RightChildIndexH10!(xself, prev_ix)];
+            }
+            break;
+        }
+
+        if data[cur_ix_masked.wrapping_add(len)] > data[prev_ix_masked.wrapping_add(len)] {
+            best_len_left = len;
+            if should_reroot_tree {
+                forest[node_left] = prev_ix as u32;
+            }
+            node_left = RightChildIndexH10!(xself, prev_ix);
+            prev_ix = forest[node_left] as usize;
+        } else {
+            best_len_right = len;
+            if should_reroot_tree {
+                forest[node_right] = prev_ix as u32;
+            }
+            node_right = LeftChildIndexH10!(xself, prev_ix);
+            prev_ix = forest[node_right] as usize;
+        }
+
         depth_remaining = depth_remaining.wrapping_sub(1);
     }
+
     matches_offset
 }
