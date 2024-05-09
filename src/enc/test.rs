@@ -1,7 +1,8 @@
 #![cfg(test)]
-use super::{s16, v8};
 use core;
 use core::cmp::min;
+
+use super::{s16, v8};
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
 use super::super::alloc::{
@@ -10,8 +11,7 @@ use super::super::alloc::{
 use super::cluster::HistogramPair;
 use super::encode::{BrotliEncoderOperation, BrotliEncoderParameter};
 use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
-use super::StaticCommand;
-use super::ZopfliNode;
+use super::{StaticCommand, ZopfliNode};
 
 extern "C" {
     fn calloc(n_elem: usize, el_size: usize) -> *mut u8;
@@ -19,15 +19,17 @@ extern "C" {
 extern "C" {
     fn free(ptr: *mut u8);
 }
+use core::ops;
+
+use brotli_decompressor::HuffmanCode;
+use enc::encode::BrotliEncoderStateStruct;
+
 pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState};
 use super::combined_alloc::CombiningAllocator;
 use super::command::Command;
 use super::entropy_encode::HuffmanTree;
 use super::interface;
 use super::pdf::PDF;
-use brotli_decompressor::HuffmanCode;
-use core::ops;
-use enc::encode::BrotliEncoderStateStruct;
 
 declare_stack_allocator_struct!(MemPool, 128, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);

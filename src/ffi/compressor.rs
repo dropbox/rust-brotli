@@ -1,19 +1,21 @@
 #![cfg(not(feature = "safe"))]
 
+use core;
 #[cfg(feature = "std")]
 use std::io::Write;
 #[cfg(feature = "std")]
 use std::{io, panic, thread};
 
-use super::alloc_util::BrotliSubclassableAllocator;
-use brotli_decompressor::ffi::alloc_util;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
 use brotli_decompressor::ffi::interface::{
     brotli_alloc_func, brotli_free_func, c_void, CAllocator,
 };
-use brotli_decompressor::ffi::{slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut};
-use core;
+use brotli_decompressor::ffi::{
+    alloc_util, slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut,
+};
 use enc::encode::BrotliEncoderStateStruct;
+
+use super::alloc_util::BrotliSubclassableAllocator;
 
 #[repr(C)]
 pub enum BrotliEncoderOperation {

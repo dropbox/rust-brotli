@@ -19,8 +19,7 @@ pub mod static_dict;
 pub mod static_dict_lut;
 pub mod utf8_util;
 pub mod util;
-pub use self::backward_references::hash_to_binary_tree;
-pub use self::backward_references::hq as backward_references_hq;
+pub use self::backward_references::{hash_to_binary_tree, hq as backward_references_hq};
 pub mod block_splitter;
 pub mod compress_fragment;
 pub mod compress_fragment_two_pass;
@@ -58,6 +57,20 @@ pub type s8 = compat::Compat32x8;
 mod parameters;
 mod test;
 mod weights;
+pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
+#[cfg(feature = "std")]
+use std::io;
+#[cfg(feature = "std")]
+use std::io::{Error, ErrorKind, Read, Write};
+
+#[cfg(feature = "std")]
+pub use alloc_stdlib::StandardAlloc;
+use brotli_decompressor::{CustomRead, CustomWrite};
+#[cfg(feature = "std")]
+pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
+use enc::encode::BrotliEncoderStateStruct;
+pub use interface::{InputPair, InputReference, InputReferenceMut};
+
 pub use self::backward_references::{BrotliEncoderParams, UnionHasher};
 use self::encode::{BrotliEncoderDestroyInstance, BrotliEncoderOperation};
 pub use self::encode::{
@@ -66,28 +79,13 @@ pub use self::encode::{
 pub use self::hash_to_binary_tree::ZopfliNode;
 pub use self::interface::StaticCommand;
 pub use self::pdf::PDF;
-pub use self::util::floatX;
-pub use self::vectorization::{v256, v256i, Mem256f};
-use brotli_decompressor::{CustomRead, CustomWrite};
-pub use interface::{InputPair, InputReference, InputReferenceMut};
-
-pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-#[cfg(feature = "std")]
-pub use alloc_stdlib::StandardAlloc;
-#[cfg(feature = "std")]
-use std::io;
-#[cfg(feature = "std")]
-use std::io::{Error, ErrorKind, Read, Write};
-
-#[cfg(feature = "std")]
-pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
-use enc::encode::BrotliEncoderStateStruct;
-
 #[cfg(not(feature = "std"))]
 pub use self::singlethreading::{compress_worker_pool, new_work_pool, WorkerPool};
 pub use self::threading::{
     BatchSpawnableLite, BrotliEncoderThreadError, CompressionThreadResult, Owned, SendAlloc,
 };
+pub use self::util::floatX;
+pub use self::vectorization::{v256, v256i, Mem256f};
 #[cfg(feature = "std")]
 pub use self::worker_pool::{compress_worker_pool, new_work_pool, WorkerPool};
 #[cfg(feature = "std")]

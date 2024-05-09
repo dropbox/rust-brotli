@@ -1,13 +1,7 @@
 #![allow(dead_code, unused_imports)]
-use super::{
-    kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
-    kInvalidMatch, AnyHasher, BrotliEncoderParams, BrotliHasherParams, CloneWithAlloc, H9Opts,
-    HasherSearchResult, HowPrepared, Struct1,
-};
-use alloc;
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
-use core;
 use core::cmp::{max, min};
+
 use enc::command::{
     CombineLengthCodes, Command, ComputeDistanceCode, GetCopyLengthCode, GetInsertLengthCode,
     PrefixEncodeCopyDistance,
@@ -17,11 +11,16 @@ use enc::dictionary_hash::kStaticDictionaryHash;
 use enc::literal_cost::BrotliEstimateBitCostsForLiterals;
 use enc::static_dict::{
     kBrotliEncDictionary, BrotliDictionary, BrotliFindAllStaticDictionaryMatches,
-};
-use enc::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use enc::util::{floatX, FastLog2, Log2FloorNonZero};
+use {alloc, core};
+
+use super::{
+    kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kHashMul64, kHashMul64Long,
+    kInvalidMatch, AnyHasher, BrotliEncoderParams, BrotliHasherParams, CloneWithAlloc, H9Opts,
+    HasherSearchResult, HowPrepared, Struct1,
+};
 
 pub const kInfinity: floatX = 1.7e38 as floatX;
 #[derive(Clone, Copy, Debug)]

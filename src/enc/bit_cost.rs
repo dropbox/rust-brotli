@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-use super::super::alloc::SliceWrapper;
-use super::histogram::CostAccessors;
 use core::cmp::{max, min};
 
+use super::super::alloc::SliceWrapper;
+use super::histogram::CostAccessors;
 use super::util::{FastLog2, FastLog2u16};
 use super::vectorization::Mem256i;
 

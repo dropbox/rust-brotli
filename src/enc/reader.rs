@@ -1,5 +1,17 @@
 #![cfg_attr(not(feature = "std"), allow(unused_imports))]
 
+pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
+#[cfg(feature = "std")]
+use std::io;
+#[cfg(feature = "std")]
+use std::io::{Error, ErrorKind, Read};
+
+#[cfg(feature = "std")]
+pub use alloc_stdlib::StandardAlloc;
+use brotli_decompressor::CustomRead;
+#[cfg(feature = "std")]
+pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
+
 use super::backward_references::BrotliEncoderParams;
 use super::combined_alloc::BrotliAlloc;
 use super::encode::{
@@ -7,19 +19,6 @@ use super::encode::{
     BrotliEncoderStateStruct,
 };
 use super::interface;
-use brotli_decompressor::CustomRead;
-
-#[cfg(feature = "std")]
-pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
-
-pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
-#[cfg(feature = "std")]
-pub use alloc_stdlib::StandardAlloc;
-#[cfg(feature = "std")]
-use std::io;
-
-#[cfg(feature = "std")]
-use std::io::{Error, ErrorKind, Read};
 
 #[cfg(feature = "std")]
 pub struct CompressorReaderCustomAlloc<R: Read, BufferType: SliceWrapperMut<u8>, Alloc: BrotliAlloc>(

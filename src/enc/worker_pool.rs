@@ -1,19 +1,17 @@
 #![cfg(feature = "std")]
-use core::mem;
-
 use alloc::{Allocator, SliceWrapper};
+use core::mem;
+// in-place thread create
+use std::sync::RwLock;
+use std::sync::{Arc, Condvar, Mutex};
+
 use enc::backward_references::UnionHasher;
 use enc::fixed_queue::{FixedQueue, MAX_THREADS};
 use enc::threading::{
     BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti, CompressionThreadResult,
     InternalOwned, InternalSendAlloc, Joinable, Owned, SendAlloc,
 };
-use enc::BrotliAlloc;
-use enc::BrotliEncoderParams;
-use std::sync::{Arc, Condvar, Mutex};
-// in-place thread create
-
-use std::sync::RwLock;
+use enc::{BrotliAlloc, BrotliEncoderParams};
 
 struct JobReply<T: Send + 'static> {
     result: T,

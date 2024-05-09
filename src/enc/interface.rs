@@ -1,8 +1,9 @@
-use super::histogram;
-pub use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 #[allow(unused_imports)] // right now just used in feature flag
 use core;
+
+use super::histogram;
+pub use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 #[derive(Debug, Copy, Clone, Default)]
 pub struct BlockSwitch(pub u8);
 // Commands that can instantiate as a no-op should implement this.
@@ -761,8 +762,7 @@ pub fn u8_to_speed(data: u8) -> u16 {
 }
 #[cfg(test)]
 mod test {
-    use super::speed_to_u8;
-    use super::u8_to_speed;
+    use super::{speed_to_u8, u8_to_speed};
     fn tst_u8_to_speed(data: u16) {
         assert_eq!(u8_to_speed(speed_to_u8(data)), data);
     }

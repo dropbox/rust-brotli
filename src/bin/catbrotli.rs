@@ -1,10 +1,9 @@
 extern crate brotli;
 extern crate core;
-use std::env;
 use std::fs::File;
-use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::{env, io};
 
 use brotli::concat::{BroCatli, BroCatliResult};
 fn usage() {

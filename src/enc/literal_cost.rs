@@ -1,7 +1,8 @@
 #![allow(dead_code)]
+use core::cmp::min;
+
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::FastLog2f64;
-use core::cmp::min;
 
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 

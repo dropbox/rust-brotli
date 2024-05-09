@@ -1,8 +1,10 @@
 #![allow(dead_code)]
-use super::backward_references::BrotliEncoderParams;
-use super::vectorization::{sum8i, v256, v256i, Mem256f};
+use core::cmp::{max, min};
+#[cfg(feature = "simd")]
+use core::simd::prelude::{SimdFloat, SimdPartialOrd};
 
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use super::backward_references::BrotliEncoderParams;
 use super::bit_cost::BrotliPopulationCost;
 use super::block_split::BlockSplit;
 use super::cluster::{BrotliHistogramBitCostDistance, BrotliHistogramCombine, HistogramPair};
@@ -12,9 +14,7 @@ use super::histogram::{
     HistogramClear, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
 use super::util::FastLog2;
-use core::cmp::{max, min};
-#[cfg(feature = "simd")]
-use core::simd::prelude::{SimdFloat, SimdPartialOrd};
+use super::vectorization::{sum8i, v256, v256i, Mem256f};
 
 static kMaxLiteralHistograms: usize = 100usize;
 

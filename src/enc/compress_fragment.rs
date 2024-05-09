@@ -1,7 +1,8 @@
 #![allow(dead_code)]
+use core::cmp::min;
+
 use super::backward_references::kHashMul32;
 //use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
 //caution: lots of the functions look structurally the same as two_pass,
 // but have subtle index differences
@@ -17,7 +18,6 @@ use super::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use super::util::{FastLog2, Log2FloorNonZero};
-use core::cmp::min;
 
 //static kHashMul32: u32 = 0x1e35a7bdu32;
 
