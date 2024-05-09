@@ -1,6 +1,7 @@
 use core::cmp::{max, min};
 use core::ops::{Index, IndexMut, Range};
 
+use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::input_pair::{InputPair, InputReference};
 use super::interface;

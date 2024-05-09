@@ -1,6 +1,8 @@
 #![cfg(feature = "std")]
+
 use alloc::{Allocator, SliceWrapper};
 use core::mem;
+use std;
 // in-place thread create
 use std::sync::RwLock;
 use std::sync::{Arc, Condvar, Mutex};

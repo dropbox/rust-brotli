@@ -1,8 +1,10 @@
 #![cfg(test)]
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
+
 extern crate brotli_decompressor;
 extern crate core;
+
 use core::cmp::min;
 use std::io;
 #[cfg(feature = "std")]
@@ -13,7 +15,6 @@ use std::time::SystemTime;
 
 use brotli::BrotliDecompressStream;
 
-#[allow(unused_imports)]
 use super::alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::brotli::{BrotliResult, BrotliState};
 #[cfg(feature = "std")]

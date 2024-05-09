@@ -1,6 +1,8 @@
 use alloc::{Allocator, SliceWrapper};
 use core::marker::PhantomData;
 use core::mem;
+#[cfg(feature = "std")]
+use std;
 
 use enc::threading::{
     BatchSpawnable, BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti,

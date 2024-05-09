@@ -1,6 +1,9 @@
 #![allow(dead_code)]
+
+use core;
 use core::cmp::{max, min};
 
+use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::backward_references::BrotliEncoderParams;
 use super::bit_cost::{BitsEntropy, BrotliPopulationCost};

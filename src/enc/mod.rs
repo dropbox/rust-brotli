@@ -1,62 +1,47 @@
-#![cfg_attr(not(feature = "std"), allow(unused_imports))]
 #[macro_use]
 pub mod vectorization;
 pub mod backward_references;
 pub mod bit_cost;
 pub mod block_split;
+pub mod block_splitter;
 pub mod brotli_bit_stream;
 pub mod cluster;
 pub mod combined_alloc;
 pub mod command;
-pub mod constants;
-pub mod dictionary_hash;
-pub mod entropy_encode;
-pub mod fast_log;
-pub mod histogram;
-pub mod input_pair;
-pub mod literal_cost;
-pub mod static_dict;
-pub mod static_dict_lut;
-pub mod utf8_util;
-pub mod util;
-pub use self::backward_references::{hash_to_binary_tree, hq as backward_references_hq};
-pub mod block_splitter;
+mod compat;
 pub mod compress_fragment;
 pub mod compress_fragment_two_pass;
+pub mod constants;
 pub mod context_map_entropy;
+pub mod dictionary_hash;
 pub mod encode;
+pub mod entropy_encode;
+pub mod fast_log;
 pub mod find_stride;
+pub mod fixed_queue;
+pub mod histogram;
+pub mod input_pair;
 pub mod interface;
 pub mod ir_interpret;
+pub mod literal_cost;
 pub mod metablock;
+pub mod multithreading;
+mod parameters;
 pub mod pdf;
 pub mod prior_eval;
 pub mod reader;
-pub mod stride_eval;
-pub mod writer;
-pub use self::combined_alloc::{BrotliAlloc, CombiningAllocator};
-mod compat;
-pub mod fixed_queue;
-pub mod multithreading;
 pub mod singlethreading;
-pub mod threading;
-pub mod worker_pool;
-#[cfg(feature = "simd")]
-pub type s16 = core::simd::i16x16;
-#[cfg(feature = "simd")]
-pub type v8 = core::simd::f32x8;
-#[cfg(feature = "simd")]
-pub type s8 = core::simd::i32x8;
-#[cfg(not(feature = "simd"))]
-pub type s16 = compat::Compat16x16;
-#[cfg(not(feature = "simd"))]
-pub type v8 = compat::CompatF8;
-#[cfg(not(feature = "simd"))]
-pub type s8 = compat::Compat32x8;
-
-mod parameters;
+pub mod static_dict;
+pub mod static_dict_lut;
+pub mod stride_eval;
 mod test;
+pub mod threading;
+pub mod utf8_util;
+pub mod util;
 mod weights;
+pub mod worker_pool;
+pub mod writer;
+
 pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
 #[cfg(feature = "std")]
 use std::io;
@@ -71,7 +56,10 @@ pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
 use enc::encode::BrotliEncoderStateStruct;
 pub use interface::{InputPair, InputReference, InputReferenceMut};
 
-pub use self::backward_references::{BrotliEncoderParams, UnionHasher};
+pub use self::backward_references::{
+    hash_to_binary_tree, hq as backward_references_hq, BrotliEncoderParams, UnionHasher,
+};
+pub use self::combined_alloc::{BrotliAlloc, CombiningAllocator};
 use self::encode::{BrotliEncoderDestroyInstance, BrotliEncoderOperation};
 pub use self::encode::{
     BrotliEncoderInitParams, BrotliEncoderMaxCompressedSize, BrotliEncoderMaxCompressedSizeMulti,
@@ -88,6 +76,20 @@ pub use self::util::floatX;
 pub use self::vectorization::{v256, v256i, Mem256f};
 #[cfg(feature = "std")]
 pub use self::worker_pool::{compress_worker_pool, new_work_pool, WorkerPool};
+
+#[cfg(feature = "simd")]
+pub type s16 = core::simd::i16x16;
+#[cfg(feature = "simd")]
+pub type v8 = core::simd::f32x8;
+#[cfg(feature = "simd")]
+pub type s8 = core::simd::i32x8;
+#[cfg(not(feature = "simd"))]
+pub type s16 = compat::Compat16x16;
+#[cfg(not(feature = "simd"))]
+pub type v8 = compat::CompatF8;
+#[cfg(not(feature = "simd"))]
+pub type s8 = compat::Compat32x8;
+
 #[cfg(feature = "std")]
 pub fn compress_multi<
     Alloc: BrotliAlloc + Send + 'static,

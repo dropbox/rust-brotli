@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 use core::cmp::min;
 
 use super::utf8_util::BrotliIsMostlyUTF8;

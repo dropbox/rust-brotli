@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 mod benchmark;
 pub mod hash_to_binary_tree;
 pub mod hq;

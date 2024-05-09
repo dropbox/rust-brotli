@@ -1,3 +1,6 @@
+use core;
+
+use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 pub use super::ir_interpret::{push_base, Context, IRInterpreter};

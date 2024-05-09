@@ -7,8 +7,6 @@ mod test;
 use alloc::SliceWrapper;
 use core::cmp::min;
 
-#[allow(unused_imports)]
-use brotli_decompressor;
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
 use brotli_decompressor::ffi::interface::{
     brotli_alloc_func, brotli_free_func, c_void, CAllocator,
@@ -19,10 +17,11 @@ use enc::encode::{
     set_parameter, BrotliEncoderOperation, BrotliEncoderParameter, BrotliEncoderStateStruct,
 };
 use enc::threading::{Owned, SendAlloc};
-use {core, enc};
+use {brotli_decompressor, core, enc};
 
 use super::alloc_util::BrotliSubclassableAllocator;
 use super::compressor;
+
 pub const MAX_THREADS: usize = 16;
 
 struct SliceRef<'a>(&'a [u8]);
@@ -44,6 +43,7 @@ macro_rules! make_send_alloc {
         )
     };
 }
+
 #[no_mangle]
 pub extern "C" fn BrotliEncoderMaxCompressedSizeMulti(
     input_size: usize,

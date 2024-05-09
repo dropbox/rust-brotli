@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
 fn BrotliParseAsUTF8(symbol: &mut i32, input: &[u8], size: usize) -> usize {
