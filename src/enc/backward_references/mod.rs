@@ -1655,110 +1655,96 @@ impl<
         let mut is_match_found = false;
         let mut best_score: u64 = out.score;
         let mut best_len: usize = out.len;
-        let mut i: usize;
         out.len = 0usize;
         out.len_x_code = 0usize;
-        i = 0usize;
         let cur_data = data.split_at(cur_ix_masked).1;
-        while i < self.GetHasherCommon.params.num_last_distances_to_check as usize {
-            'continue45: loop {
-                {
-                    let backward: usize = distance_cache[i] as usize;
-                    let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
-                    if prev_ix >= cur_ix {
-                        break 'continue45;
-                    }
-                    if backward > max_backward {
-                        break 'continue45;
-                    }
-                    prev_ix &= ring_buffer_mask;
-                    if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask
-                        || prev_ix.wrapping_add(best_len) > ring_buffer_mask
-                        || cur_data[best_len] != data[prev_ix.wrapping_add(best_len)])
-                    {
-                        break 'continue45;
-                    }
-                    let prev_data = data.split_at(prev_ix).1;
+        for i in 0..self.GetHasherCommon.params.num_last_distances_to_check as usize {
+            let backward: usize = distance_cache[i] as usize;
+            let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
+            if prev_ix >= cur_ix || backward > max_backward {
+                continue;
+            }
+            prev_ix &= ring_buffer_mask;
+            if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask
+                || prev_ix.wrapping_add(best_len) > ring_buffer_mask
+                || cur_data[best_len] != data[prev_ix.wrapping_add(best_len)])
+            {
+                continue;
+            }
+            let prev_data = data.split_at(prev_ix).1;
 
-                    let len: usize = FindMatchLengthWithLimit(prev_data, cur_data, max_length);
-                    if len >= 3usize || len == 2usize && (i < 2usize) {
-                        let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
-                        if best_score < score {
-                            if i != 0usize {
-                                score = score
-                                    .wrapping_sub(BackwardReferencePenaltyUsingLastDistance(i));
-                            }
-                            if best_score < score {
-                                best_score = score;
-                                best_len = len;
-                                out.len = best_len;
-                                out.distance = backward;
-                                out.score = best_score;
-                                is_match_found = true;
-                            }
-                        }
+            let len = FindMatchLengthWithLimit(prev_data, cur_data, max_length);
+            if len >= 3 || (len == 2 && i < 2) {
+                let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
+                if best_score < score {
+                    if i != 0 {
+                        score = score.wrapping_sub(BackwardReferencePenaltyUsingLastDistance(i));
+                    }
+                    if best_score < score {
+                        best_score = score;
+                        best_len = len;
+                        out.len = best_len;
+                        out.distance = backward;
+                        out.score = best_score;
+                        is_match_found = true;
                     }
                 }
-                break;
             }
-            i = i.wrapping_add(1);
         }
-        {
-            let key: u32 = self.HashBytes(cur_data) as u32;
-            let common_block_bits = self.specialization.block_bits();
-            let num_ref_mut = &mut self.num.slice_mut()[key as usize];
-            let num_copy = *num_ref_mut;
-            let bucket: &mut [u32] = self
-                .buckets
-                .slice_mut()
-                .split_at_mut((key << common_block_bits) as usize)
-                .1
-                .split_at_mut(self.specialization.block_size() as usize)
-                .0;
-            assert!(bucket.len() > self.specialization.block_mask() as usize);
-            if num_copy != 0 {
-                let down: usize = max(
-                    i32::from(num_copy) - self.specialization.block_size() as i32,
-                    0,
-                ) as usize;
-                i = num_copy as usize;
-                while i > down {
-                    i -= 1;
-                    let mut prev_ix =
-                        bucket[i & self.specialization.block_mask() as usize] as usize;
-                    let backward = cur_ix.wrapping_sub(prev_ix);
-                    prev_ix &= ring_buffer_mask;
-                    if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask
-                        || prev_ix.wrapping_add(best_len) > ring_buffer_mask
-                        || cur_data[best_len] != data[prev_ix.wrapping_add(best_len)])
-                    {
-                        if backward > max_backward {
-                            break;
-                        }
-                        continue;
-                    }
+
+        let key: u32 = self.HashBytes(cur_data) as u32;
+        let common_block_bits = self.specialization.block_bits();
+        let num_ref_mut = &mut self.num.slice_mut()[key as usize];
+        let num_copy = *num_ref_mut;
+        let bucket: &mut [u32] = self
+            .buckets
+            .slice_mut()
+            .split_at_mut((key << common_block_bits) as usize)
+            .1
+            .split_at_mut(self.specialization.block_size() as usize)
+            .0;
+        assert!(bucket.len() > self.specialization.block_mask() as usize);
+        if num_copy != 0 {
+            let down: usize = max(
+                i32::from(num_copy) - self.specialization.block_size() as i32,
+                0,
+            ) as usize;
+            let mut i = num_copy as usize;
+            while i > down {
+                i -= 1;
+                let mut prev_ix = bucket[i & self.specialization.block_mask() as usize] as usize;
+                let backward = cur_ix.wrapping_sub(prev_ix);
+                prev_ix &= ring_buffer_mask;
+                if (cur_ix_masked.wrapping_add(best_len) > ring_buffer_mask
+                    || prev_ix.wrapping_add(best_len) > ring_buffer_mask
+                    || cur_data[best_len] != data[prev_ix.wrapping_add(best_len)])
+                {
                     if backward > max_backward {
                         break;
                     }
-                    let prev_data = data.split_at(prev_ix).1;
-                    let len = FindMatchLengthWithLimitMin4(prev_data, cur_data, max_length);
-                    if len != 0 {
-                        let score: u64 = BackwardReferenceScore(len, backward, opts);
-                        if best_score < score {
-                            best_score = score;
-                            best_len = len;
-                            out.len = best_len;
-                            out.distance = backward;
-                            out.score = best_score;
-                            is_match_found = true;
-                        }
+                    continue;
+                }
+                if backward > max_backward {
+                    break;
+                }
+                let prev_data = data.split_at(prev_ix).1;
+                let len = FindMatchLengthWithLimitMin4(prev_data, cur_data, max_length);
+                if len != 0 {
+                    let score: u64 = BackwardReferenceScore(len, backward, opts);
+                    if best_score < score {
+                        best_score = score;
+                        best_len = len;
+                        out.len = best_len;
+                        out.distance = backward;
+                        out.score = best_score;
+                        is_match_found = true;
                     }
                 }
             }
-            bucket[((num_copy as u32 & (self).specialization.block_mask()) as usize)] =
-                cur_ix as u32;
-            *num_ref_mut = num_ref_mut.wrapping_add(1);
         }
+        bucket[(num_copy as u32 & self.specialization.block_mask()) as usize] = cur_ix as u32;
+        *num_ref_mut = num_ref_mut.wrapping_add(1);
+
         if !is_match_found && dictionary.is_some() {
             let (_, cur_data) = data.split_at(cur_ix_masked);
             is_match_found = SearchInStaticDictionary(
