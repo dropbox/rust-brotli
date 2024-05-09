@@ -671,10 +671,8 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
     let max_distance: usize = min(cur_ix, max_backward_limit);
     let max_len: usize = num_bytes.wrapping_sub(pos);
     let max_zopfli_len: usize = MaxZopfliLen(params);
-    let max_iters: usize = MaxZopfliCandidates(params);
     let min_len: usize;
     let mut result: usize = 0usize;
-    let mut k: usize;
     let gap: usize = 0usize;
     EvaluateNode(
         block_start,
@@ -692,144 +690,122 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             posdata.cost + model.get_min_cost_cmd() + model.get_literal_costs(posdata.pos, pos);
         min_len = ComputeMinimumCopyLength(min_cost, nodes, num_bytes, pos);
     }
-    k = 0usize;
-    while k < max_iters && k < queue.size() {
-        'continue28: loop {
-            {
-                let posdata = queue.at(k);
-                let start: usize = posdata.pos;
-                let inscode: u16 = GetInsertLengthCode(pos.wrapping_sub(start));
-                let start_costdiff: floatX = posdata.costdiff;
-                let base_cost: floatX = start_costdiff
-                    + GetInsertExtra(inscode) as (floatX)
-                    + model.get_literal_costs(0, pos);
-                let mut best_len: usize = min_len.wrapping_sub(1);
-                for j in 0..16 {
-                    if best_len >= max_len {
-                        break;
-                    }
 
-                    let idx: usize = kDistanceCacheIndex[j] as usize;
-                    let distance_cache_len_minus_1 = 3;
-                    debug_assert_eq!(distance_cache_len_minus_1 + 1, posdata.distance_cache.len());
-                    let backward: usize =
-                        (posdata.distance_cache[(idx & distance_cache_len_minus_1)]
-                            + i32::from(kDistanceCacheOffset[j])) as usize;
-                    let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
-                    let len: usize;
-                    let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
-                    if cur_ix_masked.wrapping_add(best_len) > ringbuffer_mask {
-                        break;
-                    }
-                    if backward > max_distance.wrapping_add(gap) {
-                        continue;
-                    }
-                    if backward > max_distance {
-                        continue;
-                    }
-                    if prev_ix >= cur_ix {
-                        continue;
-                    }
-                    prev_ix &= ringbuffer_mask;
-                    if prev_ix.wrapping_add(best_len) > ringbuffer_mask
-                        || continuation != ringbuffer[prev_ix.wrapping_add(best_len)]
-                    {
-                        continue;
-                    }
-                    len = FindMatchLengthWithLimit(
-                        &ringbuffer[prev_ix..],
-                        &ringbuffer[cur_ix_masked..],
-                        max_len,
-                    );
-
-                    let dist_cost = base_cost + model.get_distance_cost(j);
-                    for l in best_len.wrapping_add(1)..=len {
-                        let copycode: u16 = GetCopyLengthCode(l);
-                        let cmdcode: u16 =
-                            CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
-                        let cost: floatX = (if cmdcode < 128 { base_cost } else { dist_cost })
-                            + (GetCopyExtra(copycode) as floatX)
-                            + model.get_command_cost(cmdcode);
-                        if cost
-                            < match nodes[pos.wrapping_add(l)].u {
-                                Union1::cost(cost) => cost,
-                                _ => 0.0,
-                            }
-                        {
-                            UpdateZopfliNode(
-                                nodes,
-                                pos,
-                                start,
-                                l,
-                                l,
-                                backward,
-                                j.wrapping_add(1),
-                                cost,
-                            );
-                            result = max(result, l);
-                        }
-                        best_len = l;
-                    }
-                }
-                if k >= 2usize {
-                    break 'continue28;
-                }
-                {
-                    let mut len: usize = min_len;
-                    for j in 0usize..num_matches {
-                        let match_ = BackwardMatch(matches[j]);
-                        let dist: usize = match_.distance() as usize;
-                        let is_dictionary_match = dist > max_distance.wrapping_add(gap);
-                        let dist_code: usize = dist.wrapping_add(16).wrapping_sub(1);
-                        let mut dist_symbol: u16 = 0;
-                        let mut distextra: u32 = 0;
-
-                        PrefixEncodeCopyDistance(
-                            dist_code,
-                            params.dist.num_direct_distance_codes as usize,
-                            u64::from(params.dist.distance_postfix_bits),
-                            &mut dist_symbol,
-                            &mut distextra,
-                        );
-                        let distnumextra: u32 = u32::from(dist_symbol) >> 10;
-                        let dist_cost = base_cost
-                            + (distnumextra as floatX)
-                            + model.get_distance_cost((dist_symbol as i32 & 0x03ff) as usize);
-                        let max_match_len = match_.length();
-                        if len < max_match_len
-                            && (is_dictionary_match || max_match_len > max_zopfli_len)
-                        {
-                            len = max_match_len;
-                        }
-                        while len <= max_match_len {
-                            {
-                                let len_code: usize = if is_dictionary_match {
-                                    match_.length_code()
-                                } else {
-                                    len
-                                };
-                                let copycode: u16 = GetCopyLengthCode(len_code);
-                                let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0i32);
-                                let cost: floatX = dist_cost
-                                    + GetCopyExtra(copycode) as (floatX)
-                                    + model.get_command_cost(cmdcode);
-                                if let Union1::cost(nodeCost) = (nodes[pos.wrapping_add(len)]).u {
-                                    if cost < nodeCost {
-                                        UpdateZopfliNode(
-                                            nodes, pos, start, len, len_code, dist, 0usize, cost,
-                                        );
-                                        result = max(result, len);
-                                    }
-                                }
-                            }
-                            len = len.wrapping_add(1);
-                        }
-                    }
-                }
+    for k in 0..min(MaxZopfliCandidates(params), queue.size()) {
+        let posdata = queue.at(k);
+        let start: usize = posdata.pos;
+        let inscode: u16 = GetInsertLengthCode(pos.wrapping_sub(start));
+        let start_costdiff: floatX = posdata.costdiff;
+        let base_cost: floatX =
+            start_costdiff + GetInsertExtra(inscode) as (floatX) + model.get_literal_costs(0, pos);
+        let mut best_len: usize = min_len.wrapping_sub(1);
+        for j in 0..16 {
+            if best_len >= max_len {
+                break;
             }
-            break;
+
+            let idx: usize = kDistanceCacheIndex[j] as usize;
+            let distance_cache_len_minus_1 = 3;
+            debug_assert_eq!(distance_cache_len_minus_1 + 1, posdata.distance_cache.len());
+            let backward: usize = (posdata.distance_cache[(idx & distance_cache_len_minus_1)]
+                + i32::from(kDistanceCacheOffset[j])) as usize;
+            let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
+            let len: usize;
+            let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
+            if cur_ix_masked.wrapping_add(best_len) > ringbuffer_mask {
+                break;
+            }
+            if backward > max_distance.wrapping_add(gap) {
+                continue;
+            }
+            if backward > max_distance {
+                continue;
+            }
+            if prev_ix >= cur_ix {
+                continue;
+            }
+            prev_ix &= ringbuffer_mask;
+            if prev_ix.wrapping_add(best_len) > ringbuffer_mask
+                || continuation != ringbuffer[prev_ix.wrapping_add(best_len)]
+            {
+                continue;
+            }
+            len = FindMatchLengthWithLimit(
+                &ringbuffer[prev_ix..],
+                &ringbuffer[cur_ix_masked..],
+                max_len,
+            );
+
+            let dist_cost = base_cost + model.get_distance_cost(j);
+            for l in best_len.wrapping_add(1)..=len {
+                let copycode: u16 = GetCopyLengthCode(l);
+                let cmdcode: u16 = CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
+                let cost: floatX = (if cmdcode < 128 { base_cost } else { dist_cost })
+                    + (GetCopyExtra(copycode) as floatX)
+                    + model.get_command_cost(cmdcode);
+                if cost
+                    < match nodes[pos.wrapping_add(l)].u {
+                        Union1::cost(cost) => cost,
+                        _ => 0.0,
+                    }
+                {
+                    UpdateZopfliNode(nodes, pos, start, l, l, backward, j.wrapping_add(1), cost);
+                    result = max(result, l);
+                }
+                best_len = l;
+            }
         }
-        k = k.wrapping_add(1);
+
+        if k >= 2 {
+            continue;
+        }
+
+        let mut len: usize = min_len;
+        for j in 0usize..num_matches {
+            let match_ = BackwardMatch(matches[j]);
+            let dist: usize = match_.distance() as usize;
+            let is_dictionary_match = dist > max_distance.wrapping_add(gap);
+            let dist_code: usize = dist.wrapping_add(16).wrapping_sub(1);
+            let mut dist_symbol: u16 = 0;
+            let mut distextra: u32 = 0;
+
+            PrefixEncodeCopyDistance(
+                dist_code,
+                params.dist.num_direct_distance_codes as usize,
+                u64::from(params.dist.distance_postfix_bits),
+                &mut dist_symbol,
+                &mut distextra,
+            );
+            let distnumextra: u32 = u32::from(dist_symbol) >> 10;
+            let dist_cost = base_cost
+                + (distnumextra as floatX)
+                + model.get_distance_cost((dist_symbol as i32 & 0x03ff) as usize);
+            let max_match_len = match_.length();
+            if len < max_match_len && (is_dictionary_match || max_match_len > max_zopfli_len) {
+                len = max_match_len;
+            }
+            while len <= max_match_len {
+                {
+                    let len_code: usize = if is_dictionary_match {
+                        match_.length_code()
+                    } else {
+                        len
+                    };
+                    let copycode: u16 = GetCopyLengthCode(len_code);
+                    let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0i32);
+                    let cost: floatX = dist_cost
+                        + GetCopyExtra(copycode) as (floatX)
+                        + model.get_command_cost(cmdcode);
+                    if let Union1::cost(nodeCost) = (nodes[pos.wrapping_add(len)]).u {
+                        if cost < nodeCost {
+                            UpdateZopfliNode(nodes, pos, start, len, len_code, dist, 0usize, cost);
+                            result = max(result, len);
+                        }
+                    }
+                }
+                len = len.wrapping_add(1);
+            }
+        }
     }
     result
 }
