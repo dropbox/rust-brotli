@@ -6,9 +6,6 @@ use core::cmp::{max, min};
 #[cfg(feature = "std")]
 use std::io::Write;
 
-use enc::backward_references::BrotliEncoderParams;
-use VERSION;
-
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
@@ -38,6 +35,8 @@ use super::interface::StaticCommand;
 use super::static_dict::kNumDistanceCacheEntries;
 use super::util::floatX;
 use super::{find_stride, interface, prior_eval, stride_eval};
+use crate::enc::backward_references::BrotliEncoderParams;
+use crate::VERSION;
 
 pub struct PrefixCodeRange {
     pub offset: u32,
@@ -2956,7 +2955,7 @@ pub fn BrotliWriteMetadataMetaBlock(
 
 #[cfg(test)]
 mod test {
-    use enc::brotli_bit_stream::{encode_base_128, MAX_SIZE_ENCODING};
+    use crate::enc::brotli_bit_stream::{encode_base_128, MAX_SIZE_ENCODING};
 
     #[test]
     fn test_encode_base_128() {

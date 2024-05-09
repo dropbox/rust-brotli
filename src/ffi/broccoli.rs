@@ -2,8 +2,9 @@ use core;
 
 pub use brotli_decompressor::ffi::interface::c_void;
 use brotli_decompressor::ffi::{slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut};
-use concat::BroCatli;
-pub use concat::BroCatliResult;
+
+use crate::concat::BroCatli;
+pub use crate::concat::BroCatliResult;
 pub type BroccoliResult = BroCatliResult;
 // a tool to concatenate brotli files together
 

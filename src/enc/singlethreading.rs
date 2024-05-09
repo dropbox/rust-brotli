@@ -4,14 +4,13 @@ use core::mem;
 #[cfg(feature = "std")]
 use std;
 
-use enc::threading::{
+use super::backward_references::UnionHasher;
+use crate::enc::threading::{
     BatchSpawnable, BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti,
     CompressionThreadResult, InternalOwned, InternalSendAlloc, Joinable, Owned, OwnedRetriever,
     PoisonedThreadError, SendAlloc,
 };
-use enc::{BrotliAlloc, BrotliEncoderParams};
-
-use super::backward_references::UnionHasher;
+use crate::enc::{BrotliAlloc, BrotliEncoderParams};
 
 pub struct SingleThreadedJoinable<T: Send + 'static, U: Send + 'static> {
     result: Result<T, U>,

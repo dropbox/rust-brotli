@@ -1,7 +1,8 @@
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
-use enc::BrotliAlloc;
+
+use crate::enc::BrotliAlloc;
 
 pub struct BrotliSubclassableAllocator(SubclassableAllocator);
 

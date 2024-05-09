@@ -5,15 +5,14 @@ use core::{any, mem};
 #[cfg(feature = "std")]
 use std;
 
-use concat::{BroCatli, BroCatliResult};
-use enc::encode::BrotliEncoderStateStruct;
-
 use super::backward_references::{AnyHasher, BrotliEncoderParams, CloneWithAlloc, UnionHasher};
 use super::encode::{
     BrotliEncoderDestroyInstance, BrotliEncoderMaxCompressedSize, BrotliEncoderOperation,
     HasherSetup, SanitizeParams,
 };
 use super::BrotliAlloc;
+use crate::concat::{BroCatli, BroCatliResult};
+use crate::enc::encode::BrotliEncoderStateStruct;
 
 pub type PoisonedThreadError = ();
 

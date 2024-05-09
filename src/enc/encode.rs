@@ -4,8 +4,6 @@ use alloc::Allocator;
 use core;
 use core::cmp::{max, min};
 
-use enc::input_pair::InputReferenceMut;
-
 use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::backward_references::{
@@ -41,6 +39,7 @@ pub use super::parameters::BrotliEncoderParameter;
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::Log2FloorNonZero;
+use crate::enc::input_pair::InputReferenceMut;
 
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
 //                                          dictionary: &[BrotliDictionary],

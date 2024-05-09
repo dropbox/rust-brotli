@@ -50,19 +50,19 @@ pub use brotli_decompressor::{
     dictionary, reader, transform, writer, BrotliDecompressCustomIo,
     BrotliDecompressCustomIoCustomDict, BrotliDecompressStream, BrotliResult, BrotliState,
 };
-pub use enc::input_pair::{InputPair, InputReference, InputReferenceMut};
-pub use enc::interface::SliceOffset;
-#[cfg(feature = "std")]
-pub use enc::reader::CompressorReader;
-pub use enc::reader::CompressorReaderCustomIo;
-#[cfg(feature = "std")]
-pub use enc::writer::CompressorWriter;
-pub use enc::writer::CompressorWriterCustomIo;
-pub use enc::{interface, BrotliCompressCustomIo, BrotliCompressCustomIoCustomDict};
-#[cfg(feature = "std")]
-pub use enc::{BrotliCompress, BrotliCompressCustomAlloc};
 
 pub use self::enc::combined_alloc::CombiningAllocator;
+pub use crate::enc::input_pair::{InputPair, InputReference, InputReferenceMut};
+pub use crate::enc::interface::SliceOffset;
+#[cfg(feature = "std")]
+pub use crate::enc::reader::CompressorReader;
+pub use crate::enc::reader::CompressorReaderCustomIo;
+#[cfg(feature = "std")]
+pub use crate::enc::writer::CompressorWriter;
+pub use crate::enc::writer::CompressorWriterCustomIo;
+pub use crate::enc::{interface, BrotliCompressCustomIo, BrotliCompressCustomIoCustomDict};
+#[cfg(feature = "std")]
+pub use crate::enc::{BrotliCompress, BrotliCompressCustomAlloc};
 
 pub const VERSION: u8 = 1;
 

@@ -1,8 +1,8 @@
 #![allow(unknown_lints)]
 #![allow(unused_macros)]
 
-use enc::util::FastLog2;
-use enc::{s8, v8};
+use crate::enc::util::FastLog2;
+use crate::enc::{s8, v8};
 pub type Mem256f = v8;
 pub type Mem256i = s8;
 pub type v256 = v8;

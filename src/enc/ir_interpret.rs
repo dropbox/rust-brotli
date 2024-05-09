@@ -11,7 +11,7 @@ pub trait IRInterpreter {
     fn block_type(&self) -> u8;
     fn literal_data_at_offset(&self, index: usize) -> u8;
     fn literal_context_map(&self) -> &[u8];
-    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble;
+    fn prediction_mode(&self) -> crate::interface::LiteralPredictionModeNibble;
     fn update_cost(
         &mut self,
         stride_prior: [u8; 8],

@@ -7,13 +7,13 @@ use std;
 use std::sync::RwLock;
 use std::sync::{Arc, Condvar, Mutex};
 
-use enc::backward_references::UnionHasher;
-use enc::fixed_queue::{FixedQueue, MAX_THREADS};
-use enc::threading::{
+use crate::enc::backward_references::UnionHasher;
+use crate::enc::fixed_queue::{FixedQueue, MAX_THREADS};
+use crate::enc::threading::{
     BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti, CompressionThreadResult,
     InternalOwned, InternalSendAlloc, Joinable, Owned, SendAlloc,
 };
-use enc::{BrotliAlloc, BrotliEncoderParams};
+use crate::enc::{BrotliAlloc, BrotliEncoderParams};
 
 struct JobReply<T: Send + 'static> {
     result: T,

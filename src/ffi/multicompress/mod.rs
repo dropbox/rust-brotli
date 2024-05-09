@@ -12,15 +12,15 @@ use brotli_decompressor::ffi::interface::{
     brotli_alloc_func, brotli_free_func, c_void, CAllocator,
 };
 use brotli_decompressor::ffi::{slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut};
-use enc::backward_references::{BrotliEncoderParams, UnionHasher};
-use enc::encode::{
-    set_parameter, BrotliEncoderOperation, BrotliEncoderParameter, BrotliEncoderStateStruct,
-};
-use enc::threading::{Owned, SendAlloc};
 use {brotli_decompressor, core, enc};
 
 use super::alloc_util::BrotliSubclassableAllocator;
 use super::compressor;
+use crate::enc::backward_references::{BrotliEncoderParams, UnionHasher};
+use crate::enc::encode::{
+    set_parameter, BrotliEncoderOperation, BrotliEncoderParameter, BrotliEncoderStateStruct,
+};
+use crate::enc::threading::{Owned, SendAlloc};
 
 pub const MAX_THREADS: usize = 16;
 

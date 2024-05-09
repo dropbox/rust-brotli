@@ -19,7 +19,6 @@ use core::cmp::min;
 use core::ops;
 
 use brotli_decompressor::HuffmanCode;
-use enc::encode::BrotliEncoderStateStruct;
 
 use super::super::alloc::{
     bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
@@ -33,6 +32,7 @@ use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
 use super::pdf::PDF;
 use super::{interface, s16, v8, StaticCommand, ZopfliNode};
+use crate::enc::encode::BrotliEncoderStateStruct;
 
 declare_stack_allocator_struct!(MemPool, 128, stack);
 declare_stack_allocator_struct!(CallocatedFreelist4096, 128, calloc);

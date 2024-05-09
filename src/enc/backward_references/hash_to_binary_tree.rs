@@ -1,16 +1,17 @@
 #![allow(dead_code)]
 
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use core;
 use core::cmp::min;
-
-use enc::static_dict::{BrotliDictionary, FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32};
-use enc::util::floatX;
-use {alloc, core};
 
 use super::{
     kHashMul32, AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts, HasherSearchResult,
     HowPrepared, Struct1,
 };
+use crate::enc::static_dict::{
+    BrotliDictionary, FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32,
+};
+use crate::enc::util::floatX;
 
 pub const kInfinity: floatX = 1.7e38 as floatX;
 
