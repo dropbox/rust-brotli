@@ -87,7 +87,7 @@ fn normalize_weights(weights: &mut [i32; 2]) {
 }
 
 #[allow(dead_code)]
-#[cfg(features = "floating_point_context_mixing")]
+#[cfg(feature = "floating_point_context_mixing")]
 fn compute_new_weight(
     probs: [Prob; 2],
     weighted_prob: Prob,
@@ -115,7 +115,7 @@ fn compute_new_weight(
 }
 
 #[allow(dead_code)]
-#[cfg(not(features = "floating_point_context_mixing"))]
+#[cfg(not(feature = "floating_point_context_mixing"))]
 #[inline(always)]
 fn compute_new_weight(
     probs: [Prob; 2],
