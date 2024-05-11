@@ -1731,7 +1731,6 @@ fn ChooseContextMap(
     let mut two_prefix_histo = [0u32; 6];
 
     let mut i: usize;
-    let mut dummy: usize = 0;
     let mut entropy = [0.0 as floatX; 4];
     i = 0usize;
     while i < 9usize {
@@ -1749,16 +1748,12 @@ fn ChooseContextMap(
         }
         i = i.wrapping_add(1);
     }
-    entropy[1] = ShannonEntropy(&monogram_histo[..], 3usize, &mut dummy);
-    entropy[2] = ShannonEntropy(&two_prefix_histo[..], 3usize, &mut dummy)
-        + ShannonEntropy(&two_prefix_histo[3..], 3usize, &mut dummy);
+    entropy[1] = ShannonEntropy(&monogram_histo[..], 3).0;
+    entropy[2] =
+        ShannonEntropy(&two_prefix_histo[..], 3).0 + ShannonEntropy(&two_prefix_histo[3..], 3).0;
     entropy[3] = 0.0;
     for i in 0usize..3usize {
-        entropy[3] += ShannonEntropy(
-            &bigram_histo[(3usize).wrapping_mul(i)..],
-            3usize,
-            &mut dummy,
-        );
+        entropy[3] += ShannonEntropy(&bigram_histo[(3usize).wrapping_mul(i)..], 3).0;
     }
     let total: usize = monogram_histo[0]
         .wrapping_add(monogram_histo[1])
@@ -1825,7 +1820,6 @@ fn ShouldUseComplexStaticContextMap(
         let mut context_histo: [[u32; 32]; 13] = [[0; 32]; 13];
         let mut total = 0u32;
         let mut entropy = [0.0 as floatX; 3];
-        let mut dummy = 0usize;
         let utf8_lut = BROTLI_CONTEXT_LUT(ContextType::CONTEXT_UTF8);
         while start_pos + 64 <= end_pos {
             let stride_end_pos = start_pos + 64;
@@ -1847,11 +1841,11 @@ fn ShouldUseComplexStaticContextMap(
             }
             start_pos += 4096;
         }
-        entropy[1] = ShannonEntropy(&combined_histo[..], 32, &mut dummy);
+        entropy[1] = ShannonEntropy(&combined_histo[..], 32).0;
         entropy[2] = 0.0;
         for i in 0..13 {
             assert!(i < 13);
-            entropy[2] += ShannonEntropy(&context_histo[i][..], 32, &mut dummy);
+            entropy[2] += ShannonEntropy(&context_histo[i][..], 32).0;
         }
         entropy[0] = 1.0 / (total as floatX);
         entropy[1] *= entropy[0];
