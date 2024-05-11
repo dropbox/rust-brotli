@@ -293,7 +293,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
     fn literal_context_map(&self) -> &[u8] {
         self.context_map.literal_context_map.slice()
     }
-    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
+    fn prediction_mode(&self) -> crate::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
     fn update_cost(

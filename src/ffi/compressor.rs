@@ -13,9 +13,9 @@ use brotli_decompressor::ffi::interface::{
 use brotli_decompressor::ffi::{
     alloc_util, slice_from_raw_parts_or_nil, slice_from_raw_parts_or_nil_mut,
 };
-use enc::encode::BrotliEncoderStateStruct;
 
 use super::alloc_util::BrotliSubclassableAllocator;
+use crate::enc::encode::BrotliEncoderStateStruct;
 
 #[repr(C)]
 pub enum BrotliEncoderOperation {

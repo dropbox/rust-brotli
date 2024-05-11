@@ -53,7 +53,6 @@ pub use alloc_stdlib::StandardAlloc;
 use brotli_decompressor::{CustomRead, CustomWrite};
 #[cfg(feature = "std")]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
-use enc::encode::BrotliEncoderStateStruct;
 pub use interface::{InputPair, InputReference, InputReferenceMut};
 
 pub use self::backward_references::{
@@ -76,6 +75,7 @@ pub use self::util::floatX;
 pub use self::vectorization::{v256, v256i, Mem256f};
 #[cfg(feature = "std")]
 pub use self::worker_pool::{compress_worker_pool, new_work_pool, WorkerPool};
+use crate::enc::encode::BrotliEncoderStateStruct;
 
 #[cfg(feature = "simd")]
 pub type s16 = core::simd::i16x16;

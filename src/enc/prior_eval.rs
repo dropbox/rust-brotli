@@ -856,7 +856,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
         self.context_map.literal_context_map.slice()
     }
     #[inline]
-    fn prediction_mode(&self) -> ::interface::LiteralPredictionModeNibble {
+    fn prediction_mode(&self) -> crate::interface::LiteralPredictionModeNibble {
         self.context_map.literal_prediction_mode()
     }
     #[inline]

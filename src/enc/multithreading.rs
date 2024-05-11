@@ -8,13 +8,13 @@ use std;
 use std::sync::RwLock;
 use std::thread::JoinHandle;
 
-use enc::backward_references::UnionHasher;
-use enc::threading::{
+use crate::enc::backward_references::UnionHasher;
+use crate::enc::threading::{
     AnyBoxConstructor, BatchSpawnable, BatchSpawnableLite, BrotliEncoderThreadError, CompressMulti,
     CompressionThreadResult, InternalOwned, InternalSendAlloc, Joinable, Owned, OwnedRetriever,
     PoisonedThreadError, SendAlloc,
 };
-use enc::{BrotliAlloc, BrotliEncoderParams};
+use crate::enc::{BrotliAlloc, BrotliEncoderParams};
 
 pub struct MultiThreadedJoinable<T: Send + 'static, U: Send + 'static>(
     JoinHandle<T>,
