@@ -246,7 +246,7 @@ fn best_speed_log(_name: &str, _data: &[SpeedAndMax; 2], _cost: &[floatX; 2]) {}
 fn best_speed_log(name: &str, data: &[SpeedAndMax; 2], cost: &[floatX; 2]) {
     for high in 0..2 {
         println!(
-            "{} Speed [ inc: {}, max: {}, algo: 0 ] cost: {}",
+            "{} Speed [ inc: {}, max: {}, algo: {} ] cost: {}",
             name,
             if high != 0 { "hi" } else { "lo" },
             data[high].0,
