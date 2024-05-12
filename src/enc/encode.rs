@@ -1402,6 +1402,8 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
     result = result.wrapping_add(1);
     result
 }
+
+#[deprecated(note = "Use encoder_compress instead")]
 pub fn BrotliEncoderCompress<
     Alloc: BrotliAlloc,
     MetablockCallback: FnMut(
@@ -1422,23 +1424,58 @@ pub fn BrotliEncoderCompress<
     encoded_buffer: &mut [u8],
     metablock_callback: &mut MetablockCallback,
 ) -> i32 {
+    encoder_compress(
+        empty_m8,
+        m8,
+        quality,
+        lgwin,
+        mode,
+        input_size,
+        input_buffer,
+        encoded_size,
+        encoded_buffer,
+        metablock_callback,
+    )
+    .into()
+}
+
+pub(crate) fn encoder_compress<
+    Alloc: BrotliAlloc,
+    MetablockCallback: FnMut(
+        &mut interface::PredictionModeContextMap<InputReferenceMut>,
+        &mut [interface::StaticCommand],
+        interface::InputPair,
+        &mut Alloc,
+    ),
+>(
+    empty_m8: Alloc,
+    m8: &mut Alloc,
+    quality: i32,
+    lgwin: i32,
+    mode: BrotliEncoderMode,
+    input_size: usize,
+    input_buffer: &[u8],
+    encoded_size: &mut usize,
+    encoded_buffer: &mut [u8],
+    metablock_callback: &mut MetablockCallback,
+) -> bool {
     let out_size: usize = *encoded_size;
     let input_start = input_buffer;
     let output_start = encoded_buffer;
     let max_out_size: usize = BrotliEncoderMaxCompressedSize(input_size);
-    if out_size == 0usize {
-        return 0i32;
+    if out_size == 0 {
+        return false;
     }
-    if input_size == 0usize {
+    if input_size == 0 {
         *encoded_size = 1;
         output_start[0] = 6;
-        return 1i32;
+        return true;
     }
-    let mut is_fallback: i32 = 0i32;
-    if quality == 10i32 {
-        panic!("Unimplemented: need to set 9.5 here");
+    let mut is_fallback = false;
+    if quality == 10 {
+        unimplemented!("need to set 9.5 here");
     }
-    if is_fallback == 0 {
+    if !is_fallback {
         let mut s_orig = BrotliEncoderStateStruct::new(core::mem::replace(m8, empty_m8));
         let mut result: bool;
         {
@@ -1480,21 +1517,21 @@ pub fn BrotliEncoderCompress<
         }
         let _ = core::mem::replace(m8, s_orig.m8);
         if !result || max_out_size != 0 && (*encoded_size > max_out_size) {
-            is_fallback = 1i32;
+            is_fallback = true;
         } else {
-            return 1i32;
+            return true;
         }
     }
-    assert_ne!(is_fallback, 0);
-    *encoded_size = 0usize;
+    assert_ne!(is_fallback, false);
+    *encoded_size = 0;
     if max_out_size == 0 {
-        return 0i32;
+        return false;
     }
     if out_size >= max_out_size {
         *encoded_size = MakeUncompressedStream(input_start, input_size, output_start);
-        return 1i32;
+        return true;
     }
-    0i32
+    false
 }
 
 impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
@@ -1531,13 +1568,13 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         next_out_array: &mut [u8],
         next_out_offset: &mut usize,
         total_out: &mut Option<usize>,
-    ) -> i32 {
+    ) -> bool {
         if self.stream_state_ as i32
             == BrotliEncoderStreamState::BROTLI_STREAM_FLUSH_REQUESTED as i32
             && (self.last_bytes_bits_ as i32 != 0i32)
         {
             self.inject_byte_padding_block();
-            return 1i32;
+            return true;
         }
         if self.available_out_ != 0usize && (*available_out != 0usize) {
             let copy_output_size: usize = min(self.available_out_, *available_out);
@@ -1552,9 +1589,9 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             if let &mut Some(ref mut total_out_inner) = total_out {
                 *total_out_inner = self.total_out_ as usize;
             }
-            return 1i32;
+            return true;
         }
-        0i32
+        false
     }
 
     fn unprocessed_input_size(&self) -> u64 {
@@ -2566,8 +2603,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                 next_out_array,
                 next_out_offset,
                 total_out,
-            ) != 0
-            {
+            ) {
                 continue;
             }
             if self.available_out_ != 0usize {
@@ -2707,8 +2743,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                 next_out_array,
                 next_out_offset,
                 total_out,
-            ) != 0
-            {
+            ) {
                 continue;
             }
             if self.available_out_ == 0usize
@@ -2912,8 +2947,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                 next_out_array,
                 next_out_offset,
                 total_out,
-            ) != 0
-            {
+            ) {
                 continue;
             }
             if self.available_out_ == 0usize
