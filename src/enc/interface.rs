@@ -761,6 +761,7 @@ pub fn u8_to_speed(data: u8) -> u16 {
         (1u16 << log_val) | (rem >> 3)
     }
 }
+
 #[cfg(test)]
 mod test {
     use super::{speed_to_u8, u8_to_speed};

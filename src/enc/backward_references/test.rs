@@ -1,5 +1,5 @@
-#![cfg(feature = "std")]
 #![cfg(test)]
+#![cfg(feature = "std")]
 
 use alloc_stdlib::StandardAlloc;
 

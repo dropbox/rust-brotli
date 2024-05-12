@@ -575,9 +575,10 @@ impl BroCatli {
     }
 }
 
+#[cfg(test)]
 mod test {
-    #[cfg(test)]
     use super::BroCatli;
+
     #[test]
     fn test_deserialization() {
         let broccoli = BroCatli {
