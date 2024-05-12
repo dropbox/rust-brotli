@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod benchmark;
 pub mod hash_to_binary_tree;
 pub mod hq;
@@ -18,8 +16,6 @@ use super::static_dict::{
 use super::util::{floatX, Log2FloorNonZero};
 use crate::enc::combined_alloc::allocate;
 
-static kBrotliMinWindowBits: i32 = 10;
-static kBrotliMaxWindowBits: i32 = 24;
 pub static kInvalidMatch: u32 = 0x0fff_ffff;
 static kCutoffTransformsCount: u32 = 10;
 static kCutoffTransforms: u64 = 0x071b_520a_da2d_3200;
@@ -1281,6 +1277,8 @@ impl<
         }
         ix_start
     }
+
+    #[cfg(feature = "benchmark")]
     fn BulkStoreRangeOptMemFetchLazyDupeUpdate(
         &mut self,
         data: &[u8],
@@ -1363,6 +1361,8 @@ impl<
         }
         ix_start
     }
+
+    #[cfg(feature = "benchmark")]
     fn BulkStoreRangeOptRandomDupeUpdate(
         &mut self,
         data: &[u8],
@@ -1821,17 +1821,7 @@ pub struct H42 {
     pub head: [u16; 32768],
     pub tiny_hash: [u8; 65536],
     pub banks: [BankH42; 512],
-    free_slot_idx: [u16; 512],
     pub max_hops: usize,
-}
-
-fn unopt_ctzll(mut val: usize) -> u8 {
-    let mut cnt: u8 = 0u8;
-    while val & 1 == 0usize {
-        val >>= 1i32;
-        cnt = (cnt as i32 + 1) as u8;
-    }
-    cnt
 }
 
 fn BackwardReferenceScoreUsingLastDistance(copy_length: usize, h9_opts: H9Opts) -> u64 {

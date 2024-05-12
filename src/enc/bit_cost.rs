@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use core::cmp::{max, min};
 
 use super::super::alloc::SliceWrapper;
@@ -7,18 +5,6 @@ use super::histogram::CostAccessors;
 use super::util::{FastLog2, FastLog2u16};
 use super::vectorization::Mem256i;
 use crate::enc::floatX;
-
-static kCopyBase: [u32; 24] = [
-    2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 18, 22, 30, 38, 54, 70, 102, 134, 198, 326, 582, 1094, 2118,
-];
-
-static kCopyExtra: [u32; 24] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 9, 10, 24,
-];
-
-static kBrotliMinWindowBits: i32 = 10i32;
-
-static kBrotliMaxWindowBits: i32 = 24i32;
 
 pub fn ShannonEntropy(mut population: &[u32], size: usize, total: &mut usize) -> floatX {
     let mut sum: usize = 0usize;

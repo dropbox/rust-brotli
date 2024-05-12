@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub const BROTLI_NUM_BLOCK_LEN_SYMBOLS: usize = 26;
 pub static kInsBase: [u32; 24] = [
     0, 1, 2, 3, 4, 5, 6, 8, 10, 14, 18, 26, 34, 50, 66, 98, 130, 194, 322, 578, 1090, 2114, 6210,

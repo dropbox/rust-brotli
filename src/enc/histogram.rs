@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use core;
 use core::cmp::min;
 
@@ -10,10 +8,6 @@ use super::command::Command;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
 use super::util::floatX;
 use super::vectorization::Mem256i;
-
-static kBrotliMinWindowBits: i32 = 10i32;
-
-static kBrotliMaxWindowBits: i32 = 24i32;
 
 //#[derive(Clone)] clone is broken for arrays > 32
 pub struct HistogramLiteral {

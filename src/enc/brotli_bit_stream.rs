@@ -1,5 +1,4 @@
 #![allow(unknown_lints)]
-#![allow(dead_code)]
 #![allow(unused_macros)]
 
 use core::cmp::{max, min};
@@ -49,48 +48,10 @@ fn window_size_from_lgwin(lgwin: i32) -> usize {
     (1 << lgwin) - 16usize
 }
 
-fn context_type_str(context_type: ContextType) -> &'static str {
-    match context_type {
-        ContextType::CONTEXT_LSB6 => "lsb6",
-        ContextType::CONTEXT_MSB6 => "msb6",
-        ContextType::CONTEXT_UTF8 => "utf8",
-        ContextType::CONTEXT_SIGNED => "sign",
-    }
-}
-
-fn prediction_mode_str(
-    prediction_mode_nibble: interface::LiteralPredictionModeNibble,
-) -> &'static str {
-    match prediction_mode_nibble.prediction_mode() {
-        interface::LITERAL_PREDICTION_MODE_SIGN => "sign",
-        interface::LITERAL_PREDICTION_MODE_LSB6 => "lsb6",
-        interface::LITERAL_PREDICTION_MODE_MSB6 => "msb6",
-        interface::LITERAL_PREDICTION_MODE_UTF8 => "utf8",
-        _ => "unknown",
-    }
-}
-
-fn is_long_enough_to_be_random(len: usize, high_entropy_detection_quality: u8) -> bool {
-    match high_entropy_detection_quality {
-        0 => false,
-        1 => false,
-        2 => len >= 128,
-        3 => len >= 96,
-        4 => len >= 64,
-        5 => len >= 48,
-        6 => len >= 32,
-        7 => len >= 24,
-        8 => len >= 16,
-        9 => len >= 8,
-        10 => len >= 4,
-        11 => len >= 1,
-        _ => len >= 8,
-    }
-}
-const COMMAND_BUFFER_SIZE: usize = 4096;
-
 struct CommandQueue<'a, Alloc: BrotliAlloc + 'a> {
     mb: InputPair<'a>,
+    // TODO: delete unused fields
+    #[allow(dead_code)]
     mb_byte_offset: usize,
     mc: &'a mut Alloc,
     queue: <Alloc as Allocator<StaticCommand>>::AllocatedMemory,
@@ -100,9 +61,12 @@ struct CommandQueue<'a, Alloc: BrotliAlloc + 'a> {
     best_strides_per_block_type: <Alloc as Allocator<u8>>::AllocatedMemory,
     entropy_pyramid: find_stride::EntropyPyramid<Alloc>,
     context_map_entropy: ContextMapEntropy<'a, Alloc>,
+    #[allow(dead_code)]
     stride_detection_quality: u8,
+    #[allow(dead_code)]
     high_entropy_detection_quality: u8,
     block_type_literal: u8,
+    #[allow(dead_code)]
     best_stride_index: usize,
     overfull: bool,
 }
@@ -148,9 +112,6 @@ impl<'a, Alloc: BrotliAlloc> CommandQueue<'a, Alloc> {
         if self.full() {
             self.overfull = true;
         }
-    }
-    fn size(&self) -> usize {
-        self.loc
     }
     fn clear(&mut self) {
         self.loc = 0;
@@ -2434,8 +2395,6 @@ fn StoreDataWithHuffmanCodes(
         }
     }
 }
-
-fn nop<'a>(_data: &[interface::Command<InputReference>]) {}
 
 #[deprecated(note = "use store_meta_block_trivial instead")]
 pub fn BrotliStoreMetaBlockTrivial<Alloc: BrotliAlloc, Cb>(

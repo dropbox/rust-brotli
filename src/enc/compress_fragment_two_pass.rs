@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use core;
 use core::cmp::min;
 

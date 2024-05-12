@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use core::cmp::min;
 
 use super::util::{floatX, FastLog2f64};
