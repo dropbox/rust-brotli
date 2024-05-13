@@ -40,7 +40,7 @@ impl Command {
         self.copy_len_ = (4i32 << 25) as u32;
         self.dist_extra_ = 0u32;
         self.dist_prefix_ = (1u16 << 10) | BROTLI_NUM_DISTANCE_SHORT_CODES as u16;
-        GetLengthCode(insertlen, 4usize, 0i32, &mut self.cmd_prefix_);
+        get_length_code(insertlen, 4usize, false, &mut self.cmd_prefix_);
     }
 }
 
@@ -103,10 +103,16 @@ pub fn GetCopyLengthCode(copylen: usize) -> u16 {
     }
 }
 
+#[deprecated(note = "Use combine_length_codes instead")]
 #[inline(always)]
 pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u16 {
+    combine_length_codes(inscode, copycode, use_last_distance != 0)
+}
+
+#[inline(always)]
+pub(crate) fn combine_length_codes(inscode: u16, copycode: u16, use_last_distance: bool) -> u16 {
     let bits64: u16 = (copycode as u32 & 0x7u32 | (inscode as u32 & 0x7u32) << 3) as u16;
-    if use_last_distance != 0 && ((inscode as i32) < 8i32) && ((copycode as i32) < 16i32) {
+    if use_last_distance && inscode < 8 && copycode < 16 {
         if (copycode as i32) < 8i32 {
             bits64
         } else {
@@ -120,11 +126,22 @@ pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -
     }
 }
 
+#[deprecated(note = "Use get_length_code instead")]
 #[inline(always)]
 pub fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, code: &mut u16) {
+    get_length_code(insertlen, copylen, use_last_distance != 0, code)
+}
+
+#[inline(always)]
+pub(crate) fn get_length_code(
+    insertlen: usize,
+    copylen: usize,
+    use_last_distance: bool,
+    code: &mut u16,
+) {
     let inscode: u16 = GetInsertLengthCode(insertlen);
     let copycode: u16 = GetCopyLengthCode(copylen);
-    *code = CombineLengthCodes(inscode, copycode, use_last_distance);
+    *code = combine_length_codes(inscode, copycode, use_last_distance);
 }
 pub fn PrefixEncodeCopyDistance(
     distance_code: usize,
@@ -406,14 +423,10 @@ impl Command {
             &mut self.dist_prefix_,
             &mut self.dist_extra_,
         );
-        GetLengthCode(
+        get_length_code(
             insertlen,
             copylen_code,
-            if (self.dist_prefix_ & 0x3ff) == 0 {
-                1
-            } else {
-                0
-            },
+            (self.dist_prefix_ & 0x3ff) == 0,
             &mut self.cmd_prefix_,
         );
     }

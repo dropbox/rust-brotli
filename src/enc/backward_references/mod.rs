@@ -68,6 +68,7 @@ pub struct BrotliEncoderParams {
     pub lgblock: i32,
     /// how big the source file is (or 0 if no hint is provided)
     pub size_hint: usize,
+    // FIXME: this should be bool
     /// avoid serializing out priors for literal sections in the favor of decode speed
     pub disable_literal_context_modeling: i32,
     pub hasher: BrotliHasherParams,
@@ -120,6 +121,7 @@ pub enum HowPrepared {
 #[derive(Clone, PartialEq)]
 pub struct Struct1 {
     pub params: BrotliHasherParams,
+    /// FIXME: this should be bool
     pub is_prepared_: i32,
     pub dict_num_lookups: usize,
     pub dict_num_matches: usize,

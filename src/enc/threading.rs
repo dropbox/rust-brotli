@@ -7,8 +7,8 @@ use std;
 
 use super::backward_references::{AnyHasher, BrotliEncoderParams, CloneWithAlloc, UnionHasher};
 use super::encode::{
-    BrotliEncoderDestroyInstance, BrotliEncoderMaxCompressedSize, BrotliEncoderOperation,
-    HasherSetup, SanitizeParams,
+    hasher_setup, BrotliEncoderDestroyInstance, BrotliEncoderMaxCompressedSize,
+    BrotliEncoderOperation, SanitizeParams,
 };
 use super::BrotliAlloc;
 use crate::concat::{BroCatli, BroCatliResult};
@@ -446,14 +446,14 @@ where
         let mut local_params = params.clone();
         SanitizeParams(&mut local_params);
         let mut hasher = UnionHasher::Uninit;
-        HasherSetup(
+        hasher_setup(
             alloc_per_thread[num_threads - 1].0.unwrap_input().0,
             &mut hasher,
             &mut local_params,
             &[],
             0,
             0,
-            0,
+            false,
         );
         for thread_index in 1..num_threads {
             let res = spawner_and_input.view(|input_and_params: &(SliceW, BrotliEncoderParams)| {
