@@ -1006,9 +1006,6 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
             AllocHT::AllocatedMemory::default() // null
         };
         let mut count_limit: u32;
-        if !(0i32 == 0) {
-            return;
-        }
         count_limit = 1u32;
         'break11: loop {
             {

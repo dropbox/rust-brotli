@@ -437,7 +437,7 @@ fn ClusterBlocks<
     let mut pos: usize = 0usize;
     let mut clusters: <Alloc as Allocator<u32>>::AllocatedMemory;
 
-    static kInvalidIndex: u32 = !(0u32);
+    static kInvalidIndex: u32 = u32::MAX;
     let mut i: usize;
     let mut sizes: [u32; 64] = [0; 64];
     let mut new_clusters: [u32; 64] = [0; 64];
