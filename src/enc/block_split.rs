@@ -2,6 +2,7 @@
 
 use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper};
+use crate::enc::combined_alloc::alloc_default;
 
 pub struct BlockSplit<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> {
     pub num_types: usize,
@@ -15,8 +16,8 @@ impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u32>> Default for BlockSplit
         Self {
             num_types: 0,
             num_blocks: 0,
-            types: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-            lengths: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
+            types: alloc_default::<u8, Alloc>(),
+            lengths: alloc_default::<u32, Alloc>(),
         }
     }
 }

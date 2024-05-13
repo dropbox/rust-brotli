@@ -6,6 +6,7 @@ use alloc_stdlib::StandardAlloc;
 use super::{
     AdvHasher, AnyHasher, BrotliHasherParams, CloneWithAlloc, H5Sub, H9Opts, HQ7Sub, Struct1,
 };
+use crate::enc::combined_alloc::allocate;
 use crate::enc::{Allocator, SliceWrapper};
 
 static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../../testdata/random_then_unicode"); //&[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55];
@@ -24,11 +25,8 @@ fn test_bulk_store_range() {
     let block_size = 1u64 << params_hasher.block_bits;
     let bucket_size = 1u64 << params_hasher.bucket_bits;
     let mut alloc = StandardAlloc::default();
-    let mut buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+    let mut buckets = allocate::<u32, _>(&mut alloc, (bucket_size * block_size) as usize);
+    let mut num = alloc.alloc_cell(bucket_size as usize);
 
     let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc> {
         buckets,
@@ -47,11 +45,8 @@ fn test_bulk_store_range() {
             block_mask_: block_size.wrapping_sub(1) as u32,
         },
     };
-    buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+    buckets = allocate::<u32, _>(&mut alloc, (bucket_size * block_size) as usize);
+    num = alloc.alloc_cell(bucket_size as usize);
     let mut hasher_b = hasher_a.clone_with_alloc(&mut alloc);
     assert!(hasher_a == hasher_b);
     let mut hasher_e = hasher_a.clone_with_alloc(&mut alloc);
@@ -126,11 +121,8 @@ fn test_bulk_store_range_off_spec() {
     let block_size = 1u64 << params_hasher.block_bits;
     let bucket_size = 1u64 << params_hasher.bucket_bits;
     let mut alloc = StandardAlloc::default();
-    let mut buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+    let mut buckets = allocate::<u32, _>(&mut alloc, (bucket_size * block_size) as usize);
+    let mut num = alloc.alloc_cell(bucket_size as usize);
 
     let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc> {
         buckets,
@@ -149,11 +141,8 @@ fn test_bulk_store_range_off_spec() {
             block_mask_: block_size.wrapping_sub(1) as u32,
         },
     };
-    buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+    buckets = allocate::<u32, _>(&mut alloc, (bucket_size * block_size) as usize);
+    num = alloc.alloc_cell(bucket_size as usize);
     let mut hasher_b = hasher_a.clone_with_alloc(&mut alloc);
     assert!(hasher_a == hasher_b);
     let mut hasher_c = AdvHasher::<HQ7Sub, StandardAlloc> {
@@ -214,11 +203,8 @@ fn test_bulk_store_range_pow2() {
     let block_size = 1u64 << params_hasher.block_bits;
     let bucket_size = 1u64 << params_hasher.bucket_bits;
     let mut alloc = StandardAlloc::default();
-    let mut buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    let mut num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+    let mut buckets = allocate::<u32, _>(&mut alloc, (bucket_size * block_size) as usize);
+    let mut num = alloc.alloc_cell(bucket_size as usize);
 
     let mut hasher_a = AdvHasher::<H5Sub, StandardAlloc> {
         buckets,
@@ -237,11 +223,8 @@ fn test_bulk_store_range_pow2() {
             block_mask_: block_size.wrapping_sub(1) as u32,
         },
     };
-    buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
+    buckets = allocate::<u32, _>(&mut alloc, (bucket_size * block_size) as usize);
+    num = alloc.alloc_cell(bucket_size as usize);
     let mut hasher_b = hasher_a.clone_with_alloc(&mut alloc);
     assert!(hasher_a == hasher_b);
     let mut hasher_e = hasher_a.clone_with_alloc(&mut alloc);

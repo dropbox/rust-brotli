@@ -7,6 +7,7 @@ pub use super::ir_interpret::{push_base, Context, IRInterpreter};
 use super::util::{floatX, FastLog2u16};
 use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
 use super::{find_stride, interface};
+use crate::enc::combined_alloc::alloc_if;
 
 const DEFAULT_CM_SPEED_INDEX: usize = 8;
 const NUM_SPEEDS_TO_TRY: usize = 16;
@@ -306,16 +307,8 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
             block_type: 0,
             cur_stride: 1,
             local_byte_offset: 0,
-            cm_priors: if cdf_detect {
-                <Alloc as Allocator<u16>>::alloc_cell(m16, CONTEXT_MAP_PRIOR_SIZE)
-            } else {
-                <Alloc as Allocator<u16>>::AllocatedMemory::default()
-            },
-            stride_priors: if cdf_detect {
-                <Alloc as Allocator<u16>>::alloc_cell(m16, STRIDE_PRIOR_SIZE)
-            } else {
-                <Alloc as Allocator<u16>>::AllocatedMemory::default()
-            },
+            cm_priors: alloc_if::<u16, _>(cdf_detect, m16, CONTEXT_MAP_PRIOR_SIZE),
+            stride_priors: alloc_if::<u16, _>(cdf_detect, m16, STRIDE_PRIOR_SIZE),
             _stride_pyramid_leaves: stride,
             weight: [
                 [Weights::new(); NUM_SPEEDS_TO_TRY],

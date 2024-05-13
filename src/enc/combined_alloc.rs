@@ -519,3 +519,34 @@ implement_allocator!(
     AllocZopfliNode::AllocatedMemory,
     alloc_zn
 );
+
+/// Helper function to allocate memory with the given allocator (may crash if the `len` is 0).
+pub(crate) fn allocate<T, A: Allocator<T>>(alloc: &mut A, len: usize) -> A::AllocatedMemory {
+    A::alloc_cell(alloc, len)
+}
+
+/// Helper function to create an empty allocator object
+pub(crate) fn alloc_default<T, A: Allocator<T>>() -> A::AllocatedMemory {
+    A::AllocatedMemory::default()
+}
+
+/// Helper function to allocate memory or return a default value if the condition is false
+pub(crate) fn alloc_if<T, A: Allocator<T>>(
+    condition: bool,
+    alloc: &mut A,
+    len: usize,
+) -> A::AllocatedMemory {
+    if condition {
+        allocate(alloc, len)
+    } else {
+        alloc_default::<T, A>()
+    }
+}
+
+/// Helper function to allocate memory or return a default value when the size is 0.
+pub(crate) fn alloc_or_default<T, A: Allocator<T>>(
+    alloc: &mut A,
+    len: usize,
+) -> A::AllocatedMemory {
+    alloc_if(len > 0, alloc, len)
+}

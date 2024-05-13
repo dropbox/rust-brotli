@@ -39,6 +39,7 @@ pub use super::parameters::BrotliEncoderParameter;
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
 use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::Log2FloorNonZero;
+use crate::enc::combined_alloc::{alloc_default, allocate};
 use crate::enc::input_pair::InputReferenceMut;
 
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
@@ -419,13 +420,13 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             prev_byte_: 0,
             prev_byte2_: 0,
             storage_size_: 0,
-            storage_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
+            storage_: alloc_default::<u8, Alloc>(),
             hasher_: UnionHasher::<Alloc>::default(),
-            large_table_: <Alloc as Allocator<i32>>::AllocatedMemory::default(),
+            large_table_: alloc_default::<i32, Alloc>(),
             //    large_table_size_: 0,
             cmd_code_numbits_: 0,
-            command_buf_: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-            literal_buf_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
+            command_buf_: alloc_default::<u32, Alloc>(),
+            literal_buf_: alloc_default::<u8, Alloc>(),
             next_out_: NextOut::None,
             available_out_: 0,
             total_out_: 0,
@@ -434,7 +435,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             is_last_block_emitted_: false,
             is_initialized_: false,
             ringbuffer_: RingBufferInit(),
-            commands_: <Alloc as Allocator<Command>>::AllocatedMemory::default(),
+            commands_: alloc_default::<Command, Alloc>(),
             cmd_alloc_size_: 0,
             dist_cache_: cache,
             saved_dist_cache_: [cache[0], cache[1], cache[2], cache[3]],
@@ -470,28 +471,28 @@ fn DestroyHasher<AllocU16:alloc::Allocator<u16>, AllocU32:alloc::Allocator<u32>>
 m16: &mut AllocU16, m32:&mut AllocU32, handle: &mut UnionHasher<AllocU16, AllocU32>){
   match handle {
     &mut UnionHasher::H2(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, alloc_default::<u32, Alloc>()));
     }
     &mut UnionHasher::H3(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, alloc_default::<u32, Alloc>()));
     }
     &mut UnionHasher::H4(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, alloc_default::<u32, Alloc>()));
     }
     &mut UnionHasher::H54(ref mut hasher) => {
-        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+        m32.free_cell(core::mem::replace(&mut hasher.buckets_.buckets_, alloc_default::<u32, Alloc>()));
     }
     &mut UnionHasher::H5(ref mut hasher) => {
       m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-      m32.free_cell(core::mem::replace(&mut hasher.buckets, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets, alloc_default::<u32, Alloc>()));
     }
     &mut UnionHasher::H6(ref mut hasher) => {
       m16.free_cell(core::mem::replace(&mut hasher.num, AllocU16::AllocatedMemory::default()));
-      m32.free_cell(core::mem::replace(&mut hasher.buckets, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets, alloc_default::<u32, Alloc>()));
     }
     &mut UnionHasher::H9(ref mut hasher) => {
       m16.free_cell(core::mem::replace(&mut hasher.num_, AllocU16::AllocatedMemory::default()));
-      m32.free_cell(core::mem::replace(&mut hasher.buckets_, <Alloc as Allocator<u32>>::AllocatedMemory::default()));
+      m32.free_cell(core::mem::replace(&mut hasher.buckets_, alloc_default::<u32, Alloc>()));
     }
     _ => {}
   }
@@ -957,8 +958,8 @@ fn InitializeH9<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
             dict_num_lookups: 0,
             dict_num_matches: 0,
         },
-        num_: <Alloc as Allocator<u16>>::alloc_cell(m16, 1 << H9_BUCKET_BITS),
-        buckets_: <Alloc as Allocator<u32>>::alloc_cell(m16, H9_BLOCK_SIZE << H9_BUCKET_BITS),
+        num_: allocate::<u16, _>(m16, 1 << H9_BUCKET_BITS),
+        buckets_: allocate::<u32, _>(m16, H9_BLOCK_SIZE << H9_BUCKET_BITS),
         h9_opts: super::backward_references::H9Opts::new(&params.hasher),
     }
 }
@@ -970,9 +971,9 @@ fn InitializeH5<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
     let block_size = 1u64 << params.hasher.block_bits;
     let bucket_size = 1u64 << params.hasher.bucket_bits;
     let buckets: <Alloc as Allocator<u32>>::AllocatedMemory =
-        <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
+        allocate::<u32, _>(m16, (bucket_size * block_size) as usize);
     let num: <Alloc as Allocator<u16>>::AllocatedMemory =
-        <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
+        allocate::<u16, _>(m16, bucket_size as usize);
 
     if params.hasher.block_bits == (HQ5Sub {}).block_bits()
         && (1 << params.hasher.bucket_bits) == (HQ5Sub {}).bucket_size()
@@ -1031,9 +1032,9 @@ fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
     let block_size = 1u64 << params.hasher.block_bits;
     let bucket_size = 1u64 << params.hasher.bucket_bits;
     let buckets: <Alloc as Allocator<u32>>::AllocatedMemory =
-        <Alloc as Allocator<u32>>::alloc_cell(m16, (bucket_size * block_size) as usize);
+        allocate::<u32, _>(m16, (bucket_size * block_size) as usize);
     let num: <Alloc as Allocator<u16>>::AllocatedMemory =
-        <Alloc as Allocator<u16>>::alloc_cell(m16, bucket_size as usize);
+        allocate::<u16, _>(m16, bucket_size as usize);
     UnionHasher::H6(AdvHasher {
         buckets,
         num,
@@ -1594,7 +1595,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
     fn get_brotli_storage(&mut self, size: usize) {
         if self.storage_size_ < size {
             <Alloc as Allocator<u8>>::free_cell(&mut self.m8, core::mem::take(&mut self.storage_));
-            self.storage_ = <Alloc as Allocator<u8>>::alloc_cell(&mut self.m8, size);
+            self.storage_ = allocate::<u8, _>(&mut self.m8, size);
             self.storage_size_ = size;
         }
     }
@@ -2282,15 +2283,9 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         }
         let mut wrapped_last_processed_pos: u32 = WrapPosition(self.last_processed_pos_);
         if self.params.quality == 1i32 && self.command_buf_.slice().is_empty() {
-            let new_buf = <Alloc as Allocator<u32>>::alloc_cell(
-                &mut self.m8,
-                kCompressFragmentTwoPassBlockSize,
-            );
+            let new_buf = allocate::<u32, _>(&mut self.m8, kCompressFragmentTwoPassBlockSize);
             self.command_buf_ = new_buf;
-            let new_buf8 = <Alloc as Allocator<u8>>::alloc_cell(
-                &mut self.m8,
-                kCompressFragmentTwoPassBlockSize,
-            );
+            let new_buf8 = allocate::<u8, _>(&mut self.m8, kCompressFragmentTwoPassBlockSize);
             self.literal_buf_ = new_buf8;
         }
         if self.params.quality == 0i32 || self.params.quality == 1i32 {
@@ -2356,8 +2351,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             if newsize > self.cmd_alloc_size_ {
                 newsize = newsize.wrapping_add(bytes.wrapping_div(4).wrapping_add(16) as usize);
                 self.cmd_alloc_size_ = newsize;
-                let mut new_commands =
-                    <Alloc as Allocator<Command>>::alloc_cell(&mut self.m8, newsize);
+                let mut new_commands = allocate::<Command, _>(&mut self.m8, newsize);
                 if !self.commands_.slice().is_empty() {
                     new_commands.slice_mut()[..self.num_commands_]
                         .clone_from_slice(&self.commands_.slice()[..self.num_commands_]);
@@ -2675,8 +2669,8 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             kCompressFragmentTwoPassBlockSize,
             min(*available_in, block_size_limit),
         );
-        let mut command_buf = <Alloc as Allocator<u32>>::AllocatedMemory::default();
-        let mut literal_buf = <Alloc as Allocator<u8>>::AllocatedMemory::default();
+        let mut command_buf = alloc_default::<u32, Alloc>();
+        let mut literal_buf = alloc_default::<u8, Alloc>();
         if self.params.quality != 0i32 && (self.params.quality != 1i32) {
             return false;
         }
@@ -2684,21 +2678,17 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             if self.command_buf_.slice().is_empty()
                 && (buf_size == kCompressFragmentTwoPassBlockSize)
             {
-                self.command_buf_ = <Alloc as Allocator<u32>>::alloc_cell(
-                    &mut self.m8,
-                    kCompressFragmentTwoPassBlockSize,
-                );
-                self.literal_buf_ = <Alloc as Allocator<u8>>::alloc_cell(
-                    &mut self.m8,
-                    kCompressFragmentTwoPassBlockSize,
-                );
+                self.command_buf_ =
+                    allocate::<u32, _>(&mut self.m8, kCompressFragmentTwoPassBlockSize);
+                self.literal_buf_ =
+                    allocate::<u8, _>(&mut self.m8, kCompressFragmentTwoPassBlockSize);
             }
             if !self.command_buf_.slice().is_empty() {
                 command_buf = core::mem::take(&mut self.command_buf_);
                 literal_buf = core::mem::take(&mut self.literal_buf_);
             } else {
-                command_buf = <Alloc as Allocator<u32>>::alloc_cell(&mut self.m8, buf_size);
-                literal_buf = <Alloc as Allocator<u8>>::alloc_cell(&mut self.m8, buf_size);
+                command_buf = allocate::<u32, _>(&mut self.m8, buf_size);
+                literal_buf = allocate::<u8, _>(&mut self.m8, buf_size);
             }
         }
         loop {

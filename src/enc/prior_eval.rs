@@ -10,6 +10,7 @@ use super::input_pair::{InputPair, InputReference, InputReferenceMut};
 use super::ir_interpret::{push_base, IRInterpreter};
 use super::util::{floatX, FastLog2u16};
 use super::{find_stride, interface, s16, v8};
+use crate::enc::combined_alloc::{alloc_default, alloc_if};
 
 // the high nibble, followed by the low nibbles
 pub const CONTEXT_MAP_PRIOR_SIZE: usize = 256 * 17;
@@ -432,57 +433,21 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
             block_type: 0,
             cur_stride: 1,
             local_byte_offset: 0,
-            _nop: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
-            cm_priors: if do_alloc {
-                <Alloc as Allocator<s16>>::alloc_cell(alloc, CONTEXT_MAP_PRIOR_SIZE)
-            } else {
-                <Alloc as Allocator<s16>>::AllocatedMemory::default()
-            },
-            slow_cm_priors: if do_alloc {
-                <Alloc as Allocator<s16>>::alloc_cell(alloc, CONTEXT_MAP_PRIOR_SIZE)
-            } else {
-                <Alloc as Allocator<s16>>::AllocatedMemory::default()
-            },
-            fast_cm_priors: if do_alloc {
-                <Alloc as Allocator<s16>>::alloc_cell(alloc, CONTEXT_MAP_PRIOR_SIZE)
-            } else {
-                <Alloc as Allocator<s16>>::AllocatedMemory::default()
-            },
+            _nop: alloc_default::<u32, Alloc>(),
+            cm_priors: alloc_if::<s16, _>(do_alloc, alloc, CONTEXT_MAP_PRIOR_SIZE),
+            slow_cm_priors: alloc_if::<s16, _>(do_alloc, alloc, CONTEXT_MAP_PRIOR_SIZE),
+            fast_cm_priors: alloc_if::<s16, _>(do_alloc, alloc, CONTEXT_MAP_PRIOR_SIZE),
             stride_priors: [
-                if do_alloc {
-                    <Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)
-                } else {
-                    <Alloc as Allocator<s16>>::AllocatedMemory::default()
-                },
-                if do_alloc {
-                    <Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)
-                } else {
-                    <Alloc as Allocator<s16>>::AllocatedMemory::default()
-                },
-                if do_alloc {
-                    <Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)
-                } else {
-                    <Alloc as Allocator<s16>>::AllocatedMemory::default()
-                },
-                if do_alloc {
-                    <Alloc as Allocator<s16>>::alloc_cell(alloc, STRIDE_PRIOR_SIZE)
-                } else {
-                    <Alloc as Allocator<s16>>::AllocatedMemory::default()
-                },
+                alloc_if::<s16, _>(do_alloc, alloc, STRIDE_PRIOR_SIZE),
+                alloc_if::<s16, _>(do_alloc, alloc, STRIDE_PRIOR_SIZE),
+                alloc_if::<s16, _>(do_alloc, alloc, STRIDE_PRIOR_SIZE),
+                alloc_if::<s16, _>(do_alloc, alloc, STRIDE_PRIOR_SIZE),
                 /*if do_alloc {m16x16.alloc_cell(STRIDE_PRIOR_SIZE)} else {
                 Alloc16x16::AllocatedMemory::default()},*/
             ],
-            adv_priors: if do_alloc {
-                <Alloc as Allocator<s16>>::alloc_cell(alloc, ADV_PRIOR_SIZE)
-            } else {
-                <Alloc as Allocator<s16>>::AllocatedMemory::default()
-            },
+            adv_priors: alloc_if::<s16, _>(do_alloc, alloc, ADV_PRIOR_SIZE),
             _stride_pyramid_leaves: stride,
-            score: if do_alloc {
-                <Alloc as Allocator<v8>>::alloc_cell(alloc, 8192)
-            } else {
-                <Alloc as Allocator<v8>>::AllocatedMemory::default()
-            },
+            score: alloc_if::<v8, _>(do_alloc, alloc, 8192),
             cm_speed,
             stride_speed,
         };
@@ -584,7 +549,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
         <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::take(&mut self.stride_priors[1]));
         <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::take(&mut self.stride_priors[2]));
         <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::take(&mut self.stride_priors[3]));
-        //<Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[4], <Alloc as Allocator<s16>>::AllocatedMemory::default()));
+        //<Alloc as Allocator<s16>>::free_cell(alloc, core::mem::replace(&mut self.stride_priors[4], alloc_default::<s16, Alloc>()));
         <Alloc as Allocator<s16>>::free_cell(alloc, core::mem::take(&mut self.adv_priors));
     }
 

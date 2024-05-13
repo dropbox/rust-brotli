@@ -29,16 +29,11 @@ fn make_generic_hasher() -> AdvHasher<H5Sub, StandardAlloc> {
     let block_size = 1u64 << params_hasher.block_bits;
     let bucket_size = 1u64 << params_hasher.bucket_bits;
     let mut alloc = StandardAlloc::default();
-    let buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    let num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
 
     AdvHasher::<H5Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets: alloc.alloc_cell((bucket_size * block_size) as usize),
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num: alloc.alloc_cell(bucket_size as usize),
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,
@@ -65,16 +60,11 @@ fn make_specialized_hasher() -> AdvHasher<HQ7Sub, StandardAlloc> {
     let block_size = 1u64 << params_hasher.block_bits;
     let bucket_size = 1u64 << params_hasher.bucket_bits;
     let mut alloc = StandardAlloc::default();
-    let buckets = <StandardAlloc as Allocator<u32>>::alloc_cell(
-        &mut alloc,
-        (bucket_size * block_size) as usize,
-    );
-    let num = <StandardAlloc as Allocator<u16>>::alloc_cell(&mut alloc, bucket_size as usize);
 
     AdvHasher::<HQ7Sub, StandardAlloc> {
-        buckets: buckets,
+        buckets: alloc.alloc_cell((bucket_size * block_size) as usize),
         h9_opts: H9Opts::new(&params_hasher),
-        num: num,
+        num: alloc.alloc_cell(bucket_size as usize),
         GetHasherCommon: Struct1 {
             params: params_hasher,
             is_prepared_: 1,
