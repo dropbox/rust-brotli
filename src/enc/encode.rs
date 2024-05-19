@@ -37,9 +37,10 @@ use super::metablock::{
 };
 pub use super::parameters::BrotliEncoderParameter;
 use super::static_dict::{kNumDistanceCacheEntries, BrotliGetDictionary};
-use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::Log2FloorNonZero;
+use crate::enc::floatX;
 use crate::enc::input_pair::InputReferenceMut;
+use crate::enc::utf8_util::is_mostly_utf8;
 
 //fn BrotliCreateHqZopfliBackwardReferences(m: &mut [MemoryManager],
 //                                          dictionary: &[BrotliDictionary],
@@ -1293,46 +1294,35 @@ fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u
     handle.StitchToPreviousBlock(input_size, position, data, mask);
 }
 
-fn ShouldCompress(
+fn should_compress(
     data: &[u8],
     mask: usize,
     last_flush_pos: u64,
     bytes: usize,
     num_literals: usize,
     num_commands: usize,
-) -> i32 {
-    if num_commands < (bytes >> 8).wrapping_add(2)
-        && num_literals as (super::util::floatX)
-            > 0.99 as super::util::floatX * bytes as (super::util::floatX)
-    {
+) -> bool {
+    const K_SAMPLE_RATE: u32 = 13;
+    const K_MIN_ENTROPY: floatX = 7.92;
+
+    if num_commands < (bytes >> 8) + 2 && num_literals as floatX > 0.99 * bytes as floatX {
         let mut literal_histo = [0u32; 256];
-        static kSampleRate: u32 = 13u32;
-        static kMinEntropy: super::util::floatX = 7.92 as super::util::floatX;
-        let bit_cost_threshold: super::util::floatX =
-            bytes as (super::util::floatX) * kMinEntropy / kSampleRate as (super::util::floatX);
-        let t: usize = bytes
-            .wrapping_add(kSampleRate as usize)
+        let bit_cost_threshold = bytes as floatX * K_MIN_ENTROPY / K_SAMPLE_RATE as floatX;
+        let t = bytes
+            .wrapping_add(K_SAMPLE_RATE as usize)
             .wrapping_sub(1)
-            .wrapping_div(kSampleRate as usize);
-        let mut pos: u32 = last_flush_pos as u32;
-        let mut i: usize;
-        i = 0usize;
-        while i < t {
-            {
-                {
-                    let _rhs = 1;
-                    let _lhs = &mut literal_histo[data[(pos as usize & mask)] as usize];
-                    *_lhs = (*_lhs).wrapping_add(_rhs as u32);
-                }
-                pos = pos.wrapping_add(kSampleRate);
-            }
-            i = i.wrapping_add(1);
+            .wrapping_div(K_SAMPLE_RATE as usize);
+        let mut pos = last_flush_pos as u32;
+        for _ in 0..t {
+            let value = &mut literal_histo[data[pos as usize & mask] as usize];
+            *value = value.wrapping_add(1);
+            pos = pos.wrapping_add(K_SAMPLE_RATE);
         }
-        if BitsEntropy(&literal_histo[..], 256usize) > bit_cost_threshold {
-            return 0i32;
+        if BitsEntropy(&literal_histo[..], 256) > bit_cost_threshold {
+            return false;
         }
     }
-    1i32
+    true
 }
 
 /* Chooses the literal context mode for a metablock */
@@ -1352,7 +1342,7 @@ fn ChooseContextMode(
         BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR => return ContextType::CONTEXT_SIGNED,
         _ => {}
     }
-    if (params.quality >= 10 && BrotliIsMostlyUTF8(data, pos, mask, length, kMinUTF8Ratio) == 0) {
+    if (params.quality >= 10 && !is_mostly_utf8(data, pos, mask, length, kMinUTF8Ratio)) {
         return ContextType::CONTEXT_SIGNED;
     }
     ContextType::CONTEXT_UTF8
@@ -1986,15 +1976,14 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
         return;
     }
-    if ShouldCompress(
+    if !should_compress(
         data,
         mask,
         last_flush_pos,
         bytes,
         num_literals,
         num_commands,
-    ) == 0
-    {
+    ) {
         dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
         store_uncompressed_meta_block(
             alloc,

@@ -1,77 +1,73 @@
-#![allow(dead_code)]
+use crate::enc::floatX;
 
-static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
+fn parse_as_utf8(input: &[u8], size: usize) -> (usize, i32) {
+    if (input[0] & 0x80) == 0 {
+        if input[0] > 0 {
+            return (1, i32::from(input[0]));
+        }
+    }
+    if size > 1 && (input[0] & 0xe0) == 0xc0 && (input[1] & 0xc0) == 0x80 {
+        let symbol = (input[0] as i32 & 0x1f) << 6 | input[1] as i32 & 0x3f;
+        if symbol > 0x7f {
+            return (2, symbol);
+        }
+    }
+    if size > 2
+        && (input[0] & 0xf0) == 0xe0
+        && (input[1] & 0xc0) == 0x80
+        && (input[2] & 0xc0) == 0x80
+    {
+        let symbol = (i32::from(input[0]) & 0x0f) << 12
+            | (i32::from(input[1]) & 0x3f) << 6
+            | i32::from(input[2]) & 0x3f;
+        if symbol > 0x7ff {
+            return (3, symbol);
+        }
+    }
+    if size > 3
+        && (input[0] & 0xf8) == 0xf0
+        && (input[1] & 0xc0) == 0x80
+        && (input[2] & 0xc0) == 0x80
+        && (input[3] & 0xc0) == 0x80
+    {
+        let symbol = (i32::from(input[0]) & 0x07) << 18
+            | (i32::from(input[1]) & 0x3f) << 12
+            | (i32::from(input[2]) & 0x3f) << 6
+            | i32::from(input[3]) & 0x3f;
+        if symbol > 0xffff && symbol <= 0x10_ffff {
+            return (4, symbol);
+        }
+    }
 
-fn BrotliParseAsUTF8(symbol: &mut i32, input: &[u8], size: usize) -> usize {
-    if input[0] & 0x80 == 0 {
-        *symbol = input[0] as i32;
-        if *symbol > 0i32 {
-            return 1usize;
-        }
-    }
-    if size > 1u32 as usize
-        && (input[0] as i32 & 0xe0i32 == 0xc0i32)
-        && (input[1] as i32 & 0xc0i32 == 0x80i32)
-    {
-        *symbol = (input[0] as i32 & 0x1fi32) << 6 | input[1] as i32 & 0x3fi32;
-        if *symbol > 0x7fi32 {
-            return 2usize;
-        }
-    }
-    if size > 2u32 as usize
-        && (input[0] as i32 & 0xf0i32 == 0xe0i32)
-        && (input[1] as i32 & 0xc0i32 == 0x80i32)
-        && (input[2] as i32 & 0xc0i32 == 0x80i32)
-    {
-        *symbol = (input[0] as i32 & 0xfi32) << 12
-            | (input[1] as i32 & 0x3fi32) << 6
-            | input[2] as i32 & 0x3fi32;
-        if *symbol > 0x7ffi32 {
-            return 3usize;
-        }
-    }
-    if size > 3u32 as usize
-        && (input[0] as i32 & 0xf8i32 == 0xf0i32)
-        && (input[1] as i32 & 0xc0i32 == 0x80i32)
-        && (input[2] as i32 & 0xc0i32 == 0x80i32)
-        && (input[3] as i32 & 0xc0i32 == 0x80i32)
-    {
-        *symbol = (input[0] as i32 & 0x7i32) << 18
-            | (input[1] as i32 & 0x3fi32) << 12
-            | (input[2] as i32 & 0x3fi32) << 6
-            | input[3] as i32 & 0x3fi32;
-        if *symbol > 0xffffi32 && (*symbol <= 0x10ffffi32) {
-            return 4usize;
-        }
-    }
-    *symbol = 0x110000i32 | input[0] as i32;
-    1usize
+    (1, 0x11_0000 | i32::from(input[0]))
 }
 
+#[deprecated(note = "Use is_mostly_utf8 instead")]
 pub fn BrotliIsMostlyUTF8(
     data: &[u8],
     pos: usize,
     mask: usize,
     length: usize,
-    min_fraction: super::util::floatX,
+    min_fraction: floatX,
 ) -> i32 {
-    let mut size_utf8: usize = 0usize;
-    let mut i: usize = 0usize;
+    is_mostly_utf8(data, pos, mask, length, min_fraction).into()
+}
+
+pub(crate) fn is_mostly_utf8(
+    data: &[u8],
+    pos: usize,
+    mask: usize,
+    length: usize,
+    min_fraction: floatX,
+) -> bool {
+    let mut size_utf8: usize = 0;
+    let mut i: usize = 0;
     while i < length {
-        let mut symbol: i32 = 0;
-        let bytes_read: usize = BrotliParseAsUTF8(
-            &mut symbol,
-            &data[(pos.wrapping_add(i) & mask)..],
-            length.wrapping_sub(i),
-        );
+        let (bytes_read, symbol) = parse_as_utf8(&data[(pos.wrapping_add(i) & mask)..], length - i);
         i = i.wrapping_add(bytes_read);
-        if symbol < 0x110000i32 {
+        if symbol < 0x11_0000 {
             size_utf8 = size_utf8.wrapping_add(bytes_read);
         }
     }
-    if size_utf8 as (super::util::floatX) > min_fraction * length as (super::util::floatX) {
-        1i32
-    } else {
-        0i32
-    }
+    size_utf8 as floatX > min_fraction * length as floatX
 }
