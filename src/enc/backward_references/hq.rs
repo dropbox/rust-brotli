@@ -1030,7 +1030,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
     }
 }
 
-fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cost: &mut [floatX]) {
+fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: bool, cost: &mut [floatX]) {
     let mut sum: u64 = 0;
     for i in 0..histogram_size {
         sum = sum.wrapping_add(u64::from(histogram[i]));
@@ -1038,7 +1038,7 @@ fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cos
     let log2sum = FastLog2(sum);
 
     let mut missing_symbol_sum = sum;
-    if literal_histogram == 0 {
+    if !literal_histogram {
         for i in 0..histogram_size {
             if histogram[i] == 0 {
                 missing_symbol_sum = missing_symbol_sum.wrapping_add(1);
@@ -1107,19 +1107,19 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
         SetCost(
             &histogram_literal[..],
             BROTLI_NUM_LITERAL_SYMBOLS,
-            1i32,
+            true,
             &mut cost_literal,
         );
         SetCost(
             &histogram_cmd[..],
             BROTLI_NUM_COMMAND_SYMBOLS,
-            0i32,
+            false,
             &mut cost_cmd[..],
         );
         SetCost(
             &histogram_dist[..],
             self.distance_histogram_size as usize,
-            0i32,
+            false,
             self.cost_dist_.slice_mut(),
         );
         for i in 0usize..704usize {

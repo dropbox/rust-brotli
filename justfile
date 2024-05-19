@@ -20,6 +20,8 @@ build-simd:
 
 # Build the brotli-ffi crate (in ./c dir)
 build-ffi:
+    # TODO: The c/Cargo.toml does not depend on the **unpublished** main crate, so its build never actually gets tested
+    RUSTFLAGS='-D warnings' cargo build --features ffi-api
     RUSTFLAGS='-D warnings' cargo build --workspace --all-targets --bins --tests --lib --benches --examples --manifest-path c/Cargo.toml
     # For now, use original make file for building/testing the FFI crate
     cd c && make

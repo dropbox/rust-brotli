@@ -7,11 +7,11 @@ use core::cmp::min;
 // examples: IsMatch checks p1[4] and p1[5]
 // the hoops that BuildAndStoreCommandPrefixCode goes through are subtly different in order
 // (eg memcpy x+24, y instead of +24, y+40
-// pretty much assume compress_fragment_two_pass is a trap! except for BrotliStoreMetaBlockHeader
+// pretty much assume compress_fragment_two_pass is a trap! except for store_meta_block_header
 use super::super::alloc;
 use super::backward_references::kHashMul32;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
-use super::compress_fragment_two_pass::{memcpy, BrotliStoreMetaBlockHeader, BrotliWriteBits};
+use super::compress_fragment_two_pass::{memcpy, BrotliWriteBits};
 use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
 };
@@ -19,6 +19,7 @@ use super::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use super::util::{FastLog2, Log2FloorNonZero};
+use crate::enc::compress_fragment_two_pass::store_meta_block_header;
 //use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 
 //static kHashMul32: u32 = 0x1e35a7bdu32;
@@ -242,7 +243,7 @@ fn EmitUncompressedMetaBlock(
     storage: &mut [u8],
 ) {
     RewindBitPosition(storage_ix_start, storage_ix, storage);
-    BrotliStoreMetaBlockHeader(len, 1i32, storage_ix, storage);
+    store_meta_block_header(len, true, storage_ix, storage);
     *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     memcpy(storage, (*storage_ix >> 3), begin, 0, len);
     *storage_ix = storage_ix.wrapping_add(len << 3);
@@ -683,7 +684,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
     let mut input_index = 0usize;
     let mut last_distance: i32;
     let shift: usize = (64u32 as usize).wrapping_sub(table_bits);
-    BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
+    store_meta_block_header(block_size, false, storage_ix, storage);
     BrotliWriteBits(13usize, 0, storage_ix, storage);
     literal_ratio = BuildAndStoreLiteralPrefixCode(
         m,
@@ -1026,7 +1027,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                 block_size = min(input_size, kFirstBlockSize);
                 total_block_size = block_size;
                 mlen_storage_ix = storage_ix.wrapping_add(3);
-                BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
+                store_meta_block_header(block_size, false, storage_ix, storage);
                 BrotliWriteBits(13usize, 0, storage_ix, storage);
                 literal_ratio = BuildAndStoreLiteralPrefixCode(
                     m,

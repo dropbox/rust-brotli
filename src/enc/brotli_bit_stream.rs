@@ -1555,7 +1555,7 @@ fn StoreBlockSwitch(
     code: &mut BlockSplitCode,
     block_len: u32,
     block_type: u8,
-    is_first_block: i32,
+    is_first_block: bool,
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
@@ -1563,7 +1563,7 @@ fn StoreBlockSwitch(
     let mut lencode: usize = 0;
     let mut len_nextra: u32 = 0;
     let mut len_extra: u32 = 0;
-    if is_first_block == 0 {
+    if !is_first_block {
         BrotliWriteBits(
             code.type_depths[typecode] as u8,
             code.type_bits[typecode] as (u64),
@@ -1634,7 +1634,7 @@ fn BuildAndStoreBlockSplitCode(
             storage_ix,
             storage,
         );
-        StoreBlockSwitch(code, lengths[0], types[0], 1i32, storage_ix, storage);
+        StoreBlockSwitch(code, lengths[0], types[0], true, storage_ix, storage);
     }
 }
 
@@ -1962,7 +1962,7 @@ impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
                 &mut self.block_split_code_,
                 block_len,
                 block_type,
-                0i32,
+                false,
                 storage_ix,
                 storage,
             );
@@ -2059,7 +2059,7 @@ impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
                 &mut self.block_split_code_,
                 block_len,
                 block_type,
-                0,
+                false,
                 storage_ix,
                 storage,
             );
