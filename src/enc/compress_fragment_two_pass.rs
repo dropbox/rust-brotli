@@ -656,13 +656,14 @@ fn EmitUncompressedMetaBlock(
     *storage_ix = storage_ix.wrapping_add(input_size << 3);
     storage[(*storage_ix >> 3)] = 0u8;
 }
+
 #[allow(unused_variables)]
 #[inline(always)]
-fn BrotliCompressFragmentTwoPassImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
+fn compress_fragment_two_pass_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     base_ip: &[u8],
     mut input_size: usize,
-    is_last: i32,
+    is_last: bool,
     command_buf: &mut [u32],
     literal_buf: &mut [u8],
     table: &mut [i32],
@@ -718,7 +719,7 @@ macro_rules! compress_specialization {
             mht: &mut AllocHT,
             input: &[u8],
             input_size: usize,
-            is_last: i32,
+            is_last: bool,
             command_buf: &mut [u32],
             literal_buf: &mut [u8],
             table: &mut [i32],
@@ -726,7 +727,7 @@ macro_rules! compress_specialization {
             storage: &mut [u8],
         ) {
             let min_match = if $table_bits < 15 { 4 } else { 6 };
-            BrotliCompressFragmentTwoPassImpl(
+            compress_fragment_two_pass_impl(
                 mht,
                 input,
                 input_size,
@@ -764,11 +765,38 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
     *storage_ix = new_storage_ix;
 }
 
+#[deprecated(note = "use compress_fragment_two_pass instead")]
 pub fn BrotliCompressFragmentTwoPass<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input: &[u8],
     input_size: usize,
     is_last: i32,
+    command_buf: &mut [u32],
+    literal_buf: &mut [u8],
+    table: &mut [i32],
+    table_size: usize,
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+) {
+    compress_fragment_two_pass(
+        m,
+        input,
+        input_size,
+        is_last != 0,
+        command_buf,
+        literal_buf,
+        table,
+        table_size,
+        storage_ix,
+        storage,
+    )
+}
+
+pub(crate) fn compress_fragment_two_pass<AllocHT: alloc::Allocator<HuffmanTree>>(
+    m: &mut AllocHT,
+    input: &[u8],
+    input_size: usize,
+    is_last: bool,
     command_buf: &mut [u32],
     literal_buf: &mut [u8],
     table: &mut [i32],
@@ -912,7 +940,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT: alloc::Allocator<HuffmanTree>>(
         RewindBitPosition(initial_storage_ix, storage_ix, storage);
         EmitUncompressedMetaBlock(input, input_size, storage_ix, storage);
     }
-    if is_last != 0 {
+    if is_last {
         BrotliWriteBits(1, 1, storage_ix, storage);
         BrotliWriteBits(1, 1, storage_ix, storage);
         *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;

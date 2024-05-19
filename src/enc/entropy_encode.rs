@@ -346,12 +346,19 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
     }
 }
 
+#[deprecated(note = "Use decide_over_rle_use instead")]
 pub fn DecideOverRleUse(
     depth: &[u8],
     length: usize,
     use_rle_for_non_zero: &mut i32,
     use_rle_for_zero: &mut i32,
 ) {
+    let (non_zero, zero) = decide_over_rle_use(depth, length);
+    *use_rle_for_non_zero = non_zero.into();
+    *use_rle_for_zero = zero.into();
+}
+
+pub(crate) fn decide_over_rle_use(depth: &[u8], length: usize) -> (bool, bool) {
     let mut total_reps_zero: usize = 0usize;
     let mut total_reps_non_zero: usize = 0usize;
     let mut count_reps_zero: usize = 1;
@@ -379,16 +386,10 @@ pub fn DecideOverRleUse(
         }
         i = i.wrapping_add(reps);
     }
-    *use_rle_for_non_zero = if total_reps_non_zero > count_reps_non_zero.wrapping_mul(2) {
-        1i32
-    } else {
-        0i32
-    };
-    *use_rle_for_zero = if total_reps_zero > count_reps_zero.wrapping_mul(2) {
-        1i32
-    } else {
-        0i32
-    };
+    let use_rle_for_non_zero = total_reps_non_zero > count_reps_non_zero.wrapping_mul(2);
+    let use_rle_for_zero = total_reps_zero > count_reps_zero.wrapping_mul(2);
+
+    (use_rle_for_non_zero, use_rle_for_zero)
 }
 
 fn Reverse(v: &mut [u8], mut start: usize, mut end: usize) {
@@ -489,8 +490,8 @@ pub fn BrotliWriteHuffmanTree(
 ) {
     let mut previous_value: u8 = 8u8;
     let mut i: usize;
-    let mut use_rle_for_non_zero: i32 = 0i32;
-    let mut use_rle_for_zero: i32 = 0i32;
+    let mut use_rle_for_non_zero = false;
+    let mut use_rle_for_zero = false;
     let mut new_length: usize = length;
     i = 0usize;
     'break27: while i < length {
@@ -503,21 +504,14 @@ pub fn BrotliWriteHuffmanTree(
         }
         i = i.wrapping_add(1);
     }
-    if length > 50usize {
-        DecideOverRleUse(
-            depth,
-            new_length,
-            &mut use_rle_for_non_zero,
-            &mut use_rle_for_zero,
-        );
+    if length > 50 {
+        (use_rle_for_non_zero, use_rle_for_zero) = decide_over_rle_use(depth, new_length);
     }
     i = 0usize;
     while i < new_length {
         let value: u8 = depth[i];
         let mut reps: usize = 1;
-        if value as i32 != 0i32 && (use_rle_for_non_zero != 0)
-            || value as i32 == 0i32 && (use_rle_for_zero != 0)
-        {
+        if value != 0 && use_rle_for_non_zero || value == 0 && use_rle_for_zero {
             let mut k: usize;
             k = i.wrapping_add(1);
             while k < new_length && (depth[k] as i32 == value as i32) {

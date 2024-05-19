@@ -13,7 +13,7 @@ use super::{
     BrotliEncoderParams,
 };
 use crate::enc::command::{
-    BrotliDistanceParams, CombineLengthCodes, Command, GetCopyLengthCode, GetInsertLengthCode,
+    combine_length_codes, BrotliDistanceParams, Command, GetCopyLengthCode, GetInsertLengthCode,
     PrefixEncodeCopyDistance,
 };
 use crate::enc::constants::{kCopyExtra, kInsExtra};
@@ -737,7 +737,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             let dist_cost = base_cost + model.get_distance_cost(j);
             for l in best_len.wrapping_add(1)..=len {
                 let copycode: u16 = GetCopyLengthCode(l);
-                let cmdcode: u16 = CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
+                let cmdcode = combine_length_codes(inscode, copycode, j == 0);
                 let cost: floatX = (if cmdcode < 128 { base_cost } else { dist_cost })
                     + (GetCopyExtra(copycode) as floatX)
                     + model.get_command_cost(cmdcode);
@@ -790,7 +790,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                         len
                     };
                     let copycode: u16 = GetCopyLengthCode(len_code);
-                    let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0i32);
+                    let cmdcode = combine_length_codes(inscode, copycode, false);
                     let cost: floatX = dist_cost
                         + GetCopyExtra(copycode) as (floatX)
                         + model.get_command_cost(cmdcode);

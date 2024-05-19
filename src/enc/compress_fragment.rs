@@ -652,11 +652,11 @@ fn BuildAndStoreCommandPrefixCode(
 }
 
 #[allow(unused_assignments)]
-fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
+fn compress_fragment_fast_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input_ptr: &[u8],
     mut input_size: usize,
-    is_last: i32,
+    is_last: bool,
     table: &mut [i32],
     table_bits: usize,
     cmd_depth: &mut [u8],
@@ -1040,7 +1040,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
             break;
         }
     }
-    if is_last == 0 {
+    if !is_last {
         cmd_code[0] = 0;
         *cmd_code_numbits = 0;
         BuildAndStoreCommandPrefixCode(
@@ -1059,7 +1059,7 @@ macro_rules! compress_specialization {
             mht: &mut AllocHT,
             input: &[u8],
             input_size: usize,
-            is_last: i32,
+            is_last: bool,
             table: &mut [i32],
             cmd_depth: &mut [u8],
             cmd_bits: &mut [u16],
@@ -1068,7 +1068,7 @@ macro_rules! compress_specialization {
             storage_ix: &mut usize,
             storage: &mut [u8],
         ) {
-            BrotliCompressFragmentFastImpl(
+            compress_fragment_fast_impl(
                 mht,
                 input,
                 input_size,
@@ -1091,11 +1091,42 @@ compress_specialization!(11, BrotliCompressFragmentFastImpl11);
 compress_specialization!(13, BrotliCompressFragmentFastImpl13);
 compress_specialization!(15, BrotliCompressFragmentFastImpl15);
 
+#[deprecated(note = "use BrotliCompressFragmentFastImpl9 instead")]
 pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input: &[u8],
     input_size: usize,
     is_last: i32,
+    table: &mut [i32],
+    table_size: usize,
+    cmd_depth: &mut [u8],
+    cmd_bits: &mut [u16],
+    cmd_code_numbits: &mut usize,
+    cmd_code: &mut [u8],
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+) {
+    compress_fragment_fast(
+        m,
+        input,
+        input_size,
+        is_last != 0,
+        table,
+        table_size,
+        cmd_depth,
+        cmd_bits,
+        cmd_code_numbits,
+        cmd_code,
+        storage_ix,
+        storage,
+    )
+}
+
+pub(crate) fn compress_fragment_fast<AllocHT: alloc::Allocator<HuffmanTree>>(
+    m: &mut AllocHT,
+    input: &[u8],
+    input_size: usize,
+    is_last: bool,
     table: &mut [i32],
     table_size: usize,
     cmd_depth: &mut [u8],
@@ -1176,7 +1207,7 @@ pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
     if storage_ix.wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3) {
         EmitUncompressedMetaBlock(input, input_size, initial_storage_ix, storage_ix, storage);
     }
-    if is_last != 0 {
+    if is_last {
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;

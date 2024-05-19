@@ -14,14 +14,14 @@ use super::backward_references::{
 };
 use super::bit_cost::{BitsEntropy, ShannonEntropy};
 use super::brotli_bit_stream::{
-    BrotliStoreMetaBlock, BrotliStoreMetaBlockFast, BrotliStoreMetaBlockTrivial,
-    BrotliStoreUncompressedMetaBlock, BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
+    store_meta_block, store_meta_block_fast, store_meta_block_trivial,
+    store_uncompressed_meta_block, BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
     MetaBlockSplit, RecoderState,
 };
 use super::combined_alloc::BrotliAlloc;
-use super::command::{BrotliDistanceParams, Command, GetLengthCode};
-use super::compress_fragment::BrotliCompressFragmentFast;
-use super::compress_fragment_two_pass::{BrotliCompressFragmentTwoPass, BrotliWriteBits};
+use super::command::{get_length_code, BrotliDistanceParams, Command};
+use super::compress_fragment::compress_fragment_fast;
+use super::compress_fragment_two_pass::{compress_fragment_two_pass, BrotliWriteBits};
 use super::constants::{
     BROTLI_CONTEXT, BROTLI_CONTEXT_LUT, BROTLI_MAX_NDIRECT, BROTLI_MAX_NPOSTFIX,
     BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_WINDOW_GAP,
@@ -380,11 +380,11 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                 }
             }
             /* The copy length is at most the metablock size, and thus expressible. */
-            GetLengthCode(
+            get_length_code(
                 last_command.insert_len_ as usize,
                 ((last_command.copy_len_ & 0x01ff_ffff) as i32
                     + (last_command.copy_len_ >> 25) as i32) as usize,
-                ((last_command.dist_prefix_ & 0x03ff) == 0) as i32,
+                (last_command.dist_prefix_ & 0x03ff) == 0,
                 &mut last_command.cmd_prefix_,
             );
         }
@@ -1108,7 +1108,8 @@ fn GetHasherCommon<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
     t.GetHasherCommon()
 }
 
-pub fn HasherSetup<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
+#[deprecated(note = "Use hasher_setup instead")]
+pub fn HasherSetup<Alloc: Allocator<u16> + Allocator<u32>>(
     m16: &mut Alloc,
     handle: &mut UnionHasher<Alloc>,
     params: &mut BrotliEncoderParams,
@@ -1117,7 +1118,27 @@ pub fn HasherSetup<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
     input_size: usize,
     is_last: i32,
 ) {
-    let one_shot: i32 = (position == 0usize && (is_last != 0)) as i32;
+    hasher_setup(
+        m16,
+        handle,
+        params,
+        data,
+        position,
+        input_size,
+        is_last != 0,
+    )
+}
+
+pub(crate) fn hasher_setup<Alloc: Allocator<u16> + Allocator<u32>>(
+    m16: &mut Alloc,
+    handle: &mut UnionHasher<Alloc>,
+    params: &mut BrotliEncoderParams,
+    data: &[u8],
+    position: usize,
+    input_size: usize,
+    is_last: bool,
+) {
+    let one_shot = position == 0 && is_last;
     let is_uninit = match (handle) {
         &mut UnionHasher::Uninit => true,
         _ => false,
@@ -1132,7 +1153,7 @@ pub fn HasherSetup<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
         HasherReset(handle); // this sets everything to zero, unlike in C
         handle.GetHasherCommon().is_prepared_ = 1;
     } else {
-        match handle.Prepare(one_shot != 0, input_size, data) {
+        match handle.Prepare(one_shot, input_size, data) {
             HowPrepared::ALREADY_PREPARED => {}
             HowPrepared::NEWLY_PREPARED => {
                 if position == 0usize {
@@ -1152,7 +1173,7 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
     size: usize,
     dict: &[u8],
 ) {
-    HasherSetup(m, handle, params, dict, 0usize, size, 0i32);
+    hasher_setup(m, handle, params, dict, 0usize, size, false);
     match handle {
         &mut UnionHasher::H2(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
         &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
@@ -1268,15 +1289,7 @@ fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u
     input_size: usize,
     is_last: bool,
 ) {
-    HasherSetup(
-        m,
-        handle,
-        params,
-        data,
-        position,
-        input_size,
-        is_last as i32,
-    );
+    hasher_setup(m, handle, params, data, position, input_size, is_last);
     handle.StitchToPreviousBlock(input_size, position, data, mask);
 }
 
@@ -1983,9 +1996,9 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
     ) == 0
     {
         dist_cache[..4].clone_from_slice(&saved_dist_cache[..4]);
-        BrotliStoreUncompressedMetaBlock(
+        store_uncompressed_meta_block(
             alloc,
-            is_last as i32,
+            is_last,
             data,
             wrapped_last_flush_pos as usize,
             mask,
@@ -2014,14 +2027,14 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
                                 params.dist.distance_postfix_bits);
     }*/
     // why was this removed??
-    if params.quality <= 2i32 {
-        BrotliStoreMetaBlockFast(
+    if params.quality <= 2 {
+        store_meta_block_fast(
             alloc,
             data,
             wrapped_last_flush_pos as usize,
             bytes,
             mask,
-            is_last as i32,
+            is_last,
             params,
             saved_dist_cache,
             commands,
@@ -2031,14 +2044,14 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
             storage,
             cb,
         );
-    } else if params.quality < 4i32 {
-        BrotliStoreMetaBlockTrivial(
+    } else if params.quality < 4 {
+        store_meta_block_trivial(
             alloc,
             data,
             wrapped_last_flush_pos as usize,
             bytes,
             mask,
-            is_last as i32,
+            is_last,
             params,
             saved_dist_cache,
             commands,
@@ -2107,7 +2120,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
             }
             BrotliOptimizeHistograms(num_effective_dist_codes as usize, &mut mb);
         }
-        BrotliStoreMetaBlock(
+        store_meta_block(
             alloc,
             data,
             wrapped_last_flush_pos as usize,
@@ -2115,7 +2128,7 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
             mask,
             prev_byte,
             prev_byte2,
-            is_last as i32,
+            is_last,
             &block_params,
             literal_context_mode,
             saved_dist_cache,
@@ -2137,9 +2150,9 @@ fn WriteMetaBlockInternal<Alloc: BrotliAlloc, Cb>(
         storage[saved_byte_location] = last_bytes as u8;
         storage[saved_byte_location + 1] = (last_bytes >> 8) as u8;
         *storage_ix = last_bytes_bits as usize;
-        BrotliStoreUncompressedMetaBlock(
+        store_uncompressed_meta_block(
             alloc,
-            is_last as i32,
+            is_last,
             data,
             wrapped_last_flush_pos as usize,
             mask,
@@ -2273,9 +2286,9 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             {
                 let data =
                     &mut self.ringbuffer_.data_mo.slice_mut()[self.ringbuffer_.buffer_index..];
-                BrotliStoreUncompressedMetaBlock(
+                store_uncompressed_meta_block(
                     &mut self.m8,
-                    0,
+                    false,
                     data,
                     self.last_flush_pos_ as usize,
                     mask as usize,
@@ -2344,11 +2357,11 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                     GetHashTable!(self, self.params.quality, bytes as usize, &mut table_size);
 
                 if self.params.quality == 0i32 {
-                    BrotliCompressFragmentFast(
+                    compress_fragment_fast(
                         &mut self.m8,
                         &mut data[((wrapped_last_processed_pos & mask) as usize)..],
                         bytes as usize,
-                        is_last as i32,
+                        is_last,
                         table,
                         table_size,
                         &mut self.cmd_depths_[..],
@@ -2359,11 +2372,11 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                         self.storage_.slice_mut(),
                     );
                 } else {
-                    BrotliCompressFragmentTwoPass(
+                    compress_fragment_two_pass(
                         &mut self.m8,
                         &mut data[((wrapped_last_processed_pos & mask) as usize)..],
                         bytes as usize,
-                        is_last as i32,
+                        is_last,
                         self.command_buf_.slice_mut(),
                         self.literal_buf_.slice_mut(),
                         table,
@@ -2778,11 +2791,11 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                 let table: &mut [i32] =
                     GetHashTable!(self, self.params.quality, block_size, &mut table_size);
                 if self.params.quality == 0i32 {
-                    BrotliCompressFragmentFast(
+                    compress_fragment_fast(
                         &mut self.m8,
                         &(next_in_array)[*next_in_offset..],
                         block_size,
-                        is_last as i32,
+                        is_last,
                         table,
                         table_size,
                         &mut self.cmd_depths_[..],
@@ -2793,11 +2806,11 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                         storage,
                     );
                 } else {
-                    BrotliCompressFragmentTwoPass(
+                    compress_fragment_two_pass(
                         &mut self.m8,
                         &(next_in_array)[*next_in_offset..],
                         block_size,
-                        is_last as i32,
+                        is_last,
                         command_buf.slice_mut(),
                         literal_buf.slice_mut(),
                         table,
@@ -3040,9 +3053,13 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         ),
     >(
         &'a mut self,
+        // FIXME: this should be bool
         is_last: i32,
+        // FIXME: this should be bool
         force_flush: i32,
+        // FIXME: this should probably be removed because the slice already contains the size
         out_size: &mut usize,
+        // FIXME: this should be part of the fn return value
         output: &'a mut &'a mut [u8],
         metablock_callback: &mut MetablockCallback,
     ) -> bool {
