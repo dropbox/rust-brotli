@@ -24,6 +24,7 @@ use super::histogram::{
     HistogramAddHistogram, HistogramAddItem, HistogramClear, HistogramCommand, HistogramDistance,
     HistogramLiteral,
 };
+use crate::enc::combined_alloc::{alloc_default, allocate};
 
 pub fn BrotliInitDistanceParams(params: &mut BrotliEncoderParams, npostfix: u32, ndirect: u32) {
     let dist_params = &mut params.dist;
@@ -149,8 +150,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
     static kMaxNumberOfHistograms: usize = 256usize;
     let mut distance_histograms: <Alloc as Allocator<HistogramDistance>>::AllocatedMemory;
     let mut literal_histograms: <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory;
-    let mut literal_context_modes: <Alloc as Allocator<ContextType>>::AllocatedMemory =
-        <Alloc as Allocator<ContextType>>::AllocatedMemory::default();
+    let mut literal_context_modes = alloc_default::<ContextType, Alloc>();
 
     let mut i: usize;
     let mut literal_context_multiplier: usize = 1;
@@ -224,8 +224,7 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
     );
     if params.disable_literal_context_modeling == 0 {
         literal_context_multiplier = (1i32 << 6) as usize;
-        literal_context_modes =
-            <Alloc as Allocator<ContextType>>::alloc_cell(alloc, mb.literal_split.num_types);
+        literal_context_modes = allocate::<ContextType, _>(alloc, mb.literal_split.num_types);
         for item in literal_context_modes.slice_mut().iter_mut() {
             *item = literal_context_mode;
         }
@@ -234,14 +233,11 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         .literal_split
         .num_types
         .wrapping_mul(literal_context_multiplier);
-    literal_histograms =
-        <Alloc as Allocator<HistogramLiteral>>::alloc_cell(alloc, literal_histograms_size);
+    literal_histograms = allocate::<HistogramLiteral, _>(alloc, literal_histograms_size);
     let distance_histograms_size: usize = mb.distance_split.num_types << 2;
-    distance_histograms =
-        <Alloc as Allocator<HistogramDistance>>::alloc_cell(alloc, distance_histograms_size);
+    distance_histograms = allocate::<HistogramDistance, _>(alloc, distance_histograms_size);
     mb.command_histograms_size = mb.command_split.num_types;
-    mb.command_histograms =
-        <Alloc as Allocator<HistogramCommand>>::alloc_cell(alloc, mb.command_histograms_size);
+    mb.command_histograms = allocate::<HistogramCommand, _>(alloc, mb.command_histograms_size);
     BrotliBuildHistogramsWithContext(
         cmds,
         num_commands,
@@ -260,11 +256,9 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
     );
     <Alloc as Allocator<ContextType>>::free_cell(alloc, literal_context_modes);
     mb.literal_context_map_size = mb.literal_split.num_types << 6;
-    mb.literal_context_map =
-        <Alloc as Allocator<u32>>::alloc_cell(alloc, mb.literal_context_map_size);
+    mb.literal_context_map = allocate::<u32, _>(alloc, mb.literal_context_map_size);
     mb.literal_histograms_size = mb.literal_context_map_size;
-    mb.literal_histograms =
-        <Alloc as Allocator<HistogramLiteral>>::alloc_cell(alloc, mb.literal_histograms_size);
+    mb.literal_histograms = allocate::<HistogramLiteral, _>(alloc, mb.literal_histograms_size);
     BrotliClusterHistograms(
         alloc,
         literal_histograms.slice(),
@@ -291,11 +285,9 @@ pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
         }
     }
     mb.distance_context_map_size = mb.distance_split.num_types << 2;
-    mb.distance_context_map =
-        <Alloc as Allocator<u32>>::alloc_cell(alloc, mb.distance_context_map_size);
+    mb.distance_context_map = allocate::<u32, _>(alloc, mb.distance_context_map_size);
     mb.distance_histograms_size = mb.distance_context_map_size;
-    mb.distance_histograms =
-        <Alloc as Allocator<HistogramDistance>>::alloc_cell(alloc, mb.distance_histograms_size);
+    mb.distance_histograms = allocate::<HistogramDistance, _>(alloc, mb.distance_histograms_size);
     BrotliClusterHistograms(
         alloc,
         distance_histograms.slice(),
@@ -431,7 +423,7 @@ fn InitBlockSplitter<
             while _new_size < max_num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
             }
-            new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
+            new_array = allocate::<u8, _>(alloc, _new_size);
             if (!split.types.slice().is_empty()) {
                 new_array.slice_mut()[..split.types.slice().len()]
                     .clone_from_slice(split.types.slice());
@@ -452,7 +444,7 @@ fn InitBlockSplitter<
             while _new_size < max_num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
             }
-            let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
+            let mut new_array = allocate::<u32, _>(alloc, _new_size);
             new_array.slice_mut()[..split.lengths.slice().len()]
                 .clone_from_slice(split.lengths.slice());
             <Alloc as Allocator<u32>>::free_cell(
@@ -463,7 +455,7 @@ fn InitBlockSplitter<
     }
     split.num_blocks = max_num_blocks;
     *histograms_size = max_num_types;
-    let hlocal = <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, *histograms_size);
+    let hlocal = allocate::<HistogramType, _>(alloc, *histograms_size);
     <Alloc as Allocator<HistogramType>>::free_cell(
         alloc,
         core::mem::replace(&mut *histograms, hlocal),
@@ -515,7 +507,7 @@ fn InitContextBlockSplitter<
             while _new_size < max_num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
             }
-            let mut new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
+            let mut new_array = allocate::<u8, _>(alloc, _new_size);
             if (!split.types.slice().is_empty()) {
                 new_array.slice_mut()[..split.types.slice().len()]
                     .clone_from_slice(split.types.slice());
@@ -536,7 +528,7 @@ fn InitContextBlockSplitter<
             while _new_size < max_num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
             }
-            let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
+            let mut new_array = allocate::<u32, _>(alloc, _new_size);
             if (!split.lengths.slice().is_empty()) {
                 new_array.slice_mut()[..split.lengths.slice().len()]
                     .clone_from_slice(split.lengths.slice());
@@ -549,7 +541,7 @@ fn InitContextBlockSplitter<
     }
     split.num_blocks = max_num_blocks;
     *histograms_size = max_num_types.wrapping_mul(num_contexts);
-    *histograms = <Alloc as Allocator<HistogramLiteral>>::alloc_cell(alloc, *histograms_size);
+    *histograms = allocate::<HistogramLiteral, _>(alloc, *histograms_size);
     //xself.histograms_ = *histograms;
     ClearHistograms(&mut histograms.slice_mut()[0..], num_contexts);
     xself.last_histogram_ix_[0] = 0;
@@ -853,8 +845,7 @@ fn MapStaticContexts<
     mb: &mut MetaBlockSplit<Alloc>,
 ) {
     mb.literal_context_map_size = mb.literal_split.num_types << 6;
-    let new_literal_context_map =
-        <Alloc as Allocator<u32>>::alloc_cell(m32, mb.literal_context_map_size);
+    let new_literal_context_map = allocate::<u32, _>(m32, mb.literal_context_map_size);
     <Alloc as Allocator<u32>>::free_cell(
         m32,
         core::mem::replace(&mut mb.literal_context_map, new_literal_context_map),

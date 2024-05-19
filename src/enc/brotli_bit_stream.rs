@@ -36,6 +36,7 @@ use super::static_dict::kNumDistanceCacheEntries;
 use super::util::floatX;
 use super::{find_stride, interface, prior_eval, stride_eval};
 use crate::enc::backward_references::BrotliEncoderParams;
+use crate::enc::combined_alloc::{alloc_default, alloc_or_default, allocate};
 use crate::VERSION;
 
 pub struct PrefixCodeRange {
@@ -121,8 +122,7 @@ impl<'a, Alloc: BrotliAlloc> CommandQueue<'a, Alloc> {
     ) -> CommandQueue<'a, Alloc> {
         // assume no more than 1/16 of the stream is block_types which may chop up literals
         // also there's the first btypel and a potential wrap around the ring buffer
-        let queue =
-            <Alloc as Allocator<StaticCommand>>::alloc_cell(alloc, num_commands * 17 / 16 + 4);
+        let queue = allocate::<StaticCommand, _>(alloc, num_commands * 17 / 16 + 4);
         CommandQueue {
             mc: alloc,
             queue, // always need a spare command in case the ring buffer splits a literal into two
@@ -190,10 +190,7 @@ impl<'a, Alloc: BrotliAlloc> CommandQueue<'a, Alloc> {
 impl<'a, Alloc: BrotliAlloc> interface::CommandProcessor<'a> for CommandQueue<'a, Alloc> {
     fn push(&mut self, val: interface::Command<InputReference<'a>>) {
         if self.full() {
-            let mut tmp = <Alloc as Allocator<StaticCommand>>::alloc_cell(
-                self.mc,
-                self.queue.slice().len() * 2,
-            );
+            let mut tmp = allocate::<StaticCommand, _>(self.mc, self.queue.slice().len() * 2);
             tmp.slice_mut()
                 .split_at_mut(self.queue.slice().len())
                 .0
@@ -557,7 +554,7 @@ fn LogMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
             orig_offset: input0.len(),
         },
     );
-    let mut best_strides = <Alloc as Allocator<u8>>::AllocatedMemory::default();
+    let mut best_strides = alloc_default::<u8, Alloc>();
     if params.stride_detection_quality > 2 {
         let mut stride_selector =
             stride_eval::StrideEval::<Alloc>::new(alloc, input, &prediction_mode, params);
@@ -572,7 +569,7 @@ fn LogMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
             context_type,
         );
         let ntypes = stride_selector.num_types();
-        best_strides = <Alloc as Allocator<u8>>::alloc_cell(stride_selector.alloc(), ntypes);
+        best_strides = allocate::<u8, _>(stride_selector.alloc(), ntypes);
         stride_selector.choose_stride(best_strides.slice_mut());
     }
     let mut context_map_entropy = ContextMapEntropy::<Alloc>::new(
@@ -999,12 +996,10 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
         *depth_elem = 0; // memset
     }
     {
+        // FIXME: computation in u64, followed by allocation which might be less than u64
         let max_tree_size: u64 = (2u64).wrapping_mul(length).wrapping_add(1);
-        let mut tree = if max_tree_size != 0 {
-            m.alloc_cell(max_tree_size as usize)
-        } else {
-            AllocHT::AllocatedMemory::default() // null
-        };
+        // FIXME: makes little sense to test if N+1 > 0 -- always true unless wrapping. Perhaps use allocate() instead?
+        let mut tree = alloc_or_default::<HuffmanTree, _>(m, max_tree_size as usize);
         let mut count_limit: u32;
         count_limit = 1u32;
         'break11: loop {
@@ -1206,19 +1201,18 @@ impl<
 {
     fn default() -> Self {
         Self {
-            literal_split: BlockSplit::<Alloc>::new(),
-            command_split: BlockSplit::<Alloc>::new(),
-            distance_split: BlockSplit::<Alloc>::new(),
-            literal_context_map: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
+            literal_split: BlockSplit::default(),
+            command_split: BlockSplit::default(),
+            distance_split: BlockSplit::default(),
+            literal_context_map: alloc_default::<u32, Alloc>(),
             literal_context_map_size: 0,
-            distance_context_map: <Alloc as Allocator<u32>>::AllocatedMemory::default(),
+            distance_context_map: alloc_default::<u32, Alloc>(),
             distance_context_map_size: 0,
-            literal_histograms: <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory::default(),
+            literal_histograms: alloc_default::<HistogramLiteral, Alloc>(),
             literal_histograms_size: 0,
-            command_histograms: <Alloc as Allocator<HistogramCommand>>::AllocatedMemory::default(),
+            command_histograms: alloc_default::<HistogramCommand, Alloc>(),
             command_histograms_size: 0,
-            distance_histograms: <Alloc as Allocator<HistogramDistance>>::AllocatedMemory::default(
-            ),
+            distance_histograms: alloc_default::<HistogramDistance, Alloc>(),
             distance_histograms_size: 0,
         }
     }
@@ -1393,8 +1387,8 @@ impl<'a, Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'a, Alloc> {
             block_ix_: 0,
             block_len_: block_len,
             entropy_ix_: 0,
-            depths_: <Alloc as Allocator<u8>>::AllocatedMemory::default(),
-            bits_: <Alloc as Allocator<u16>>::AllocatedMemory::default(),
+            depths_: alloc_default::<u8, Alloc>(),
+            bits_: alloc_default::<u16, Alloc>(),
         }
     }
 }
@@ -1844,11 +1838,7 @@ fn EncodeContextMap<AllocU32: alloc::Allocator<u32>>(
     if num_clusters == 1 {
         return;
     }
-    rle_symbols = if context_map_size != 0 {
-        m.alloc_cell(context_map_size)
-    } else {
-        AllocU32::AllocatedMemory::default()
-    };
+    rle_symbols = alloc_or_default::<u32, _>(m, context_map_size);
     MoveToFrontTransform(context_map, context_map_size, rle_symbols.slice_mut());
     RunLengthCodeZeros(
         context_map_size,
@@ -1918,16 +1908,8 @@ impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
         storage: &mut [u8],
     ) {
         let table_size: usize = histograms_size.wrapping_mul(self.histogram_length_);
-        self.depths_ = if table_size != 0 {
-            <Alloc as Allocator<u8>>::alloc_cell(m, table_size)
-        } else {
-            <Alloc as Allocator<u8>>::AllocatedMemory::default()
-        };
-        self.bits_ = if table_size != 0 {
-            <Alloc as Allocator<u16>>::alloc_cell(m, table_size)
-        } else {
-            <Alloc as Allocator<u16>>::AllocatedMemory::default()
-        };
+        self.depths_ = alloc_or_default::<u8, _>(m, table_size);
+        self.bits_ = alloc_or_default::<u16, _>(m, table_size);
         {
             for i in 0usize..histograms_size {
                 let ix: usize = i.wrapping_mul(self.histogram_length_);
@@ -2184,7 +2166,6 @@ pub(crate) fn store_meta_block<Alloc: BrotliAlloc, Cb>(
     let mut pos: usize = start_pos;
     let num_distance_symbols = params.dist.alphabet_size;
     let mut num_effective_distance_symbols = num_distance_symbols as usize;
-    let mut tree: <Alloc as Allocator<HuffmanTree>>::AllocatedMemory;
     let _literal_context_lut = BROTLI_CONTEXT_LUT(literal_context_mode);
     let mut literal_enc: BlockEncoder<Alloc>;
     let mut command_enc: BlockEncoder<Alloc>;
@@ -2195,11 +2176,7 @@ pub(crate) fn store_meta_block<Alloc: BrotliAlloc, Cb>(
         num_effective_distance_symbols = BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS;
     }
     StoreCompressedMetaBlockHeader(is_last, length, storage_ix, storage);
-    tree = if 2i32 * 704i32 + 1i32 != 0 {
-        <Alloc as Allocator<HuffmanTree>>::alloc_cell(alloc, (2i32 * 704i32 + 1i32) as usize)
-    } else {
-        <Alloc as Allocator<HuffmanTree>>::AllocatedMemory::default()
-    };
+    let mut tree = allocate::<HuffmanTree, _>(alloc, 2 * 704 + 1);
     literal_enc = BlockEncoder::new(
         BROTLI_NUM_LITERAL_SYMBOLS,
         mb.literal_split.num_types,

@@ -8,6 +8,7 @@ use super::{
     kHashMul32, AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts, HasherSearchResult,
     HowPrepared, Struct1,
 };
+use crate::enc::combined_alloc::allocate;
 use crate::enc::static_dict::{
     BrotliDictionary, FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32,
 };
@@ -206,7 +207,7 @@ where
             common: self.common.clone(),
             buckets_: Buckets::new_uninit(m),
             invalid_pos_: self.invalid_pos_,
-            forest: <Alloc as Allocator<u32>>::alloc_cell(m, self.forest.len()),
+            forest: allocate::<u32, _>(m, self.forest.len()),
             _params: core::marker::PhantomData::<Params>,
         };
         ret.buckets_

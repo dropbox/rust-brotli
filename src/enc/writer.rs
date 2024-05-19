@@ -17,6 +17,7 @@ use super::encode::{
     BrotliEncoderStateStruct,
 };
 use super::interface;
+use crate::enc::combined_alloc::allocate;
 
 #[cfg(feature = "std")]
 pub struct CompressorWriterCustomAlloc<
@@ -81,7 +82,7 @@ pub struct CompressorWriter<W: Write>(
 impl<W: Write> CompressorWriter<W> {
     pub fn new(w: W, buffer_size: usize, q: u32, lgwin: u32) -> Self {
         let mut alloc = StandardAlloc::default();
-        let buffer = <StandardAlloc as Allocator<u8>>::alloc_cell(
+        let buffer = allocate::<u8, _>(
             &mut alloc,
             if buffer_size == 0 { 4096 } else { buffer_size },
         );

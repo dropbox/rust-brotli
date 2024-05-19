@@ -17,6 +17,8 @@ use super::histogram::{
 };
 use super::util::FastLog2;
 use super::vectorization::{sum8i, v256, v256i, Mem256f};
+use crate::enc::combined_alloc::allocate;
+use crate::enc::floatX;
 
 static kMaxLiteralHistograms: usize = 100usize;
 
@@ -416,24 +418,22 @@ fn ClusterBlocks<
 ) where
     u64: core::convert::From<IntegerType>,
 {
-    let mut histogram_symbols = <Alloc as Allocator<u32>>::alloc_cell(alloc, num_blocks);
-    let mut block_lengths = <Alloc as Allocator<u32>>::alloc_cell(alloc, num_blocks);
+    let mut histogram_symbols = allocate::<u32, _>(alloc, num_blocks);
+    let mut block_lengths = allocate::<u32, _>(alloc, num_blocks);
     let expected_num_clusters: usize = (16usize)
         .wrapping_mul(num_blocks.wrapping_add(64).wrapping_sub(1))
         .wrapping_div(64);
     let mut all_histograms_size: usize = 0usize;
     let mut all_histograms_capacity: usize = expected_num_clusters;
-    let mut all_histograms =
-        <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, all_histograms_capacity);
+    let mut all_histograms = allocate::<HistogramType, _>(alloc, all_histograms_capacity);
     let mut cluster_size_size: usize = 0usize;
     let mut cluster_size_capacity: usize = expected_num_clusters;
-    let mut cluster_size = <Alloc as Allocator<u32>>::alloc_cell(alloc, cluster_size_capacity);
+    let mut cluster_size = allocate::<u32, _>(alloc, cluster_size_capacity);
     let mut num_clusters: usize = 0usize;
-    let mut histograms =
-        <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, min(num_blocks, 64));
+    let mut histograms = allocate::<HistogramType, _>(alloc, min(num_blocks, 64));
     let mut max_num_pairs: usize = (64i32 * 64i32 / 2i32) as usize;
     let pairs_capacity: usize = max_num_pairs.wrapping_add(1);
-    let mut pairs = <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity);
+    let mut pairs = allocate::<HistogramPair, _>(alloc, pairs_capacity);
     let mut pos: usize = 0usize;
     let mut clusters: <Alloc as Allocator<u32>>::AllocatedMemory;
 
@@ -505,8 +505,7 @@ fn ClusterBlocks<
                     while _new_size < all_histograms_size.wrapping_add(num_new_clusters) {
                         _new_size = _new_size.wrapping_mul(2);
                     }
-                    let mut new_array =
-                        <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, _new_size);
+                    let mut new_array = allocate::<HistogramType, _>(alloc, _new_size);
                     new_array.slice_mut()[..all_histograms_capacity]
                         .clone_from_slice(&all_histograms.slice()[..all_histograms_capacity]);
                     <Alloc as Allocator<HistogramType>>::free_cell(
@@ -526,7 +525,7 @@ fn ClusterBlocks<
                     while _new_size < cluster_size_size.wrapping_add(num_new_clusters) {
                         _new_size = _new_size.wrapping_mul(2);
                     }
-                    let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
+                    let mut new_array = allocate::<u32, _>(alloc, _new_size);
                     new_array.slice_mut()[..cluster_size_capacity]
                         .clone_from_slice(&cluster_size.slice()[..cluster_size_capacity]);
                     <Alloc as Allocator<u32>>::free_cell(
@@ -558,14 +557,13 @@ fn ClusterBlocks<
         num_clusters.wrapping_div(2).wrapping_mul(num_clusters),
     );
     if pairs_capacity < max_num_pairs.wrapping_add(1) {
-        let new_cell =
-            <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, max_num_pairs.wrapping_add(1));
+        let new_cell = allocate::<HistogramPair, _>(alloc, max_num_pairs.wrapping_add(1));
         <Alloc as Allocator<HistogramPair>>::free_cell(
             alloc,
             core::mem::replace(&mut pairs, new_cell),
         );
     }
-    clusters = <Alloc as Allocator<u32>>::alloc_cell(alloc, num_clusters);
+    clusters = allocate::<u32, _>(alloc, num_clusters);
     i = 0usize;
     for item in clusters.slice_mut()[..num_clusters].iter_mut() {
         *item = i as u32;
@@ -586,7 +584,7 @@ fn ClusterBlocks<
     <Alloc as Allocator<HistogramPair>>::free_cell(alloc, core::mem::take(&mut pairs));
     <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::take(&mut cluster_size));
 
-    let mut new_index = <Alloc as Allocator<u32>>::alloc_cell(alloc, num_clusters);
+    let mut new_index = allocate::<u32, _>(alloc, num_clusters);
     for item in new_index.slice_mut().iter_mut() {
         *item = kInvalidIndex;
     }
@@ -642,7 +640,7 @@ fn ClusterBlocks<
             while _new_size < num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
             }
-            let mut new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
+            let mut new_array = allocate::<u8, _>(alloc, _new_size);
             new_array.slice_mut()[..split.types_alloc_size()]
                 .clone_from_slice(&split.types.slice()[..split.types_alloc_size()]);
             <Alloc as Allocator<u8>>::free_cell(
@@ -661,7 +659,7 @@ fn ClusterBlocks<
             while _new_size < num_blocks {
                 _new_size = _new_size.wrapping_mul(2);
             }
-            let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
+            let mut new_array = allocate::<u32, _>(alloc, _new_size);
             new_array.slice_mut()[..split.lengths_alloc_size()]
                 .clone_from_slice(split.lengths.slice());
             <Alloc as Allocator<u32>>::free_cell(
@@ -739,7 +737,7 @@ fn SplitByteVector<
                 while _new_size < split.num_blocks.wrapping_add(1) {
                     _new_size = _new_size.wrapping_mul(2);
                 }
-                let mut new_array = <Alloc as Allocator<u8>>::alloc_cell(alloc, _new_size);
+                let mut new_array = allocate::<u8, _>(alloc, _new_size);
                 new_array.slice_mut()[..split.types_alloc_size()]
                     .clone_from_slice(&split.types.slice()[..split.types_alloc_size()]);
                 <Alloc as Allocator<u8>>::free_cell(
@@ -758,7 +756,7 @@ fn SplitByteVector<
                 while _new_size < split.num_blocks.wrapping_add(1) {
                     _new_size = _new_size.wrapping_mul(2);
                 }
-                let mut new_array = <Alloc as Allocator<u32>>::alloc_cell(alloc, _new_size);
+                let mut new_array = allocate::<u32, _>(alloc, _new_size);
                 new_array.slice_mut()[..split.lengths_alloc_size()]
                     .clone_from_slice(&split.lengths.slice()[..split.lengths_alloc_size()]);
                 <Alloc as Allocator<u32>>::free_cell(
@@ -773,7 +771,7 @@ fn SplitByteVector<
         split.num_blocks = split.num_blocks.wrapping_add(1);
         return;
     }
-    let mut histograms = <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, num_histograms);
+    let mut histograms = allocate::<HistogramType, _>(alloc, num_histograms);
 
     InitialEntropyCodes(
         data,
@@ -790,18 +788,13 @@ fn SplitByteVector<
         histograms.slice_mut(),
     );
     {
-        let mut block_ids = <Alloc as Allocator<u8>>::alloc_cell(alloc, length);
+        let mut block_ids = allocate::<u8, _>(alloc, length);
         let mut num_blocks: usize = 0usize;
         let bitmaplen: usize = num_histograms.wrapping_add(7) >> 3;
-        let mut insert_cost = <Alloc as Allocator<super::util::floatX>>::alloc_cell(
-            alloc,
-            data_size.wrapping_mul(num_histograms),
-        );
-        let mut cost =
-            <Alloc as Allocator<Mem256f>>::alloc_cell(alloc, ((num_histograms + 7) >> 3));
-        let mut switch_signal =
-            <Alloc as Allocator<u8>>::alloc_cell(alloc, length.wrapping_mul(bitmaplen));
-        let mut new_id = <Alloc as Allocator<u16>>::alloc_cell(alloc, num_histograms);
+        let mut insert_cost = allocate::<floatX, _>(alloc, data_size.wrapping_mul(num_histograms));
+        let mut cost = allocate::<Mem256f, _>(alloc, ((num_histograms + 7) >> 3));
+        let mut switch_signal = allocate::<u8, _>(alloc, length.wrapping_mul(bitmaplen));
+        let mut new_id = allocate::<u16, _>(alloc, num_histograms);
         let iters: usize = (if params.quality <= 11 { 3i32 } else { 10i32 }) as usize;
         for _i in 0usize..iters {
             num_blocks = FindBlocks(
@@ -878,7 +871,7 @@ pub fn BrotliSplitBlock<
                             i, cmd.insert_len_, cmd.copy_len_, cmd.dist_extra_, cmd.cmd_prefix_, cmd.dist_prefix_);
         }*/
         let literals_count: usize = CountLiterals(cmds, num_commands);
-        let mut literals = <Alloc as Allocator<u8>>::alloc_cell(alloc, literals_count);
+        let mut literals = allocate::<u8, _>(alloc, literals_count);
         CopyLiteralsToByteArray(cmds, num_commands, data, pos, mask, literals.slice_mut());
         SplitByteVector::<HistogramLiteral, Alloc, u8>(
             alloc,
@@ -895,7 +888,7 @@ pub fn BrotliSplitBlock<
         <Alloc as Allocator<u8>>::free_cell(alloc, literals);
     }
     {
-        let mut insert_and_copy_codes = <Alloc as Allocator<u16>>::alloc_cell(alloc, num_commands);
+        let mut insert_and_copy_codes = allocate::<u16, _>(alloc, num_commands);
         for i in 0..min(num_commands, cmds.len()) {
             insert_and_copy_codes.slice_mut()[i] = (cmds[i]).cmd_prefix_;
         }
@@ -914,7 +907,7 @@ pub fn BrotliSplitBlock<
         <Alloc as Allocator<u16>>::free_cell(alloc, insert_and_copy_codes);
     }
     {
-        let mut distance_prefixes = <Alloc as Allocator<u16>>::alloc_cell(alloc, num_commands);
+        let mut distance_prefixes = allocate::<u16, _>(alloc, num_commands);
         let mut j: usize = 0usize;
         for i in 0usize..num_commands {
             let cmd = &cmds[i];

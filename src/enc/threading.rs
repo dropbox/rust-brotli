@@ -12,6 +12,7 @@ use super::encode::{
 };
 use super::BrotliAlloc;
 use crate::concat::{BroCatli, BroCatliResult};
+use crate::enc::combined_alloc::{alloc_default, allocate};
 use crate::enc::encode::BrotliEncoderStateStruct;
 
 pub type PoisonedThreadError = ();
@@ -300,11 +301,11 @@ where
     <Alloc as Allocator<u32>>::AllocatedMemory: Send + Sync,
 {
     let input = if let InternalSendAlloc::A(ref mut alloc, ref _extra) = alloc_per_thread[0].0 {
-        let mut input = <Alloc as Allocator<u8>>::alloc_cell(alloc, input_slice.len());
+        let mut input = allocate::<u8, _>(alloc, input_slice.len());
         input.slice_mut().clone_from_slice(input_slice);
         input
     } else {
-        <Alloc as Allocator<u8>>::AllocatedMemory::default()
+        alloc_default::<u8, Alloc>()
     };
     let mut owned_input = Owned::new(input);
     let ret = CompressMulti(
@@ -335,7 +336,7 @@ where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {
     let mut range = get_range(thread_index, num_threads, input_and_params.0.len());
-    let mut mem = <Alloc as Allocator<u8>>::alloc_cell(
+    let mut mem = allocate::<u8, _>(
         &mut alloc,
         BrotliEncoderMaxCompressedSize(range.end - range.start),
     );

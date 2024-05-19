@@ -10,6 +10,7 @@ use super::histogram::{
     CostAccessors, HistogramAddHistogram, HistogramClear, HistogramSelfAddHistogram,
 };
 use super::util::FastLog2;
+use crate::enc::combined_alloc::{alloc_or_default, allocate};
 
 #[derive(Clone, Copy)]
 pub struct HistogramPair {
@@ -323,13 +324,8 @@ pub fn BrotliHistogramReindex<
     symbols: &mut [u32],
     length: usize,
 ) -> usize {
-    const kInvalidIndex: u32 = u32::MAX;
-
-    let mut new_index = if length != 0 {
-        <Alloc as Allocator<u32>>::alloc_cell(alloc, length)
-    } else {
-        <Alloc as Allocator<u32>>::AllocatedMemory::default()
-    };
+    static kInvalidIndex: u32 = u32::MAX;
+    let mut new_index = alloc_or_default::<u32, _>(alloc, length);
     let mut next_index: u32;
     let mut tmp: <Alloc as Allocator<HistogramType>>::AllocatedMemory;
     for i in 0usize..length {
@@ -342,11 +338,7 @@ pub fn BrotliHistogramReindex<
             next_index = next_index.wrapping_add(1);
         }
     }
-    tmp = if next_index != 0 {
-        <Alloc as Allocator<HistogramType>>::alloc_cell(alloc, next_index as usize)
-    } else {
-        <Alloc as Allocator<HistogramType>>::AllocatedMemory::default()
-    };
+    tmp = alloc_or_default::<HistogramType, _>(alloc, next_index as usize);
     next_index = 0u32;
     for i in 0usize..length {
         if new_index.slice()[(symbols[i] as usize)] == next_index {
@@ -380,23 +372,14 @@ pub fn BrotliClusterHistograms<
     out_size: &mut usize,
     histogram_symbols: &mut [u32],
 ) {
-    let mut cluster_size = if in_size != 0 {
-        <Alloc as Allocator<u32>>::alloc_cell(alloc, in_size)
-    } else {
-        <Alloc as Allocator<u32>>::AllocatedMemory::default()
-    };
-    let mut clusters = if in_size != 0 {
-        <Alloc as Allocator<u32>>::alloc_cell(alloc, in_size)
-    } else {
-        <Alloc as Allocator<u32>>::AllocatedMemory::default()
-    };
+    let mut cluster_size = alloc_or_default::<u32, Alloc>(alloc, in_size);
+    let mut clusters = alloc_or_default::<u32, Alloc>(alloc, in_size);
     let mut num_clusters: usize = 0usize;
     let max_input_histograms: usize = 64usize;
     let pairs_capacity: usize = max_input_histograms
         .wrapping_mul(max_input_histograms)
         .wrapping_div(2);
-    let mut pairs =
-        <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, pairs_capacity.wrapping_add(1));
+    let mut pairs = allocate::<HistogramPair, _>(alloc, pairs_capacity.wrapping_add(1));
     let mut i: usize;
     for i in 0usize..in_size {
         cluster_size.slice_mut()[i] = 1u32;
@@ -446,11 +429,7 @@ pub fn BrotliClusterHistograms<
                 while _new_size < max_num_pairs.wrapping_add(1) {
                     _new_size = _new_size.wrapping_mul(2);
                 }
-                new_array = if _new_size != 0 {
-                    <Alloc as Allocator<HistogramPair>>::alloc_cell(alloc, _new_size)
-                } else {
-                    <Alloc as Allocator<HistogramPair>>::AllocatedMemory::default()
-                };
+                new_array = alloc_or_default::<HistogramPair, _>(alloc, _new_size);
                 new_array.slice_mut()[..pairs_capacity]
                     .clone_from_slice(&pairs.slice()[..pairs_capacity]);
                 <Alloc as Allocator<HistogramPair>>::free_cell(

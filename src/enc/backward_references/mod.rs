@@ -16,6 +16,7 @@ use super::static_dict::{
     BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use super::util::{floatX, Log2FloorNonZero};
+use crate::enc::combined_alloc::allocate;
 
 static kBrotliMinWindowBits: i32 = 10;
 static kBrotliMaxWindowBits: i32 = 24;
@@ -1958,8 +1959,8 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
     fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
         let mut ret = BasicHasher::<H2Sub<Alloc>> {
             GetHasherCommon: self.GetHasherCommon.clone(),
-            buckets_: H2Sub::<Alloc> {
-                buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
+            buckets_: H2Sub {
+                buckets_: allocate::<u32, _>(m, self.buckets_.buckets_.len()),
             },
             h9_opts: self.h9_opts,
         };
@@ -1977,7 +1978,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
         let mut ret = BasicHasher::<H3Sub<Alloc>> {
             GetHasherCommon: self.GetHasherCommon.clone(),
             buckets_: H3Sub::<Alloc> {
-                buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
+                buckets_: allocate::<u32, _>(m, self.buckets_.buckets_.len()),
             },
             h9_opts: self.h9_opts,
         };
@@ -1995,7 +1996,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
         let mut ret = BasicHasher::<H4Sub<Alloc>> {
             GetHasherCommon: self.GetHasherCommon.clone(),
             buckets_: H4Sub::<Alloc> {
-                buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.buckets_.len()),
+                buckets_: allocate::<u32, _>(m, self.buckets_.buckets_.len()),
             },
             h9_opts: self.h9_opts,
         };
@@ -2013,7 +2014,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
         let mut ret = BasicHasher::<H54Sub<Alloc>> {
             GetHasherCommon: self.GetHasherCommon.clone(),
             buckets_: H54Sub::<Alloc> {
-                buckets_: <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.len()),
+                buckets_: allocate::<u32, _>(m, self.buckets_.len()),
             },
             h9_opts: self.h9_opts,
         };
@@ -2026,9 +2027,9 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
 }
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for H9<Alloc> {
     fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
-        let mut num = <Alloc as Allocator<u16>>::alloc_cell(m, self.num_.len());
+        let mut num = allocate::<u16, _>(m, self.num_.len());
         num.slice_mut().clone_from_slice(self.num_.slice());
-        let mut buckets = <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets_.len());
+        let mut buckets = allocate::<u32, _>(m, self.buckets_.len());
         buckets.slice_mut().clone_from_slice(self.buckets_.slice());
         H9::<Alloc> {
             num_: num,
@@ -2044,9 +2045,9 @@ impl<
     > CloneWithAlloc<Alloc> for AdvHasher<Special, Alloc>
 {
     fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
-        let mut num = <Alloc as Allocator<u16>>::alloc_cell(m, self.num.len());
+        let mut num = allocate::<u16, _>(m, self.num.len());
         num.slice_mut().clone_from_slice(self.num.slice());
-        let mut buckets = <Alloc as Allocator<u32>>::alloc_cell(m, self.buckets.len());
+        let mut buckets = allocate::<u32, _>(m, self.buckets.len());
         buckets.slice_mut().clone_from_slice(self.buckets.slice());
         AdvHasher::<Special, Alloc> {
             GetHasherCommon: self.GetHasherCommon.clone(),

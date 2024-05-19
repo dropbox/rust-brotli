@@ -6,6 +6,7 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::input_pair::{InputPair, InputReference};
 use super::interface;
 use super::util::FastLog2;
+use crate::enc::combined_alloc::alloc_if;
 // float32 doesn't have enough resolution for blocks of data more than 3.5 megs
 pub type floatY = f64;
 // the cost of storing a particular population of data including the approx
@@ -35,6 +36,7 @@ pub struct EntropyBucketPopulation<AllocU32: alloc::Allocator<u32>> {
     pub bucket_populations: AllocU32::AllocatedMemory,
     pub cached_bit_entropy: floatY,
 }
+
 impl<AllocU32: alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
     pub fn new(m32: &mut AllocU32) -> Self {
         let size = 256 * 256;
@@ -236,63 +238,63 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     pub fn disabled_placeholder(_m32: &mut AllocU32) -> Self {
         EntropyPyramid::<AllocU32> {
             pop: [
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
                     bucket_populations: AllocU32::AllocatedMemory::default(),
                 },
@@ -674,69 +676,37 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyTally<AllocU32> {
         let max_stride = max_stride_arg.unwrap_or(NUM_STRIDES as u8);
         EntropyTally::<AllocU32> {
             pop: [
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 0 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 0, m32, size),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 1 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 1, m32, size),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 2 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 2, m32, size),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 3 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 3, m32, size),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 4 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 4, m32, size),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 5 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 5, m32, size),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 6 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 6, m32, size),
                 },
-                EntropyBucketPopulation::<AllocU32> {
+                EntropyBucketPopulation {
                     cached_bit_entropy: 0.0,
-                    bucket_populations: if 7 < max_stride {
-                        m32.alloc_cell(size)
-                    } else {
-                        AllocU32::AllocatedMemory::default()
-                    },
+                    bucket_populations: alloc_if(max_stride > 7, m32, size),
                 },
             ],
         }

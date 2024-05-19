@@ -12,6 +12,7 @@ use super::{
     kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kInvalidMatch, AnyHasher,
     BrotliEncoderParams,
 };
+use crate::enc::combined_alloc::{alloc_if, alloc_or_default};
 use crate::enc::command::{
     combine_length_codes, BrotliDistanceParams, Command, GetCopyLengthCode, GetInsertLengthCode,
     PrefixEncodeCopyDistance,
@@ -209,16 +210,14 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
             num_bytes_: num_bytes,
             cost_cmd_: [0.0; 704],
             min_cost_cmd_: 0.0,
-            literal_costs_: if num_bytes.wrapping_add(2) > 0usize {
-                m.alloc_cell(num_bytes.wrapping_add(2))
-            } else {
-                AllocF::AllocatedMemory::default()
-            },
-            cost_dist_: if dist.alphabet_size > 0u32 {
-                m.alloc_cell(num_bytes.wrapping_add(dist.alphabet_size as usize))
-            } else {
-                AllocF::AllocatedMemory::default()
-            },
+            // FIXME: makes little sense to test if N+2 > 0 -- always true unless wrapping. Perhaps use allocate() instead?
+            literal_costs_: alloc_or_default::<floatX, _>(m, num_bytes + 2),
+            // FIXME: possible bug because allocation size is different from the condition
+            cost_dist_: alloc_if::<floatX, _>(
+                dist.alphabet_size > 0,
+                m,
+                num_bytes + dist.alphabet_size as usize,
+            ),
             distance_histogram_size: min(dist.alphabet_size, 544),
         }
     }
@@ -988,12 +987,8 @@ pub fn BrotliCreateZopfliBackwardReferences<
     Buckets: PartialEq<Buckets>,
 {
     let max_backward_limit: usize = (1usize << params.lgwin).wrapping_sub(16);
-    let mut nodes: <Alloc as Allocator<ZopfliNode>>::AllocatedMemory;
-    nodes = if num_bytes.wrapping_add(1) > 0usize {
-        <Alloc as Allocator<ZopfliNode>>::alloc_cell(alloc, num_bytes.wrapping_add(1))
-    } else {
-        <Alloc as Allocator<ZopfliNode>>::AllocatedMemory::default()
-    };
+    // FIXME: makes little sense to test if N+1 > 0 -- always true unless wrapping. Perhaps use allocate() instead?
+    let mut nodes = alloc_or_default::<ZopfliNode, _>(alloc, num_bytes + 1);
     if !(0i32 == 0) {
         return;
     }
@@ -1244,11 +1239,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
     Buckets: PartialEq<Buckets>,
 {
     let max_backward_limit: usize = (1usize << params.lgwin).wrapping_sub(16);
-    let mut num_matches: <Alloc as Allocator<u32>>::AllocatedMemory = if num_bytes > 0usize {
-        <Alloc as Allocator<u32>>::alloc_cell(alloc, num_bytes)
-    } else {
-        <Alloc as Allocator<u32>>::AllocatedMemory::default()
-    };
+    let mut num_matches = alloc_or_default::<u32, _>(alloc, num_bytes);
     let mut matches_size: usize = (4usize).wrapping_mul(num_bytes);
     let store_end: usize = if num_bytes >= STORE_LOOKAHEAD_H_10 {
         position
@@ -1264,12 +1255,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
     let mut orig_dist_cache = [0i32; 4];
 
     let mut model: ZopfliCostModel<Alloc>;
-    let mut nodes: <Alloc as Allocator<ZopfliNode>>::AllocatedMemory;
-    let mut matches: <Alloc as Allocator<u64>>::AllocatedMemory = if matches_size > 0usize {
-        <Alloc as Allocator<u64>>::alloc_cell(alloc, matches_size)
-    } else {
-        <Alloc as Allocator<u64>>::AllocatedMemory::default()
-    };
+    let mut matches = alloc_or_default::<u64, _>(alloc, matches_size);
     let gap: usize = 0usize;
     let shadow_matches: usize = 0usize;
     i = 0usize;
@@ -1287,15 +1273,10 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                     } else {
                         matches_size
                     };
-                    let mut new_array: <Alloc as Allocator<u64>>::AllocatedMemory;
                     while new_size < cur_match_pos.wrapping_add(128).wrapping_add(shadow_matches) {
                         new_size = new_size.wrapping_mul(2);
                     }
-                    new_array = if new_size > 0usize {
-                        <Alloc as Allocator<u64>>::alloc_cell(alloc, new_size)
-                    } else {
-                        <Alloc as Allocator<u64>>::AllocatedMemory::default()
-                    };
+                    let mut new_array = alloc_or_default::<u64, _>(alloc, new_size);
                     if matches_size != 0 {
                         for (dst, src) in new_array
                             .slice_mut()
@@ -1380,11 +1361,8 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
         *i = *j;
     }
     let orig_num_commands: usize = *num_commands;
-    nodes = if num_bytes.wrapping_add(1) > 0usize {
-        <Alloc as Allocator<ZopfliNode>>::alloc_cell(alloc, num_bytes.wrapping_add(1))
-    } else {
-        <Alloc as Allocator<ZopfliNode>>::AllocatedMemory::default()
-    };
+    // FIXME: makes little sense to test if N+1 > 0 -- always true unless wrapping. Perhaps use allocate() instead?
+    let mut nodes = alloc_or_default::<ZopfliNode, _>(alloc, num_bytes + 1);
     if !(0i32 == 0) {
         return;
     }
