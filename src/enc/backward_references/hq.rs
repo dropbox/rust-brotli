@@ -14,7 +14,7 @@ use super::{
 };
 use crate::enc::combined_alloc::{alloc_if, alloc_or_default};
 use crate::enc::command::{
-    BrotliDistanceParams, CombineLengthCodes, Command, GetCopyLengthCode, GetInsertLengthCode,
+    combine_length_codes, BrotliDistanceParams, Command, GetCopyLengthCode, GetInsertLengthCode,
     PrefixEncodeCopyDistance,
 };
 use crate::enc::constants::{kCopyExtra, kInsExtra};
@@ -736,7 +736,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             let dist_cost = base_cost + model.get_distance_cost(j);
             for l in best_len.wrapping_add(1)..=len {
                 let copycode: u16 = GetCopyLengthCode(l);
-                let cmdcode: u16 = CombineLengthCodes(inscode, copycode, (j == 0usize) as i32);
+                let cmdcode = combine_length_codes(inscode, copycode, j == 0);
                 let cost: floatX = (if cmdcode < 128 { base_cost } else { dist_cost })
                     + (GetCopyExtra(copycode) as floatX)
                     + model.get_command_cost(cmdcode);
@@ -789,7 +789,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                         len
                     };
                     let copycode: u16 = GetCopyLengthCode(len_code);
-                    let cmdcode: u16 = CombineLengthCodes(inscode, copycode, 0i32);
+                    let cmdcode = combine_length_codes(inscode, copycode, false);
                     let cost: floatX = dist_cost
                         + GetCopyExtra(copycode) as (floatX)
                         + model.get_command_cost(cmdcode);
@@ -1025,7 +1025,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
     }
 }
 
-fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cost: &mut [floatX]) {
+fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: bool, cost: &mut [floatX]) {
     let mut sum: u64 = 0;
     for i in 0..histogram_size {
         sum = sum.wrapping_add(u64::from(histogram[i]));
@@ -1033,7 +1033,7 @@ fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: i32, cos
     let log2sum = FastLog2(sum);
 
     let mut missing_symbol_sum = sum;
-    if literal_histogram == 0 {
+    if !literal_histogram {
         for i in 0..histogram_size {
             if histogram[i] == 0 {
                 missing_symbol_sum = missing_symbol_sum.wrapping_add(1);
@@ -1102,19 +1102,19 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
         SetCost(
             &histogram_literal[..],
             BROTLI_NUM_LITERAL_SYMBOLS,
-            1i32,
+            true,
             &mut cost_literal,
         );
         SetCost(
             &histogram_cmd[..],
             BROTLI_NUM_COMMAND_SYMBOLS,
-            0i32,
+            false,
             &mut cost_cmd[..],
         );
         SetCost(
             &histogram_dist[..],
             self.distance_histogram_size as usize,
-            0i32,
+            false,
             self.cost_dist_.slice_mut(),
         );
         for i in 0usize..704usize {

@@ -59,7 +59,7 @@ fn help_brotli_encoder_compress_single(
     output: &mut [u8],
     encoded_size: &mut usize,
     m8: BrotliSubclassableAllocator,
-) -> i32 {
+) -> bool {
     let mut encoder = BrotliEncoderStateStruct::new(m8);
     for (p, v) in param_keys.iter().zip(param_values.iter()) {
         encoder.set_parameter(*p, *v);
@@ -85,11 +85,7 @@ fn help_brotli_encoder_compress_single(
     }
     *encoded_size = total_out.unwrap();
 
-    if result {
-        1
-    } else {
-        0
-    }
+    result
 }
 
 #[no_mangle]
@@ -134,7 +130,8 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
                 output_slice,
                 &mut *encoded_size,
                 m8,
-            );
+            )
+            .into();
         }
         let null_opaques = [core::ptr::null_mut::<c_void>(); MAX_THREADS];
         let alloc_opaque = if alloc_opaque_per_thread.is_null() {

@@ -557,7 +557,7 @@ fn BlockSplitterFinishBlock<
     split: &mut BlockSplit<Alloc>,
     histograms: &mut [HistogramType],
     histograms_size: &mut usize,
-    is_final: i32,
+    is_final: bool,
 ) {
     xself.block_size_ = max(xself.block_size_, xself.min_block_size_);
     if xself.num_blocks_ == 0usize {
@@ -652,7 +652,7 @@ fn BlockSplitterFinishBlock<
             }
         }
     }
-    if is_final != 0 {
+    if is_final {
         *histograms_size = split.num_types;
         split.num_blocks = xself.num_blocks_;
     }
@@ -668,7 +668,7 @@ fn ContextBlockSplitterFinishBlock<
     split: &mut BlockSplit<Alloc>,
     histograms: &mut [HistogramLiteral],
     histograms_size: &mut usize,
-    is_final: i32,
+    is_final: bool,
 ) {
     let num_contexts: usize = xself.num_contexts_;
     if xself.block_size_ < xself.min_block_size_ {
@@ -788,7 +788,7 @@ fn ContextBlockSplitterFinishBlock<
         }
         m.free_cell(combined_histo);
     }
-    if is_final != 0 {
+    if is_final {
         *histograms_size = split.num_types.wrapping_mul(num_contexts);
         split.num_blocks = xself.num_blocks_;
     }
@@ -807,7 +807,7 @@ fn BlockSplitterAddSymbol<
     HistogramAddItem(&mut histograms[xself.curr_histogram_ix_], symbol);
     xself.block_size_ = xself.block_size_.wrapping_add(1);
     if xself.block_size_ == xself.target_block_size_ {
-        BlockSplitterFinishBlock(xself, split, histograms, histograms_size, 0i32);
+        BlockSplitterFinishBlock(xself, split, histograms, histograms_size, false);
     }
 }
 
@@ -828,7 +828,7 @@ fn ContextBlockSplitterAddSymbol<
     );
     xself.block_size_ = xself.block_size_.wrapping_add(1);
     if xself.block_size_ == xself.target_block_size_ {
-        ContextBlockSplitterFinishBlock(xself, m, split, histograms, histograms_size, 0i32);
+        ContextBlockSplitterFinishBlock(xself, m, split, histograms, histograms_size, false);
     }
 }
 
@@ -993,7 +993,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             &mut mb.literal_split,
             mb.literal_histograms.slice_mut(),
             &mut mb.literal_histograms_size,
-            1i32,
+            true,
         ),
         &mut LitBlocks::ctx(ref mut lit_blocks_ctx) => ContextBlockSplitterFinishBlock(
             lit_blocks_ctx,
@@ -1001,7 +1001,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             &mut mb.literal_split,
             mb.literal_histograms.slice_mut(),
             &mut mb.literal_histograms_size,
-            1i32,
+            true,
         ),
     }
     BlockSplitterFinishBlock(
@@ -1009,14 +1009,14 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
         &mut mb.command_split,
         mb.command_histograms.slice_mut(),
         &mut mb.command_histograms_size,
-        1i32,
+        true,
     );
     BlockSplitterFinishBlock(
         &mut dist_blocks,
         &mut mb.distance_split,
         mb.distance_histograms.slice_mut(),
         &mut mb.distance_histograms_size,
-        1i32,
+        true,
     );
     if num_contexts > 1 {
         MapStaticContexts(alloc, num_contexts, static_context_map, mb);

@@ -185,7 +185,7 @@ fn CreateCommands(
         );
         let ip_limit: usize = input_index.wrapping_add(len_limit);
         let mut next_hash: u32;
-        let mut goto_emit_remainder: i32 = 0i32;
+        let mut goto_emit_remainder = false;
         next_hash = Hash(
             &base_ip[{
                 ip_index = ip_index.wrapping_add(1);
@@ -194,7 +194,7 @@ fn CreateCommands(
             shift,
             min_match,
         );
-        while goto_emit_remainder == 0 {
+        while !goto_emit_remainder {
             let mut skip: u32 = 32u32;
             let mut next_ip: usize = ip_index;
             let mut candidate: usize = 0;
@@ -208,7 +208,7 @@ fn CreateCommands(
                             ip_index = next_ip;
                             next_ip = ip_index.wrapping_add(bytes_between_hash_lookups as usize);
                             if next_ip > ip_limit {
-                                goto_emit_remainder = 1i32;
+                                goto_emit_remainder = true;
                                 {
                                     break 'break3;
                                 }
@@ -233,12 +233,12 @@ fn CreateCommands(
                 }
                 if !(ip_index.wrapping_sub(candidate)
                     > (1usize << 18).wrapping_sub(16) as isize as usize
-                    && (goto_emit_remainder == 0))
+                    && !goto_emit_remainder)
                 {
                     break;
                 }
             }
-            if goto_emit_remainder != 0 {
+            if goto_emit_remainder {
                 break;
             }
             {
@@ -269,7 +269,7 @@ fn CreateCommands(
                 *num_commands += EmitCopyLenLastDistance(matched, commands);
                 next_emit = ip_index;
                 if ip_index >= ip_limit {
-                    goto_emit_remainder = 1i32;
+                    goto_emit_remainder = true;
                     {
                         break;
                     }
@@ -325,7 +325,7 @@ fn CreateCommands(
                 *num_commands += EmitDistance(last_distance as u32, commands);
                 next_emit = ip_index;
                 if ip_index >= ip_limit {
-                    goto_emit_remainder = 1i32;
+                    goto_emit_remainder = true;
                     {
                         break;
                     }
@@ -365,7 +365,7 @@ fn CreateCommands(
                     table[(cur_hash as usize)] = ip_index as i32;
                 }
             }
-            if goto_emit_remainder == 0 {
+            if !goto_emit_remainder {
                 next_hash = Hash(
                     &base_ip[{
                         ip_index = ip_index.wrapping_add(1);
@@ -418,9 +418,20 @@ pub fn BrotliWriteBits(n_bits: usize, bits: u64, pos: &mut usize, array: &mut [u
     BROTLI_UNALIGNED_STORE64(p, v);
     *pos = pos.wrapping_add(n_bits);
 }
+
+#[deprecated(note = "use store_meta_block_header instead")]
 pub fn BrotliStoreMetaBlockHeader(
     len: usize,
     is_uncompressed: i32,
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+) {
+    store_meta_block_header(len, is_uncompressed != 0, storage_ix, storage);
+}
+
+pub(crate) fn store_meta_block_header(
+    len: usize,
+    is_uncompressed: bool,
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
@@ -438,7 +449,7 @@ pub fn BrotliStoreMetaBlockHeader(
         storage_ix,
         storage,
     );
-    BrotliWriteBits(1usize, is_uncompressed as (u64), storage_ix, storage);
+    BrotliWriteBits(1, u64::from(is_uncompressed), storage_ix, storage);
 }
 
 pub fn memcpy<T: Sized + Clone>(
@@ -639,19 +650,20 @@ fn EmitUncompressedMetaBlock(
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
-    BrotliStoreMetaBlockHeader(input_size, 1i32, storage_ix, storage);
+    store_meta_block_header(input_size, true, storage_ix, storage);
     *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     memcpy(storage, (*storage_ix >> 3), input, 0, input_size);
     *storage_ix = storage_ix.wrapping_add(input_size << 3);
     storage[(*storage_ix >> 3)] = 0u8;
 }
+
 #[allow(unused_variables)]
 #[inline(always)]
-fn BrotliCompressFragmentTwoPassImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
+fn compress_fragment_two_pass_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     base_ip: &[u8],
     mut input_size: usize,
-    is_last: i32,
+    is_last: bool,
     command_buf: &mut [u32],
     literal_buf: &mut [u8],
     table: &mut [i32],
@@ -683,7 +695,7 @@ fn BrotliCompressFragmentTwoPassImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
             );
         }
         if ShouldCompress(&base_ip[input_index..], block_size, num_literals) {
-            BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
+            store_meta_block_header(block_size, false, storage_ix, storage);
             BrotliWriteBits(13usize, 0, storage_ix, storage);
             StoreCommands(
                 m,
@@ -707,7 +719,7 @@ macro_rules! compress_specialization {
             mht: &mut AllocHT,
             input: &[u8],
             input_size: usize,
-            is_last: i32,
+            is_last: bool,
             command_buf: &mut [u32],
             literal_buf: &mut [u8],
             table: &mut [i32],
@@ -715,7 +727,7 @@ macro_rules! compress_specialization {
             storage: &mut [u8],
         ) {
             let min_match = if $table_bits < 15 { 4 } else { 6 };
-            BrotliCompressFragmentTwoPassImpl(
+            compress_fragment_two_pass_impl(
                 mht,
                 input,
                 input_size,
@@ -753,11 +765,38 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
     *storage_ix = new_storage_ix;
 }
 
+#[deprecated(note = "use compress_fragment_two_pass instead")]
 pub fn BrotliCompressFragmentTwoPass<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input: &[u8],
     input_size: usize,
     is_last: i32,
+    command_buf: &mut [u32],
+    literal_buf: &mut [u8],
+    table: &mut [i32],
+    table_size: usize,
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+) {
+    compress_fragment_two_pass(
+        m,
+        input,
+        input_size,
+        is_last != 0,
+        command_buf,
+        literal_buf,
+        table,
+        table_size,
+        storage_ix,
+        storage,
+    )
+}
+
+pub(crate) fn compress_fragment_two_pass<AllocHT: alloc::Allocator<HuffmanTree>>(
+    m: &mut AllocHT,
+    input: &[u8],
+    input_size: usize,
+    is_last: bool,
     command_buf: &mut [u32],
     literal_buf: &mut [u8],
     table: &mut [i32],
@@ -901,7 +940,7 @@ pub fn BrotliCompressFragmentTwoPass<AllocHT: alloc::Allocator<HuffmanTree>>(
         RewindBitPosition(initial_storage_ix, storage_ix, storage);
         EmitUncompressedMetaBlock(input, input_size, storage_ix, storage);
     }
-    if is_last != 0 {
+    if is_last {
         BrotliWriteBits(1, 1, storage_ix, storage);
         BrotliWriteBits(1, 1, storage_ix, storage);
         *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;

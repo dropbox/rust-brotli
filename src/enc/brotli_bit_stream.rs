@@ -1001,9 +1001,6 @@ pub fn BrotliBuildAndStoreHuffmanTreeFast<AllocHT: alloc::Allocator<HuffmanTree>
         // FIXME: makes little sense to test if N+1 > 0 -- always true unless wrapping. Perhaps use allocate() instead?
         let mut tree = alloc_or_default::<HuffmanTree, _>(m, max_tree_size as usize);
         let mut count_limit: u32;
-        if !(0i32 == 0) {
-            return;
-        }
         count_limit = 1u32;
         'break11: loop {
             {
@@ -1332,7 +1329,7 @@ fn BrotliEncodeMlen(length: u32, bits: &mut u64, numbits: &mut u32, nibblesbits:
 }
 
 fn StoreCompressedMetaBlockHeader(
-    is_final_block: i32,
+    is_final_block: bool,
     length: usize,
     storage_ix: &mut usize,
     storage: &mut [u8],
@@ -1340,14 +1337,14 @@ fn StoreCompressedMetaBlockHeader(
     let mut lenbits: u64 = 0;
     let mut nlenbits: u32 = 0;
     let mut nibblesbits: u32 = 0;
-    BrotliWriteBits(1, is_final_block as (u64), storage_ix, storage);
-    if is_final_block != 0 {
+    BrotliWriteBits(1, is_final_block.into(), storage_ix, storage);
+    if is_final_block {
         BrotliWriteBits(1, 0, storage_ix, storage);
     }
     BrotliEncodeMlen(length as u32, &mut lenbits, &mut nlenbits, &mut nibblesbits);
     BrotliWriteBits(2, nibblesbits as u64, storage_ix, storage);
     BrotliWriteBits(nlenbits as u8, lenbits, storage_ix, storage);
-    if is_final_block == 0 {
+    if !is_final_block {
         BrotliWriteBits(1, 0, storage_ix, storage);
     }
 }
@@ -1549,7 +1546,7 @@ fn StoreBlockSwitch(
     code: &mut BlockSplitCode,
     block_len: u32,
     block_type: u8,
-    is_first_block: i32,
+    is_first_block: bool,
     storage_ix: &mut usize,
     storage: &mut [u8],
 ) {
@@ -1557,7 +1554,7 @@ fn StoreBlockSwitch(
     let mut lencode: usize = 0;
     let mut len_nextra: u32 = 0;
     let mut len_extra: u32 = 0;
-    if is_first_block == 0 {
+    if !is_first_block {
         BrotliWriteBits(
             code.type_depths[typecode] as u8,
             code.type_bits[typecode] as (u64),
@@ -1628,7 +1625,7 @@ fn BuildAndStoreBlockSplitCode(
             storage_ix,
             storage,
         );
-        StoreBlockSwitch(code, lengths[0], types[0], 1i32, storage_ix, storage);
+        StoreBlockSwitch(code, lengths[0], types[0], true, storage_ix, storage);
     }
 }
 
@@ -1944,7 +1941,7 @@ impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
                 &mut self.block_split_code_,
                 block_len,
                 block_type,
-                0i32,
+                false,
                 storage_ix,
                 storage,
             );
@@ -2041,7 +2038,7 @@ impl<Alloc: Allocator<u8> + Allocator<u16>> BlockEncoder<'_, Alloc> {
                 &mut self.block_split_code_,
                 block_len,
                 block_type,
-                0,
+                false,
                 storage_ix,
                 storage,
             );
@@ -2074,7 +2071,57 @@ pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
     storage[(*storage_ix >> 3)] = 0u8;
 }
 
+#[deprecated(note = "use store_meta_block instead")]
 pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
+    alloc: &mut Alloc,
+    input: &[u8],
+    start_pos: usize,
+    length: usize,
+    mask: usize,
+    prev_byte: u8,
+    prev_byte2: u8,
+    is_last: i32,
+    params: &BrotliEncoderParams,
+    literal_context_mode: ContextType,
+    distance_cache: &[i32; kNumDistanceCacheEntries],
+    commands: &[Command],
+    n_commands: usize,
+    mb: &mut MetaBlockSplit<Alloc>,
+    recoder_state: &mut RecoderState,
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+    callback: &mut Cb,
+) where
+    Cb: FnMut(
+        &mut interface::PredictionModeContextMap<InputReferenceMut>,
+        &mut [StaticCommand],
+        InputPair,
+        &mut Alloc,
+    ),
+{
+    store_meta_block(
+        alloc,
+        input,
+        start_pos,
+        length,
+        mask,
+        prev_byte,
+        prev_byte2,
+        is_last != 0,
+        params,
+        literal_context_mode,
+        distance_cache,
+        commands,
+        n_commands,
+        mb,
+        recoder_state,
+        storage_ix,
+        storage,
+        callback,
+    )
+}
+
+pub(crate) fn store_meta_block<Alloc: BrotliAlloc, Cb>(
     alloc: &mut Alloc,
     input: &[u8],
     start_pos: usize,
@@ -2082,7 +2129,7 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
     mask: usize,
     mut prev_byte: u8,
     mut prev_byte2: u8,
-    is_last: i32,
+    is_last: bool,
     params: &BrotliEncoderParams,
     literal_context_mode: ContextType,
     distance_cache: &[i32; kNumDistanceCacheEntries],
@@ -2297,7 +2344,7 @@ pub fn BrotliStoreMetaBlock<Alloc: BrotliAlloc, Cb>(
     distance_enc.cleanup(alloc);
     command_enc.cleanup(alloc);
     literal_enc.cleanup(alloc);
-    if is_last != 0 {
+    if is_last {
         JumpToByteBoundary(storage_ix, storage);
     }
 }
@@ -2389,6 +2436,8 @@ fn StoreDataWithHuffmanCodes(
 }
 
 fn nop<'a>(_data: &[interface::Command<InputReference>]) {}
+
+#[deprecated(note = "use store_meta_block_trivial instead")]
 pub fn BrotliStoreMetaBlockTrivial<Alloc: BrotliAlloc, Cb>(
     alloc: &mut Alloc,
     input: &[u8],
@@ -2396,6 +2445,47 @@ pub fn BrotliStoreMetaBlockTrivial<Alloc: BrotliAlloc, Cb>(
     length: usize,
     mask: usize,
     is_last: i32,
+    params: &BrotliEncoderParams,
+    distance_cache: &[i32; kNumDistanceCacheEntries],
+    commands: &[Command],
+    n_commands: usize,
+    recoder_state: &mut crate::enc::brotli_bit_stream::RecoderState,
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+    f: &mut Cb,
+) where
+    Cb: FnMut(
+        &mut interface::PredictionModeContextMap<InputReferenceMut>,
+        &mut [StaticCommand],
+        InputPair,
+        &mut Alloc,
+    ),
+{
+    store_meta_block_trivial(
+        alloc,
+        input,
+        start_pos,
+        length,
+        mask,
+        is_last != 0,
+        params,
+        distance_cache,
+        commands,
+        n_commands,
+        recoder_state,
+        storage_ix,
+        storage,
+        f,
+    )
+}
+
+pub(crate) fn store_meta_block_trivial<Alloc: BrotliAlloc, Cb>(
+    alloc: &mut Alloc,
+    input: &[u8],
+    start_pos: usize,
+    length: usize,
+    mask: usize,
+    is_last: bool,
     params: &BrotliEncoderParams,
     distance_cache: &[i32; kNumDistanceCacheEntries],
     commands: &[Command],
@@ -2502,7 +2592,7 @@ pub fn BrotliStoreMetaBlockTrivial<Alloc: BrotliAlloc, Cb>(
         storage_ix,
         storage,
     );
-    if is_last != 0 {
+    if is_last {
         JumpToByteBoundary(storage_ix, storage);
     }
 }
@@ -2618,6 +2708,7 @@ impl RecoderState {
     }
 }
 
+#[deprecated(note = "use store_meta_block_fast instead")]
 pub fn BrotliStoreMetaBlockFast<Cb, Alloc: BrotliAlloc>(
     m: &mut Alloc,
     input: &[u8],
@@ -2636,7 +2727,48 @@ pub fn BrotliStoreMetaBlockFast<Cb, Alloc: BrotliAlloc>(
 ) where
     Cb: FnMut(
         &mut interface::PredictionModeContextMap<InputReferenceMut>,
-        &mut [interface::StaticCommand],
+        &mut [StaticCommand],
+        InputPair,
+        &mut Alloc,
+    ),
+{
+    store_meta_block_fast(
+        m,
+        input,
+        start_pos,
+        length,
+        mask,
+        is_last != 0,
+        params,
+        dist_cache,
+        commands,
+        n_commands,
+        recoder_state,
+        storage_ix,
+        storage,
+        cb,
+    );
+}
+
+pub(crate) fn store_meta_block_fast<Cb, Alloc: BrotliAlloc>(
+    m: &mut Alloc,
+    input: &[u8],
+    start_pos: usize,
+    length: usize,
+    mask: usize,
+    is_last: bool,
+    params: &BrotliEncoderParams,
+    dist_cache: &[i32; kNumDistanceCacheEntries],
+    commands: &[Command],
+    n_commands: usize,
+    recoder_state: &mut RecoderState,
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+    cb: &mut Cb,
+) where
+    Cb: FnMut(
+        &mut interface::PredictionModeContextMap<InputReferenceMut>,
+        &mut [StaticCommand],
         InputPair,
         &mut Alloc,
     ),
@@ -2779,7 +2911,7 @@ pub fn BrotliStoreMetaBlockFast<Cb, Alloc: BrotliAlloc>(
             storage,
         );
     }
-    if is_last != 0 {
+    if is_last {
         JumpToByteBoundary(storage_ix, storage);
     }
 }
@@ -2814,6 +2946,8 @@ fn InputPairFromMaskedInput(
     }
     (&input[masked_pos..masked_pos + len], &[])
 }
+
+#[deprecated(note = "use store_uncompressed_meta_block instead")]
 pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>(
     alloc: &mut Alloc,
     is_final_block: i32,
@@ -2830,7 +2964,44 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>(
 ) where
     Cb: FnMut(
         &mut interface::PredictionModeContextMap<InputReferenceMut>,
-        &mut [interface::StaticCommand],
+        &mut [StaticCommand],
+        InputPair,
+        &mut Alloc,
+    ),
+{
+    store_uncompressed_meta_block(
+        alloc,
+        is_final_block != 0,
+        input,
+        position,
+        mask,
+        params,
+        len,
+        recoder_state,
+        storage_ix,
+        storage,
+        suppress_meta_block_logging,
+        cb,
+    )
+}
+
+pub(crate) fn store_uncompressed_meta_block<Cb, Alloc: BrotliAlloc>(
+    alloc: &mut Alloc,
+    is_final_block: bool,
+    input: &[u8],
+    position: usize,
+    mask: usize,
+    params: &BrotliEncoderParams,
+    len: usize,
+    recoder_state: &mut RecoderState,
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+    suppress_meta_block_logging: bool,
+    cb: &mut Cb,
+) where
+    Cb: FnMut(
+        &mut interface::PredictionModeContextMap<InputReferenceMut>,
+        &mut [StaticCommand],
         InputPair,
         &mut Alloc,
     ),
@@ -2867,7 +3038,7 @@ pub fn BrotliStoreUncompressedMetaBlock<Cb, Alloc: BrotliAlloc>(
             cb,
         );
     }
-    if is_final_block != 0 {
+    if is_final_block {
         BrotliWriteBits(1u8, 1u64, storage_ix, storage);
         BrotliWriteBits(1u8, 1u64, storage_ix, storage);
         JumpToByteBoundary(storage_ix, storage);

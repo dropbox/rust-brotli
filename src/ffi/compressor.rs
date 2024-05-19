@@ -231,7 +231,7 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
         let empty_m8 =
             BrotliSubclassableAllocator::new(SubclassableAllocator::new(allocators.clone()));
 
-        ::enc::encode::BrotliEncoderCompress(
+        crate::enc::encode::encoder_compress(
             empty_m8,
             &mut m8,
             quality,
@@ -243,6 +243,7 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
             encoded_buf,
             &mut |_a, _b, _c, _d| (),
         )
+        .into()
     })
     .unwrap_or_else(|panic_err| {
         error_print(panic_err);

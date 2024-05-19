@@ -63,7 +63,7 @@ fn BrotliCompareAndPushToQueue<
     pairs: &mut [HistogramPair],
     num_pairs: &mut usize,
 ) {
-    let mut is_good_pair: i32 = 0i32;
+    let mut is_good_pair = false;
     let mut p: HistogramPair = HistogramPair {
         idx1: 0,
         idx2: 0,
@@ -86,10 +86,10 @@ fn BrotliCompareAndPushToQueue<
         p.cost_diff -= (out[idx2 as usize]).bit_cost();
         if (out[idx1 as usize]).total_count() == 0usize {
             p.cost_combo = (out[idx2 as usize]).bit_cost();
-            is_good_pair = 1i32;
+            is_good_pair = true;
         } else if (out[idx2 as usize]).total_count() == 0usize {
             p.cost_combo = (out[idx1 as usize]).bit_cost();
-            is_good_pair = 1i32;
+            is_good_pair = true;
         } else {
             let threshold: super::util::floatX = if *num_pairs == 0usize {
                 1e38 as super::util::floatX
@@ -102,10 +102,10 @@ fn BrotliCompareAndPushToQueue<
             let cost_combo: super::util::floatX = BrotliPopulationCost(&combo, scratch_space);
             if cost_combo < threshold - p.cost_diff {
                 p.cost_combo = cost_combo;
-                is_good_pair = 1i32;
+                is_good_pair = true;
             }
         }
-        if is_good_pair != 0 {
+        if is_good_pair {
             p.cost_diff += p.cost_combo;
             if *num_pairs > 0usize && HistogramPairIsLess(&pairs[0], &p) {
                 /* Replace the top of the queue if needed. */
@@ -324,7 +324,7 @@ pub fn BrotliHistogramReindex<
     symbols: &mut [u32],
     length: usize,
 ) -> usize {
-    static kInvalidIndex: u32 = !(0u32);
+    static kInvalidIndex: u32 = u32::MAX;
     let mut new_index = alloc_or_default::<u32, _>(alloc, length);
     let mut next_index: u32;
     let mut tmp: <Alloc as Allocator<HistogramType>>::AllocatedMemory;

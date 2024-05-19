@@ -7,11 +7,11 @@ use core::cmp::min;
 // examples: IsMatch checks p1[4] and p1[5]
 // the hoops that BuildAndStoreCommandPrefixCode goes through are subtly different in order
 // (eg memcpy x+24, y instead of +24, y+40
-// pretty much assume compress_fragment_two_pass is a trap! except for BrotliStoreMetaBlockHeader
+// pretty much assume compress_fragment_two_pass is a trap! except for store_meta_block_header
 use super::super::alloc;
 use super::backward_references::kHashMul32;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
-use super::compress_fragment_two_pass::{memcpy, BrotliStoreMetaBlockHeader, BrotliWriteBits};
+use super::compress_fragment_two_pass::{memcpy, BrotliWriteBits};
 use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
 };
@@ -19,6 +19,7 @@ use super::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
 };
 use super::util::{FastLog2, Log2FloorNonZero};
+use crate::enc::compress_fragment_two_pass::store_meta_block_header;
 //use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 
 //static kHashMul32: u32 = 0x1e35a7bdu32;
@@ -242,7 +243,7 @@ fn EmitUncompressedMetaBlock(
     storage: &mut [u8],
 ) {
     RewindBitPosition(storage_ix_start, storage_ix, storage);
-    BrotliStoreMetaBlockHeader(len, 1i32, storage_ix, storage);
+    store_meta_block_header(len, true, storage_ix, storage);
     *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;
     memcpy(storage, (*storage_ix >> 3), begin, 0, len);
     *storage_ix = storage_ix.wrapping_add(len << 3);
@@ -651,11 +652,11 @@ fn BuildAndStoreCommandPrefixCode(
 }
 
 #[allow(unused_assignments)]
-fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
+fn compress_fragment_fast_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input_ptr: &[u8],
     mut input_size: usize,
-    is_last: i32,
+    is_last: bool,
     table: &mut [i32],
     table_bits: usize,
     cmd_depth: &mut [u8],
@@ -683,7 +684,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
     let mut input_index = 0usize;
     let mut last_distance: i32;
     let shift: usize = (64u32 as usize).wrapping_sub(table_bits);
-    BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
+    store_meta_block_header(block_size, false, storage_ix, storage);
     BrotliWriteBits(13usize, 0, storage_ix, storage);
     literal_ratio = BuildAndStoreLiteralPrefixCode(
         m,
@@ -707,7 +708,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
         storage_ix,
         storage,
     );
-    let mut code_block_selection: CodeBlockState = CodeBlockState::EMIT_COMMANDS;
+    let mut code_block_selection = CodeBlockState::EMIT_COMMANDS;
     'continue_to_next_block: loop {
         let mut ip_index: usize;
         if code_block_selection == CodeBlockState::EMIT_COMMANDS {
@@ -733,155 +734,146 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                     let mut next_ip = ip_index;
                     let mut candidate = 0usize;
                     loop {
-                        {
-                            'break15: loop {
-                                {
-                                    let hash = next_hash;
-                                    let bytes_between_hash_lookups: u32 = skip >> 5;
-                                    skip = skip.wrapping_add(1);
-                                    ip_index = next_ip;
-                                    next_ip =
-                                        ip_index.wrapping_add(bytes_between_hash_lookups as usize);
-                                    if next_ip > ip_limit {
-                                        code_block_selection = CodeBlockState::EMIT_REMAINDER;
-                                        break 'break15;
-                                    }
-                                    next_hash = Hash(&input_ptr[next_ip..], shift);
-                                    candidate = ip_index.wrapping_sub(last_distance as usize);
-                                    if IsMatch(&input_ptr[ip_index..], &input_ptr[candidate..])
-                                        && candidate < ip_index
-                                    {
-                                        table[hash as usize] =
-                                            ip_index.wrapping_sub(base_ip) as i32;
-                                        break 'break15;
-                                    }
-                                    candidate = base_ip.wrapping_add(table[hash as usize] as usize);
-                                    table[hash as usize] = ip_index.wrapping_sub(base_ip) as i32;
-                                }
-                                if IsMatch(&input_ptr[ip_index..], &input_ptr[candidate..]) {
-                                    break;
-                                }
+                        loop {
+                            let hash = next_hash;
+                            let bytes_between_hash_lookups: u32 = skip >> 5;
+                            skip = skip.wrapping_add(1);
+                            ip_index = next_ip;
+                            next_ip = ip_index.wrapping_add(bytes_between_hash_lookups as usize);
+                            if next_ip > ip_limit {
+                                code_block_selection = CodeBlockState::EMIT_REMAINDER;
+                                break;
+                            }
+                            next_hash = Hash(&input_ptr[next_ip..], shift);
+                            candidate = ip_index.wrapping_sub(last_distance as usize);
+                            if IsMatch(&input_ptr[ip_index..], &input_ptr[candidate..])
+                                && candidate < ip_index
+                            {
+                                table[hash as usize] = ip_index.wrapping_sub(base_ip) as i32;
+                                break;
+                            }
+                            candidate = base_ip.wrapping_add(table[hash as usize] as usize);
+                            table[hash as usize] = ip_index.wrapping_sub(base_ip) as i32;
+                            if IsMatch(&input_ptr[ip_index..], &input_ptr[candidate..]) {
+                                break;
                             }
                         }
                         if !(ip_index.wrapping_sub(candidate)
                             > (1usize << 18).wrapping_sub(16) as isize as usize
-                            && (code_block_selection as i32
-                                == CodeBlockState::EMIT_COMMANDS as i32))
+                            && code_block_selection == CodeBlockState::EMIT_COMMANDS)
                         {
                             break;
                         }
                     }
-                    if code_block_selection as i32 != CodeBlockState::EMIT_COMMANDS as i32 {
+                    if code_block_selection != CodeBlockState::EMIT_COMMANDS {
                         break;
                     }
-                    {
-                        let base: usize = ip_index;
-                        let matched = (5usize).wrapping_add(FindMatchLengthWithLimit(
-                            &input_ptr[candidate + 5..],
-                            &input_ptr[ip_index + 5..],
-                            ip_end.wrapping_sub(ip_index).wrapping_sub(5),
-                        ));
-                        let distance = base.wrapping_sub(candidate) as i32;
-                        let insert = base.wrapping_sub(next_emit);
-                        ip_index = ip_index.wrapping_add(matched);
-                        if insert < 6210 {
-                            EmitInsertLen(
-                                insert,
-                                cmd_depth,
-                                cmd_bits,
-                                &mut cmd_histo[..],
-                                storage_ix,
-                                storage,
-                            );
-                        } else if ShouldUseUncompressedMode(
-                            (next_emit as isize) - (metablock_start as isize),
+
+                    let base: usize = ip_index;
+                    let matched = (5usize).wrapping_add(FindMatchLengthWithLimit(
+                        &input_ptr[candidate + 5..],
+                        &input_ptr[ip_index + 5..],
+                        ip_end.wrapping_sub(ip_index).wrapping_sub(5),
+                    ));
+                    let distance = base.wrapping_sub(candidate) as i32;
+                    let insert = base.wrapping_sub(next_emit);
+                    ip_index = ip_index.wrapping_add(matched);
+                    if insert < 6210 {
+                        EmitInsertLen(
                             insert,
-                            literal_ratio,
-                        ) {
-                            EmitUncompressedMetaBlock(
-                                &input_ptr[metablock_start..],
-                                base.wrapping_sub(metablock_start),
-                                mlen_storage_ix.wrapping_sub(3),
-                                storage_ix,
-                                storage,
-                            );
-                            input_size = input_size.wrapping_sub(base.wrapping_sub(input_index));
-                            input_index = base;
-                            next_emit = input_index;
-                            code_block_selection = CodeBlockState::NEXT_BLOCK;
-                            continue 'continue_to_next_block;
-                        } else {
-                            EmitLongInsertLen(
-                                insert,
-                                cmd_depth,
-                                cmd_bits,
-                                &mut cmd_histo[..],
-                                storage_ix,
-                                storage,
-                            );
-                        }
-                        EmitLiterals(
-                            &input_ptr[next_emit..],
-                            insert,
-                            &mut lit_depth[..],
-                            &mut lit_bits[..],
-                            storage_ix,
-                            storage,
-                        );
-                        if distance == last_distance {
-                            BrotliWriteBits(
-                                cmd_depth[64] as usize,
-                                cmd_bits[64] as u64,
-                                storage_ix,
-                                storage,
-                            );
-                            {
-                                let _rhs = 1u32;
-                                let _lhs = &mut cmd_histo[64];
-                                *_lhs = (*_lhs).wrapping_add(_rhs);
-                            }
-                        } else {
-                            EmitDistance(
-                                distance as usize,
-                                cmd_depth,
-                                cmd_bits,
-                                &mut cmd_histo[..],
-                                storage_ix,
-                                storage,
-                            );
-                            last_distance = distance;
-                        }
-                        EmitCopyLenLastDistance(
-                            matched,
                             cmd_depth,
                             cmd_bits,
                             &mut cmd_histo[..],
                             storage_ix,
                             storage,
                         );
-                        next_emit = ip_index;
-                        if ip_index >= ip_limit {
-                            code_block_selection = CodeBlockState::EMIT_REMAINDER;
-                            continue 'continue_to_next_block;
-                        }
-                        {
-                            assert!(ip_index >= 3);
-                            let input_bytes: u64 =
-                                BROTLI_UNALIGNED_LOAD64(&input_ptr[ip_index - 3..]);
-                            let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0i32, shift);
-                            let cur_hash: u32 = HashBytesAtOffset(input_bytes, 3i32, shift);
-                            table[prev_hash as usize] =
-                                ip_index.wrapping_sub(base_ip).wrapping_sub(3) as i32;
-                            prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift);
-                            table[prev_hash as usize] =
-                                ip_index.wrapping_sub(base_ip).wrapping_sub(2) as i32;
-                            prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift);
-                            table[prev_hash as usize] =
-                                ip_index.wrapping_sub(base_ip).wrapping_sub(1) as i32;
-                            candidate = base_ip.wrapping_add(table[cur_hash as usize] as usize);
-                            table[cur_hash as usize] = ip_index.wrapping_sub(base_ip) as i32;
-                        }
+                    } else if ShouldUseUncompressedMode(
+                        (next_emit as isize) - (metablock_start as isize),
+                        insert,
+                        literal_ratio,
+                    ) {
+                        EmitUncompressedMetaBlock(
+                            &input_ptr[metablock_start..],
+                            base.wrapping_sub(metablock_start),
+                            mlen_storage_ix.wrapping_sub(3),
+                            storage_ix,
+                            storage,
+                        );
+                        input_size = input_size.wrapping_sub(base.wrapping_sub(input_index));
+                        input_index = base;
+                        next_emit = input_index;
+                        code_block_selection = CodeBlockState::NEXT_BLOCK;
+                        continue 'continue_to_next_block;
+                    } else {
+                        EmitLongInsertLen(
+                            insert,
+                            cmd_depth,
+                            cmd_bits,
+                            &mut cmd_histo[..],
+                            storage_ix,
+                            storage,
+                        );
                     }
+                    EmitLiterals(
+                        &input_ptr[next_emit..],
+                        insert,
+                        &mut lit_depth[..],
+                        &mut lit_bits[..],
+                        storage_ix,
+                        storage,
+                    );
+                    if distance == last_distance {
+                        BrotliWriteBits(
+                            cmd_depth[64] as usize,
+                            cmd_bits[64] as u64,
+                            storage_ix,
+                            storage,
+                        );
+                        {
+                            let _rhs = 1u32;
+                            let _lhs = &mut cmd_histo[64];
+                            *_lhs = (*_lhs).wrapping_add(_rhs);
+                        }
+                    } else {
+                        EmitDistance(
+                            distance as usize,
+                            cmd_depth,
+                            cmd_bits,
+                            &mut cmd_histo[..],
+                            storage_ix,
+                            storage,
+                        );
+                        last_distance = distance;
+                    }
+                    EmitCopyLenLastDistance(
+                        matched,
+                        cmd_depth,
+                        cmd_bits,
+                        &mut cmd_histo[..],
+                        storage_ix,
+                        storage,
+                    );
+                    next_emit = ip_index;
+                    if ip_index >= ip_limit {
+                        code_block_selection = CodeBlockState::EMIT_REMAINDER;
+                        continue 'continue_to_next_block;
+                    }
+
+                    assert!(ip_index >= 3);
+                    let input_bytes: u64 = BROTLI_UNALIGNED_LOAD64(&input_ptr[ip_index - 3..]);
+                    let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0, shift);
+                    let cur_hash: u32 = HashBytesAtOffset(input_bytes, 3, shift);
+                    table[prev_hash as usize] =
+                        ip_index.wrapping_sub(base_ip).wrapping_sub(3) as i32;
+                    prev_hash = HashBytesAtOffset(input_bytes, 1, shift);
+                    table[prev_hash as usize] =
+                        ip_index.wrapping_sub(base_ip).wrapping_sub(2) as i32;
+                    prev_hash = HashBytesAtOffset(input_bytes, 2, shift);
+                    table[prev_hash as usize] =
+                        ip_index.wrapping_sub(base_ip).wrapping_sub(1) as i32;
+                    candidate = base_ip.wrapping_add(table[cur_hash as usize] as usize);
+                    table[cur_hash as usize] = ip_index.wrapping_sub(base_ip) as i32;
+
                     while IsMatch(&input_ptr[ip_index..], &input_ptr[candidate..]) {
                         let base: usize = ip_index;
                         let matched: usize = (5usize).wrapping_add(FindMatchLengthWithLimit(
@@ -915,28 +907,26 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
                             code_block_selection = CodeBlockState::EMIT_REMAINDER;
                             continue 'continue_to_next_block;
                         }
-                        {
-                            assert!(ip_index >= 3);
-                            let input_bytes: u64 =
-                                BROTLI_UNALIGNED_LOAD64(&input_ptr[ip_index - 3..]);
-                            let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0i32, shift);
-                            let cur_hash: u32 = HashBytesAtOffset(input_bytes, 3i32, shift);
-                            table[prev_hash as usize] =
-                                ip_index.wrapping_sub(base_ip).wrapping_sub(3) as i32;
-                            prev_hash = HashBytesAtOffset(input_bytes, 1i32, shift);
-                            table[prev_hash as usize] =
-                                ip_index.wrapping_sub(base_ip).wrapping_sub(2) as i32;
-                            prev_hash = HashBytesAtOffset(input_bytes, 2i32, shift);
-                            table[prev_hash as usize] =
-                                ip_index.wrapping_sub(base_ip).wrapping_sub(1) as i32;
-                            candidate = base_ip.wrapping_add(table[cur_hash as usize] as usize);
-                            table[cur_hash as usize] = ip_index.wrapping_sub(base_ip) as i32;
-                        }
+
+                        assert!(ip_index >= 3);
+                        let input_bytes: u64 = BROTLI_UNALIGNED_LOAD64(&input_ptr[ip_index - 3..]);
+                        let mut prev_hash: u32 = HashBytesAtOffset(input_bytes, 0, shift);
+                        let cur_hash: u32 = HashBytesAtOffset(input_bytes, 3, shift);
+                        table[prev_hash as usize] =
+                            ip_index.wrapping_sub(base_ip).wrapping_sub(3) as i32;
+                        prev_hash = HashBytesAtOffset(input_bytes, 1, shift);
+                        table[prev_hash as usize] =
+                            ip_index.wrapping_sub(base_ip).wrapping_sub(2) as i32;
+                        prev_hash = HashBytesAtOffset(input_bytes, 2, shift);
+                        table[prev_hash as usize] =
+                            ip_index.wrapping_sub(base_ip).wrapping_sub(1) as i32;
+                        candidate = base_ip.wrapping_add(table[cur_hash as usize] as usize);
+                        table[cur_hash as usize] = ip_index.wrapping_sub(base_ip) as i32;
                     }
-                    if code_block_selection as i32 == CodeBlockState::EMIT_REMAINDER as i32 {
+                    if code_block_selection == CodeBlockState::EMIT_REMAINDER {
                         break;
                     }
-                    if code_block_selection as i32 == CodeBlockState::EMIT_COMMANDS as i32 {
+                    if code_block_selection == CodeBlockState::EMIT_COMMANDS {
                         next_hash = Hash(
                             &input_ptr[{
                                 ip_index = ip_index.wrapping_add(1);
@@ -949,7 +939,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
             }
             code_block_selection = CodeBlockState::EMIT_REMAINDER;
             continue 'continue_to_next_block;
-        } else if code_block_selection as i32 == CodeBlockState::EMIT_REMAINDER as i32 {
+        } else if code_block_selection == CodeBlockState::EMIT_REMAINDER {
             input_index = input_index.wrapping_add(block_size);
             input_size = input_size.wrapping_sub(block_size);
             block_size = min(input_size, kMergeBlockSize);
@@ -1020,13 +1010,13 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
             next_emit = ip_end;
             code_block_selection = CodeBlockState::NEXT_BLOCK;
             continue 'continue_to_next_block;
-        } else if code_block_selection as i32 == CodeBlockState::NEXT_BLOCK as i32 {
+        } else if code_block_selection == CodeBlockState::NEXT_BLOCK {
             if input_size > 0 {
                 metablock_start = input_index;
                 block_size = min(input_size, kFirstBlockSize);
                 total_block_size = block_size;
                 mlen_storage_ix = storage_ix.wrapping_add(3);
-                BrotliStoreMetaBlockHeader(block_size, 0i32, storage_ix, storage);
+                store_meta_block_header(block_size, false, storage_ix, storage);
                 BrotliWriteBits(13usize, 0, storage_ix, storage);
                 literal_ratio = BuildAndStoreLiteralPrefixCode(
                     m,
@@ -1050,7 +1040,7 @@ fn BrotliCompressFragmentFastImpl<AllocHT: alloc::Allocator<HuffmanTree>>(
             break;
         }
     }
-    if is_last == 0 {
+    if !is_last {
         cmd_code[0] = 0;
         *cmd_code_numbits = 0;
         BuildAndStoreCommandPrefixCode(
@@ -1069,7 +1059,7 @@ macro_rules! compress_specialization {
             mht: &mut AllocHT,
             input: &[u8],
             input_size: usize,
-            is_last: i32,
+            is_last: bool,
             table: &mut [i32],
             cmd_depth: &mut [u8],
             cmd_bits: &mut [u16],
@@ -1078,7 +1068,7 @@ macro_rules! compress_specialization {
             storage_ix: &mut usize,
             storage: &mut [u8],
         ) {
-            BrotliCompressFragmentFastImpl(
+            compress_fragment_fast_impl(
                 mht,
                 input,
                 input_size,
@@ -1101,11 +1091,42 @@ compress_specialization!(11, BrotliCompressFragmentFastImpl11);
 compress_specialization!(13, BrotliCompressFragmentFastImpl13);
 compress_specialization!(15, BrotliCompressFragmentFastImpl15);
 
+#[deprecated(note = "use BrotliCompressFragmentFastImpl9 instead")]
 pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input: &[u8],
     input_size: usize,
     is_last: i32,
+    table: &mut [i32],
+    table_size: usize,
+    cmd_depth: &mut [u8],
+    cmd_bits: &mut [u16],
+    cmd_code_numbits: &mut usize,
+    cmd_code: &mut [u8],
+    storage_ix: &mut usize,
+    storage: &mut [u8],
+) {
+    compress_fragment_fast(
+        m,
+        input,
+        input_size,
+        is_last != 0,
+        table,
+        table_size,
+        cmd_depth,
+        cmd_bits,
+        cmd_code_numbits,
+        cmd_code,
+        storage_ix,
+        storage,
+    )
+}
+
+pub(crate) fn compress_fragment_fast<AllocHT: alloc::Allocator<HuffmanTree>>(
+    m: &mut AllocHT,
+    input: &[u8],
+    input_size: usize,
+    is_last: bool,
     table: &mut [i32],
     table_size: usize,
     cmd_depth: &mut [u8],
@@ -1186,7 +1207,7 @@ pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
     if storage_ix.wrapping_sub(initial_storage_ix) > (31usize).wrapping_add(input_size << 3) {
         EmitUncompressedMetaBlock(input, input_size, initial_storage_ix, storage_ix, storage);
     }
-    if is_last != 0 {
+    if is_last {
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         BrotliWriteBits(1usize, 1, storage_ix, storage);
         *storage_ix = storage_ix.wrapping_add(7u32 as usize) & !7u32 as usize;

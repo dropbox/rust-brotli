@@ -69,6 +69,7 @@ pub struct BrotliEncoderParams {
     pub lgblock: i32,
     /// how big the source file is (or 0 if no hint is provided)
     pub size_hint: usize,
+    // FIXME: this should be bool
     /// avoid serializing out priors for literal sections in the favor of decode speed
     pub disable_literal_context_modeling: i32,
     pub hasher: BrotliHasherParams,
@@ -121,6 +122,7 @@ pub enum HowPrepared {
 #[derive(Clone, PartialEq)]
 pub struct Struct1 {
     pub params: BrotliHasherParams,
+    /// FIXME: this should be bool
     pub is_prepared_: i32,
     pub dict_num_lookups: usize,
     pub dict_num_matches: usize,
@@ -202,7 +204,7 @@ pub fn StitchToPreviousBlockInternal<T: AnyHasher>(
 pub fn StoreLookaheadThenStore<T: AnyHasher>(hasher: &mut T, size: usize, dict: &[u8]) {
     let overlap = hasher.StoreLookahead().wrapping_sub(1);
     if size > overlap {
-        hasher.BulkStoreRange(dict, !(0), 0, size - overlap);
+        hasher.BulkStoreRange(dict, usize::MAX, 0, size - overlap);
     }
 }
 
@@ -1089,7 +1091,8 @@ impl AdvHashSpecialization for H6Sub {
     }
     #[inline(always)]
     fn set_hash_mask(&mut self, params_hash_len: i32) {
-        self.hash_mask = !(0u32 as (u64)) >> (64i32 - 8i32 * params_hash_len);
+        // FIXME: this assumes params_hash_len is fairly small, or else it may result in a negative shift value
+        self.hash_mask = u64::MAX >> (64i32 - 8i32 * params_hash_len);
     }
     #[inline(always)]
     fn get_k_hash_mul(&self) -> u64 {
@@ -1201,7 +1204,7 @@ impl<
     ) -> usize {
         const REG_SIZE: usize = 32usize;
         let lookahead = self.specialization.StoreLookahead();
-        if mask == !0 && ix_end > ix_start + REG_SIZE && lookahead == 4 {
+        if mask == usize::MAX && ix_end > ix_start + REG_SIZE && lookahead == 4 {
             const lookahead4: usize = 4;
             assert_eq!(lookahead4, lookahead);
             let mut data64 = [0u8; REG_SIZE + lookahead4 - 1];
@@ -1287,7 +1290,7 @@ impl<
     ) -> usize {
         const REG_SIZE: usize = 32usize;
         let lookahead = self.specialization.StoreLookahead();
-        if mask == !0 && ix_end > ix_start + REG_SIZE && lookahead == 4 {
+        if mask == usize::MAX && ix_end > ix_start + REG_SIZE && lookahead == 4 {
             const lookahead4: usize = 4;
             assert_eq!(lookahead4, lookahead);
             let mut data64 = [0u8; REG_SIZE + lookahead4];
@@ -1369,7 +1372,7 @@ impl<
     ) -> usize {
         const REG_SIZE: usize = 32usize;
         let lookahead = self.specialization.StoreLookahead();
-        if mask == !0 && ix_end > ix_start + REG_SIZE && lookahead == 4 {
+        if mask == usize::MAX && ix_end > ix_start + REG_SIZE && lookahead == 4 {
             const lookahead4: usize = 4;
             assert_eq!(lookahead4, lookahead);
             let mut data64 = [0u8; REG_SIZE + lookahead4];

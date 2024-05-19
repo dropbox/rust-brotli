@@ -2,8 +2,8 @@
 
 use core::cmp::min;
 
-use super::utf8_util::BrotliIsMostlyUTF8;
 use super::util::FastLog2f64;
+use crate::enc::utf8_util::is_mostly_utf8;
 
 static kMinUTF8Ratio: super::util::floatX = 0.75 as super::util::floatX;
 
@@ -184,7 +184,7 @@ pub fn BrotliEstimateBitCostsForLiterals(
     data: &[u8],
     cost: &mut [super::util::floatX],
 ) {
-    if BrotliIsMostlyUTF8(data, pos, mask, len, kMinUTF8Ratio) != 0 {
+    if is_mostly_utf8(data, pos, mask, len, kMinUTF8Ratio) {
         EstimateBitCostsForLiteralsUTF8(pos, len, mask, data, cost);
     } else {
         let mut histogram: [usize; 256] = [0; 256];
