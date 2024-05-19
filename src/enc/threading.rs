@@ -462,7 +462,7 @@ where
                 if range.end - range.start > overlap {
                     hasher.BulkStoreRange(
                         input_and_params.0.slice(),
-                        !(0),
+                        usize::MAX,
                         if range.start > overlap {
                             range.start - overlap
                         } else {

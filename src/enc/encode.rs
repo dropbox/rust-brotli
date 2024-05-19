@@ -650,7 +650,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         SanitizeParams(&mut self.params);
         self.params.lgblock = ComputeLgBlock(&mut self.params);
         ChooseDistanceParams(&mut self.params);
-        self.remaining_metadata_bytes_ = !(0u32);
+        self.remaining_metadata_bytes_ = u32::MAX;
         RingBufferSetup(&mut self.params, &mut self.ringbuffer_);
         {
             let mut lgwin: i32 = self.params.lgwin;
@@ -745,9 +745,6 @@ fn RingBufferWrite<AllocU8: alloc::Allocator<u8>>(
     }
     if rb.cur_size_ < rb.total_size_ {
         RingBufferInitBuffer(m, rb.total_size_, rb);
-        if !(0i32 == 0) {
-            return;
-        }
         rb.data_mo.slice_mut()[rb
             .buffer_index
             .wrapping_add(rb.size_ as usize)
@@ -2629,7 +2626,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                 }
             } else {
                 if self.remaining_metadata_bytes_ == 0u32 {
-                    self.remaining_metadata_bytes_ = !(0u32);
+                    self.remaining_metadata_bytes_ = u32::MAX;
                     self.stream_state_ = BrotliEncoderStreamState::BROTLI_STREAM_PROCESSING;
                     {
                         break;
@@ -2886,7 +2883,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         if !self.ensure_initialized() {
             return false;
         }
-        if self.remaining_metadata_bytes_ != !(0u32) {
+        if self.remaining_metadata_bytes_ != u32::MAX {
             if *available_in != self.remaining_metadata_bytes_ as usize {
                 return false;
             }

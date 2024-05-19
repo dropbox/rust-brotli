@@ -323,7 +323,8 @@ pub fn BrotliHistogramReindex<
     symbols: &mut [u32],
     length: usize,
 ) -> usize {
-    static kInvalidIndex: u32 = !(0u32);
+    const kInvalidIndex: u32 = u32::MAX;
+
     let mut new_index = if length != 0 {
         <Alloc as Allocator<u32>>::alloc_cell(alloc, length)
     } else {

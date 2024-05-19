@@ -71,31 +71,35 @@ fn test_bulk_store_range() {
     assert!(hasher_d == hasher_c);
     hasher_a.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        !0usize,
+        usize::MAX,
         15,
         RANDOM_THEN_UNICODE.len() - 8,
     );
     hasher_c.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        !0usize,
+        usize::MAX,
         15,
         RANDOM_THEN_UNICODE.len() - 8,
     );
     for i in 15..RANDOM_THEN_UNICODE.len() - 8 {
-        hasher_b.Store(RANDOM_THEN_UNICODE, !0usize, i);
+        hasher_b.Store(RANDOM_THEN_UNICODE, usize::MAX, i);
     }
     hasher_d.StoreRange(
         RANDOM_THEN_UNICODE,
-        !0usize,
+        usize::MAX,
         15,
         RANDOM_THEN_UNICODE.len() - 8,
     );
-    let ret_start =
-        hasher_e.StoreRangeOptBatch(RANDOM_THEN_UNICODE, !0, 15, RANDOM_THEN_UNICODE.len() - 8);
+    let ret_start = hasher_e.StoreRangeOptBatch(
+        RANDOM_THEN_UNICODE,
+        usize::MAX,
+        15,
+        RANDOM_THEN_UNICODE.len() - 8,
+    );
     assert!(ret_start > 15);
     hasher_e.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        !0,
+        usize::MAX,
         ret_start,
         RANDOM_THEN_UNICODE.len() - 8,
     );
@@ -261,35 +265,35 @@ fn test_bulk_store_range_pow2() {
     assert!(hasher_d == hasher_c);
     hasher_a.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        !0usize,
+        usize::MAX,
         RANDOM_THEN_UNICODE.len() - 64 - 3,
         RANDOM_THEN_UNICODE.len() - 3,
     );
     hasher_c.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        !0usize,
+        usize::MAX,
         RANDOM_THEN_UNICODE.len() - 64 - 3,
         RANDOM_THEN_UNICODE.len() - 3,
     );
     for i in RANDOM_THEN_UNICODE.len() - 64 - 3..RANDOM_THEN_UNICODE.len() - 3 {
-        hasher_b.Store(RANDOM_THEN_UNICODE, !0usize, i);
+        hasher_b.Store(RANDOM_THEN_UNICODE, usize::MAX, i);
     }
     hasher_d.StoreRange(
         RANDOM_THEN_UNICODE,
-        !0usize,
+        usize::MAX,
         RANDOM_THEN_UNICODE.len() - 64 - 3,
         RANDOM_THEN_UNICODE.len() - 3,
     );
     let ret_start = hasher_e.StoreRangeOptBatch(
         RANDOM_THEN_UNICODE,
-        !0,
+        usize::MAX,
         RANDOM_THEN_UNICODE.len() - 64 - 3,
         RANDOM_THEN_UNICODE.len() - 3,
     );
     assert!(ret_start > 15);
     hasher_e.BulkStoreRange(
         RANDOM_THEN_UNICODE,
-        !0,
+        usize::MAX,
         ret_start,
         RANDOM_THEN_UNICODE.len() - 3,
     );
