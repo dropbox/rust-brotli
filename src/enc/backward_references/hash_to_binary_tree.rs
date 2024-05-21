@@ -14,7 +14,7 @@ use crate::enc::static_dict::{
 };
 use crate::enc::util::floatX;
 
-pub const kInfinity: floatX = 1.7e38 as floatX;
+pub const kInfinity: floatX = 1.7e38;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Union1 {

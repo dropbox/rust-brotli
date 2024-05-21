@@ -20,7 +20,7 @@ use super::static_dict::{
 };
 use super::util::{FastLog2, Log2FloorNonZero};
 use crate::enc::compress_fragment_two_pass::store_meta_block_header;
-//use super::super::alloc::{SliceWrapper, SliceWrapperMut};
+use crate::enc::floatX;
 
 //static kHashMul32: u32 = 0x1e35a7bdu32;
 
@@ -551,12 +551,9 @@ fn ShouldMergeBlock(data: &[u8], len: usize, depths: &[u8]) -> bool {
             .wrapping_add(kSampleRate)
             .wrapping_sub(1)
             .wrapping_div(kSampleRate);
-        let mut r: super::util::floatX = (FastLog2(total as u64) + 0.5 as super::util::floatX)
-            * total as (super::util::floatX)
-            + 200i32 as (super::util::floatX);
+        let mut r: floatX = (FastLog2(total as u64) + 0.5) * (total as floatX) + 200.0;
         for i in 0usize..256usize {
-            r -= histo[i] as (super::util::floatX)
-                * (depths[i] as (super::util::floatX) + FastLog2(histo[i] as u64));
+            r -= (histo[i] as floatX) * ((depths[i] as floatX) + FastLog2(histo[i] as u64));
         }
         r >= 0.0
     }

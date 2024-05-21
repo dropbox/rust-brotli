@@ -95,12 +95,13 @@ pub fn FastPow2(v: floatX) -> floatX {
     x *= x;
     x *= x;
     x *= x;
-    return (1 << round_down) as floatX * x;
+
+    (1 << round_down) as floatX * x
 }
 
 #[inline(always)]
 pub fn Log2FloorNonZero(v: u64) -> u32 {
-    (63u32 ^ v.leading_zeros())
+    63u32 ^ v.leading_zeros()
 }
 
 #[cfg(test)]

@@ -8,7 +8,9 @@ use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::block_split::BlockSplit;
 use super::command::Command;
 use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
+use super::util::floatX;
 use super::vectorization::Mem256i;
+
 static kBrotliMinWindowBits: i32 = 10i32;
 
 static kBrotliMaxWindowBits: i32 = 24i32;
@@ -17,7 +19,7 @@ static kBrotliMaxWindowBits: i32 = 24i32;
 pub struct HistogramLiteral {
     pub data_: [u32; 256],
     pub total_count_: usize,
-    pub bit_cost_: super::util::floatX,
+    pub bit_cost_: floatX,
 }
 impl Clone for HistogramLiteral {
     #[inline(always)]
@@ -35,7 +37,7 @@ impl Default for HistogramLiteral {
         HistogramLiteral {
             data_: [0; 256],
             total_count_: 0,
-            bit_cost_: 3.402e+38 as super::util::floatX,
+            bit_cost_: 3.402e+38,
         }
     }
 }
@@ -43,7 +45,7 @@ impl Default for HistogramLiteral {
 pub struct HistogramCommand {
     pub data_: [u32; 704],
     pub total_count_: usize,
-    pub bit_cost_: super::util::floatX,
+    pub bit_cost_: floatX,
 }
 impl Clone for HistogramCommand {
     #[inline(always)]
@@ -61,7 +63,7 @@ impl Default for HistogramCommand {
         HistogramCommand {
             data_: [0; 704],
             total_count_: 0,
-            bit_cost_: 3.402e+38 as super::util::floatX,
+            bit_cost_: 3.402e+38,
         }
     }
 }
@@ -75,7 +77,7 @@ const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS: usize = 520;
 pub struct HistogramDistance {
     pub data_: [u32; BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS],
     pub total_count_: usize,
-    pub bit_cost_: super::util::floatX,
+    pub bit_cost_: floatX,
 }
 impl Clone for HistogramDistance {
     fn clone(&self) -> HistogramDistance {
@@ -91,7 +93,7 @@ impl Default for HistogramDistance {
         HistogramDistance {
             data_: [0; BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS],
             total_count_: 0,
-            bit_cost_: 3.402e+38 as super::util::floatX,
+            bit_cost_: 3.402e+38,
         }
     }
 }
@@ -100,8 +102,8 @@ pub trait CostAccessors {
     type i32vec: Sized + SliceWrapper<Mem256i> + SliceWrapperMut<Mem256i>;
     fn make_nnz_storage() -> Self::i32vec;
     fn total_count(&self) -> usize;
-    fn bit_cost(&self) -> super::util::floatX;
-    fn set_bit_cost(&mut self, cost: super::util::floatX);
+    fn bit_cost(&self) -> floatX;
+    fn set_bit_cost(&mut self, cost: floatX);
     fn set_total_count(&mut self, count: usize);
 }
 impl SliceWrapper<u32> for HistogramLiteral {
@@ -214,11 +216,11 @@ impl CostAccessors for HistogramLiteral {
         self.total_count_
     }
     #[inline(always)]
-    fn bit_cost(&self) -> super::util::floatX {
+    fn bit_cost(&self) -> floatX {
         self.bit_cost_
     }
     #[inline(always)]
-    fn set_bit_cost(&mut self, data: super::util::floatX) {
+    fn set_bit_cost(&mut self, data: floatX) {
         self.bit_cost_ = data;
     }
     #[inline(always)]
@@ -256,11 +258,11 @@ impl CostAccessors for HistogramCommand {
         self.total_count_
     }
     #[inline(always)]
-    fn bit_cost(&self) -> super::util::floatX {
+    fn bit_cost(&self) -> floatX {
         self.bit_cost_
     }
     #[inline(always)]
-    fn set_bit_cost(&mut self, data: super::util::floatX) {
+    fn set_bit_cost(&mut self, data: floatX) {
         self.bit_cost_ = data;
     }
     #[inline(always)]
@@ -299,11 +301,11 @@ impl CostAccessors for HistogramDistance {
         self.total_count_
     }
     #[inline(always)]
-    fn bit_cost(&self) -> super::util::floatX {
+    fn bit_cost(&self) -> floatX {
         self.bit_cost_
     }
     #[inline(always)]
-    fn set_bit_cost(&mut self, data: super::util::floatX) {
+    fn set_bit_cost(&mut self, data: floatX) {
         self.bit_cost_ = data;
     }
     #[inline(always)]
@@ -399,7 +401,7 @@ pub fn HistogramClear<HistogramType: SliceWrapperMut<u32> + CostAccessors>(
         *data_elem = 0;
     }
     xself.set_total_count(0);
-    xself.set_bit_cost(3.402e+38 as super::util::floatX);
+    xself.set_bit_cost(3.402e+38);
 }
 pub fn ClearHistograms<HistogramType: SliceWrapperMut<u32> + CostAccessors>(
     array: &mut [HistogramType],

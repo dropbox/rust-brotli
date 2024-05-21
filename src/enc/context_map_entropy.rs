@@ -314,7 +314,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
                 [Weights::new(); NUM_SPEEDS_TO_TRY],
                 [Weights::new(); NUM_SPEEDS_TO_TRY],
             ],
-            singleton_costs: [[[0.0 as floatX; NUM_SPEEDS_TO_TRY]; 2]; 3],
+            singleton_costs: [[[0.0; NUM_SPEEDS_TO_TRY]; 2]; 3],
         };
         if cdf_detect {
             init_cdfs(ret.cm_priors.slice_mut());
@@ -410,7 +410,7 @@ impl<'a, Alloc: alloc::Allocator<u16> + alloc::Allocator<u32> + alloc::Allocator
         } else {
             1
         };
-        let mut ret = [0.0 as floatX; 2];
+        let mut ret = [0.0; 2];
         for high in 0..2 {
             ret[high] = min_cost_value(&self.singleton_costs[cost_type_index][high][..]);
         }

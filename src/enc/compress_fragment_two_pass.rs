@@ -14,9 +14,7 @@ use super::static_dict::{
     FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
     BROTLI_UNALIGNED_STORE64,
 };
-use super::util::Log2FloorNonZero;
-//use super::super::alloc::{SliceWrapper, SliceWrapperMut};
-
+use super::util::{floatX, Log2FloorNonZero};
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 
 // returns number of commands inserted
@@ -389,14 +387,12 @@ fn CreateCommands(
 }
 
 fn ShouldCompress(input: &[u8], input_size: usize, num_literals: usize) -> bool {
-    let corpus_size: super::util::floatX = input_size as (super::util::floatX);
-    if num_literals as (super::util::floatX) < 0.98 as super::util::floatX * corpus_size {
+    let corpus_size = input_size as floatX;
+    if (num_literals as floatX) < 0.98 * corpus_size {
         true
     } else {
         let mut literal_histo: [u32; 256] = [0; 256];
-        let max_total_bit_cost: super::util::floatX =
-            corpus_size * 8i32 as (super::util::floatX) * 0.98 as super::util::floatX
-                / 43i32 as (super::util::floatX);
+        let max_total_bit_cost: floatX = corpus_size * 8.0 * 0.98 / 43.0;
         let mut i: usize;
         i = 0usize;
         while i < input_size {

@@ -25,6 +25,7 @@ use super::histogram::{
     HistogramLiteral,
 };
 use crate::enc::combined_alloc::{alloc_default, allocate};
+use crate::enc::floatX;
 
 pub fn BrotliInitDistanceParams(params: &mut BrotliEncoderParams, npostfix: u32, ndirect: u32) {
     let dist_params = &mut params.dist;
@@ -310,7 +311,7 @@ pub struct BlockSplitter<'a, HistogramType:SliceWrapper<u32>+SliceWrapperMut<u32
 pub struct BlockSplitter {
     pub alphabet_size_: usize,
     pub min_block_size_: usize,
-    pub split_threshold_: super::util::floatX,
+    pub split_threshold_: floatX,
     pub num_blocks_: usize,
     //  pub split_: &'a mut BlockSplit<AllocU8, AllocU32>,
     //  pub histograms_: AllocHT::AllocatedMemory, // FIXME: pull this one out at the end
@@ -319,7 +320,7 @@ pub struct BlockSplitter {
     pub block_size_: usize,
     pub curr_histogram_ix_: usize,
     pub last_histogram_ix_: [usize; 2],
-    pub last_entropy_: [super::util::floatX; 2],
+    pub last_entropy_: [floatX; 2],
     pub merge_last_count_: usize,
 }
 
@@ -328,7 +329,7 @@ pub struct ContextBlockSplitter {
     pub num_contexts_: usize,
     pub max_block_types_: usize,
     pub min_block_size_: usize,
-    pub split_threshold_: super::util::floatX,
+    pub split_threshold_: floatX,
     pub num_blocks_: usize,
     //  pub split_: &'a mut BlockSplit<AllocU8, AllocU32>,
     //  pub histograms_: AllocHL::AllocatedMemory,
@@ -337,7 +338,7 @@ pub struct ContextBlockSplitter {
     pub block_size_: usize,
     pub curr_histogram_ix_: usize,
     pub last_histogram_ix_: [usize; 2],
-    pub last_entropy_: [super::util::floatX; 2 * BROTLI_MAX_STATIC_CONTEXTS],
+    pub last_entropy_: [floatX; 2 * BROTLI_MAX_STATIC_CONTEXTS],
     pub merge_last_count_: usize,
 }
 
@@ -351,7 +352,7 @@ enum LitBlocks {
 pub struct BlockSplitterCommand {
   pub alphabet_size_: usize,
   pub min_block_size_: usize,
-  pub split_threshold_: super::util::floatX,
+  pub split_threshold_: floatX,
   pub num_blocks_: usize,
   pub split_: *mut BlockSplit,
   pub histograms_: *mut HistogramCommand,
@@ -360,7 +361,7 @@ pub struct BlockSplitterCommand {
   pub block_size_: usize,
   pub curr_histogram_ix_: usize,
   pub last_histogram_ix_: [usize; 2],
-  pub last_entropy_: [super::util::floatX; 2],
+  pub last_entropy_: [floatX; 2],
   pub merge_last_count_: usize,
 }
 
@@ -369,7 +370,7 @@ pub struct BlockSplitterCommand {
 pub struct BlockSplitterDistance {
   pub alphabet_size_: usize,
   pub min_block_size_: usize,
-  pub split_threshold_: super::util::floatX,
+  pub split_threshold_: floatX,
   pub num_blocks_: usize,
   pub split_: *mut BlockSplit,
   pub histograms_: *mut HistogramDistance,
@@ -378,7 +379,7 @@ pub struct BlockSplitterDistance {
   pub block_size_: usize,
   pub curr_histogram_ix_: usize,
   pub last_histogram_ix_: [usize; 2],
-  pub last_entropy_: [super::util::floatX; 2],
+  pub last_entropy_: [floatX; 2],
   pub merge_last_count_: usize,
 }
 */
@@ -390,7 +391,7 @@ fn InitBlockSplitter<
     alloc: &mut Alloc,
     alphabet_size: usize,
     min_block_size: usize,
-    split_threshold: super::util::floatX,
+    split_threshold: floatX,
     num_symbols: usize,
     split: &mut BlockSplit<Alloc>,
     histograms: &mut <Alloc as Allocator<HistogramType>>::AllocatedMemory,
@@ -399,7 +400,7 @@ fn InitBlockSplitter<
     let max_num_blocks: usize = num_symbols.wrapping_div(min_block_size).wrapping_add(1);
     let max_num_types: usize = min(max_num_blocks, (256i32 + 1i32) as usize);
     let mut xself = BlockSplitter {
-        last_entropy_: [0.0 as super::util::floatX; 2],
+        last_entropy_: [0.0; 2],
         alphabet_size_: alphabet_size,
         min_block_size_: min_block_size,
         split_threshold_: split_threshold,
@@ -472,7 +473,7 @@ fn InitContextBlockSplitter<
     alphabet_size: usize,
     num_contexts: usize,
     min_block_size: usize,
-    split_threshold: super::util::floatX,
+    split_threshold: floatX,
     num_symbols: usize,
     split: &mut BlockSplit<Alloc>,
     histograms: &mut <Alloc as Allocator<HistogramLiteral>>::AllocatedMemory,
@@ -494,7 +495,7 @@ fn InitContextBlockSplitter<
         curr_histogram_ix_: 0usize,
         merge_last_count_: 0usize,
         last_histogram_ix_: [0; 2],
-        last_entropy_: [0.0 as super::util::floatX; 2 * BROTLI_MAX_STATIC_CONTEXTS],
+        last_entropy_: [0.0; 2 * BROTLI_MAX_STATIC_CONTEXTS],
     };
     let max_num_types: usize = min(max_num_blocks, xself.max_block_types_.wrapping_add(1));
     {
@@ -573,7 +574,7 @@ fn BlockSplitterFinishBlock<
         }
         xself.block_size_ = 0usize;
     } else if xself.block_size_ > 0usize {
-        let entropy: super::util::floatX = BitsEntropy(
+        let entropy = BitsEntropy(
             (histograms[xself.curr_histogram_ix_]).slice(),
             xself.alphabet_size_,
         );
@@ -582,10 +583,8 @@ fn BlockSplitterFinishBlock<
             histograms[xself.curr_histogram_ix_].clone(),
         ];
 
-        let mut combined_entropy: [super::util::floatX; 2] =
-            [0.0 as super::util::floatX, 0.0 as super::util::floatX];
-        let mut diff: [super::util::floatX; 2] =
-            [0.0 as super::util::floatX, 0.0 as super::util::floatX];
+        let mut combined_entropy: [floatX; 2] = [0.0, 0.0];
+        let mut diff: [floatX; 2] = [0.0, 0.0];
         for j in 0..2 {
             let last_histogram_ix: usize = xself.last_histogram_ix_[j];
             HistogramAddHistogram(&mut combined_histo[j], &histograms[last_histogram_ix]);
@@ -614,7 +613,7 @@ fn BlockSplitterFinishBlock<
             xself.block_size_ = 0usize;
             xself.merge_last_count_ = 0usize;
             xself.target_block_size_ = xself.min_block_size_;
-        } else if diff[1] < diff[0] - 20.0 as super::util::floatX {
+        } else if diff[1] < diff[0] - 20.0 {
             split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
             split.types.slice_mut()[xself.num_blocks_] =
                 split.types.slice()[xself.num_blocks_.wrapping_sub(2)]; //FIXME: investigate copy?
@@ -692,10 +691,10 @@ fn ContextBlockSplitterFinishBlock<
         }
         xself.block_size_ = 0usize;
     } else if xself.block_size_ > 0usize {
-        let mut entropy = [0.0 as super::util::floatX; BROTLI_MAX_STATIC_CONTEXTS];
+        let mut entropy = [0.0; BROTLI_MAX_STATIC_CONTEXTS];
         let mut combined_histo = m.alloc_cell(2 * num_contexts);
-        let mut combined_entropy = [0.0 as super::util::floatX; 2 * BROTLI_MAX_STATIC_CONTEXTS];
-        let mut diff: [super::util::floatX; 2] = [0.0 as super::util::floatX; 2];
+        let mut combined_entropy = [0.0; 2 * BROTLI_MAX_STATIC_CONTEXTS];
+        let mut diff = [0.0; 2];
         for i in 0usize..num_contexts {
             let curr_histo_ix: usize = xself.curr_histogram_ix_.wrapping_add(i);
             let mut j: usize;
@@ -741,7 +740,7 @@ fn ContextBlockSplitterFinishBlock<
             xself.block_size_ = 0usize;
             xself.merge_last_count_ = 0usize;
             xself.target_block_size_ = xself.min_block_size_;
-        } else if diff[1] < diff[0] - 20.0 as super::util::floatX {
+        } else if diff[1] < diff[0] - 20.0 {
             split.lengths.slice_mut()[xself.num_blocks_] = xself.block_size_ as u32;
             let nbm2 = split.types.slice()[xself.num_blocks_.wrapping_sub(2)];
             split.types.slice_mut()[xself.num_blocks_] = nbm2;
@@ -890,7 +889,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             alloc,
             256usize,
             512usize,
-            400.0 as super::util::floatX,
+            400.0,
             num_literals,
             &mut mb.literal_split,
             &mut mb.literal_histograms,
@@ -902,7 +901,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
             256usize,
             num_contexts,
             512usize,
-            400.0 as super::util::floatX,
+            400.0,
             num_literals,
             &mut mb.literal_split,
             &mut mb.literal_histograms,
@@ -913,7 +912,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
         alloc,
         704usize,
         1024usize,
-        500.0 as super::util::floatX,
+        500.0,
         n_commands,
         &mut mb.command_split,
         &mut mb.command_histograms,
@@ -923,7 +922,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
         alloc,
         64usize,
         512usize,
-        100.0 as super::util::floatX,
+        100.0,
         n_commands,
         &mut mb.distance_split,
         &mut mb.distance_histograms,
