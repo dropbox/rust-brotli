@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use core::cmp::min;
 
 //caution: lots of the functions look structurally the same as two_pass,

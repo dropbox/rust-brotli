@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core::cmp::min;
 

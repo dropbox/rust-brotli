@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper};
 use crate::enc::combined_alloc::alloc_default;
