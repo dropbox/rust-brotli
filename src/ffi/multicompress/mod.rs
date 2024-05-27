@@ -1,11 +1,12 @@
 #![cfg(not(feature = "safe"))]
+mod test;
+
+use alloc::SliceWrapper;
+use core::cmp::min;
 #[cfg(feature = "std")]
 use std::io::Write;
 #[cfg(feature = "std")]
-use std::{io, panic, thread};
-mod test;
-use alloc::SliceWrapper;
-use core::cmp::min;
+use std::panic;
 
 use brotli_decompressor::ffi::alloc_util::SubclassableAllocator;
 use brotli_decompressor::ffi::interface::{
@@ -426,13 +427,13 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
 #[cfg(all(feature = "std", not(feature = "pass-through-ffi-panics")))]
 fn catch_panic_wstate<F: FnOnce() -> *mut BrotliEncoderWorkPool + panic::UnwindSafe>(
     f: F,
-) -> thread::Result<*mut BrotliEncoderWorkPool> {
+) -> std::thread::Result<*mut BrotliEncoderWorkPool> {
     panic::catch_unwind(f)
 }
 
 #[cfg(all(feature = "std", not(feature = "pass-through-ffi-panics")))]
 fn error_print<Err: core::fmt::Debug>(err: Err) {
-    let _ign = writeln!(&mut io::stderr(), "Internal Error {:?}", err);
+    let _ign = writeln!(&mut std::io::stderr(), "Internal Error {:?}", err);
 }
 
 #[cfg(any(not(feature = "std"), feature = "pass-through-ffi-panics"))]

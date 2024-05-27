@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use alloc::Allocator;
 use core;
 use core::cmp::{max, min};
@@ -1102,11 +1100,6 @@ fn HasherReset<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(t: &mut Uni
         &mut UnionHasher::Uninit => {}
         _ => (t.GetHasherCommon()).is_prepared_ = 0i32,
     };
-}
-fn GetHasherCommon<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
-    t: &mut UnionHasher<Alloc>,
-) -> &mut Struct1 {
-    t.GetHasherCommon()
 }
 
 #[deprecated(note = "Use hasher_setup instead")]

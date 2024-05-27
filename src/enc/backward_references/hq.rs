@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
 use core::cmp::{max, min};
@@ -9,8 +7,7 @@ use super::hash_to_binary_tree::{
     Union1, ZopfliNode, H10,
 };
 use super::{
-    kDistanceCacheIndex, kDistanceCacheOffset, kHashMul32, kInvalidMatch, AnyHasher,
-    BrotliEncoderParams,
+    kDistanceCacheIndex, kDistanceCacheOffset, kInvalidMatch, AnyHasher, BrotliEncoderParams,
 };
 use crate::enc::combined_alloc::{alloc_if, alloc_or_default};
 use crate::enc::command::{
@@ -22,7 +19,6 @@ use crate::enc::encode;
 use crate::enc::literal_cost::BrotliEstimateBitCostsForLiterals;
 use crate::enc::static_dict::{
     BrotliDictionary, BrotliFindAllStaticDictionaryMatches, FindMatchLengthWithLimit,
-    BROTLI_UNALIGNED_LOAD32,
 };
 use crate::enc::util::{floatX, FastLog2, FastLog2f64};
 
@@ -254,12 +250,6 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
         }
         self.min_cost_cmd_ = FastLog2(11) as (floatX);
     }
-}
-
-#[inline(always)]
-fn HashBytesH10(data: &[u8]) -> u32 {
-    let h: u32 = BROTLI_UNALIGNED_LOAD32(data).wrapping_mul(kHashMul32);
-    h >> (32i32 - 17i32)
 }
 
 pub fn StitchToPreviousBlockH10<

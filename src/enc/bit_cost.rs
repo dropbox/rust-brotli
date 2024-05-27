@@ -1,4 +1,5 @@
 use alloc::SliceWrapperMut;
+
 use core::cmp::{max, min};
 
 use super::super::alloc::SliceWrapper;
@@ -6,6 +7,7 @@ use super::histogram::CostAccessors;
 use super::util::{FastLog2, FastLog2u16};
 use super::vectorization::Mem256i;
 use crate::enc::floatX;
+
 
 const BROTLI_REPEAT_ZERO_CODE_LENGTH: usize = 17;
 const BROTLI_CODE_LENGTH_CODES: usize = BROTLI_REPEAT_ZERO_CODE_LENGTH + 1;

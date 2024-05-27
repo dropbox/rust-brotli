@@ -234,102 +234,6 @@ pub fn ComplexFindMatchLengthWithLimit(mut s1: &[u8], mut s2: &[u8], mut limit: 
     matched + (limit & 7usize) // made it through the loop
 }
 
-mod test {
-    #[allow(unused)]
-    fn construct_situation(seed: &[u8], mut output: &mut [u8], limit: usize, matchfor: usize) {
-        output[..].clone_from_slice(seed);
-        if matchfor >= limit {
-            return;
-        }
-        output[matchfor] = output[matchfor].wrapping_add((matchfor as u8 % 253u8).wrapping_add(1));
-    }
-    #[test]
-    fn test_find_match_length() {
-        let mut a = [91u8; 600000];
-        let mut b = [0u8; 600000];
-        for i in 1..a.len() {
-            a[i] = (a[i - 1] % 19u8).wrapping_add(17);
-        }
-        construct_situation(&a[..], &mut b[..], a.len(), 0);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 0);
-        construct_situation(&a[..], &mut b[..], a.len(), 1);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 1);
-        construct_situation(&a[..], &mut b[..], a.len(), 10);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 10);
-        construct_situation(&a[..], &mut b[..], a.len(), 9);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 9);
-        construct_situation(&a[..], &mut b[..], a.len(), 7);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 7);
-        construct_situation(&a[..], &mut b[..], a.len(), 8);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 8);
-        construct_situation(&a[..], &mut b[..], a.len(), 48);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 48);
-        construct_situation(&a[..], &mut b[..], a.len(), 49);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 49);
-        construct_situation(&a[..], &mut b[..], a.len(), 63);
-        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 63);
-        construct_situation(&a[..], &mut b[..], a.len(), 222);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            222
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 1590);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            1590
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 12590);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            12590
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 52592);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            52592
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 152592);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            152592
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 252591);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            252591
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 131072);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            131072
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 131073);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            131073
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 131072 + 64 + 32 + 16 + 8);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            131072 + 64 + 32 + 16 + 8
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 272144 + 64 + 32 + 16 + 8 + 1);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            272144 + 64 + 32 + 16 + 8 + 1
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), 2 * 272144 + 64 + 32 + 16 + 8);
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            2 * 272144 + 64 + 32 + 16 + 8
-        );
-        construct_situation(&a[..], &mut b[..], a.len(), a.len());
-        assert_eq!(
-            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
-            a.len()
-        );
-    }
-}
 #[allow(unused)]
 pub fn slowFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
     for (index, it) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
@@ -1397,4 +1301,102 @@ pub fn BrotliFindAllStaticDictionaryMatches(
         }
     }
     has_found_match
+}
+
+#[cfg(test)]
+mod test {
+    #[allow(unused)]
+    fn construct_situation(seed: &[u8], mut output: &mut [u8], limit: usize, matchfor: usize) {
+        output[..].clone_from_slice(seed);
+        if matchfor >= limit {
+            return;
+        }
+        output[matchfor] = output[matchfor].wrapping_add((matchfor as u8 % 253u8).wrapping_add(1));
+    }
+    #[test]
+    fn test_find_match_length() {
+        let mut a = [91u8; 600000];
+        let mut b = [0u8; 600000];
+        for i in 1..a.len() {
+            a[i] = (a[i - 1] % 19u8).wrapping_add(17);
+        }
+        construct_situation(&a[..], &mut b[..], a.len(), 0);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 0);
+        construct_situation(&a[..], &mut b[..], a.len(), 1);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 1);
+        construct_situation(&a[..], &mut b[..], a.len(), 10);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 10);
+        construct_situation(&a[..], &mut b[..], a.len(), 9);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 9);
+        construct_situation(&a[..], &mut b[..], a.len(), 7);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 7);
+        construct_situation(&a[..], &mut b[..], a.len(), 8);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 8);
+        construct_situation(&a[..], &mut b[..], a.len(), 48);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 48);
+        construct_situation(&a[..], &mut b[..], a.len(), 49);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 49);
+        construct_situation(&a[..], &mut b[..], a.len(), 63);
+        assert_eq!(super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()), 63);
+        construct_situation(&a[..], &mut b[..], a.len(), 222);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            222
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 1590);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            1590
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 12590);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            12590
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 52592);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            52592
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 152592);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            152592
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 252591);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            252591
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 131072);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            131072
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 131073);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            131073
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 131072 + 64 + 32 + 16 + 8);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            131072 + 64 + 32 + 16 + 8
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 272144 + 64 + 32 + 16 + 8 + 1);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            272144 + 64 + 32 + 16 + 8 + 1
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), 2 * 272144 + 64 + 32 + 16 + 8);
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            2 * 272144 + 64 + 32 + 16 + 8
+        );
+        construct_situation(&a[..], &mut b[..], a.len(), a.len());
+        assert_eq!(
+            super::FindMatchLengthWithLimit(&a[..], &b[..], a.len()),
+            a.len()
+        );
+    }
 }

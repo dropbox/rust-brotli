@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 /* Copyright 2010 Google Inc. All Rights Reserved.
 
    Distributed under MIT license.

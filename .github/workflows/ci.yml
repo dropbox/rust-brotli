@@ -1,8 +1,9 @@
 name: Rust
 
 on:
-  push:
-    branches: [ main, master ]
+  push: { }  # Since the primary repo has no CI, every fork must do the CI work in every branch
+  #  push:
+  #    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
   release:
