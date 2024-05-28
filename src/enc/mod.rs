@@ -294,12 +294,11 @@ where
                     }
                 }
             }
-            let op: BrotliEncoderOperation;
-            if available_in == 0 {
-                op = BrotliEncoderOperation::BROTLI_OPERATION_FINISH;
+            let op = if available_in == 0 {
+                BrotliEncoderOperation::BROTLI_OPERATION_FINISH
             } else {
-                op = BrotliEncoderOperation::BROTLI_OPERATION_PROCESS;
-            }
+                BrotliEncoderOperation::BROTLI_OPERATION_PROCESS
+            };
             let result = s.compress_stream(
                 op,
                 &mut available_in,

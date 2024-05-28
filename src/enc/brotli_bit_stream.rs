@@ -260,13 +260,11 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
         let copylen_code = cmd.copy_len_code();
 
         let (prev_dist_index, dist_offset) = cmd.distance_index_and_offset(&params.dist);
-        let final_distance: usize;
-        if prev_dist_index == 0 {
-            final_distance = dist_offset as usize;
+        let final_distance = if prev_dist_index == 0 {
+            dist_offset as usize
         } else {
-            final_distance =
-                (local_dist_cache[prev_dist_index - 1] as isize + dist_offset) as usize;
-        }
+            (local_dist_cache[prev_dist_index - 1] as isize + dist_offset) as usize
+        };
         let copy_len = copylen_code as usize;
         let actual_copy_len: usize;
         let max_distance = min(

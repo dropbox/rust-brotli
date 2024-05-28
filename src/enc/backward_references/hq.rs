@@ -695,7 +695,6 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             let backward: usize = (posdata.distance_cache[(idx & distance_cache_len_minus_1)]
                 + i32::from(kDistanceCacheOffset[j])) as usize;
             let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
-            let len: usize;
             let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
             if cur_ix_masked.wrapping_add(best_len) > ringbuffer_mask {
                 break;
@@ -715,7 +714,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             {
                 continue;
             }
-            len = FindMatchLengthWithLimit(
+            let len = FindMatchLengthWithLimit(
                 &ringbuffer[prev_ix..],
                 &ringbuffer[cur_ix_masked..],
                 max_len,
