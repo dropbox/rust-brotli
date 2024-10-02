@@ -41,6 +41,7 @@ impl<W: Write, BufferType: SliceWrapperMut<u8>, Alloc: BrotliAlloc>
             buffer,
             alloc,
             Error::new(ErrorKind::InvalidData, "Invalid Data"),
+            Error::new(ErrorKind::WriteZero, "No room in output."),
             q,
             lgwin,
         ))
@@ -127,14 +128,24 @@ pub struct CompressorWriterCustomIo<
     output: Option<W>,
     error_if_invalid_data: Option<ErrType>,
     state: BrotliEncoderStateStruct<Alloc>,
+    error_if_zero_bytes_written: Option<ErrType>,
 }
-pub fn write_all<ErrType, W: CustomWrite<ErrType>>(
+pub fn write_all<ErrType, W: CustomWrite<ErrType>, ErrMaker: FnMut() -> Option<ErrType>>(
     writer: &mut W,
     mut buf: &[u8],
+    mut error_to_return_if_zero_bytes_written: ErrMaker,
 ) -> Result<(), ErrType> {
     while !buf.is_empty() {
         match writer.write(buf) {
-            Ok(bytes_written) => buf = &buf[bytes_written..],
+            Ok(bytes_written) => if bytes_written != 0 {
+                buf = &buf[bytes_written..]
+            } else {
+                if let Some(err) = error_to_return_if_zero_bytes_written() {
+                    return Err(err);
+                } else {
+                    return Ok(());
+                }
+            },
             Err(e) => return Err(e),
         }
     }
@@ -148,6 +159,7 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
         buffer: BufferType,
         alloc: Alloc,
         invalid_data_error_type: ErrType,
+        error_if_zero_bytes_written: ErrType,
         q: u32,
         lgwin: u32,
     ) -> Self {
@@ -157,6 +169,7 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
             output: Some(w),
             state: BrotliEncoderStateStruct::new(alloc),
             error_if_invalid_data: Some(invalid_data_error_type),
+            error_if_zero_bytes_written: Some(error_if_zero_bytes_written),
         };
         ret.state
             .set_parameter(BrotliEncoderParameter::BROTLI_PARAM_QUALITY, q);
@@ -189,9 +202,17 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
                 &mut nop_callback,
             );
             if output_offset > 0 {
+                let zero_err = &mut self.error_if_zero_bytes_written;
+                let fallback = &mut self.error_if_invalid_data;
                 match write_all(
                     self.output.as_mut().unwrap(),
                     &self.output_buffer.slice_mut()[..output_offset],
+                    || {
+                        if let Some(err) = zero_err.take() {
+                            return Some(err);
+                        }
+                        fallback.take()
+                    },
                 ) {
                     Ok(_) => {}
                     Err(e) => return Err(e),
@@ -266,12 +287,23 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
                 &mut nop_callback,
             );
             if output_offset > 0 {
+                let zero_err = &mut self.error_if_zero_bytes_written;
+                let fallback = &mut self.error_if_invalid_data;
                 match write_all(
                     self.output.as_mut().unwrap(),
                     &self.output_buffer.slice_mut()[..output_offset],
+                    || {
+                        if let Some(err) = zero_err.take() {
+                            return Some(err);
+                        }
+                        fallback.take()
+                    },
+
                 ) {
                     Ok(_) => {}
-                    Err(e) => return Err(e),
+                    Err(e) => {
+                        return Err(e)
+                    },
                 }
             }
             if !ret {

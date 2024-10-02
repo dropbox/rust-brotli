@@ -553,7 +553,7 @@ fn test_roundtrip_empty() {
 #[cfg(feature="std")]
 #[test]
 fn test_compress_into_short_buffer() {
-    use std::io::{Cursor, Write};
+    use std::io::{Cursor, Write, ErrorKind};
 
     // this plaintext should compress to 11 bytes
     let plaintext = [0u8; 2048];
@@ -564,7 +564,8 @@ fn test_compress_into_short_buffer() {
 
     let mut w = crate::CompressorWriter::new(&mut output_cursor,
                                          4096, 4, 22);
-    w.write(&plaintext).unwrap_err();
+    assert_eq!(w.write(&plaintext).unwrap(), 2048);
+    assert_eq!(w.flush().unwrap_err().kind(), ErrorKind::WriteZero);
     w.into_inner();
 
     println!("{output_buffer:?}");
