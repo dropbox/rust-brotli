@@ -549,6 +549,26 @@ fn test_roundtrip_empty() {
     assert_eq!(output_offset, 0);
     assert_eq!(compressed_offset, compressed.len());
 }
+
+#[cfg(feature="std")]
+#[test]
+fn test_compress_into_short_buffer() {
+    use std::io::{Cursor, Write};
+
+    // this plaintext should compress to 11 bytes
+    let plaintext = [0u8; 2048];
+
+    // but we only provide space for 10
+    let mut output_buffer = [0u8; 10];
+    let mut output_cursor = Cursor::new(&mut output_buffer[..]);
+
+    let mut w = crate::CompressorWriter::new(&mut output_cursor,
+                                         4096, 4, 22);
+    w.write(&plaintext).unwrap_err();
+    w.into_inner();
+
+    println!("{output_buffer:?}");
+}
 /*
 
 
