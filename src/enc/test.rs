@@ -216,6 +216,34 @@ fn oneshot_compress(
 
     (true, next_out_offset)
 }
+static lock32: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+/// 32bit systems do not have sufficient memory to compress multiple items
+/// at the same time with the current limits and defaults. So we instead spin
+/// until a process has completed compression. We cannot use proper locks
+/// in nostd, so we fall back to this simple spin lock.
+#[cfg(target_pointer_width = "32")]
+fn lock_if_32bit(){
+    use core::sync::atomic::Ordering;
+    loop {
+        let cur = lock32.fetch_add(1, Ordering::SeqCst);
+        if cur == 0 {
+            return;
+        }
+        lock32.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+#[cfg(target_pointer_width = "32")]
+fn unlock_if_32bit(){
+    use core::sync::atomic::Ordering;
+    lock32.fetch_sub(1, Ordering::SeqCst);
+}
+#[cfg(not(target_pointer_width = "32"))]
+fn lock_if_32bit(){
+}
+#[cfg(not(target_pointer_width = "32"))]
+fn unlock_if_32bit(){
+}
 
 pub(crate) fn oneshot_decompress(compressed: &[u8], output: &mut [u8]) -> (BrotliResult, usize, usize) {
     let mut available_in: usize = compressed.len();
@@ -260,6 +288,7 @@ fn oneshot(
     in_buffer_size: usize,
     out_buffer_size: usize,
 ) -> (BrotliResult, usize, usize) {
+    lock_if_32bit();
     let (success, mut available_in) = oneshot_compress(
         input,
         compressed,
@@ -273,7 +302,9 @@ fn oneshot(
         //return (BrotliResult::ResultFailure, 0, 0);
         available_in = compressed.len();
     }
-    oneshot_decompress(&mut compressed[..available_in], output)
+    let ret = oneshot_decompress(&mut compressed[..available_in], output);
+    unlock_if_32bit();
+    ret
 }
 
 #[test]
