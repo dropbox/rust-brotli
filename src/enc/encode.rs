@@ -1475,7 +1475,7 @@ pub(crate) fn encoder_compress<
         if is_9_5 {
             let mut params = BrotliEncoderParams::default();
             params.q9_5 = true;
-            params.quality = 9;
+            params.quality = 10;
             ChooseHasher(&mut params);
             s_orig.hasher_ = BrotliMakeHasher(m8, &params);
         }
@@ -3038,5 +3038,36 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         let ret = self.encode_data(is_last != 0, force_flush != 0, out_size, metablock_callback);
         *output = self.storage_.slice_mut();
         ret
+    }
+}
+
+#[cfg(feature = "std")]
+mod test {
+    #[cfg(test)]
+    use alloc_stdlib::StandardAlloc;
+
+    #[test]
+    fn test_encoder_compress() {
+        let input = include_bytes!("../../testdata/alice29.txt");
+        let mut output_buffer = [0; 100000];
+        let mut output_len = output_buffer.len();
+        let ret = super::encoder_compress(
+            StandardAlloc::default(),
+            &mut StandardAlloc::default(),
+            9,
+            16,
+            super::BrotliEncoderMode::BROTLI_MODE_GENERIC,
+            input.len(),
+            input,
+            &mut output_len,
+            &mut output_buffer,
+            &mut |_,_,_,_|(),
+        );
+        assert!(ret);
+        assert_eq!(output_len,51737);
+        let mut roundtrip = [0u8; 200000];
+        let (_, s, t) = super::super::test::oneshot_decompress(&output_buffer[..output_len], &mut roundtrip[..]);
+        assert_eq!(roundtrip[..t], input[..]);
+        assert_eq!(s, output_len);
     }
 }
