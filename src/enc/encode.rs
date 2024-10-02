@@ -1443,7 +1443,7 @@ pub(crate) fn encoder_compress<
 >(
     empty_m8: Alloc,
     m8: &mut Alloc,
-    quality: i32,
+    mut quality: i32,
     lgwin: i32,
     mode: BrotliEncoderMode,
     input_size: usize,
@@ -1465,11 +1465,20 @@ pub(crate) fn encoder_compress<
         return true;
     }
     let mut is_fallback = false;
+    let mut is_9_5 = false;
     if quality == 10 {
-        unimplemented!("need to set 9.5 here");
+        quality = 9;
+        is_9_5 = true;
     }
     if !is_fallback {
         let mut s_orig = BrotliEncoderStateStruct::new(core::mem::replace(m8, empty_m8));
+        if is_9_5 {
+            let mut params = BrotliEncoderParams::default();
+            params.q9_5 = true;
+            params.quality = 9;
+            ChooseHasher(&mut params);
+            s_orig.hasher_ = BrotliMakeHasher(m8, &params);
+        }
         let mut result: bool;
         {
             let s = &mut s_orig;
