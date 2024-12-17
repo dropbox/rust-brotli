@@ -13,6 +13,13 @@ readme = "README.md"
 autobins = false
 edition = "2015"
 rust-version = "1.59.0"
+include = [
+  "/src/**/*.rs",
+  "/examples/**/*.rs",
+  "/Cargo.toml",
+  "/README.md",
+  "/LICENSE.MIT",
+]
 
 [[bin]]
 doc = false
