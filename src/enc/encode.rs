@@ -1605,15 +1605,14 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             let delta: u64 = self.unprocessed_input_size();
             let tail: u64 = available_in as u64;
             let limit: u32 = 1u32 << 30;
-            let total: u32;
-            if delta >= u64::from(limit)
+            let total: u32 = if delta >= u64::from(limit)
                 || tail >= u64::from(limit)
                 || delta.wrapping_add(tail) >= u64::from(limit)
             {
-                total = limit;
+                limit
             } else {
-                total = delta.wrapping_add(tail) as u32;
-            }
+                delta.wrapping_add(tail) as u32
+            };
             self.params.size_hint = total as usize;
         }
     }
