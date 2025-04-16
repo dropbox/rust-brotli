@@ -33,6 +33,7 @@ pub struct Buffer {
     read_offset: usize,
 }
 
+#[derive(Debug)]
 pub struct UnlimitedBuffer {
     data: Vec<u8>,
     read_offset: usize,

@@ -1194,6 +1194,10 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         mut dict: &[u8],
         opt_hasher: UnionHasher<Alloc>,
     ) {
+        self.params.use_dictionary = false;
+        self.prev_byte_ = 0;
+        self.prev_byte2_ = 0;
+
         let has_optional_hasher = if let UnionHasher::Uninit = opt_hasher {
             false
         } else {
@@ -1218,12 +1222,6 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         self.copy_input_to_ring_buffer(dict_size, dict);
         self.last_flush_pos_ = dict_size as u64;
         self.last_processed_pos_ = dict_size as u64;
-        if dict_size > 0 {
-            self.prev_byte_ = dict[dict_size.wrapping_sub(1)];
-        }
-        if dict_size > 1 {
-            self.prev_byte2_ = dict[dict_size.wrapping_sub(2)];
-        }
         let m16 = &mut self.m8;
         if cfg!(debug_assertions) || !has_optional_hasher {
             let mut orig_hasher = UnionHasher::Uninit;

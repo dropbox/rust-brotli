@@ -16,15 +16,39 @@ static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_u
 static ALICE: &[u8] = include_bytes!("../../testdata/alice29.txt");
 
 #[test]
-fn test_custom_dict() {
+fn test_custom_dict_minimal() {
+    let mut raw = UnlimitedBuffer::new("\012345656789abcde".as_bytes());
+    let mut params = BrotliEncoderParams::default();
+    params.quality = 10;
+    let mut br = UnlimitedBuffer::new(&[]);
+    let mut rt = UnlimitedBuffer::new(&[]);
+    let dict = "123456789abcde".as_bytes();
+    super::compress(&mut raw, &mut br, 4096, &params, dict, 1).unwrap();
+    raw.reset_read();
+    eprintln!("Compressed: {:?}", &br);
+    let mut vec = Vec::<u8>::new();
+    vec.extend(dict);
+    super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
+    assert_eq!(rt.data(), raw.data());
+    if br.data().len() != 43654 {
+        assert_eq!(br.data().len(), 43636);
+    }
+}
+
+
+#[test]
+fn test_custom_dict_alice() {
     let mut raw = UnlimitedBuffer::new(ALICE);
     let mut params = BrotliEncoderParams::default();
     params.quality = 10;
+    params.use_dictionary = false;
     let mut br = UnlimitedBuffer::new(&[]);
     let mut rt = UnlimitedBuffer::new(&[]);
     let dict = &ALICE[12515..23411];
     super::compress(&mut raw, &mut br, 4096, &params, dict, 1).unwrap();
     raw.reset_read();
+    eprintln!("Dict {:?}",   dict);
+    eprintln!("Compressed: {:?}", &br);
     let mut vec = Vec::<u8>::new();
     vec.extend(dict);
     super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
