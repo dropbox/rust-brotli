@@ -189,6 +189,7 @@ pub struct BrotliEncoderStateStruct<Alloc: BrotliAlloc> {
     pub command_scratch_space: <HistogramCommand as CostAccessors>::i32vec,
     pub distance_scratch_space: <HistogramDistance as CostAccessors>::i32vec,
     pub recoder_state: RecoderState,
+    custom_dictionary_size: Option<core::num::NonZeroUsize>,
     custom_dictionary: bool,
 }
 
@@ -451,6 +452,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             distance_scratch_space: HistogramDistance::make_nnz_storage(),
             recoder_state: RecoderState::new(),
             custom_dictionary: false,
+            custom_dictionary_size: None,
         }
     }
 }
@@ -1219,6 +1221,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             dict = &dict[size.wrapping_sub(max_dict_size)..];
             dict_size = max_dict_size;
         }
+        self.custom_dictionary_size = core::num::NonZeroUsize::new(dict_size);
         self.copy_input_to_ring_buffer(dict_size, dict);
         self.last_flush_pos_ = dict_size as u64;
         self.last_processed_pos_ = dict_size as u64;
@@ -2315,7 +2318,8 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             let new_buf8 = allocate::<u8, _>(&mut self.m8, kCompressFragmentTwoPassBlockSize);
             self.literal_buf_ = new_buf8;
         }
-        if self.params.quality == 0i32 || self.params.quality == 1i32 {
+     
+   if self.params.quality == 0i32 || self.params.quality == 1i32 {
             let mut table_size: usize = 0;
             {
                 if delta == 0 && !is_last {
@@ -2417,6 +2421,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             wrapped_last_processed_pos as usize,
             &mut self.ringbuffer_.data_mo.slice_mut()[self.ringbuffer_.buffer_index..],
             mask as usize,
+            self.custom_dictionary_size,
             &mut self.params,
             &mut self.hasher_,
             &mut self.dist_cache_,

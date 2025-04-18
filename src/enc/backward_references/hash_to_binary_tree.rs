@@ -319,6 +319,7 @@ where
         _dictionary_hash: &[u16],
         _data: &[u8],
         _ring_buffer_mask: usize,
+        _ring_buffer_break: Option<core::num::NonZeroUsize>,
         _distance_cache: &[i32],
         _cur_ix: usize,
         _max_length: usize,
