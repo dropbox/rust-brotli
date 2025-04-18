@@ -34,6 +34,11 @@ pub enum BrotliEncoderMode {
     BROTLI_FORCE_UTF8_PRIOR = 5,
     BROTLI_FORCE_SIGNED_PRIOR = 6,
 }
+
+/// This code takes a length and checks if there's an "end of dictionary" marker at the
+///  "ring_buffer_break"point. This marks where a backwards reference cannot pull data through.
+/// A match must stop at the end of the dictionary and cannot span the end of the dictionary
+/// and beginning of the file.  ring_buffer_break is only set true for custom LZ77 dictionary.
 fn fix_unbroken_len(unbroken_len: usize, prev_ix: usize, _cur_ix_masked: usize, ring_buffer_break: Option<core::num::NonZeroUsize>) -> usize
 {
     if let Some(br) = ring_buffer_break {

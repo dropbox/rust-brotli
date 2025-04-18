@@ -1197,6 +1197,12 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         opt_hasher: UnionHasher<Alloc>,
     ) {
         self.params.use_dictionary = false;
+        if self.params.quality > 9
+        {
+            // we do not support arbitrary dictionary cut-points for higher
+            // quality levels. Set to exactly 9.5 if custom dictionary is enabled.
+            self.params.q9_5 = true;
+        }
         self.prev_byte_ = 0;
         self.prev_byte2_ = 0;
 
