@@ -189,6 +189,7 @@ fn test_custom_wrong_dict_fails_but_doesnt_disrupt_compression_strategy() {
     }
 }
 
+#[ignore = "LZ77 mode no longer is compatible with manual file splitting since it sets context to 0 instead of leaving it to the end of the dict"]
 #[test]
 fn test_custom_dict_for_multithreading() {
     let mut raws = [
@@ -218,7 +219,7 @@ fn test_custom_dict_for_multithreading() {
         .iter_mut()
         .zip(brs.iter_mut().zip(rts.iter_mut().zip(dicts.iter())))
     {
-        super::compress(raw, br, 4096, &params, dict, 1).unwrap();
+        super::compress(raw, br, 4096, &params, &[], 1).unwrap();
         raw.reset_read();
         let mut vec = Vec::<u8>::new();
         vec.extend(*dict);

@@ -352,6 +352,7 @@ where
             range.start,
             &input_and_params.0.slice()[..range.start],
             hasher,
+            true,
         );
     }
     let mut out_offset = 0usize;

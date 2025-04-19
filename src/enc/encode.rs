@@ -1169,7 +1169,7 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
 
 impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
     pub fn set_custom_dictionary(&mut self, size: usize, dict: &[u8]) {
-        self.set_custom_dictionary_with_optional_precomputed_hasher(size, dict, UnionHasher::Uninit)
+        self.set_custom_dictionary_with_optional_precomputed_hasher(size, dict, UnionHasher::Uninit, false)
     }
 
     pub fn set_custom_dictionary_with_optional_precomputed_hasher(
@@ -1177,18 +1177,23 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         size: usize,
         mut dict: &[u8],
         opt_hasher: UnionHasher<Alloc>,
+        is_multithreading_file_continue: bool,
     ) {
         self.params.use_dictionary = false;
-        /*
-        if self.params.quality > 9
-        {
-            // we do not support arbitrary dictionary cut-points for higher
-            // quality levels. Set to exactly 9.5 if custom dictionary is enabled.
-            self.params.q9_5 = true;
-        }
-         */
+
         self.prev_byte_ = 0;
         self.prev_byte2_ = 0;
+        if is_multithreading_file_continue
+        {
+            if size > 0
+            {
+                self.prev_byte_ = dict[size.wrapping_sub(1)];
+            }
+            if size > 1
+            {
+                self.prev_byte2_ = dict[size.wrapping_sub(2)];
+            }
+        }
 
         let has_optional_hasher = if let UnionHasher::Uninit = opt_hasher {
             false
