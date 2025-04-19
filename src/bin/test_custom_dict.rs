@@ -123,7 +123,29 @@ fn test_custom_dict_alice() {
     vec.extend(dict);
     super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
     assert_eq!(rt.data(), raw.data());
-    if br.data().len() != 43636 { // This is for if we reactivate q11 again.
+    if br.data().len() != 43836 { // This is for if we reactivate q11 again.
+        assert_eq!(br.data().len(), 43836);
+    }
+}
+
+#[test]
+fn test_custom_dict_alice_9_5() {
+    let mut raw = UnlimitedBuffer::new(ALICE);
+    let mut params = BrotliEncoderParams::default();
+    params.quality = 11;
+    params.q9_5 = true;
+    let mut br = UnlimitedBuffer::new(&[]);
+    let mut rt = UnlimitedBuffer::new(&[]);
+    let dict = &ALICE[12515..23411];
+    super::compress(&mut raw, &mut br, 4096, &params, dict, 1).unwrap();
+    raw.reset_read();
+    eprintln!("Dict {:?}",   dict);
+    eprintln!("Compressed: {:?}", &br);
+    let mut vec = Vec::<u8>::new();
+    vec.extend(dict);
+    super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
+    assert_eq!(rt.data(), raw.data());
+    if br.data().len() != 45689 {
         assert_eq!(br.data().len(), 45698);
     }
 }

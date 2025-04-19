@@ -1055,6 +1055,7 @@ fn InitializeH6<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
 fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
     m: &mut Alloc,
     params: &BrotliEncoderParams,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
 ) -> UnionHasher<Alloc> {
     let hasher_type: i32 = params.hasher.type_;
     if hasher_type == 2i32 {
@@ -1090,7 +1091,7 @@ fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
         return UnionHasher::H54(InitializeH54(m, params));
     }
     if hasher_type == 10i32 {
-        return UnionHasher::H10(InitializeH10(m, false, params, 0));
+        return UnionHasher::H10(InitializeH10(m, false, params, ringbuffer_break, 0));
     }
     // since we don't support all of these, fall back to something sane
     InitializeH6(m, params)
@@ -1104,31 +1105,11 @@ fn HasherReset<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(t: &mut Uni
     };
 }
 
-#[deprecated(note = "Use hasher_setup instead")]
-pub fn HasherSetup<Alloc: Allocator<u16> + Allocator<u32>>(
-    m16: &mut Alloc,
-    handle: &mut UnionHasher<Alloc>,
-    params: &mut BrotliEncoderParams,
-    data: &[u8],
-    position: usize,
-    input_size: usize,
-    is_last: i32,
-) {
-    hasher_setup(
-        m16,
-        handle,
-        params,
-        data,
-        position,
-        input_size,
-        is_last != 0,
-    )
-}
-
 pub(crate) fn hasher_setup<Alloc: Allocator<u16> + Allocator<u32>>(
     m16: &mut Alloc,
     handle: &mut UnionHasher<Alloc>,
     params: &mut BrotliEncoderParams,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     data: &[u8],
     position: usize,
     input_size: usize,
@@ -1144,7 +1125,7 @@ pub(crate) fn hasher_setup<Alloc: Allocator<u16> + Allocator<u32>>(
         ChooseHasher(&mut (*params));
         //alloc_size = HasherSize(params, one_shot, input_size);
         //xself = BrotliAllocate(m, alloc_size.wrapping_mul(::core::mem::size_of::<u8>()))
-        *handle = BrotliMakeHasher(m16, params);
+        *handle = BrotliMakeHasher(m16, params, ringbuffer_break);
         handle.GetHasherCommon().params = params.hasher;
         HasherReset(handle); // this sets everything to zero, unlike in C
         handle.GetHasherCommon().is_prepared_ = 1;
@@ -1166,10 +1147,11 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
     m: &mut Alloc,
     handle: &mut UnionHasher<Alloc>,
     params: &mut BrotliEncoderParams,
+    ringbuffer_break: Option<std::num::NonZeroUsize>,
     size: usize,
     dict: &[u8],
 ) {
-    hasher_setup(m, handle, params, dict, 0usize, size, false);
+    hasher_setup(m, handle, params, ringbuffer_break, dict, 0usize, size, false);
     match handle {
         &mut UnionHasher::H2(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
         &mut UnionHasher::H3(ref mut hasher) => StoreLookaheadThenStore(hasher, size, dict),
@@ -1197,12 +1179,14 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
         opt_hasher: UnionHasher<Alloc>,
     ) {
         self.params.use_dictionary = false;
+        /*
         if self.params.quality > 9
         {
             // we do not support arbitrary dictionary cut-points for higher
             // quality levels. Set to exactly 9.5 if custom dictionary is enabled.
             self.params.q9_5 = true;
         }
+         */
         self.prev_byte_ = 0;
         self.prev_byte2_ = 0;
 
@@ -1241,6 +1225,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
                 m16,
                 &mut self.hasher_,
                 &mut self.params,
+                self.custom_dictionary_size,
                 dict_size,
                 dict,
             );
@@ -1285,12 +1270,13 @@ fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u
     handle: &mut UnionHasher<Alloc>,
     data: &[u8],
     mask: usize,
+    ringbuffer_break: Option<std::num::NonZeroUsize>,
     params: &mut BrotliEncoderParams,
     position: usize,
     input_size: usize,
     is_last: bool,
 ) {
-    hasher_setup(m, handle, params, data, position, input_size, is_last);
+    hasher_setup(m, handle, params, ringbuffer_break, data, position, input_size, is_last);
     handle.StitchToPreviousBlock(input_size, position, data, mask);
 }
 
@@ -1484,7 +1470,7 @@ pub(crate) fn encoder_compress<
             params.q9_5 = true;
             params.quality = 10;
             ChooseHasher(&mut params);
-            s_orig.hasher_ = BrotliMakeHasher(m8, &params);
+            s_orig.hasher_ = BrotliMakeHasher(m8, &params, None/*no custom dict */);
         }
         let mut result: bool;
         {
@@ -2405,6 +2391,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
             &mut self.hasher_,
             &mut self.ringbuffer_.data_mo.slice_mut()[self.ringbuffer_.buffer_index..],
             mask as usize,
+            self.custom_dictionary_size,
             &mut self.params,
             wrapped_last_processed_pos as usize,
             bytes as usize,

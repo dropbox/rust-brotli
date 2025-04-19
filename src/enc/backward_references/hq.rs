@@ -7,7 +7,7 @@ use super::hash_to_binary_tree::{
     Union1, ZopfliNode, H10,
 };
 use super::{
-    kDistanceCacheIndex, kDistanceCacheOffset, kInvalidMatch, AnyHasher, BrotliEncoderParams,
+    kDistanceCacheIndex, kDistanceCacheOffset, kInvalidMatch, AnyHasher, BrotliEncoderParams, fix_unbroken_len,
 };
 use crate::enc::combined_alloc::{alloc_if, alloc_or_default};
 use crate::enc::command::{
@@ -262,6 +262,7 @@ pub fn StitchToPreviousBlockH10<
     position: usize,
     ringbuffer: &[u8],
     ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
 ) where
     Buckets: PartialEq<Buckets>,
 {
@@ -288,6 +289,7 @@ pub fn StitchToPreviousBlockH10<
                 ringbuffer,
                 i,
                 ringbuffer_mask,
+                ringbuffer_break,
                 <Params as H10Params>::max_tree_comp_length() as usize,
                 max_backward,
                 &mut _best_len,
@@ -305,6 +307,7 @@ fn FindAllMatchesH10<
     dictionary: Option<&BrotliDictionary>,
     data: &[u8],
     ring_buffer_mask: usize,
+    ring_buffer_break: Option<core::num::NonZeroUsize>,
     cur_ix: usize,
     max_length: usize,
     max_backward: usize,
@@ -356,6 +359,7 @@ where
             data,
             cur_ix,
             ring_buffer_mask,
+            ring_buffer_break,
             max_length,
             max_backward,
             &mut best_len,
@@ -642,6 +646,7 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
     pos: usize,
     ringbuffer: &[u8],
     ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     params: &BrotliEncoderParams,
     max_backward_limit: usize,
     starting_dist_cache: &[i32],
@@ -697,6 +702,20 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             let mut prev_ix: usize = cur_ix.wrapping_sub(backward);
             let len: usize;
             let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
+            /*
+            if let Some(breakpoint) = ringbuffer_break {
+                if prev_ix < usize::from(breakpoint) && 
+                    cur_ix_masked.wrapping_add(best_len) > usize::from(breakpoint)
+                {
+                    break;
+                }    
+                let tmp_ix = prev_ix & ringbuffer_mask;
+                if tmp_ix < usize::from(breakpoint) &&
+                    tmp_ix.wrapping_add(best_len) > breakpoint
+                {
+                    continue;
+                }
+            }*/
             if cur_ix_masked.wrapping_add(best_len) > ringbuffer_mask {
                 break;
             }
@@ -715,11 +734,12 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             {
                 continue;
             }
-            len = FindMatchLengthWithLimit(
-                &ringbuffer[prev_ix..],
-                &ringbuffer[cur_ix_masked..],
-                max_len,
-            );
+            len = fix_unbroken_len(
+                FindMatchLengthWithLimit(
+                    &ringbuffer[prev_ix..],
+                    &ringbuffer[cur_ix_masked..],
+                    max_len,
+                ), prev_ix, cur_ix_masked, ringbuffer_break);
 
             let dist_cost = base_cost + model.get_distance_cost(j);
             for l in best_len.wrapping_add(1)..=len {
@@ -841,6 +861,7 @@ pub fn BrotliZopfliComputeShortestPath<
     position: usize,
     ringbuffer: &[u8],
     ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     params: &BrotliEncoderParams,
     max_backward_limit: usize,
     dist_cache: &[i32],
@@ -884,6 +905,7 @@ where
                 dictionary,
                 ringbuffer,
                 ringbuffer_mask,
+                ringbuffer_break,
                 pos,
                 num_bytes.wrapping_sub(i),
                 max_distance,
@@ -903,6 +925,7 @@ where
                 i,
                 ringbuffer,
                 ringbuffer_mask,
+                ringbuffer_break,
                 params,
                 max_backward_limit,
                 dist_cache,
@@ -964,6 +987,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
     position: usize,
     ringbuffer: &[u8],
     ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     params: &BrotliEncoderParams,
     hasher: &mut H10<Alloc, Buckets, Params>,
     dist_cache: &mut [i32],
@@ -988,6 +1012,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
         position,
         ringbuffer,
         ringbuffer_mask,
+        ringbuffer_break,
         params,
         max_backward_limit,
         dist_cache,
@@ -1129,6 +1154,7 @@ fn ZopfliIterate<AllocF: Allocator<floatX>>(
     position: usize,
     ringbuffer: &[u8],
     ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     params: &BrotliEncoderParams,
     max_backward_limit: usize,
     gap: usize,
@@ -1154,6 +1180,7 @@ fn ZopfliIterate<AllocF: Allocator<floatX>>(
                 i,
                 ringbuffer,
                 ringbuffer_mask,
+                ringbuffer_break,
                 params,
                 max_backward_limit,
                 dist_cache,
@@ -1213,6 +1240,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
     position: usize,
     ringbuffer: &[u8],
     ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     params: &BrotliEncoderParams,
     hasher: &mut H10<Alloc, Buckets, Params>,
     dist_cache: &mut [i32],
@@ -1288,6 +1316,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
                 dictionary, //&params.dictionary ,
                 ringbuffer,
                 ringbuffer_mask,
+                ringbuffer_break,
                 pos,
                 max_length,
                 max_distance,
@@ -1385,6 +1414,7 @@ pub fn BrotliCreateHqZopfliBackwardReferences<
             position,
             ringbuffer,
             ringbuffer_mask,
+            ringbuffer_break,
             params,
             max_backward_limit,
             gap,

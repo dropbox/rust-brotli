@@ -4,7 +4,7 @@ use core::cmp::min;
 
 use super::{
     kHashMul32, AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts, HasherSearchResult,
-    HowPrepared, Struct1,
+    HowPrepared, Struct1, fix_unbroken_len,
 };
 use crate::enc::combined_alloc::allocate;
 use crate::enc::static_dict::{
@@ -111,6 +111,7 @@ pub struct H10<
     Buckets: PartialEq<Buckets>,
 {
     pub window_mask_: usize,
+    pub ringbuffer_break: Option<core::num::NonZeroUsize>,
     pub common: Struct1,
     pub buckets_: Buckets,
     pub invalid_pos_: u32,
@@ -133,6 +134,7 @@ where
             && self.invalid_pos_ == other.invalid_pos_
             && self.forest.slice() == other.forest.slice()
             && self._params == other._params
+            && self.ringbuffer_break == other.ringbuffer_break
     }
 }
 
@@ -140,9 +142,10 @@ pub fn InitializeH10<AllocU32: Allocator<u32>>(
     m32: &mut AllocU32,
     one_shot: bool,
     params: &BrotliEncoderParams,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     input_size: usize,
 ) -> H10<AllocU32, H10Buckets<AllocU32>, H10DefaultParams> {
-    initialize_h10::<AllocU32, H10Buckets<AllocU32>>(m32, one_shot, params, input_size)
+    initialize_h10::<AllocU32, H10Buckets<AllocU32>>(m32, one_shot, params, input_size, ringbuffer_break)
 }
 fn initialize_h10<
     AllocU32: Allocator<u32>,
@@ -152,6 +155,7 @@ fn initialize_h10<
     one_shot: bool,
     params: &BrotliEncoderParams,
     input_size: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
 ) -> H10<AllocU32, Buckets, H10DefaultParams>
 where
     Buckets: PartialEq<Buckets>,
@@ -175,6 +179,7 @@ where
         invalid_pos_: invalid_pos,
         buckets_: buckets,
         forest: m32.alloc_cell(num_nodes * 2),
+        ringbuffer_break,
     }
 }
 
@@ -207,6 +212,7 @@ where
             invalid_pos_: self.invalid_pos_,
             forest: allocate::<u32, _>(m, self.forest.len()),
             _params: core::marker::PhantomData::<Params>,
+            ringbuffer_break: self.ringbuffer_break,
         };
         ret.buckets_
             .slice_mut()
@@ -250,7 +256,7 @@ where
         ringbuffer: &[u8],
         ringbuffer_mask: usize,
     ) {
-        super::hq::StitchToPreviousBlockH10(self, num_bytes, position, ringbuffer, ringbuffer_mask)
+        super::hq::StitchToPreviousBlockH10(self, num_bytes, position, ringbuffer, ringbuffer_mask, self.ringbuffer_break)
     }
     #[inline(always)]
     fn GetHasherCommon(&mut self) -> &mut Struct1 {
@@ -269,6 +275,7 @@ where
             data,
             ix,
             mask,
+            self.ringbuffer_break,
             Params::max_tree_comp_length() as usize,
             max_backward,
             &mut 0,
@@ -423,6 +430,7 @@ pub fn StoreAndFindMatchesH10<
     data: &[u8],
     cur_ix: usize,
     ring_buffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     max_length: usize,
     max_backward: usize,
     best_len: &mut usize,
@@ -461,11 +469,12 @@ where
 
         let cur_len = min(best_len_left, best_len_right);
 
-        let len = cur_len.wrapping_add(FindMatchLengthWithLimit(
-            &data[cur_ix_masked.wrapping_add(cur_len)..],
-            &data[prev_ix_masked.wrapping_add(cur_len)..],
-            max_length.wrapping_sub(cur_len),
-        ));
+        let len = fix_unbroken_len(
+            cur_len.wrapping_add(FindMatchLengthWithLimit(
+                &data[cur_ix_masked.wrapping_add(cur_len)..],
+                &data[prev_ix_masked.wrapping_add(cur_len)..],
+                max_length.wrapping_sub(cur_len),
+            )), prev_ix_masked, cur_ix_masked, ringbuffer_break);
 
         if matches_offset != matches.len() && len > *best_len {
             *best_len = len;
