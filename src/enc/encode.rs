@@ -1166,10 +1166,19 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
         &mut UnionHasher::Uninit => panic!("Uninitialized"),
     }
 }
+pub const kMaxDictionarySize: usize = 50331660;
 
 impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
-    pub fn set_custom_dictionary(&mut self, size: usize, dict: &[u8]) {
-        self.set_custom_dictionary_with_optional_precomputed_hasher(size, dict, UnionHasher::Uninit, false)
+    pub fn set_custom_dictionary(&mut self, mut size: usize, mut dict: &[u8]) -> bool {
+        let mut ret = true;
+        if size > kMaxDictionarySize
+        {
+            dict = &dict[size - kMaxDictionarySize..];
+            size = kMaxDictionarySize;
+            ret = false
+        }
+        self.set_custom_dictionary_with_optional_precomputed_hasher(size, dict, UnionHasher::Uninit, false);
+        return ret;
     }
 
     pub fn set_custom_dictionary_with_optional_precomputed_hasher(
