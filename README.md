@@ -3,12 +3,16 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
-## What's new in 7.0.0
+## What's new in 8.0.0
 * Fixed LZ77 to comply with the specification
   * No longer seed the context by the end of the lz77 dictionary. Instead use
     zero for the seed as would happen without a dictionary. This matches the
     behavior of brotli with a custom dictionary as specified in
   * https://datatracker.ietf.org/doc/draft-vandevenne-shared-brotli-format/
+
+## What's new in 7.0.0
+* Fix error with short writes
+* allow quality=10 for certain APIs and make it default to 9.5
 
 ## What's new in 6.0.0
   * Remove unused SIMD use statements
