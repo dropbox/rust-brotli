@@ -66,7 +66,7 @@ pub use self::backward_references::{
 pub use self::combined_alloc::{BrotliAlloc, CombiningAllocator};
 use self::encode::{BrotliEncoderDestroyInstance, BrotliEncoderOperation};
 pub use self::encode::{
-    BrotliEncoderInitParams, BrotliEncoderMaxCompressedSize, BrotliEncoderMaxCompressedSizeMulti, kMaxDictionarySize,
+    BrotliEncoderInitParams, BrotliEncoderMaxCompressedSize, BrotliEncoderMaxCompressedSizeMulti,
 };
 pub use self::hash_to_binary_tree::ZopfliNode;
 pub use self::interface::StaticCommand;
@@ -94,16 +94,6 @@ pub type s16 = compat::Compat16x16;
 pub type v8 = compat::CompatF8;
 #[cfg(not(feature = "simd"))]
 pub type s8 = compat::Compat32x8;
-#[cfg(feature = "std")]
-fn report_dict_too_big(dict_size: usize)
-{
-    eprintln!("The dictionary is too big: {} bytes > {}",
-              dict_size, kMaxDictionarySize);
-}
-#[cfg(not(feature = "std"))]
-fn report_dict_too_big(_dict_size: usize)
-{
-}
 
 #[cfg(feature = "std")]
 pub fn compress_multi<
@@ -271,12 +261,7 @@ where
     let mut s_orig = BrotliEncoderStateStruct::new(alloc);
     s_orig.params = params.clone();
     if !dict.is_empty() {
-        if !s_orig.set_custom_dictionary(dict.len(), dict)
-        {
-            report_dict_too_big(dict.len());
-            // The dictionary is too large, return an error.
-            return Err(unexpected_eof_error_constant);
-        }
+        s_orig.set_custom_dictionary(dict.len(), dict);
     }
     let mut next_in_offset: usize = 0;
     let mut next_out_offset: usize = 0;
