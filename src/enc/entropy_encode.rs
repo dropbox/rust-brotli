@@ -344,17 +344,6 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
     }
 }
 
-#[deprecated(note = "Use decide_over_rle_use instead")]
-pub fn DecideOverRleUse(
-    depth: &[u8],
-    length: usize,
-    use_rle_for_non_zero: &mut i32,
-    use_rle_for_zero: &mut i32,
-) {
-    let (non_zero, zero) = decide_over_rle_use(depth, length);
-    *use_rle_for_non_zero = non_zero.into();
-    *use_rle_for_zero = zero.into();
-}
 
 pub(crate) fn decide_over_rle_use(depth: &[u8], length: usize) -> (bool, bool) {
     let mut total_reps_zero: usize = 0usize;

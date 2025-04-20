@@ -1147,7 +1147,7 @@ fn HasherPrependCustomDictionary<Alloc: alloc::Allocator<u16> + alloc::Allocator
     m: &mut Alloc,
     handle: &mut UnionHasher<Alloc>,
     params: &mut BrotliEncoderParams,
-    ringbuffer_break: Option<std::num::NonZeroUsize>,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     size: usize,
     dict: &[u8],
 ) {
@@ -1275,7 +1275,7 @@ fn InitOrStitchToPreviousBlock<Alloc: alloc::Allocator<u16> + alloc::Allocator<u
     handle: &mut UnionHasher<Alloc>,
     data: &[u8],
     mask: usize,
-    ringbuffer_break: Option<std::num::NonZeroUsize>,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
     params: &mut BrotliEncoderParams,
     position: usize,
     input_size: usize,
@@ -1347,6 +1347,7 @@ pub enum BrotliEncoderOperation {
     BROTLI_OPERATION_EMIT_METADATA = 3,
 }
 
+#[allow(unused)]
 fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) -> usize {
     let mut size: usize = input_size;
     let mut result: usize = 0usize;
@@ -1394,42 +1395,7 @@ fn MakeUncompressedStream(input: &[u8], input_size: usize, output: &mut [u8]) ->
     result
 }
 
-#[deprecated(note = "Use encoder_compress instead")]
-pub fn BrotliEncoderCompress<
-    Alloc: BrotliAlloc,
-    MetablockCallback: FnMut(
-        &mut interface::PredictionModeContextMap<InputReferenceMut>,
-        &mut [interface::StaticCommand],
-        interface::InputPair,
-        &mut Alloc,
-    ),
->(
-    empty_m8: Alloc,
-    m8: &mut Alloc,
-    quality: i32,
-    lgwin: i32,
-    mode: BrotliEncoderMode,
-    input_size: usize,
-    input_buffer: &[u8],
-    encoded_size: &mut usize,
-    encoded_buffer: &mut [u8],
-    metablock_callback: &mut MetablockCallback,
-) -> i32 {
-    encoder_compress(
-        empty_m8,
-        m8,
-        quality,
-        lgwin,
-        mode,
-        input_size,
-        input_buffer,
-        encoded_size,
-        encoded_buffer,
-        metablock_callback,
-    )
-    .into()
-}
-
+#[cfg(test)]
 pub(crate) fn encoder_compress<
     Alloc: BrotliAlloc,
     MetablockCallback: FnMut(

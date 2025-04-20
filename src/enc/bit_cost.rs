@@ -10,13 +10,6 @@ use crate::enc::floatX;
 const BROTLI_REPEAT_ZERO_CODE_LENGTH: usize = 17;
 const BROTLI_CODE_LENGTH_CODES: usize = BROTLI_REPEAT_ZERO_CODE_LENGTH + 1;
 
-#[deprecated(note = "use shannon_entropy instead")]
-pub fn ShannonEntropy(population: &[u32], size: usize, total: &mut usize) -> floatX {
-    let (result, tot) = shannon_entropy(population, size);
-    *total = tot;
-    result
-}
-
 pub(crate) fn shannon_entropy(mut population: &[u32], size: usize) -> (floatX, usize) {
     let mut sum: usize = 0;
     let mut retval: floatX = 0.0;

@@ -413,16 +413,6 @@ pub fn BrotliWriteBits(n_bits: usize, bits: u64, pos: &mut usize, array: &mut [u
     *pos = pos.wrapping_add(n_bits);
 }
 
-#[deprecated(note = "use store_meta_block_header instead")]
-pub fn BrotliStoreMetaBlockHeader(
-    len: usize,
-    is_uncompressed: i32,
-    storage_ix: &mut usize,
-    storage: &mut [u8],
-) {
-    store_meta_block_header(len, is_uncompressed != 0, storage_ix, storage);
-}
-
 pub(crate) fn store_meta_block_header(
     len: usize,
     is_uncompressed: bool,
@@ -759,32 +749,6 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
     *storage_ix = new_storage_ix;
 }
 
-#[deprecated(note = "use compress_fragment_two_pass instead")]
-pub fn BrotliCompressFragmentTwoPass<AllocHT: alloc::Allocator<HuffmanTree>>(
-    m: &mut AllocHT,
-    input: &[u8],
-    input_size: usize,
-    is_last: i32,
-    command_buf: &mut [u32],
-    literal_buf: &mut [u8],
-    table: &mut [i32],
-    table_size: usize,
-    storage_ix: &mut usize,
-    storage: &mut [u8],
-) {
-    compress_fragment_two_pass(
-        m,
-        input,
-        input_size,
-        is_last != 0,
-        command_buf,
-        literal_buf,
-        table,
-        table_size,
-        storage_ix,
-        storage,
-    )
-}
 
 pub(crate) fn compress_fragment_two_pass<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,

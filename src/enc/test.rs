@@ -216,6 +216,8 @@ fn oneshot_compress(
 
     (true, next_out_offset)
 }
+
+#[cfg(target_pointer_width = "32")]
 static lock32: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
 /// 32bit systems do not have sufficient memory to compress multiple items

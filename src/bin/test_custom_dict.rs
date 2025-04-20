@@ -123,7 +123,7 @@ fn test_custom_dict_alice() {
     vec.extend(dict);
     super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
     assert_eq!(rt.data(), raw.data());
-    if br.data().len() != 43836 { // This is for if we reactivate q11 again.
+    if br.data().len() != 43860 { // This is for 32 bit opts
         assert_eq!(br.data().len(), 43836);
     }
 }
@@ -145,7 +145,7 @@ fn test_custom_dict_alice_9_5() {
     vec.extend(dict);
     super::decompress(&mut br, &mut rt, 4096, Rebox::from(vec)).unwrap();
     assert_eq!(rt.data(), raw.data());
-    if br.data().len() != 45689 {
+    if br.data().len() != 45710 {
         assert_eq!(br.data().len(), 45698);
     }
 }

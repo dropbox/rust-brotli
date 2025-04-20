@@ -1086,36 +1086,6 @@ compress_specialization!(11, BrotliCompressFragmentFastImpl11);
 compress_specialization!(13, BrotliCompressFragmentFastImpl13);
 compress_specialization!(15, BrotliCompressFragmentFastImpl15);
 
-#[deprecated(note = "use BrotliCompressFragmentFastImpl9 instead")]
-pub fn BrotliCompressFragmentFast<AllocHT: alloc::Allocator<HuffmanTree>>(
-    m: &mut AllocHT,
-    input: &[u8],
-    input_size: usize,
-    is_last: i32,
-    table: &mut [i32],
-    table_size: usize,
-    cmd_depth: &mut [u8],
-    cmd_bits: &mut [u16],
-    cmd_code_numbits: &mut usize,
-    cmd_code: &mut [u8],
-    storage_ix: &mut usize,
-    storage: &mut [u8],
-) {
-    compress_fragment_fast(
-        m,
-        input,
-        input_size,
-        is_last != 0,
-        table,
-        table_size,
-        cmd_depth,
-        cmd_bits,
-        cmd_code_numbits,
-        cmd_code,
-        storage_ix,
-        storage,
-    )
-}
 
 pub(crate) fn compress_fragment_fast<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,

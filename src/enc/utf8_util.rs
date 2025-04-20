@@ -42,17 +42,6 @@ fn parse_as_utf8(input: &[u8], size: usize) -> (usize, i32) {
     (1, 0x11_0000 | i32::from(input[0]))
 }
 
-#[deprecated(note = "Use is_mostly_utf8 instead")]
-pub fn BrotliIsMostlyUTF8(
-    data: &[u8],
-    pos: usize,
-    mask: usize,
-    length: usize,
-    min_fraction: floatX,
-) -> i32 {
-    is_mostly_utf8(data, pos, mask, length, min_fraction).into()
-}
-
 pub(crate) fn is_mostly_utf8(
     data: &[u8],
     pos: usize,

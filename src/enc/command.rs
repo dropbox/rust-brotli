@@ -103,11 +103,6 @@ pub fn GetCopyLengthCode(copylen: usize) -> u16 {
     }
 }
 
-#[deprecated(note = "Use combine_length_codes instead")]
-#[inline(always)]
-pub fn CombineLengthCodes(inscode: u16, copycode: u16, use_last_distance: i32) -> u16 {
-    combine_length_codes(inscode, copycode, use_last_distance != 0)
-}
 
 #[inline(always)]
 pub(crate) fn combine_length_codes(inscode: u16, copycode: u16, use_last_distance: bool) -> u16 {
@@ -126,11 +121,6 @@ pub(crate) fn combine_length_codes(inscode: u16, copycode: u16, use_last_distanc
     }
 }
 
-#[deprecated(note = "Use get_length_code instead")]
-#[inline(always)]
-pub fn GetLengthCode(insertlen: usize, copylen: usize, use_last_distance: i32, code: &mut u16) {
-    get_length_code(insertlen, copylen, use_last_distance != 0, code)
-}
 
 #[inline(always)]
 pub(crate) fn get_length_code(
