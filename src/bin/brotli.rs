@@ -501,6 +501,9 @@ fn writeln_time<OutputType: Write>(
     writeln!(strm, "{:} {:} {:}.{:09}", v0, data, v1, v2)
 }
 
+#[allow(non_upper_case_globals)]
+pub const kMaxDictionarySize: usize = 50331660;
+
 fn read_custom_dictionary(filename: &str) -> Vec<u8> {
     let mut dict = match File::open(Path::new(&filename)) {
         Err(why) => panic!("couldn't open custom dictionary {:}\n{:}", filename, why),
@@ -508,6 +511,11 @@ fn read_custom_dictionary(filename: &str) -> Vec<u8> {
     };
     let mut ret = Vec::<u8>::new();
     dict.read_to_end(&mut ret).unwrap();
+    if ret.len() > kMaxDictionarySize {
+        panic!("dictionary [{}] is larger than maximum allowed: {}\n",
+               filename,
+               kMaxDictionarySize);
+    }
     ret
 }
 
