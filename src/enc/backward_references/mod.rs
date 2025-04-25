@@ -452,8 +452,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
             }
         }
         if dictionary.is_some() && self.buckets_.USE_DICTIONARY() != 0 && !is_match_found {
-            is_match_found = SearchInStaticDictionary(
-                dictionary.unwrap(),
+            is_match_found = dictionary.unwrap().search_static_item(
                 dictionary_hash,
                 self,
                 &data[cur_ix_masked..],
@@ -844,8 +843,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
         }
         if !is_match_found && dictionary.is_some() {
             let (_, cur_data) = data.split_at(cur_ix_masked);
-            is_match_found = SearchInStaticDictionary(
-                dictionary.unwrap(),
+            is_match_found = dictionary.unwrap().search_static_item(
                 dictionary_hash,
                 self,
                 cur_data,
@@ -1778,8 +1776,7 @@ impl<
 
         if !is_match_found && dictionary.is_some() {
             let (_, cur_data) = data.split_at(cur_ix_masked);
-            is_match_found = SearchInStaticDictionary(
-                dictionary.unwrap(),
+            is_match_found = dictionary.unwrap().search_static_item(
                 dictionary_hash,
                 self,
                 cur_data,
@@ -1875,80 +1872,74 @@ fn Hash14(data: &[u8]) -> u32 {
     h >> (32i32 - 14i32)
 }
 
-fn TestStaticDictionaryItem(
-    dictionary: &BrotliDictionary,
-    item: usize,
-    data: &[u8],
-    max_length: usize,
-    max_backward: usize,
-    max_distance: usize,
-    h9_opts: H9Opts,
-    out: &mut HasherSearchResult,
-) -> i32 {
-    let backward: usize;
+impl BrotliDictionary {
+    fn test_static_item(
+        &self,
+        item: usize,
+        data: &[u8],
+        max_length: usize,
+        max_backward: usize,
+        max_distance: usize,
+        h9_opts: H9Opts,
+        out: &mut HasherSearchResult,
+    ) -> bool {
+        let len = item & 0x1f;
+        let dist = item >> 5;
+        let offset = (self.offsets_by_length[len] as usize).wrapping_add(len.wrapping_mul(dist));
+        if len > max_length {
+            return false;
+        }
+        let matchlen: usize = FindMatchLengthWithLimit(data, &self.data[offset..], len);
+        if matchlen.wrapping_add(kCutoffTransformsCount as usize) <= len || matchlen == 0 {
+            return false;
+        }
 
-    let len: usize = item & 0x1fusize;
-    let dist: usize = item >> 5;
-    let offset: usize =
-        (dictionary.offsets_by_length[len] as usize).wrapping_add(len.wrapping_mul(dist));
-    if len > max_length {
-        return 0i32;
-    }
-    let matchlen: usize = FindMatchLengthWithLimit(data, &dictionary.data[offset..], len);
-    if matchlen.wrapping_add(kCutoffTransformsCount as usize) <= len || matchlen == 0usize {
-        return 0i32;
-    }
-    {
-        let cut: u64 = len.wrapping_sub(matchlen) as u64;
-        let transform_id: usize =
+        let cut = len.wrapping_sub(matchlen) as u64;
+        let transform_id =
             (cut << 2).wrapping_add(kCutoffTransforms >> cut.wrapping_mul(6) & 0x3f) as usize;
-        backward = max_backward
+        let backward = max_backward
             .wrapping_add(dist)
             .wrapping_add(1)
-            .wrapping_add(transform_id << dictionary.size_bits_by_length[len] as i32);
-    }
-    if backward > max_distance {
-        return 0i32;
-    }
-    let score: u64 = BackwardReferenceScore(matchlen, backward, h9_opts);
-    if score < out.score {
-        return 0i32;
-    }
-    out.len = matchlen;
-    out.len_x_code = len ^ matchlen;
-    out.distance = backward;
-    out.score = score;
-    1i32
-}
+            .wrapping_add(transform_id << self.size_bits_by_length[len]);
 
-fn SearchInStaticDictionary<HasherType: AnyHasher>(
-    dictionary: &BrotliDictionary,
-    dictionary_hash: &[u16],
-    handle: &mut HasherType,
-    data: &[u8],
-    max_length: usize,
-    max_backward: usize,
-    max_distance: usize,
-    out: &mut HasherSearchResult,
-    shallow: bool,
-) -> bool {
-    let mut key: usize;
-    let mut i: usize;
-    let mut is_match_found = false;
-    let opts = handle.Opts();
-    let xself: &mut Struct1 = handle.GetHasherCommon();
-    if xself.dict_num_matches < xself.dict_num_lookups >> 7 {
-        return false;
+        if backward > max_distance {
+            return false;
+        }
+        let score = BackwardReferenceScore(matchlen, backward, h9_opts);
+        if score < out.score {
+            return false;
+        }
+        out.len = matchlen;
+        out.len_x_code = len ^ matchlen;
+        out.distance = backward;
+        out.score = score;
+        true
     }
-    key = (Hash14(data) << 1) as usize; //FIXME: works for any kind of hasher??
-    i = 0usize;
-    while i < if shallow { 1 } else { 2 } {
-        {
-            let item: usize = dictionary_hash[key] as usize;
+
+    fn search_static_item<HasherType: AnyHasher>(
+        &self,
+        dictionary_hash: &[u16],
+        handle: &mut HasherType,
+        data: &[u8],
+        max_length: usize,
+        max_backward: usize,
+        max_distance: usize,
+        out: &mut HasherSearchResult,
+        shallow: bool,
+    ) -> bool {
+        let mut is_match_found = false;
+        let opts = handle.Opts();
+        let xself = handle.GetHasherCommon();
+        if xself.dict_num_matches < xself.dict_num_lookups >> 7 {
+            return false;
+        }
+        let mut key = (Hash14(data) << 1) as usize; //FIXME: works for any kind of hasher??
+        let iterations = if shallow { 1 } else { 2 };
+        for _ in 0..iterations {
+            let item = dictionary_hash[key] as usize;
             xself.dict_num_lookups = xself.dict_num_lookups.wrapping_add(1);
-            if item != 0usize {
-                let item_matches: i32 = TestStaticDictionaryItem(
-                    dictionary,
+            if item != 0 {
+                if self.test_static_item(
                     item,
                     data,
                     max_length,
@@ -1956,17 +1947,16 @@ fn SearchInStaticDictionary<HasherType: AnyHasher>(
                     max_distance,
                     opts,
                     out,
-                );
-                if item_matches != 0 {
+                ) {
                     xself.dict_num_matches = xself.dict_num_matches.wrapping_add(1);
                     is_match_found = true;
                 }
             }
+            key += 1;
         }
-        i = i.wrapping_add(1);
-        key = key.wrapping_add(1);
+
+        is_match_found
     }
-    is_match_found
 }
 
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
