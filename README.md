@@ -3,6 +3,9 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+## What's new in 8.0.1
+Compatibility for ffi builds
+
 ## What's new in 8.0.0
 * Fixed LZ77 to comply with the specification
   * No longer seed the context by the end of the lz77 dictionary. Instead use
