@@ -1,6 +1,6 @@
 [package]
 name = "brotli-ffi"
-version = "1.1.2"
+version = "2.0.0"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
 description = "A brotli compressor and decompressor that with an interface exactly matching https://github.com/google/brotli. All included code is safe except the thin exported C-compatible functions."
 license = "BSD-3-Clause OR MIT"

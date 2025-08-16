@@ -3,6 +3,9 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+## What's new in 8.0.2
+Fix for memory leak in ffi API
+
 ## What's new in 8.0.1
 Compatibility for ffi builds
 
