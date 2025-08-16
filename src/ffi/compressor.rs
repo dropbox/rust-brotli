@@ -15,6 +15,7 @@ use brotli_decompressor::ffi::{
 };
 
 use super::alloc_util::BrotliSubclassableAllocator;
+use crate::enc::encode::BrotliEncoderDestroyInstance as InternalBrotliEncoderDestroyInstance;
 use crate::enc::encode::BrotliEncoderStateStruct;
 
 #[repr(C)]
@@ -125,6 +126,7 @@ pub unsafe extern "C" fn BrotliEncoderDestroyInstance(state_ptr: *mut BrotliEnco
     if state_ptr.is_null() {
         return;
     }
+    InternalBrotliEncoderDestroyInstance(&mut (*state_ptr).compressor);
     if (*state_ptr).custom_allocator.alloc_func.is_some() {
         if let Some(free_fn) = (*state_ptr).custom_allocator.free_func {
             let _to_free = core::ptr::read(state_ptr);
