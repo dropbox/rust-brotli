@@ -46,7 +46,7 @@ Optional features like stdsimd are now tested or disabled for now.
 * into_inner conversions for both Reader and Writer classes
 
 ## What's new in 3.0
-* A fully compatible FFI for drop-in compatibiltiy with the https://github.com/google/brotli binaries
+* A fully compatible FFI for drop-in compatibility with the https://github.com/google/brotli binaries
   * custom allocators fully supported
 * Multithreaded compression so multiple threads can operate in unison on a single file
 * Concatenatability mode to add the feature requested in https://github.com/google/brotli/issues/628
@@ -57,7 +57,7 @@ Optional features like stdsimd are now tested or disabled for now.
 ## What's new in 2.5
 * In 2.5 The callback also passes down an allocator to make new StaticCommands and PDFs and 256 bit floating point vectors.
 * In 2.4 The callback with the compression intermediate representation now passes a full metablock at a time. Also these items are mutable
-in case futher optimization is desired
+in case further optimization is desired
 
 ## What's new in 2.3
 
