@@ -17,9 +17,7 @@ use crate::enc::command::{
 use crate::enc::constants::{kCopyExtra, kInsExtra};
 use crate::enc::encode;
 use crate::enc::literal_cost::BrotliEstimateBitCostsForLiterals;
-use crate::enc::static_dict::{
-    BrotliDictionary, BrotliFindAllStaticDictionaryMatches, FindMatchLengthWithLimit,
-};
+use crate::enc::static_dict::{BrotliDictionary, FindMatchLengthWithLimit};
 use crate::enc::util::{floatX, FastLog2, FastLog2f64};
 
 const BROTLI_WINDOW_GAP: usize = 16;
@@ -373,13 +371,12 @@ where
     {
         let minlen = max(4, best_len.wrapping_add(1));
         if dictionary.is_some()
-            && BrotliFindAllStaticDictionaryMatches(
-                dictionary.unwrap(),
+            && dictionary.unwrap().find_all_matches(
                 &data[cur_ix_masked..],
                 minlen,
                 max_length,
                 &mut dict_matches[..],
-            ) != 0
+            )
         {
             assert!(params.use_dictionary);
             let maxlen = min(37, max_length);
