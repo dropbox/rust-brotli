@@ -41,6 +41,9 @@ incremental = false
 
 "sha2" = { version = "~0.10", optional = true }
 
+[build-dependencies]
+man = "0.3.0"
+
 [features]
 default = ["std"]
 benchmark = ["brotli-decompressor/benchmark"]
