@@ -50,7 +50,7 @@ impl Stride1Prior {
         selected_context: u8,
         actual_context: usize,
         high_nibble: Option<u8>,
-    ) -> CDF {
+    ) -> CDF<'_> {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context, high_nibble)
             * NIBBLE_PRIOR_SIZE;
         CDF::from(data.split_at_mut(index).1.split_at_mut(16).0)

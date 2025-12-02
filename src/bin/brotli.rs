@@ -553,15 +553,20 @@ fn main() {
             }
             if (argument == "-catable" || argument == "--catable") && !double_dash {
                 params.catable = true;
-                params.use_dictionary = false;
-                params.appendable = true;
                 continue;
             }
             if (argument == "-nothreadpool" || argument == "--nothreadpool") && !double_dash {
                 use_work_pool = false;
                 continue;
             }
-
+            if (argument == "-bytealign" || argument == "--bytealign") && !double_dash {
+                params.byte_align = true;
+                continue;
+            }
+            if (argument == "-bare" || argument == "--bare") && !double_dash {
+                params.bare_stream = true;
+                continue;
+            }
             if (argument == "-appendable" || argument == "--appendable") && !double_dash {
                 params.appendable = true;
                 continue;
@@ -824,7 +829,7 @@ fn main() {
                 continue;
             }
             if argument == "-h" || argument == "-help" || argument == "--help" && !double_dash {
-                println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q9.5y or -q[0-11] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n\nThe -i parameter produces a cross human readdable IR representation of the file.\nThis can be ingested by other compressors.\nIR-specific options include:\n-findprior\n-speed=<inc,max,inc,max,inc,max,inc,max>");
+                println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q9.5y or -q[0-11] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n\nStream concatenation options:\n-catable     Create stream that can be concatenated with other catable streams\n-appendable  Create stream that can have catable streams appended to it\n-bytealign   Align output to byte boundaries (requires -catable or -appendable)\n-bare        Output bare stream without wrapper (requires -catable or -appendable)\n\nThe -i parameter produces a cross human readdable IR representation of the file.\nThis can be ingested by other compressors.\nIR-specific options include:\n-findprior\n-speed=<inc,max,inc,max,inc,max,inc,max>");
                 return;
             }
             if filenames[0].is_empty() {
@@ -837,7 +842,15 @@ fn main() {
             }
             panic!("Unknown Argument {:}", argument);
         }
-        if !filenames[0].is_empty() {
+        if params.bare_stream && !params.appendable {
+            println_stderr!("bare streams only supported when catable or appendable!");
+            return;
+        }
+        if params.byte_align && !params.appendable {
+            println_stderr!("byte aligned streams only supported when catable or appendable!");
+            return;
+        }
+        if filenames[0] != "" {
             let mut input = match File::open(Path::new(&filenames[0])) {
                 Err(why) => panic!("couldn't open {:}\n{:}", filenames[0], why),
                 Ok(file) => file,

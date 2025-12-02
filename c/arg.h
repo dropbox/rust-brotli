@@ -70,6 +70,21 @@ size_t set_options(BrotliEncoderParameter *out_encoder_param_keys,
             out_encoder_param_values[ret] = 1;
             ret += 1;
         }
+        if (strstr(argv[i], "-appendable") == argv[i]) {
+            out_encoder_param_keys[ret] = BROTLI_PARAM_APPENDABLE;
+            out_encoder_param_values[ret] = 1;
+            ret += 1;
+        }
+        if (strstr(argv[i], "-bytealign") == argv[i]) {
+            out_encoder_param_keys[ret] = BROTLI_PARAM_BYTE_ALIGN;
+            out_encoder_param_values[ret] = 1;
+            ret += 1;
+        }
+        if (strstr(argv[i], "-bare") == argv[i]) {
+            out_encoder_param_keys[ret] = BROTLI_PARAM_BARE_STREAM;
+            out_encoder_param_values[ret] = 1;
+            ret += 1;
+        }
     }
     return ret;
 }

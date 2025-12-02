@@ -102,6 +102,12 @@ pub struct BrotliEncoderParams {
     pub large_window: bool,
     /// avoid search for the best ndirect vs npostfix parameters for distance
     pub avoid_distance_prefix_search: bool,
+    /// inserts an extra empty metadata block before the final empty metablock in
+    /// catable/appendable mode so concatination tools can just remove the last byte
+    pub byte_align: bool,
+    /// do not emit a empty last block at end of data - if not appendable, this
+    /// will also supress the stream header
+    pub bare_stream: bool,
     /// construct brotli in such a way that it may be concatenated with another brotli file using appropriate bit ops
     pub catable: bool,
     /// can use the dictionary (default yes unless catable is set)
@@ -435,7 +441,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                     &data[cur_ix_masked..],
                     max_length,
                 );
-                
+
                 if unbroken_len != 0 {
                     let len = fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
                     let score: u64 = BackwardReferenceScore(len, backward, opts);

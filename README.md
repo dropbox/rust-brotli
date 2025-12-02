@@ -210,14 +210,97 @@ The code also allows a wider range of options, including forcing the prediction 
 (eg UTF8 vs signed vs MSB vs LSB) and changing the weight of the literal cost from 540
  to other values.
 
-Additionally the CATABLE and APPENDABLE options are exposed and allow concatenation of files
-created in this manner.
+## Stream Concatenation
 
-Specifically CATABLE files can be concatenated in any order using the catbrotli tool
-and APPENDABLE files can be the first file in a sequence of catable files...
-eg you can combine
-appendable.br catable1.br catable2.br catable3.br
+Brotli supports creating streams that can be concatenated together, useful for streaming
+scenarios where you want to compress chunks independently but decompress as a single stream.
 
-or simply
-catable0.br catable1.br catable2.br catable3.br
+### Simple Concatenation (Fast)
 
+Use `-bare -appendable` for the first file and `-bare -catable` for subsequent files.
+These can be combined using plain byte concatenation without special tools, with a
+finalization byte (`0x03`) added at the end:
+
+```bash
+# Create the base file with header but no trailer (must specify window size)
+brotli -c -bare -appendable -w22 input1.txt > base.br
+
+# Create bare-catable streams (no header, no trailer, same window size!)
+brotli -c -bare -catable -w22 input2.txt > part2.br
+brotli -c -bare -catable -w22 input3.txt > part3.br
+
+# Simple concatenation with finalization byte
+# Note: printf '\x03' adds the required final byte
+(cat base.br part2.br part3.br; printf '\x03') > combined.br
+
+# Decompress normally
+brotli -d combined.br -o output.txt
+```
+
+**Advantages:**
+- Instant concatenation (no processing)
+- No special tools required
+- Bare streams can be appended in any order
+
+**Requirements:**
+- All files must use the same window size (`-w22` recommended)
+- First file: `-bare -appendable` (has header, no trailer)
+- Subsequent files: `-bare -catable` (no header, no trailer, no dictionary refs)
+- A final `0x03` byte must be appended to complete the stream
+
+### Efficient Concatenation (Size-optimized)
+
+Use the `catbrotli` tool with `-catable` and `-appendable` flags for better compression
+at the cost of processing time:
+
+```bash
+# Create files for catbrotli tool
+brotli -c -appendable input1.txt > appendable.br
+brotli -c -catable input2.txt > catable1.br
+brotli -c -catable input3.txt > catable2.br
+
+# Concatenate using catbrotli tool
+catbrotli appendable.br catable1.br catable2.br > combined.br
+```
+
+**Tradeoff:** `catbrotli` produces smaller output but requires CPU time to process the
+streams intelligently. Use this when size matters more than concatenation speed.
+
+### Technical Reference: Stream Parameter Interactions
+
+**Stream Types and Their Parameters:**
+
+| Stream Type | bare_stream | byte_align | appendable | catable | use_dictionary | Description |
+|-------------|-------------|------------|------------|---------|----------------|-------------|
+| Standard | false | false | false | false | true | Normal brotli stream with header and trailer |
+| First (simple concat) | true | true | true | false | true | Has header, no trailer - for simple `cat` concatenation |
+| Subsequent (simple concat) | true | true | true | true | false | No header, no trailer, no dict refs - append to first |
+| Appendable (catbrotli) | false | varies | true | false | true | For use with `catbrotli` tool |
+| Catable (catbrotli) | false | varies | true | true | false | For use with `catbrotli` tool |
+
+**Important Notes:**
+- **Parameter dependencies are applied automatically** by the library in both CLI and API usage
+- The library's `SanitizeParams` function ensures:
+  - `catable = true` → automatically sets `appendable = true` and `use_dictionary = false`
+  - `bare_stream = true` → automatically sets `byte_align = true`
+  - `!appendable` → automatically sets `byte_align = false`
+- When using `set_parameter()`, dependencies are applied immediately
+- When setting fields directly (e.g., `params.catable = true`), dependencies are applied during compression initialization
+- **No manual fixups needed** - the library handles all parameter dependencies
+- The `use_dictionary = false` for catable streams prevents references to bytes before the chunk boundary
+- Simple concatenation requires a final `0x03` byte to complete the stream
+- All concatenated streams must use the same window size
+
+**Example API Usage:**
+```rust
+// First file: -bare -appendable equivalent
+params.bare_stream = true;    // Sets bare_stream=true, byte_align=true (automatic)
+params.appendable = true;     // Sets appendable=true
+
+// Subsequent files: -bare -catable equivalent
+params.bare_stream = true;    // Sets bare_stream=true, byte_align=true (automatic)
+params.catable = true;        // Sets catable=true, appendable=true, use_dictionary=false (automatic)
+
+// All parameter dependencies are handled automatically by the library.
+// No manual fixups required - just set the primary flags you want.
+```

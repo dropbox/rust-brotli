@@ -46,7 +46,7 @@ pub trait Prior {
         selected_context: u8,
         actual_context: usize,
         high_nibble: Option<u8>,
-    ) -> CDF {
+    ) -> CDF<'_> {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context, high_nibble);
         CDF::from(&mut data[index])
     }
