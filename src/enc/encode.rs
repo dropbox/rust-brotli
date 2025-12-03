@@ -13,9 +13,8 @@ use super::backward_references::{
 use super::bit_cost::{shannon_entropy, BitsEntropy};
 use super::brotli_bit_stream::{
     store_meta_block, store_meta_block_fast, store_meta_block_trivial,
-    store_uncompressed_meta_block, BrotliWriteEmptyLastMetaBlock,
-    BrotliWritePaddingMetaBlock, BrotliWriteMetadataMetaBlock,
-    MetaBlockSplit, RecoderState,
+    store_uncompressed_meta_block, BrotliWriteEmptyLastMetaBlock, BrotliWriteMetadataMetaBlock,
+    BrotliWritePaddingMetaBlock, MetaBlockSplit, RecoderState,
 };
 use super::combined_alloc::BrotliAlloc;
 use super::command::{get_length_code, BrotliDistanceParams, Command};

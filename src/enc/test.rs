@@ -225,7 +225,7 @@ static lock32: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::ne
 /// until a process has completed compression. We cannot use proper locks
 /// in nostd, so we fall back to this simple spin lock.
 #[cfg(target_pointer_width = "32")]
-fn lock_if_32bit(){
+fn lock_if_32bit() {
     use core::sync::atomic::Ordering;
     loop {
         let cur = lock32.fetch_add(1, Ordering::SeqCst);
@@ -236,18 +236,19 @@ fn lock_if_32bit(){
     }
 }
 #[cfg(target_pointer_width = "32")]
-fn unlock_if_32bit(){
+fn unlock_if_32bit() {
     use core::sync::atomic::Ordering;
     lock32.fetch_sub(1, Ordering::SeqCst);
 }
 #[cfg(not(target_pointer_width = "32"))]
-fn lock_if_32bit(){
-}
+fn lock_if_32bit() {}
 #[cfg(not(target_pointer_width = "32"))]
-fn unlock_if_32bit(){
-}
+fn unlock_if_32bit() {}
 
-pub(crate) fn oneshot_decompress(compressed: &[u8], output: &mut [u8]) -> (BrotliResult, usize, usize) {
+pub(crate) fn oneshot_decompress(
+    compressed: &[u8],
+    output: &mut [u8],
+) -> (BrotliResult, usize, usize) {
     let mut available_in: usize = compressed.len();
     let mut available_out: usize = output.len();
     let mut stack_u8_buffer = define_allocator_memory_pool!(128, u8, [0; 100 * 1024], stack);
@@ -583,10 +584,10 @@ fn test_roundtrip_empty() {
     assert_eq!(compressed_offset, compressed.len());
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 #[test]
 fn test_compress_into_short_buffer() {
-    use std::io::{Cursor, Write, ErrorKind};
+    use std::io::{Cursor, ErrorKind, Write};
 
     // this plaintext should compress to 11 bytes
     let plaintext = [0u8; 2048];
@@ -595,8 +596,7 @@ fn test_compress_into_short_buffer() {
     let mut output_buffer = [0u8; 10];
     let mut output_cursor = Cursor::new(&mut output_buffer[..]);
 
-    let mut w = crate::CompressorWriter::new(&mut output_cursor,
-                                         4096, 4, 22);
+    let mut w = crate::CompressorWriter::new(&mut output_cursor, 4096, 4, 22);
     assert_eq!(w.write(&plaintext).unwrap(), 2048);
     assert_eq!(w.flush().unwrap_err().kind(), ErrorKind::WriteZero);
     w.into_inner();

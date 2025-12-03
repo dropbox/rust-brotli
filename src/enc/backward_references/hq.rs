@@ -7,7 +7,8 @@ use super::hash_to_binary_tree::{
     Union1, ZopfliNode, H10,
 };
 use super::{
-    kDistanceCacheIndex, kDistanceCacheOffset, kInvalidMatch, AnyHasher, BrotliEncoderParams, fix_unbroken_len,
+    fix_unbroken_len, kDistanceCacheIndex, kDistanceCacheOffset, kInvalidMatch, AnyHasher,
+    BrotliEncoderParams,
 };
 use crate::enc::combined_alloc::{alloc_if, alloc_or_default};
 use crate::enc::command::{
@@ -704,11 +705,11 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
             let continuation: u8 = ringbuffer[cur_ix_masked.wrapping_add(best_len)];
             /*
             if let Some(breakpoint) = ringbuffer_break {
-                if prev_ix < usize::from(breakpoint) && 
+                if prev_ix < usize::from(breakpoint) &&
                     cur_ix_masked.wrapping_add(best_len) > usize::from(breakpoint)
                 {
                     break;
-                }    
+                }
                 let tmp_ix = prev_ix & ringbuffer_mask;
                 if tmp_ix < usize::from(breakpoint) &&
                     tmp_ix.wrapping_add(best_len) > breakpoint
@@ -739,7 +740,11 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                     &ringbuffer[prev_ix..],
                     &ringbuffer[cur_ix_masked..],
                     max_len,
-                ), prev_ix, cur_ix_masked, ringbuffer_break);
+                ),
+                prev_ix,
+                cur_ix_masked,
+                ringbuffer_break,
+            );
 
             let dist_cost = base_cost + model.get_distance_cost(j);
             for l in best_len.wrapping_add(1)..=len {

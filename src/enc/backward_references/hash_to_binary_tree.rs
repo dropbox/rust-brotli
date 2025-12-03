@@ -3,8 +3,8 @@ use core;
 use core::cmp::min;
 
 use super::{
-    kHashMul32, AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts, HasherSearchResult,
-    HowPrepared, Struct1, fix_unbroken_len,
+    fix_unbroken_len, kHashMul32, AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts,
+    HasherSearchResult, HowPrepared, Struct1,
 };
 use crate::enc::combined_alloc::allocate;
 use crate::enc::static_dict::{
@@ -145,7 +145,13 @@ pub fn InitializeH10<AllocU32: Allocator<u32>>(
     ringbuffer_break: Option<core::num::NonZeroUsize>,
     input_size: usize,
 ) -> H10<AllocU32, H10Buckets<AllocU32>, H10DefaultParams> {
-    initialize_h10::<AllocU32, H10Buckets<AllocU32>>(m32, one_shot, params, input_size, ringbuffer_break)
+    initialize_h10::<AllocU32, H10Buckets<AllocU32>>(
+        m32,
+        one_shot,
+        params,
+        input_size,
+        ringbuffer_break,
+    )
 }
 fn initialize_h10<
     AllocU32: Allocator<u32>,
@@ -256,7 +262,14 @@ where
         ringbuffer: &[u8],
         ringbuffer_mask: usize,
     ) {
-        super::hq::StitchToPreviousBlockH10(self, num_bytes, position, ringbuffer, ringbuffer_mask, self.ringbuffer_break)
+        super::hq::StitchToPreviousBlockH10(
+            self,
+            num_bytes,
+            position,
+            ringbuffer,
+            ringbuffer_mask,
+            self.ringbuffer_break,
+        )
     }
     #[inline(always)]
     fn GetHasherCommon(&mut self) -> &mut Struct1 {
@@ -474,7 +487,11 @@ where
                 &data[cur_ix_masked.wrapping_add(cur_len)..],
                 &data[prev_ix_masked.wrapping_add(cur_len)..],
                 max_length.wrapping_sub(cur_len),
-            )), prev_ix_masked, cur_ix_masked, ringbuffer_break);
+            )),
+            prev_ix_masked,
+            cur_ix_masked,
+            ringbuffer_break,
+        );
 
         if matches_offset != matches.len() && len > *best_len {
             *best_len = len;

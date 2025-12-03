@@ -344,7 +344,6 @@ pub fn BrotliOptimizeHuffmanCountsForRle(
     }
 }
 
-
 pub(crate) fn decide_over_rle_use(depth: &[u8], length: usize) -> (bool, bool) {
     let mut total_reps_zero: usize = 0usize;
     let mut total_reps_non_zero: usize = 0usize;

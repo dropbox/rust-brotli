@@ -749,7 +749,6 @@ fn RewindBitPosition(new_storage_ix: usize, storage_ix: &mut usize, storage: &mu
     *storage_ix = new_storage_ix;
 }
 
-
 pub(crate) fn compress_fragment_two_pass<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input: &[u8],

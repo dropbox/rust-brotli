@@ -137,15 +137,17 @@ pub fn write_all<ErrType, W: CustomWrite<ErrType>, ErrMaker: FnMut() -> Option<E
 ) -> Result<(), ErrType> {
     while !buf.is_empty() {
         match writer.write(buf) {
-            Ok(bytes_written) => if bytes_written != 0 {
-                buf = &buf[bytes_written..]
-            } else {
-                if let Some(err) = error_to_return_if_zero_bytes_written() {
-                    return Err(err);
+            Ok(bytes_written) => {
+                if bytes_written != 0 {
+                    buf = &buf[bytes_written..]
                 } else {
-                    return Ok(());
+                    if let Some(err) = error_to_return_if_zero_bytes_written() {
+                        return Err(err);
+                    } else {
+                        return Ok(());
+                    }
                 }
-            },
+            }
             Err(e) => return Err(e),
         }
     }
@@ -298,12 +300,9 @@ impl<ErrType, W: CustomWrite<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: B
                         }
                         fallback.take()
                     },
-
                 ) {
                     Ok(_) => {}
-                    Err(e) => {
-                        return Err(e)
-                    },
+                    Err(e) => return Err(e),
                 }
             }
             if !ret {

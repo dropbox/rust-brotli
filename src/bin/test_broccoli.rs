@@ -410,10 +410,7 @@ fn test_concat() {
 }
 
 // Helper function for simple byte concatenation
-fn byte_concat_decompress(
-    files: &mut [UnlimitedBuffer],
-    brotli_files: &mut [UnlimitedBuffer],
-) {
+fn byte_concat_decompress(files: &mut [UnlimitedBuffer], brotli_files: &mut [UnlimitedBuffer]) {
     // Simple byte concatenation with proper finalization:
     // 1. First file is -bare -appendable (header, no trailer)
     // 2. Subsequent files are -bare -catable (no header, no trailer)
@@ -428,9 +425,14 @@ fn byte_concat_decompress(
     // Add finalization byte
     concatenated.data.push(0x03);
 
-    concatenated.reset_read();  // Reset read offset before decompression
+    concatenated.reset_read(); // Reset read offset before decompression
     let mut decompressed = UnlimitedBuffer::new(&[]);
-    match super::decompress(&mut concatenated, &mut decompressed, 65536, Rebox::default()) {
+    match super::decompress(
+        &mut concatenated,
+        &mut decompressed,
+        65536,
+        Rebox::default(),
+    ) {
         Ok(_) => {}
         Err(e) => panic!("Error decompressing concatenated stream: {:?}", e),
     }
@@ -445,7 +447,11 @@ fn byte_concat_decompress(
         );
         offset += file.data().len();
     }
-    assert_eq!(offset, decompressed.data().len(), "Decompressed size mismatch");
+    assert_eq!(
+        offset,
+        decompressed.data().len(),
+        "Decompressed size mismatch"
+    );
 }
 
 #[test]
@@ -465,22 +471,38 @@ fn test_bytealign_appendable_with_bare() {
     // First file: bare + appendable (header, no trailer)
     let mut params_base = BrotliEncoderParams::default();
     params_base.bare_stream = true;
-    params_base.byte_align = true;  // implied by -bare
+    params_base.byte_align = true; // implied by -bare
     params_base.appendable = true;
     params_base.lgwin = 22;
-    super::compress(&mut files[0], &mut brotli_files[0], 4096, &params_base, &[], 1).unwrap();
+    super::compress(
+        &mut files[0],
+        &mut brotli_files[0],
+        4096,
+        &params_base,
+        &[],
+        1,
+    )
+    .unwrap();
     files[0].reset_read();
 
     // Subsequent files: bare streams (no header)
     for i in 1..files.len() {
         let mut params_bare = BrotliEncoderParams::default();
         params_bare.bare_stream = true;
-        params_bare.byte_align = true;  // implied by -bare
+        params_bare.byte_align = true; // implied by -bare
         params_bare.catable = true;
-        params_bare.use_dictionary = false;  // implied by -catable
-        params_bare.appendable = true;  // implied by -catable
+        params_bare.use_dictionary = false; // implied by -catable
+        params_bare.appendable = true; // implied by -catable
         params_bare.lgwin = 22;
-        super::compress(&mut files[i], &mut brotli_files[i], 4096, &params_bare, &[], 1).unwrap();
+        super::compress(
+            &mut files[i],
+            &mut brotli_files[i],
+            4096,
+            &params_bare,
+            &[],
+            1,
+        )
+        .unwrap();
         files[i].reset_read();
     }
 
@@ -508,7 +530,15 @@ fn test_bare_any_order() {
     params_base.byte_align = true;
     params_base.appendable = true;
     params_base.lgwin = 22;
-    super::compress(&mut files[0], &mut brotli_files[0], 4096, &params_base, &[], 1).unwrap();
+    super::compress(
+        &mut files[0],
+        &mut brotli_files[0],
+        4096,
+        &params_base,
+        &[],
+        1,
+    )
+    .unwrap();
     files[0].reset_read();
 
     // Create bare streams
@@ -520,7 +550,15 @@ fn test_bare_any_order() {
         params_bare.use_dictionary = false;
         params_bare.appendable = true;
         params_bare.lgwin = 22;
-        super::compress(&mut files[i], &mut brotli_files[i], 4096, &params_bare, &[], 1).unwrap();
+        super::compress(
+            &mut files[i],
+            &mut brotli_files[i],
+            4096,
+            &params_bare,
+            &[],
+            1,
+        )
+        .unwrap();
         files[i].reset_read();
     }
 
@@ -569,7 +607,15 @@ fn test_bytealign_with_empty() {
     params_base.byte_align = true;
     params_base.appendable = true;
     params_base.lgwin = 22;
-    super::compress(&mut files[0], &mut brotli_files[0], 4096, &params_base, &[], 1).unwrap();
+    super::compress(
+        &mut files[0],
+        &mut brotli_files[0],
+        4096,
+        &params_base,
+        &[],
+        1,
+    )
+    .unwrap();
     files[0].reset_read();
 
     // Remaining files: bare
@@ -581,7 +627,15 @@ fn test_bytealign_with_empty() {
         params_bare.use_dictionary = false;
         params_bare.appendable = true;
         params_bare.lgwin = 22;
-        super::compress(&mut files[i], &mut brotli_files[i], 4096, &params_bare, &[], 1).unwrap();
+        super::compress(
+            &mut files[i],
+            &mut brotli_files[i],
+            4096,
+            &params_bare,
+            &[],
+            1,
+        )
+        .unwrap();
         files[i].reset_read();
     }
 
@@ -611,7 +665,15 @@ fn test_bytealign_various_data() {
     params_base.appendable = true;
     params_base.lgwin = 22;
     light_debug_test(&mut params_base);
-    super::compress(&mut files[0], &mut brotli_files[0], 4096, &params_base, &[], 1).unwrap();
+    super::compress(
+        &mut files[0],
+        &mut brotli_files[0],
+        4096,
+        &params_base,
+        &[],
+        1,
+    )
+    .unwrap();
     files[0].reset_read();
 
     // Remaining files: bare
@@ -624,7 +686,15 @@ fn test_bytealign_various_data() {
         params_bare.appendable = true;
         params_bare.lgwin = 22;
         light_debug_test(&mut params_bare);
-        super::compress(&mut files[i], &mut brotli_files[i], 4096, &params_bare, &[], 1).unwrap();
+        super::compress(
+            &mut files[i],
+            &mut brotli_files[i],
+            4096,
+            &params_bare,
+            &[],
+            1,
+        )
+        .unwrap();
         files[i].reset_read();
     }
 

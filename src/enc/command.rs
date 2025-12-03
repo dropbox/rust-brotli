@@ -103,7 +103,6 @@ pub fn GetCopyLengthCode(copylen: usize) -> u16 {
     }
 }
 
-
 #[inline(always)]
 pub(crate) fn combine_length_codes(inscode: u16, copycode: u16, use_last_distance: bool) -> u16 {
     let bits64: u16 = (copycode as u32 & 0x7u32 | (inscode as u32 & 0x7u32) << 3) as u16;
@@ -120,7 +119,6 @@ pub(crate) fn combine_length_codes(inscode: u16, copycode: u16, use_last_distanc
         (offset as u16 as i32 | bits64 as i32) as u16
     }
 }
-
 
 #[inline(always)]
 pub(crate) fn get_length_code(
