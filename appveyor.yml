@@ -13,22 +13,30 @@ environment:
   - TARGET: i686-pc-windows-msvc
     BITS: 32
 install:
-  # Ensure git doesn't corrupt binary files (prevents error 193 in cached builds)
+  # Ensure git doesn't corrupt binary files (prevents error 193)
   - git config --global core.autocrlf false
   - git config --global core.eol lf
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  # Put MinGW bin directory at the front of PATH to ensure correct DLLs are used
   - if defined MSYS2 set PATH=C:\msys64\mingw%BITS%\bin;%PATH%
   - rustc -V
   - cargo -V
+  # Clean target directory to avoid any corrupted cached binaries
+  # Remove this line once cache has been cleared and builds are stable
+  - if exist target rd /s /q target
 build: false
 test_script:
+  # Ensure MinGW is in PATH for test execution
+  - if defined MSYS2 set PATH=C:\msys64\mingw%BITS%\bin;%PATH%
   - cargo test --verbose
   - set RUSTFLAGS=-C panic=abort
   - set CARGO_PROFILE_RELEASE=panic=abort
   - cargo build --verbose --release --features=validation
 before_deploy:
+  # Ensure MinGW is in PATH for deployment build
+  - if defined MSYS2 set PATH=C:\msys64\mingw%BITS%\bin;%PATH%
   - set CARGO_PROFILE_RELEASE=panic=abort
   - set RUSTFLAGS=-C panic=abort
   - cargo build --verbose --release --features=validation
