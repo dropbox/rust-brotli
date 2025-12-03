@@ -1,5 +1,7 @@
 # rust-brotli
 
+nop
+
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
