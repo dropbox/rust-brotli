@@ -4,19 +4,21 @@ environment:
   matrix:
   - TARGET: x86_64-pc-windows-gnu
     BITS: 64
-    MSYS2: 1
   - TARGET: x86_64-pc-windows-msvc
     BITS: 64
   - TARGET: i686-pc-windows-gnu
     BITS: 32
-    MSYS2: 1
   - TARGET: i686-pc-windows-msvc
     BITS: 32
 install:
+  # Ensure windows-gnu git doesn't corrupt binary files
+  - git config --global core.autocrlf false
+  - git config --global core.eol lf
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
-  - if defined MSYS2 set PATH=C:\msys64\mingw%BITS%\bin;%PATH%
+  # NOTE: Do NOT add MSYS2 to PATH - Rust's GNU toolchain is self-contained
+  # Mixing MSYS2 with Rust's bundled MinGW causes DLL conflicts (error 193)
   - rustc -V
   - cargo -V
 build: false
