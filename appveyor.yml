@@ -11,7 +11,7 @@ environment:
   - TARGET: i686-pc-windows-msvc
     BITS: 32
 install:
-  # Ensure git doesn't corrupt binary files (prevents error 193)
+  # Ensure windows-gnu git doesn't corrupt binary files
   - git config --global core.autocrlf false
   - git config --global core.eol lf
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
@@ -21,9 +21,6 @@ install:
   # Mixing MSYS2 with Rust's bundled MinGW causes DLL conflicts (error 193)
   - rustc -V
   - cargo -V
-  # Clean target directory to avoid any corrupted cached binaries
-  # Remove this line once cache has been cleared and builds are stable
-  - if exist target rd /s /q target
 build: false
 test_script:
   - cargo test --verbose
