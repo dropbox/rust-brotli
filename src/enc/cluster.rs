@@ -169,11 +169,10 @@ pub fn BrotliHistogramCombine<
         let best_idx2: u32 = (pairs[0]).idx2;
         HistogramSelfAddHistogram(out, (best_idx1 as usize), (best_idx2 as usize));
         (out[(best_idx1 as usize)]).set_bit_cost((pairs[0]).cost_combo);
-        {
-            let _rhs = cluster_size[(best_idx2 as usize)];
-            let _lhs = &mut cluster_size[(best_idx1 as usize)];
-            *_lhs = (*_lhs).wrapping_add(_rhs);
-        }
+        ::wrapping_add!(
+            cluster_size[(best_idx1 as usize)],
+            cluster_size[(best_idx2 as usize)]
+        );
         for i in 0usize..symbols_size {
             if symbols[i] == best_idx2 {
                 symbols[i] = best_idx1;
