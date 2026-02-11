@@ -346,7 +346,9 @@ impl<'a> CDF<'a> {
         let mut cdf = *self.cdf;
         let increment_v = s16::splat(speed.0 as i16);
         let one_to_16 = s16::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
-        let mask_v: s16 = one_to_16.simd_gt(s16::splat(i16::from(nibble_u8))).to_int();
+        let mask_v: s16 = one_to_16
+            .simd_gt(s16::splat(i16::from(nibble_u8)))
+            .to_simd();
         cdf = cdf + (increment_v & mask_v);
         if cdf[15] >= speed.1 as i16 {
             let cdf_bias = one_to_16;

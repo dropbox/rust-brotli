@@ -72,7 +72,9 @@ fn update_cost_and_signal(
     {
         let mut ymm_cost = *cost_it;
         let costk_minus_min_cost = ymm_cost - ymm_min_cost;
-        let ymm_cmpge: v256i = costk_minus_min_cost.simd_ge(ymm_block_switch_cost).to_int();
+        let ymm_cmpge: v256i = costk_minus_min_cost
+            .simd_ge(ymm_block_switch_cost)
+            .to_simd();
         let ymm_bits = ymm_cmpge & ymm_and_mask;
         let result = sum8i(ymm_bits);
         //super::vectorization::sum8(ymm_bits) as u8;
