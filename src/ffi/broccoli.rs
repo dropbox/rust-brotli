@@ -54,7 +54,10 @@ pub extern "C" fn BroccoliCreateInstance() -> BroccoliState {
 }
 #[no_mangle]
 pub extern "C" fn BroccoliCreateInstanceWithWindowSize(window_size: u8) -> BroccoliState {
-    BroCatli::new_with_window_size(window_size).into()
+    match BroCatli::try_new_with_window_size(window_size) {
+        Ok(bro_catli) => bro_catli.into(),
+        Err(_) => BroCatli::new().into(),
+    }
 }
 #[no_mangle]
 pub extern "C" fn BroccoliDestroyInstance(_state: BroccoliState) {}
@@ -129,4 +132,12 @@ pub unsafe extern "C" fn BroccoliConcatFinished(
     mut output_buf: *mut u8,
 ) -> BroCatliResult {
     BroccoliConcatFinish(state, available_out, &mut output_buf)
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_create_instance_with_invalid_window_size_does_not_panic() {
+        let _ = super::BroccoliCreateInstanceWithWindowSize(5);
+    }
 }
