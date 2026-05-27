@@ -137,7 +137,10 @@ fn test_custom_dict_alice() {
     assert_eq!(rt.data(), raw.data());
     // Platform-specific compression sizes - exact size varies by architecture and optimizations
     if br.data().len() != 43860 && br.data().len() != 43836 && br.data().len() != 43857 {
-        panic!("Unexpected compressed size: {} (expected 43860, 43836, or 43857)", br.data().len());
+        panic!(
+            "Unexpected compressed size: {} (expected 43860, 43836, or 43857)",
+            br.data().len()
+        );
     }
 }
 
