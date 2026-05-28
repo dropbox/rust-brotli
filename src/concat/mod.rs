@@ -142,9 +142,28 @@ impl BroCatli {
         if 16 + NUM_STREAM_HEADER_BYTES > buffer.len() {
             return Err(());
         }
+        let last_bytes_len = buffer[8];
+        let last_byte_bit_offset = buffer[10];
+        let window_size = buffer[11];
+        let has_new_stream_pending = (buffer[9] & (1 << 6)) != 0;
+        let has_num_bytes_written = (buffer[9] & (1 << 7)) != 0;
+        if last_bytes_len > 2 || last_byte_bit_offset >= 8 {
+            return Err(());
+        }
+        if window_size != 0 && BroCatli::try_new_with_window_size(window_size).is_err() {
+            return Err(());
+        }
+        if has_new_stream_pending {
+            if usize::from(buffer[12]) > NUM_STREAM_HEADER_BYTES {
+                return Err(());
+            }
+            if has_num_bytes_written && buffer[13] > buffer[12] {
+                return Err(());
+            }
+        }
         let mut possible_new_stream_pending = NewStreamData {
             num_bytes_read: buffer[12],
-            num_bytes_written: if (buffer[9] & (1 << 7)) != 0 {
+            num_bytes_written: if has_num_bytes_written {
                 Some(buffer[13])
             } else {
                 None
@@ -155,18 +174,18 @@ impl BroCatli {
         possible_new_stream_pending
             .bytes_so_far
             .clone_from_slice(&buffer[16..16 + xlen]);
-        let new_stream_pending: Option<NewStreamData> = if (buffer[9] & (1 << 6)) != 0 {
+        let new_stream_pending: Option<NewStreamData> = if has_new_stream_pending {
             Some(possible_new_stream_pending)
         } else {
             None
         };
         let mut ret = BroCatli {
             last_bytes: [0, 0],
-            last_bytes_len: buffer[8],
+            last_bytes_len,
             last_byte_sanitized: (buffer[9] & 0x1) != 0,
-            last_byte_bit_offset: buffer[10],
+            last_byte_bit_offset,
             any_bytes_emitted: (buffer[9] & (1 << 5)) != 0,
-            window_size: buffer[11],
+            window_size,
             new_stream_pending,
         };
         if ret.last_bytes.len() > 8 {
@@ -586,12 +605,21 @@ impl BroCatli {
 mod test {
     use super::BroCatli;
 
+    fn make_valid_serialized_buffer(buffer: &mut [u8]) {
+        buffer[8] = 2;
+        buffer[9] = (1 << 6) | (1 << 7);
+        buffer[10] = 7;
+        buffer[11] = 22;
+        buffer[12] = super::NUM_STREAM_HEADER_BYTES as u8;
+        buffer[13] = 3;
+    }
+
     #[test]
     fn test_deserialization() {
         let broccoli = BroCatli {
             new_stream_pending: Some(super::NewStreamData {
                 bytes_so_far: [0x33; super::NUM_STREAM_HEADER_BYTES],
-                num_bytes_read: 16,
+                num_bytes_read: super::NUM_STREAM_HEADER_BYTES as u8,
                 num_bytes_written: Some(3),
             }),
             last_bytes: [0x45, 0x46],
@@ -627,7 +655,7 @@ mod test {
         let broccoli = BroCatli {
             new_stream_pending: Some(super::NewStreamData {
                 bytes_so_far: [0x33; super::NUM_STREAM_HEADER_BYTES],
-                num_bytes_read: 16,
+                num_bytes_read: super::NUM_STREAM_HEADER_BYTES as u8,
                 num_bytes_written: Some(3),
             }),
             last_bytes: [0x45, 0x46],
@@ -668,6 +696,7 @@ mod test {
         for (index, item) in buffer.iter_mut().enumerate() {
             *item = index as u8;
         }
+        make_valid_serialized_buffer(&mut buffer[..]);
         broccoli = BroCatli::deserialize_from_buffer(&buffer).unwrap();
         broccoli.serialize_to_buffer(&mut buffer2[..]).unwrap();
         broccoli = BroCatli::deserialize_from_buffer(&buffer2).unwrap();
@@ -679,6 +708,7 @@ mod test {
         for (index, item) in buffer.iter_mut().enumerate() {
             *item = 0xff ^ index as u8;
         }
+        make_valid_serialized_buffer(&mut buffer[..]);
         broccoli = BroCatli::deserialize_from_buffer(&buffer).unwrap();
         broccoli.serialize_to_buffer(&mut buffer2[..]).unwrap();
         broccoli = BroCatli::deserialize_from_buffer(&buffer2).unwrap();
@@ -687,6 +717,31 @@ mod test {
         }
         broccoli.serialize_to_buffer(&mut buffer[..]).unwrap();
         assert_eq!(&buffer[..], &buffer2[..]);
+    }
+    #[test]
+    fn test_deserialization_rejects_invalid_state_fields() {
+        let mut buffer = [0u8; 248];
+        make_valid_serialized_buffer(&mut buffer[..]);
+
+        let mut invalid = buffer;
+        invalid[8] = 3;
+        assert!(BroCatli::deserialize_from_buffer(&invalid[..]).is_err());
+
+        invalid = buffer;
+        invalid[10] = 8;
+        assert!(BroCatli::deserialize_from_buffer(&invalid[..]).is_err());
+
+        invalid = buffer;
+        invalid[11] = 9;
+        assert!(BroCatli::deserialize_from_buffer(&invalid[..]).is_err());
+
+        invalid = buffer;
+        invalid[12] = super::NUM_STREAM_HEADER_BYTES as u8 + 1;
+        assert!(BroCatli::deserialize_from_buffer(&invalid[..]).is_err());
+
+        invalid = buffer;
+        invalid[13] = buffer[12] + 1;
+        assert!(BroCatli::deserialize_from_buffer(&invalid[..]).is_err());
     }
     #[test]
     fn test_cat_empty_stream() {
