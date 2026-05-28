@@ -169,7 +169,7 @@ impl BroCatli {
             window_size: buffer[11],
             new_stream_pending,
         };
-        if ret.last_bytes.len() > 8 {
+        if usize::from(ret.last_bytes_len) > ret.last_bytes.len() {
             return Err(());
         }
         let xlen = ret.last_bytes.len();
@@ -668,6 +668,7 @@ mod test {
         for (index, item) in buffer.iter_mut().enumerate() {
             *item = index as u8;
         }
+        buffer[8] = 2;
         broccoli = BroCatli::deserialize_from_buffer(&buffer).unwrap();
         broccoli.serialize_to_buffer(&mut buffer2[..]).unwrap();
         broccoli = BroCatli::deserialize_from_buffer(&buffer2).unwrap();
@@ -679,6 +680,7 @@ mod test {
         for (index, item) in buffer.iter_mut().enumerate() {
             *item = 0xff ^ index as u8;
         }
+        buffer[8] = 2;
         broccoli = BroCatli::deserialize_from_buffer(&buffer).unwrap();
         broccoli.serialize_to_buffer(&mut buffer2[..]).unwrap();
         broccoli = BroCatli::deserialize_from_buffer(&buffer2).unwrap();
@@ -687,6 +689,12 @@ mod test {
         }
         broccoli.serialize_to_buffer(&mut buffer[..]).unwrap();
         assert_eq!(&buffer[..], &buffer2[..]);
+    }
+    #[test]
+    fn test_deserialization_rejects_invalid_last_bytes_len() {
+        let mut buffer = [0u8; 248];
+        buffer[8] = 3;
+        assert!(BroCatli::deserialize_from_buffer(&buffer[..]).is_err());
     }
     #[test]
     fn test_cat_empty_stream() {
