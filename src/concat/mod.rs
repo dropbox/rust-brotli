@@ -365,6 +365,9 @@ impl BroCatli {
                     ((usize::from(self.last_byte_bit_offset) + varlen_offset - window_offset) + 7)
                         / 8;
                 let whole_byte_source = (varlen_offset + 7) / 8;
+                if whole_byte_source > usize::from(new_stream_pending.num_bytes_read) {
+                    return BroCatliResult::BrotliFileNotCraftedForConcatenation;
+                }
                 let num_whole_bytes_to_copy =
                     usize::from(new_stream_pending.num_bytes_read) - whole_byte_source;
                 for aligned_index in 0..num_whole_bytes_to_copy {
@@ -716,6 +719,36 @@ mod test {
         assert_eq!(res, super::BroCatliResult::Success);
         assert_ne!(out_offset, 0);
         assert_eq!(&out_bytes[..out_offset], &[b';']);
+    }
+    #[test]
+    fn test_cat_truncated_metadata_header_fails() {
+        let empty_catable = [b';'];
+        let mut bcat = super::BroCatli::new_with_window_size(22);
+        let mut in_offset = 0usize;
+        let mut out_bytes = [0u8; 32];
+        let mut out_offset = 0usize;
+        let mut res = bcat.stream(
+            &empty_catable[..],
+            &mut in_offset,
+            &mut out_bytes[..],
+            &mut out_offset,
+        );
+        assert_eq!(res, super::BroCatliResult::NeedsMoreInput);
+
+        let truncated_metadata = [0x71, 0x1b, 0, 0];
+        bcat.new_brotli_file();
+        in_offset = 0;
+        out_offset = 0;
+        res = bcat.stream(
+            &truncated_metadata[..],
+            &mut in_offset,
+            &mut out_bytes[..],
+            &mut out_offset,
+        );
+        assert_eq!(
+            res,
+            super::BroCatliResult::BrotliFileNotCraftedForConcatenation
+        );
     }
     #[test]
     fn test_try_new_with_window_size_invalid_returns_error() {
