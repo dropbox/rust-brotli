@@ -6,6 +6,25 @@ use core;
 use super::*;
 use crate::enc::encode::BrotliEncoderParameter;
 
+extern "C" fn failing_alloc(_opaque: *mut c_void, _size: usize) -> *mut c_void {
+    core::ptr::null_mut()
+}
+
+extern "C" fn failing_free(_opaque: *mut c_void, _address: *mut c_void) {}
+
+#[test]
+fn test_create_work_pool_returns_null_on_allocator_failure() {
+    let wp = unsafe {
+        BrotliEncoderCreateWorkPool(
+            8,
+            Some(failing_alloc),
+            Some(failing_free),
+            core::ptr::null_mut(),
+        )
+    };
+    assert!(wp.is_null());
+}
+
 #[test]
 fn test_compress_workpool() {
     let input = [
