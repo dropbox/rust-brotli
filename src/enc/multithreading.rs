@@ -17,17 +17,25 @@ use crate::enc::threading::{
 use crate::enc::{BrotliAlloc, BrotliEncoderParams};
 
 pub struct MultiThreadedJoinable<T: Send + 'static, U: Send + 'static>(
-    JoinHandle<T>,
+    Option<JoinHandle<T>>,
     PhantomData<U>,
 );
 
 impl<T: Send + 'static, U: Send + 'static + AnyBoxConstructor> Joinable<T, U>
     for MultiThreadedJoinable<T, U>
 {
-    fn join(self) -> Result<T, U> {
-        match self.0.join() {
+    fn join(mut self) -> Result<T, U> {
+        match self.0.take().unwrap().join() {
             Ok(t) => Ok(t),
             Err(e) => Err(<U as AnyBoxConstructor>::new(e)),
+        }
+    }
+}
+
+impl<T: Send + 'static, U: Send + 'static> Drop for MultiThreadedJoinable<T, U> {
+    fn drop(&mut self) {
+        if let Some(join_handle) = self.0.take() {
+            let _ = join_handle.join();
         }
     }
 }
@@ -106,7 +114,7 @@ where
         let (alloc, extra_input) = work.replace_with_default();
         let ret = spawn_work(extra_input, index, num_threads, input.clone(), alloc, f);
         *work = SendAlloc(InternalSendAlloc::Join(MultiThreadedJoinable(
-            ret,
+            Some(ret),
             PhantomData,
         )));
     }

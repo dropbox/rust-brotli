@@ -1,3 +1,5 @@
+image: Visual Studio 2019
+
 environment:
   RUST_VERSION: stable
   CRATE_NAME: brotli
@@ -5,23 +7,29 @@ environment:
   - TARGET: x86_64-pc-windows-gnu
     BITS: 64
     MSYS2: 1
+    MSYS2_ARCH: x86_64
   - TARGET: x86_64-pc-windows-msvc
     BITS: 64
   - TARGET: i686-pc-windows-gnu
     BITS: 32
     MSYS2: 1
+    MSYS2_ARCH: i686
   - TARGET: i686-pc-windows-msvc
     BITS: 32
 install:
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - if defined MSYS2 C:\msys64\usr\bin\bash -lc "pacman --noconfirm -Syuu"
+  - if defined MSYS2 C:\msys64\usr\bin\bash -lc "pacman --noconfirm -Syuu"
+  - if defined MSYS2 C:\msys64\usr\bin\bash -lc "pacman --noconfirm --needed -S mingw-w64-%MSYS2_ARCH%-gcc mingw-w64-%MSYS2_ARCH%-crt-git mingw-w64-%MSYS2_ARCH%-headers-git mingw-w64-%MSYS2_ARCH%-winpthreads-git"
   - if defined MSYS2 set PATH=C:\msys64\mingw%BITS%\bin;%PATH%
   - rustc -V
   - cargo -V
 build: false
 test_script:
-  - cargo test --verbose
+  - if defined MSYS2 cargo test --verbose --no-run
+  - if not defined MSYS2 cargo test --verbose
   - set RUSTFLAGS=-C panic=abort
   - set CARGO_PROFILE_RELEASE=panic=abort
   - cargo build --verbose --release --features=validation

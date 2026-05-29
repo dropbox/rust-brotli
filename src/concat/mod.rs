@@ -200,7 +200,16 @@ impl BroCatli {
         }
         Ok(())
     }
+    /// Creates a `BroCatli` with an initial window size.
+    ///
+    /// Panics for invalid window sizes. Use `try_new_with_window_size` to detect
+    /// invalid input without panicking.
     pub fn new_with_window_size(log_window_size: u8) -> BroCatli {
+        Self::try_new_with_window_size(log_window_size).expect("invalid brotli window size")
+    }
+
+    /// Creates a `BroCatli` with an initial window size, or returns an error for invalid sizes.
+    pub fn try_new_with_window_size(log_window_size: u8) -> Result<BroCatli, BroCatliResult> {
         // in this case setup the last_bytes of the stream to perfectly mimic what would
         // appear in an empty stream with the selected window size...
         // this means the window size followed by 2 sequential 1 bits (LAST_METABLOCK, EMPTY)
@@ -227,14 +236,12 @@ impl BroCatli {
                 12 => last_bytes = [0x41 | 0x80, 1],
                 11 => last_bytes = [0x31 | 0x80, 1],
                 10 => last_bytes = [0x21 | 0x80, 1],
-                _ => {
-                    assert_eq!(log_window_size, 17);
-                    last_bytes = [0x1 | 0x80, 1];
-                } // 17
+                17 => last_bytes = [0x1 | 0x80, 1],
+                _ => return Err(BroCatliResult::InvalidWindowSize),
             }
             last_bytes_len = 2;
         }
-        BroCatli {
+        Ok(BroCatli {
             last_bytes,
             last_bytes_len,
             last_byte_bit_offset: 0,
@@ -242,7 +249,7 @@ impl BroCatli {
             any_bytes_emitted: false,
             new_stream_pending: None,
             window_size: log_window_size,
-        }
+        })
     }
 
     pub fn new_brotli_file(&mut self) {
@@ -709,5 +716,35 @@ mod test {
         assert_eq!(res, super::BroCatliResult::Success);
         assert_ne!(out_offset, 0);
         assert_eq!(&out_bytes[..out_offset], &[b';']);
+    }
+    #[test]
+    fn test_try_new_with_window_size_invalid_returns_error() {
+        use super::BroCatliResult;
+        // Values 0..=9 are invalid window sizes and must return an error, not panic.
+        for ws in 0u8..=9 {
+            match BroCatli::try_new_with_window_size(ws) {
+                Err(BroCatliResult::InvalidWindowSize) => {}
+                Err(_) => panic!("window_size {} returned wrong error variant", ws),
+                Ok(_) => panic!("window_size {} should be rejected", ws),
+            }
+            #[cfg(feature = "std")]
+            assert!(
+                std::panic::catch_unwind(|| BroCatli::new_with_window_size(ws)).is_err(),
+                "window_size {} should panic through the legacy constructor",
+                ws
+            );
+        }
+    }
+    #[test]
+    fn test_new_with_window_size_valid() {
+        // Values 10..=24 and >24 are valid window sizes.
+        for ws in 10u8..=30 {
+            let _ = BroCatli::new_with_window_size(ws);
+            assert!(
+                BroCatli::try_new_with_window_size(ws).is_ok(),
+                "window_size {} should be accepted",
+                ws
+            );
+        }
     }
 }
