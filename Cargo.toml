@@ -35,11 +35,20 @@ lto = true
 incremental = false
 
 [dependencies]
-"alloc-no-stdlib" = { version = "2.0" }
+# Compatible with both the 2.x and 3.x generations of alloc-no-stdlib,
+# matching the range used by brotli-decompressor so a single version unifies
+# across the dependency tree.
+"alloc-no-stdlib" = { version = ">=2.0.4, <4" }
 "alloc-stdlib" = { version = "~0.2", optional = true }
 "brotli-decompressor" = { version = "~5.0", default-features = false }
 
 "sha2" = { version = "~0.10", optional = true }
+
+[dev-dependencies]
+# The test suite (src/enc/test.rs) builds calloc-backed memory pools, which on
+# alloc-no-stdlib 3.x live behind its "unsafe" feature (always present on 2.x).
+# Enable it for tests only; the library itself uses no calloc path.
+"alloc-no-stdlib" = { version = ">=2.0.4, <4", features = ["unsafe"] }
 
 [features]
 default = ["std"]

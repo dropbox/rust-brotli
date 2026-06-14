@@ -94,6 +94,9 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
                 allocators.opaque,
                 core::mem::size_of::<BrotliEncoderState>(),
             );
+            if ptr.is_null() {
+                return core::ptr::null_mut();
+            }
             let brotli_decoder_state_ptr =
                 core::mem::transmute::<*mut c_void, *mut BrotliEncoderState>(ptr);
             core::ptr::write(brotli_decoder_state_ptr, to_box);
@@ -445,3 +448,26 @@ fn catch_panic_cstate<F: FnOnce() -> *mut BrotliEncoderState>(
 
 #[cfg(any(not(feature = "std"), feature = "pass-through-ffi-panics"))]
 fn error_print<Err>(_err: Err) {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    extern "C" fn failing_alloc(_opaque: *mut c_void, _size: usize) -> *mut c_void {
+        core::ptr::null_mut()
+    }
+
+    extern "C" fn failing_free(_opaque: *mut c_void, _address: *mut c_void) {}
+
+    #[test]
+    fn test_create_instance_returns_null_on_allocator_failure() {
+        let state = unsafe {
+            BrotliEncoderCreateInstance(
+                Some(failing_alloc),
+                Some(failing_free),
+                core::ptr::null_mut(),
+            )
+        };
+        assert!(state.is_null());
+    }
+}

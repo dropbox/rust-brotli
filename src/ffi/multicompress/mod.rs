@@ -261,6 +261,9 @@ pub unsafe extern "C" fn BrotliEncoderCreateWorkPool(
                 allocators.opaque,
                 core::mem::size_of::<BrotliEncoderWorkPool>(),
             );
+            if ptr.is_null() {
+                return core::ptr::null_mut();
+            }
             let brotli_work_pool_ptr =
                 core::mem::transmute::<*mut c_void, *mut BrotliEncoderWorkPool>(ptr);
             core::ptr::write(brotli_work_pool_ptr, to_box);
