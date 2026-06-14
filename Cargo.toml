@@ -1,6 +1,6 @@
 [package]
 name = "brotli"
-version = "8.0.3"
+version = "8.0.4"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
 description = "A brotli compressor and decompressor that with an interface avoiding the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. The default build also includes a stdlib allocator and stream interface. Disable this with --features=no-stdlib. All included code is safe."
 license = "BSD-3-Clause AND MIT"
@@ -35,10 +35,7 @@ lto = true
 incremental = false
 
 [dependencies]
-# Compatible with both the 2.x and 3.x generations of alloc-no-stdlib,
-# matching the range used by brotli-decompressor so a single version unifies
-# across the dependency tree.
-"alloc-no-stdlib" = { version = ">=2.0.4, <4" }
+"alloc-no-stdlib" = { version = ">=2.0.4, <3" }
 "alloc-stdlib" = { version = "~0.2", optional = true }
 "brotli-decompressor" = { version = "~5.0", default-features = false }
 
@@ -48,7 +45,7 @@ incremental = false
 # The test suite (src/enc/test.rs) builds calloc-backed memory pools, which on
 # alloc-no-stdlib 3.x live behind its "unsafe" feature (always present on 2.x).
 # Enable it for tests only; the library itself uses no calloc path.
-"alloc-no-stdlib" = { version = ">=2.0.4, <4", features = ["unsafe"] }
+"alloc-no-stdlib" = { version = ">=2.0.4, <3", features = ["unsafe"] }
 
 [features]
 default = ["std"]

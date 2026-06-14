@@ -3,6 +3,15 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+# What's new in 8.0.4
+Fix: adjust versions of rust-decompressor and rust-alloc-no-stdlib and
+alloc-stdlib so the Allocator<> trait is identical for all associated crates.
+Return BrotliFileNotCraftedForConcatenation when a new stream header advertises more whole source bytes than have been buffered. This prevents the unsigned subtraction in shift_and_check_new_stream_header from underflowing on truncated metadata headers.
+Return NULL from BrotliEncoderCreateInstance and BrotliEncoderCreateWorkPool when a caller-provided allocator returns NULL, rather than writing state through a NULL pointer.
+Wrap the mutable Broccoli FFI entry points in a local catch_unwind helper, matching the encoder FFI convention so Rust panics do not unwind across extern C when std panic catching is available.
+Return BrotliFileNotCraftedForConcatenation on caught panics and keep the existing pass-through behavior for no-std or pass-through-ffi-panics builds. Add regression coverage for a crafted stream input that previously panicked through BroccoliConcatStream.
+Reject serialized BroCatli buffers with out-of-range live state fields before constructing the state. This keeps deserialize_from_buffer on its existing Result<BroCatli, ()> API while returning Err(()) for corrupt buffers that would otherwise panic on later use
+
 ## What's new in 8.0.3
 Fix: avoid panic across Broccoli FFI boundary with BroCatLi
 Fix: CompressMulti worker joins on errors
