@@ -1738,16 +1738,8 @@ fn ChooseContextMap(
     i = 0usize;
     while i < 9usize {
         {
-            {
-                let _rhs = bigram_histo[i];
-                let _lhs = &mut monogram_histo[i.wrapping_rem(3)];
-                *_lhs = (*_lhs).wrapping_add(_rhs);
-            }
-            {
-                let _rhs = bigram_histo[i];
-                let _lhs = &mut two_prefix_histo[i.wrapping_rem(6)];
-                *_lhs = (*_lhs).wrapping_add(_rhs);
-            }
+            ::wrapping_add!(monogram_histo[i.wrapping_rem(3)], bigram_histo[i]);
+            ::wrapping_add!(two_prefix_histo[i.wrapping_rem(6)], bigram_histo[i]);
         }
         i = i.wrapping_add(1);
     }
