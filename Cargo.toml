@@ -59,6 +59,11 @@ float64 = []
 floating_point_context_mixing = []
 no-stdlib-ffi-binding = []
 pass-through-ffi-panics = []
+# Make the encoder's floating point math target-independent, so that the same
+# input compresses to byte-identical output on every target. Replaces the libm
+# log2/powf calls in the cost estimators with the table-driven implementations
+# `no_std` builds already use. Changes the emitted bytes; no-op under `no_std`.
+portable-float = []
 seccomp = ["brotli-decompressor/seccomp"]
 simd = []
 std = ["alloc-stdlib", "brotli-decompressor/std"]

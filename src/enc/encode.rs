@@ -3097,4 +3097,37 @@ mod test {
         assert_eq!(roundtrip[..t], input[..]);
         assert_eq!(s, output_len);
     }
+
+    // Quality 11 is where block splitting and histogram clustering do the most
+    // work, so it is the setting most sensitive to the encoder's float math.
+    // This round trips through brotli-decompressor under whichever `FastLog2`
+    // implementation is compiled in, including the table-driven one selected by
+    // `portable-float`. The compressed length is deliberately not asserted: it
+    // legitimately differs between the two implementations.
+    #[test]
+    fn test_encoder_compress_quality11_roundtrip() {
+        let input = &include_bytes!("../../testdata/alice29.txt")[..];
+        let mut output_buffer = [0u8; 200000];
+        let mut output_len = output_buffer.len();
+        let ret = super::encoder_compress(
+            StandardAlloc::default(),
+            &mut StandardAlloc::default(),
+            11,
+            22,
+            super::BrotliEncoderMode::BROTLI_MODE_GENERIC,
+            input.len(),
+            input,
+            &mut output_len,
+            &mut output_buffer,
+            &mut |_, _, _, _| (),
+        );
+        assert!(ret);
+        let mut roundtrip = std::vec::Vec::<u8>::new();
+        crate::BrotliDecompress(
+            &mut std::io::Cursor::new(&output_buffer[..output_len]),
+            &mut roundtrip,
+        )
+        .unwrap();
+        assert_eq!(&roundtrip[..], input);
+    }
 }

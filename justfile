@@ -60,6 +60,11 @@ test *ARGS:
     cargo test {{ ARGS }}
     cd c && cargo test {{ ARGS }}
 
+# Build and test with the portable-float feature, which makes encoder output target-independent
+test-portable-float:
+    RUSTFLAGS='-D warnings' cargo build --features portable-float --lib
+    cargo test --features portable-float
+
 # Report current versions of rustc, cargo, and other utils
 sys-info:
     rustc --version

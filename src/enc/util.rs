@@ -14,7 +14,14 @@ pub fn FastLog2u16(v: u16) -> floatX {
     logs_16[v as usize]
 }
 
-#[cfg(feature = "std")]
+// The `portable-float` feature routes `std` builds onto the table-driven
+// implementations below, which are the same ones `no_std` builds already use.
+// They contain no calls into the platform's libm, so the encoder's cost
+// estimates -- and therefore the bytes it emits -- are identical on every
+// target. The feature is a no-op for `no_std` builds: those are already
+// portable, because the libm path is unavailable to them in the first place.
+
+#[cfg(all(feature = "std", not(feature = "portable-float")))]
 #[inline(always)]
 pub fn FastLog2(v: u64) -> floatX {
     if v < 256 {
@@ -24,7 +31,7 @@ pub fn FastLog2(v: u64) -> floatX {
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(not(feature = "std"), feature = "portable-float"))]
 #[inline(always)]
 pub fn FastLog2(v: u64) -> floatX {
     if v < 256 {
@@ -34,7 +41,7 @@ pub fn FastLog2(v: u64) -> floatX {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(feature = "portable-float")))]
 #[inline(always)]
 pub fn FastLog2f64(v: u64) -> floatX {
     if v < 256 {
@@ -44,7 +51,7 @@ pub fn FastLog2f64(v: u64) -> floatX {
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(not(feature = "std"), feature = "portable-float"))]
 #[inline(always)]
 pub fn FastLog2f64(v: u64) -> floatX {
     FastLog2(v) as floatX
@@ -71,13 +78,13 @@ pub fn xFastLog2u16(v: u16) -> floatX {
     (offset as floatX) + logs_8[(v >> offset) as usize]
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(feature = "portable-float")))]
 #[inline(always)]
 pub fn FastPow2(v: floatX) -> floatX {
     (2 as floatX).powf(v)
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(not(feature = "std"), feature = "portable-float"))]
 #[inline(always)]
 pub fn FastPow2(v: floatX) -> floatX {
     assert!(v >= 0 as floatX);

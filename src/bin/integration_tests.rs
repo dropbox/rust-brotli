@@ -393,33 +393,40 @@ fn test_random_then_unicode_8() {
 fn test_random_then_unicode_9() {
     roundtrip_helper(RANDOM_THEN_UNICODE, 9, 22, false);
 }
-#[cfg(feature = "std")]
+// These sizes depend on which log2 implementation the encoder was built with.
+// `portable-float` selects the same approximate-log path `no_std` already uses,
+// so it lands on the same golden sizes as a `no_std` build.
+#[cfg(all(feature = "std", not(feature = "portable-float")))]
 const random_then_unicode_compressed_size_9_5: usize = 130036;
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(feature = "portable-float")))]
 const random_then_unicode_compressed_size_9_5x: usize = 129715;
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(not(feature = "std"), feature = "portable-float"))]
 const alice_compressed_size_10: usize = 47490;
-#[cfg(not(feature = "std"))]
+#[cfg(any(not(feature = "std"), feature = "portable-float"))]
 const alice_compressed_size_11: usize = 46496;
 
-#[cfg(feature = "std")]
-#[cfg(not(feature = "float64"))]
+#[cfg(all(
+    feature = "std",
+    not(feature = "portable-float"),
+    not(feature = "float64")
+))]
 const alice_compressed_size_10: usize = 47488;
-#[cfg(feature = "std")]
-#[cfg(not(feature = "float64"))]
+#[cfg(all(
+    feature = "std",
+    not(feature = "portable-float"),
+    not(feature = "float64")
+))]
 const alice_compressed_size_11: usize = 46493;
 
-#[cfg(feature = "std")]
-#[cfg(feature = "float64")]
+#[cfg(all(feature = "std", not(feature = "portable-float"), feature = "float64"))]
 const alice_compressed_size_10: usize = 47515;
-#[cfg(feature = "std")]
-#[cfg(feature = "float64")]
+#[cfg(all(feature = "std", not(feature = "portable-float"), feature = "float64"))]
 const alice_compressed_size_11: usize = 46510;
 
-#[cfg(not(feature = "std"))] // approx log
+#[cfg(any(not(feature = "std"), feature = "portable-float"))] // approx log
 const random_then_unicode_compressed_size_9_5: usize = 130105;
-#[cfg(not(feature = "std"))] // approx log
+#[cfg(any(not(feature = "std"), feature = "portable-float"))] // approx log
 const random_then_unicode_compressed_size_9_5x: usize = 129873;
 
 #[test]
