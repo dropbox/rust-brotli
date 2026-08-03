@@ -32,7 +32,26 @@ impl NewStreamData {
         if self.num_bytes_read == 4 && (127 & self.bytes_so_far[0]) != 17 {
             return true;
         }
-        self.num_bytes_read == 5
+        if self.num_bytes_read == 5 {
+            return true;
+        }
+        let num_bytes_read = usize::from(self.num_bytes_read);
+        // A complete empty stream can be shorter than the usual 4- or 5-byte prefix.
+        // Recognize it as soon as the window, ISLAST, and ISLASTEMPTY bits are buffered.
+        if num_bytes_read != 0 {
+            if let Ok((_, window_offset)) = parse_window_size(&self.bytes_so_far) {
+                if window_offset + 2 <= num_bytes_read * 8 {
+                    let mut header = 0u64;
+                    for (index, byte) in self.bytes_so_far.iter().enumerate() {
+                        header |= u64::from(*byte) << (index * 8);
+                    }
+                    if (header >> window_offset) & 3 == 3 {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
     }
 }
 
@@ -834,5 +853,30 @@ mod test {
                 ws
             );
         }
+    }
+
+    #[test]
+    fn test_cat_empty_stream_after_quality_one_stream() {
+        // The first stream is the quality-1 reproduction from #258; the second is empty.
+        let first_catable = [
+            131, 0, 128, 48, 48, 152, 0, 0, 0, 10, 38, 6, 14, 224, 250, 125, 73, 137, 13, 224, 2,
+            28, 94, 161, 1,
+        ];
+        let empty_catable = [161, 1];
+        let mut bcat = BroCatli::new();
+        let mut output = [0u8; 32];
+        let mut output_offset = 0;
+
+        for stream in [&first_catable[..], &empty_catable[..]] {
+            bcat.new_brotli_file();
+            let mut input_offset = 0;
+            let result = bcat.stream(stream, &mut input_offset, &mut output, &mut output_offset);
+            assert_eq!(result, super::BroCatliResult::NeedsMoreInput);
+            assert_eq!(input_offset, stream.len());
+        }
+
+        let result = bcat.finish(&mut output, &mut output_offset);
+        assert_eq!(result, super::BroCatliResult::Success);
+        assert_eq!(&output[..output_offset], &first_catable[..]);
     }
 }
