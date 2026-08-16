@@ -13,7 +13,7 @@ pub unsafe extern "C" fn CBrotliDecoderSetParameter(
     state_ptr: *mut ffi::BrotliDecoderState,
     selector: ffi::interface::BrotliDecoderParameter,
     value: u32,
-) {
+) -> i32 {
     ffi::BrotliDecoderSetParameter(state_ptr, selector, value)
 }
 
