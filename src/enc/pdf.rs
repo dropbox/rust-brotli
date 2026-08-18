@@ -1,6 +1,6 @@
-//TODO: replace with builtin SIMD type
+//! The probability distribution vector.
+//!
+//! `PDF` is one of the encoder's fixed-width vector storage types, so it is defined
+//! alongside the others in [`super::vectorization`] and re-exported here.
 
-// FIXME!!!
-#[allow(dead_code)]
-#[derive(Copy, Clone, Default, Debug)]
-pub struct PDF([i16; 16]);
+pub use super::vectorization::PDF;

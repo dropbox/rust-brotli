@@ -9,10 +9,10 @@ use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
 };
 use super::static_dict::{
-    FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
-    BROTLI_UNALIGNED_STORE64,
+    BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BROTLI_UNALIGNED_STORE64,
+    FindMatchLengthWithLimit,
 };
-use super::util::{floatX, Log2FloorNonZero};
+use super::util::{Log2FloorNonZero, floatX};
 static kCompressFragmentTwoPassBlockSize: usize = (1i32 << 17) as usize;
 
 // returns number of commands inserted
@@ -154,6 +154,7 @@ fn IsMatch(p1: &[u8], p2: &[u8], length: usize) -> bool {
 }
 
 #[allow(unused_assignments)]
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn CreateCommands(
     input_index: usize,
     block_size: usize,
@@ -249,7 +250,7 @@ fn CreateCommands(
                 ip_index = ip_index.wrapping_add(matched);
                 *num_commands += EmitInsertLen(insert as u32, commands);
                 (*literals)[..(insert as usize)]
-                    .clone_from_slice(&base_ip[next_emit..(next_emit + insert as usize)]);
+                    .copy_from_slice(&base_ip[next_emit..(next_emit + insert as usize)]);
                 *num_literals += insert as usize;
                 let new_literals = core::mem::take(literals);
                 let _ = core::mem::replace(literals, &mut new_literals[(insert as usize)..]);
@@ -377,7 +378,7 @@ fn CreateCommands(
         let insert: u32 = ip_end.wrapping_sub(next_emit) as u32;
         *num_commands += EmitInsertLen(insert, commands);
         literals[..insert as usize]
-            .clone_from_slice(&base_ip[next_emit..(next_emit + insert as usize)]);
+            .copy_from_slice(&base_ip[next_emit..(next_emit + insert as usize)]);
         let mut xliterals = core::mem::take(literals);
         *literals = &mut core::mem::take(&mut xliterals)[(insert as usize)..];
         *num_literals += insert as usize;
@@ -516,6 +517,7 @@ fn BuildAndStoreCommandPrefixCode(
     );
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn StoreCommands<AllocHT: alloc::Allocator<HuffmanTree>>(
     mht: &mut AllocHT,
     mut literals: &[u8],
@@ -643,6 +645,7 @@ fn EmitUncompressedMetaBlock(
 
 #[allow(unused_variables)]
 #[inline(always)]
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn compress_fragment_two_pass_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     base_ip: &[u8],
@@ -698,7 +701,7 @@ fn compress_fragment_two_pass_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     }
 }
 macro_rules! compress_specialization {
-    ($table_bits : expr, $fname: ident) => {
+    ($table_bits : expr_2021, $fname: ident) => {
         fn $fname<AllocHT: alloc::Allocator<HuffmanTree>>(
             mht: &mut AllocHT,
             input: &[u8],

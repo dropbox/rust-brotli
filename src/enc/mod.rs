@@ -1,5 +1,3 @@
-#[macro_use]
-pub mod vectorization;
 pub mod backward_references;
 pub mod bit_cost;
 pub mod block_split;
@@ -8,7 +6,6 @@ pub mod brotli_bit_stream;
 pub mod cluster;
 pub mod combined_alloc;
 pub mod command;
-mod compat;
 pub mod compress_fragment;
 pub mod compress_fragment_two_pass;
 pub mod constants;
@@ -39,25 +36,28 @@ mod test;
 pub mod threading;
 pub mod utf8_util;
 pub mod util;
+pub mod vectorization;
 mod weights;
 pub mod worker_pool;
 pub mod writer;
 
-pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
+pub use crate::alloc::{
+    AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
+};
 #[cfg(feature = "std")]
 use std::io;
 #[cfg(feature = "std")]
 use std::io::{Error, ErrorKind, Read, Write};
 
+pub use crate::interface::{InputPair, InputReference, InputReferenceMut};
 #[cfg(feature = "std")]
 pub use alloc_stdlib::StandardAlloc;
 use brotli_decompressor::{CustomRead, CustomWrite};
 #[cfg(feature = "std")]
 pub use brotli_decompressor::{IntoIoReader, IoReaderWrapper, IoWriterWrapper};
-pub use interface::{InputPair, InputReference, InputReferenceMut};
 
 pub use self::backward_references::{
-    hash_to_binary_tree, hq as backward_references_hq, BrotliEncoderParams, UnionHasher,
+    BrotliEncoderParams, UnionHasher, hash_to_binary_tree, hq as backward_references_hq,
 };
 pub use self::combined_alloc::{BrotliAlloc, CombiningAllocator};
 use self::encode::{BrotliEncoderDestroyInstance, BrotliEncoderOperation};
@@ -68,28 +68,19 @@ pub use self::hash_to_binary_tree::ZopfliNode;
 pub use self::interface::StaticCommand;
 pub use self::pdf::PDF;
 #[cfg(not(feature = "std"))]
-pub use self::singlethreading::{compress_worker_pool, new_work_pool, WorkerPool};
+pub use self::singlethreading::{WorkerPool, compress_worker_pool, new_work_pool};
 pub use self::threading::{
     BatchSpawnableLite, BrotliEncoderThreadError, CompressionThreadResult, Owned, SendAlloc,
 };
 pub use self::util::floatX;
-pub use self::vectorization::{v256, v256i, Mem256f};
+pub use self::vectorization::{Mem256f, v256, v256i};
 #[cfg(feature = "std")]
-pub use self::worker_pool::{compress_worker_pool, new_work_pool, WorkerPool};
+pub use self::worker_pool::{WorkerPool, compress_worker_pool, new_work_pool};
 use crate::enc::encode::BrotliEncoderStateStruct;
 
-#[cfg(feature = "simd")]
-pub type s16 = core::simd::i16x16;
-#[cfg(feature = "simd")]
-pub type v8 = core::simd::f32x8;
-#[cfg(feature = "simd")]
-pub type s8 = core::simd::i32x8;
-#[cfg(not(feature = "simd"))]
-pub type s16 = compat::Compat16x16;
-#[cfg(not(feature = "simd"))]
-pub type v8 = compat::CompatF8;
-#[cfg(not(feature = "simd"))]
-pub type s8 = compat::Compat32x8;
+pub type s16 = vectorization::Mem16x16;
+pub type v8 = vectorization::Mem256f;
+pub type s8 = vectorization::Mem256i;
 
 #[cfg(feature = "std")]
 pub fn compress_multi<

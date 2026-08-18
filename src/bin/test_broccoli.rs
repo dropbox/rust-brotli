@@ -9,10 +9,10 @@ use core::cmp::{max, min};
 
 use brotli_decompressor::{CustomRead, CustomWrite};
 
+use super::Rebox;
 use super::brotli::concat::{BroCatli, BroCatliResult};
 use super::brotli::enc::BrotliEncoderParams;
 use super::integration_tests::UnlimitedBuffer;
-use super::Rebox;
 
 static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
 static ALICE: &[u8] = include_bytes!("../../testdata/alice29.txt");
@@ -74,7 +74,9 @@ fn concat(
                                         break;
                                     }
                                     BroCatliResult::Success => {
-                                        panic!("Unexpected state: Success when streaming before finish");
+                                        panic!(
+                                            "Unexpected state: Success when streaming before finish"
+                                        );
                                     }
                                     failure => {
                                         panic!("{:?}", failure);
@@ -334,9 +336,6 @@ fn test_concat() {
     params3.quality = 8;
     params3.lgwin = 16;
     params3.magic_number = true;
-    let mut params4 = params0.clone();
-    params4.quality = 7;
-    params4.lgwin = 14;
     let mut params4 = params0.clone();
     params4.quality = 1;
     params4.lgwin = 10;

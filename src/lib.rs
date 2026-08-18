@@ -5,7 +5,6 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![cfg_attr(feature = "benchmark", feature(test))]
-#![cfg_attr(feature = "simd", feature(portable_simd))]
 #![cfg_attr(
     feature = "no-stdlib-ffi-binding",
     cfg_attr(not(feature = "std"), feature(lang_items))
@@ -19,16 +18,25 @@ extern crate alloc_no_stdlib as alloc;
 #[cfg(feature = "std")]
 extern crate alloc_stdlib;
 extern crate brotli_decompressor;
+#[macro_use]
+extern crate fearless_simd;
 
 pub mod concat;
 pub mod enc;
 #[cfg(feature = "ffi-api")]
 pub mod ffi;
 
-pub use alloc::{AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator};
+pub use crate::alloc::{
+    AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
+};
 
 #[cfg(feature = "std")]
 pub use alloc_stdlib::HeapAlloc;
+#[cfg(feature = "std")]
+pub use brotli_decompressor::BrotliDecompress;
+#[cfg(feature = "std")]
+pub use brotli_decompressor::BrotliDecompressCustomAlloc;
+pub use brotli_decompressor::HuffmanCode; // so we can make custom allocator for decompression
 #[cfg(feature = "std")]
 pub use brotli_decompressor::copy_from_to;
 pub use brotli_decompressor::io_wrappers::{CustomRead, CustomWrite};
@@ -41,14 +49,9 @@ pub use brotli_decompressor::transform::TransformDictionaryWord;
 #[cfg(feature = "std")]
 pub use brotli_decompressor::writer::DecompressorWriter;
 pub use brotli_decompressor::writer::DecompressorWriterCustomIo;
-#[cfg(feature = "std")]
-pub use brotli_decompressor::BrotliDecompress;
-#[cfg(feature = "std")]
-pub use brotli_decompressor::BrotliDecompressCustomAlloc;
-pub use brotli_decompressor::HuffmanCode; // so we can make custom allocator for decompression
 pub use brotli_decompressor::{
-    dictionary, reader, transform, writer, BrotliDecompressCustomIo,
-    BrotliDecompressCustomIoCustomDict, BrotliDecompressStream, BrotliResult, BrotliState,
+    BrotliDecompressCustomIo, BrotliDecompressCustomIoCustomDict, BrotliDecompressStream,
+    BrotliResult, BrotliState, dictionary, reader, transform, writer,
 };
 
 pub use self::enc::combined_alloc::CombiningAllocator;
@@ -60,9 +63,9 @@ pub use crate::enc::reader::CompressorReaderCustomIo;
 #[cfg(feature = "std")]
 pub use crate::enc::writer::CompressorWriter;
 pub use crate::enc::writer::CompressorWriterCustomIo;
-pub use crate::enc::{interface, BrotliCompressCustomIo, BrotliCompressCustomIoCustomDict};
 #[cfg(feature = "std")]
 pub use crate::enc::{BrotliCompress, BrotliCompressCustomAlloc};
+pub use crate::enc::{BrotliCompressCustomIo, BrotliCompressCustomIoCustomDict, interface};
 
 pub const VERSION: u8 = 1;
 

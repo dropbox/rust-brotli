@@ -318,3 +318,34 @@ params.catable = true;        // Sets catable=true, appendable=true, use_diction
 // All parameter dependencies are handled automatically by the library.
 // No manual fixups required - just set the primary flags you want.
 ```
+
+## Profiling the encoder
+
+The encoder pipeline is instrumented with [hotpath](https://docs.rs/hotpath/). The
+instrumentation is behind `cfg_attr`, so a default build neither links `hotpath` nor pays any
+runtime cost; only `--features hotpath` turns it on.
+
+```bash
+# wall-clock per pipeline stage
+cargo run --release --features hotpath --bin brotli -- -c -q11 input.bin /dev/null
+
+# CPU time instead of wall-clock
+cargo run --release --features hotpath-cpu --bin brotli -- -c -q11 input.bin /dev/null
+
+# allocation counts/bytes instead of time
+cargo run --release --features hotpath-alloc --bin brotli -- -c -q11 input.bin /dev/null
+```
+
+The report prints on exit. `HOTPATH_OUTPUT_FORMAT=json-pretty` emits the full table as JSON
+(the default table view truncates to fit the terminal).
+
+Measured stages: `encode_data`, `copy_input_to_ring_buffer`, `WriteMetaBlockInternal`,
+`ChooseContextMap`, `DecideOverLiteralContextModeling`, `compress_stream_fast`, the three
+`store_meta_block*` writers, `LogMetaBlock`, `BrotliCreateBackwardReferences` and the Zopfli
+entry points, `BrotliBuildMetaBlock`/`Greedy`/`BrotliOptimizeHistograms`, `BrotliSplitBlock`
+and its internals, the `cluster.rs` histogram-clustering functions,
+`BrotliEstimateBitCostsForLiterals`, and the two `compress_fragment` fast paths.
+
+Instrumentation sits at metablock granularity, not per-byte, so overhead is under measurement
+noise (q9/q10/q11 on a 3.9 MB corpus timed within 1% of an uninstrumented build). Leaf-level
+attribution inside a stage needs a sampling profiler (`sample` on macOS, `perf` on Linux).

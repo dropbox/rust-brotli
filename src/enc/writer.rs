@@ -1,4 +1,4 @@
-use alloc::{Allocator, SliceWrapperMut};
+use crate::alloc::{Allocator, SliceWrapperMut};
 #[cfg(feature = "std")]
 use std::io;
 #[cfg(feature = "std")]
@@ -141,10 +141,13 @@ pub fn write_all<ErrType, W: CustomWrite<ErrType>, ErrMaker: FnMut() -> Option<E
                 if bytes_written != 0 {
                     buf = &buf[bytes_written..]
                 } else {
-                    if let Some(err) = error_to_return_if_zero_bytes_written() {
-                        return Err(err);
-                    } else {
-                        return Ok(());
+                    match error_to_return_if_zero_bytes_written() {
+                        Some(err) => {
+                            return Err(err);
+                        }
+                        _ => {
+                            return Ok(());
+                        }
                     }
                 }
             }

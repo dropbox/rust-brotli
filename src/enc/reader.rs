@@ -1,4 +1,4 @@
-use alloc::{Allocator, SliceWrapperMut};
+use crate::alloc::{Allocator, SliceWrapperMut};
 #[cfg(feature = "std")]
 use std::io;
 #[cfg(feature = "std")]
@@ -167,7 +167,7 @@ impl<ErrType, R: CustomRead<ErrType>, BufferType: SliceWrapperMut<u8>, Alloc: Br
                 .input_buffer
                 .slice_mut()
                 .split_at_mut(self.input_offset);
-            first[0..avail_in].clone_from_slice(&second[0..avail_in]);
+            first[0..avail_in].copy_from_slice(&second[0..avail_in]);
             self.input_len -= self.input_offset;
             self.input_offset = 0;
         }

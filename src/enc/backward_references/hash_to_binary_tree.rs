@@ -1,16 +1,19 @@
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use crate::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
 use core::cmp::min;
 
+use fearless_simd::Simd;
+
 use super::{
-    fix_unbroken_len, kHashMul32, AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts,
-    HasherSearchResult, HowPrepared, Struct1,
+    AnyHasher, BrotliEncoderParams, CloneWithAlloc, H9Opts, HasherSearchResult, HowPrepared,
+    Struct1, fix_unbroken_len, kHashMul32,
 };
 use crate::enc::combined_alloc::allocate;
 use crate::enc::static_dict::{
-    BrotliDictionary, FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32,
+    BROTLI_UNALIGNED_LOAD32, BrotliDictionary, FindMatchLengthWithLimitSimd,
 };
 use crate::enc::util::floatX;
+use crate::enc::vectorization::detect_level;
 
 pub const kInfinity: floatX = 1.7e38;
 
@@ -120,10 +123,10 @@ pub struct H10<
 }
 
 impl<
-        AllocU32: Allocator<u32>,
-        Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
-        Params: H10Params,
-    > PartialEq<H10<AllocU32, Buckets, Params>> for H10<AllocU32, Buckets, Params>
+    AllocU32: Allocator<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
+    Params: H10Params,
+> PartialEq<H10<AllocU32, Buckets, Params>> for H10<AllocU32, Buckets, Params>
 where
     Buckets: PartialEq<Buckets>,
 {
@@ -190,10 +193,10 @@ where
 }
 
 impl<
-        AllocU32: Allocator<u32>,
-        Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
-        Params: H10Params,
-    > H10<AllocU32, Buckets, Params>
+    AllocU32: Allocator<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
+    Params: H10Params,
+> H10<AllocU32, Buckets, Params>
 where
     Buckets: PartialEq<Buckets>,
 {
@@ -201,12 +204,77 @@ where
         m32.free_cell(core::mem::take(&mut self.forest));
         self.buckets_.free(m32);
     }
+
+    /// `AnyHasher::Store` on an already-detected instruction set.
+    #[inline(always)]
+    fn store_simd<S: Simd>(&mut self, simd: S, data: &[u8], mask: usize, ix: usize) {
+        let max_backward: usize = self.window_mask_.wrapping_sub(16).wrapping_add(1);
+        StoreAndFindMatchesH10Simd(
+            simd,
+            self,
+            data,
+            ix,
+            mask,
+            self.ringbuffer_break,
+            Params::max_tree_comp_length() as usize,
+            max_backward,
+            &mut 0,
+            &mut [],
+        );
+    }
+
+    /// `AnyHasher::StoreRange` on an already-detected instruction set, so the walk over
+    /// `ix_start..ix_end` pays for detection once rather than once per position.
+    #[inline(always)]
+    pub(crate) fn store_range_simd<S: Simd>(
+        &mut self,
+        simd: S,
+        data: &[u8],
+        mask: usize,
+        ix_start: usize,
+        ix_end: usize,
+    ) {
+        let mut i: usize = ix_start;
+        let mut j: usize = ix_start;
+        if ix_start.wrapping_add(63) <= ix_end {
+            i = ix_end.wrapping_sub(63);
+        }
+        if ix_start.wrapping_add(512) <= i {
+            while j < i {
+                {
+                    self.store_simd(simd, data, mask, j);
+                }
+                j = j.wrapping_add(8);
+            }
+        }
+        while i < ix_end {
+            {
+                self.store_simd(simd, data, mask, i);
+            }
+            i = i.wrapping_add(1);
+        }
+    }
+
+    /// `AnyHasher::BulkStoreRange` on an already-detected instruction set.
+    #[inline(always)]
+    fn bulk_store_range_simd<S: Simd>(
+        &mut self,
+        simd: S,
+        data: &[u8],
+        mask: usize,
+        ix_start: usize,
+        ix_end: usize,
+    ) {
+        for i in ix_start..ix_end {
+            self.store_simd(simd, data, mask, i);
+        }
+    }
 }
 impl<
-        Alloc: Allocator<u16> + Allocator<u32>,
-        Buckets: Allocable<u32, Alloc> + SliceWrapperMut<u32> + SliceWrapper<u32>,
-        Params: H10Params,
-    > CloneWithAlloc<Alloc> for H10<Alloc, Buckets, Params>
+    Alloc: Allocator<u16> + Allocator<u32>,
+    Buckets: Allocable<u32, Alloc> + SliceWrapperMut<u32> + SliceWrapper<u32>,
+    Params: H10Params,
+> CloneWithAlloc<Alloc> for H10<Alloc, Buckets, Params>
 where
     Buckets: PartialEq<Buckets>,
 {
@@ -222,17 +290,17 @@ where
         };
         ret.buckets_
             .slice_mut()
-            .clone_from_slice(self.buckets_.slice());
-        ret.forest.slice_mut().clone_from_slice(self.forest.slice());
+            .copy_from_slice(self.buckets_.slice());
+        ret.forest.slice_mut().copy_from_slice(self.forest.slice());
         ret
     }
 }
 
 impl<
-        AllocU32: Allocator<u32>,
-        Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
-        Params: H10Params,
-    > AnyHasher for H10<AllocU32, Buckets, Params>
+    AllocU32: Allocator<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
+    Params: H10Params,
+> AnyHasher for H10<AllocU32, Buckets, Params>
 where
     Buckets: PartialEq<Buckets>,
 {
@@ -282,44 +350,13 @@ where
     }
     #[inline(always)]
     fn Store(&mut self, data: &[u8], mask: usize, ix: usize) {
-        let max_backward: usize = self.window_mask_.wrapping_sub(16).wrapping_add(1);
-        StoreAndFindMatchesH10(
-            self,
-            data,
-            ix,
-            mask,
-            self.ringbuffer_break,
-            Params::max_tree_comp_length() as usize,
-            max_backward,
-            &mut 0,
-            &mut [],
-        );
+        dispatch!(detect_level(), simd => self.store_simd(simd, data, mask, ix))
     }
     fn StoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-        let mut i: usize = ix_start;
-        let mut j: usize = ix_start;
-        if ix_start.wrapping_add(63) <= ix_end {
-            i = ix_end.wrapping_sub(63);
-        }
-        if ix_start.wrapping_add(512) <= i {
-            while j < i {
-                {
-                    self.Store(data, mask, j);
-                }
-                j = j.wrapping_add(8);
-            }
-        }
-        while i < ix_end {
-            {
-                self.Store(data, mask, i);
-            }
-            i = i.wrapping_add(1);
-        }
+        dispatch!(detect_level(), simd => self.store_range_simd(simd, data, mask, ix_start, ix_end))
     }
     fn BulkStoreRange(&mut self, data: &[u8], mask: usize, ix_start: usize, ix_end: usize) {
-        for i in ix_start..ix_end {
-            self.Store(data, mask, i);
-        }
+        dispatch!(detect_level(), simd => self.bulk_store_range_simd(simd, data, mask, ix_start, ix_end))
     }
     fn Prepare(&mut self, _one_shot: bool, _input_size: usize, _data: &[u8]) -> HowPrepared {
         if self.common.is_prepared_ != 0 {
@@ -401,12 +438,12 @@ impl<'a> BackwardMatchMut<'a> {
 }
 
 macro_rules! LeftChildIndexH10 {
-    ($xself: expr, $pos: expr) => {
+    ($xself: expr_2021, $pos: expr_2021) => {
         (2usize).wrapping_mul($pos & (*$xself).window_mask_)
     };
 }
 macro_rules! RightChildIndexH10 {
-    ($xself: expr, $pos: expr) => {
+    ($xself: expr_2021, $pos: expr_2021) => {
         (2usize)
             .wrapping_mul($pos & (*$xself).window_mask_)
             .wrapping_add(1)
@@ -434,9 +471,13 @@ fn RightChildIndexH10<AllocU32: Allocator<u32>,
 }
 */
 
+/// Detects the instruction set per call, then runs [`StoreAndFindMatchesH10Simd`].
+///
+/// Callers walking a range of positions should detect once and call that directly.
+#[allow(clippy::too_many_arguments)]
 pub fn StoreAndFindMatchesH10<
     AllocU32: Allocator<u32>,
-    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32> + PartialEq<Buckets>,
     Params: H10Params,
 >(
     xself: &mut H10<AllocU32, Buckets, Params>,
@@ -448,10 +489,45 @@ pub fn StoreAndFindMatchesH10<
     max_backward: usize,
     best_len: &mut usize,
     matches: &mut [u64],
-) -> usize
-where
-    Buckets: PartialEq<Buckets>,
-{
+) -> usize {
+    dispatch!(detect_level(), simd => StoreAndFindMatchesH10Simd(
+        simd,
+        xself,
+        data,
+        cur_ix,
+        ring_buffer_mask,
+        ringbuffer_break,
+        max_length,
+        max_backward,
+        best_len,
+        matches,
+    ))
+}
+
+/// Walks the binary tree rooted at `cur_ix`'s hash bucket, recording matches and
+/// re-rooting the tree at the current position.
+///
+/// The tree walk measures a match length per node, up to 64 of them, which is why this
+/// takes an already-detected instruction set rather than probing per comparison.
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+pub fn StoreAndFindMatchesH10Simd<
+    S: Simd,
+    AllocU32: Allocator<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32> + PartialEq<Buckets>,
+    Params: H10Params,
+>(
+    simd: S,
+    xself: &mut H10<AllocU32, Buckets, Params>,
+    data: &[u8],
+    cur_ix: usize,
+    ring_buffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
+    max_length: usize,
+    max_backward: usize,
+    best_len: &mut usize,
+    matches: &mut [u64],
+) -> usize {
     let mut matches_offset = 0_usize;
     let cur_ix_masked = cur_ix & ring_buffer_mask;
     let max_comp_len = min(max_length, 128);
@@ -483,7 +559,8 @@ where
         let cur_len = min(best_len_left, best_len_right);
 
         let len = fix_unbroken_len(
-            cur_len.wrapping_add(FindMatchLengthWithLimit(
+            cur_len.wrapping_add(FindMatchLengthWithLimitSimd(
+                simd,
                 &data[cur_ix_masked.wrapping_add(cur_len)..],
                 &data[prev_ix_masked.wrapping_add(cur_len)..],
                 max_length.wrapping_sub(cur_len),

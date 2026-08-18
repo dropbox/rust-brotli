@@ -8,15 +8,11 @@ clean:
     cargo clean
 
 # Build everything
-build: build-brotli build-simd build-ffi
+build: build-brotli build-ffi
 
 # Build the main crate
 build-brotli:
     RUSTFLAGS='-D warnings' cargo build --workspace --all-targets --bins --tests --lib --benches --examples
-
-# Build simd with nightly
-build-simd:
-    RUSTFLAGS='-D warnings' cargo +nightly build --features simd
 
 # Build the brotli-ffi crate (in ./c dir)
 build-ffi:
@@ -77,5 +73,7 @@ ci-test: sys-info (fmt "--check") build test test-doc
 ci-test-msrv: sys-info build-brotli build-ffi test
 
 # Test if changes are backwards compatible (patch), or need a new minor/major version
+# `--default-features` matches CI: the default heuristic also enables `benchmark`, which the
+# published baseline cannot build because `/testdata` is not in the packaged crate.
 semver-checks:
-    cargo semver-checks
+    cargo semver-checks --default-features

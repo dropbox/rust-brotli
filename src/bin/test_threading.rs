@@ -9,11 +9,11 @@ use brotli::enc::threading::{Owned, SendAlloc};
 use brotli_decompressor::{SliceWrapper, SliceWrapperMut};
 
 use super::brotli::enc::{
-    compress_multi, compress_multi_no_threadpool, BrotliEncoderMaxCompressedSizeMulti,
-    BrotliEncoderParams, UnionHasher,
+    BrotliEncoderMaxCompressedSizeMulti, BrotliEncoderParams, UnionHasher, compress_multi,
+    compress_multi_no_threadpool,
 };
 use super::integration_tests::UnlimitedBuffer;
-use super::{new_brotli_heap_alloc, Rebox};
+use super::{Rebox, new_brotli_heap_alloc};
 
 static RANDOM_THEN_UNICODE: &[u8] = include_bytes!("../../testdata/random_then_unicode");
 static ALICE: &[u8] = include_bytes!("../../testdata/alice29.txt");

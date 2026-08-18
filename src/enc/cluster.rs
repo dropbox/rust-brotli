@@ -1,9 +1,9 @@
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use crate::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core::cmp::min;
 
-use {alloc, core};
+use crate::alloc;
 
-use super::bit_cost::BrotliPopulationCost;
+use super::bit_cost::{BrotliPopulationCost, BrotliPopulationCostOfSum};
 use super::histogram::{
     CostAccessors, HistogramAddHistogram, HistogramClear, HistogramSelfAddHistogram,
 };
@@ -95,9 +95,8 @@ fn BrotliCompareAndPushToQueue<
                 pairs[0].cost_diff.max(0.0)
             };
 
-            let mut combo: HistogramType = out[idx1 as usize].clone();
-            HistogramAddHistogram(&mut combo, &out[idx2 as usize]);
-            let cost_combo: super::util::floatX = BrotliPopulationCost(&combo, scratch_space);
+            let cost_combo: super::util::floatX =
+                BrotliPopulationCostOfSum(&out[idx1 as usize], &out[idx2 as usize], scratch_space);
             if cost_combo < threshold - p.cost_diff {
                 p.cost_combo = cost_combo;
                 is_good_pair = true;
@@ -120,6 +119,7 @@ fn BrotliCompareAndPushToQueue<
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliHistogramCombine<
     HistogramType: SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors + Clone,
 >(
@@ -252,9 +252,7 @@ pub fn BrotliHistogramBitCostDistance<
     if histogram.total_count() == 0usize {
         0.0
     } else {
-        let mut tmp: HistogramType = histogram.clone();
-        HistogramAddHistogram(&mut tmp, candidate);
-        BrotliPopulationCost(&tmp, scratch_space) - candidate.bit_cost()
+        BrotliPopulationCostOfSum(histogram, candidate, scratch_space) - candidate.bit_cost()
     }
 }
 
@@ -263,6 +261,7 @@ When called, clusters[0..num_clusters) contains the unique values from
 symbols[0..in_size), but this property is not preserved in this function.
 Note: we assume that out[]->bit_cost_ is already up-to-date. */
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliHistogramRemap<
     HistogramType: SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors + Clone,
 >(
@@ -357,6 +356,7 @@ pub fn BrotliHistogramReindex<
     next_index as usize
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliClusterHistograms<
     HistogramType: SliceWrapperMut<u32> + SliceWrapper<u32> + CostAccessors + Clone,
     Alloc: alloc::Allocator<u32> + alloc::Allocator<HistogramPair> + alloc::Allocator<HistogramType>,
@@ -429,7 +429,7 @@ pub fn BrotliClusterHistograms<
                 }
                 new_array = alloc_or_default::<HistogramPair, _>(alloc, _new_size);
                 new_array.slice_mut()[..pairs_capacity]
-                    .clone_from_slice(&pairs.slice()[..pairs_capacity]);
+                    .copy_from_slice(&pairs.slice()[..pairs_capacity]);
                 <Alloc as Allocator<HistogramPair>>::free_cell(
                     alloc,
                     core::mem::replace(&mut pairs, new_array),

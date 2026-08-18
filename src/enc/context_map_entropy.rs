@@ -3,9 +3,9 @@ use core;
 use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-pub use super::ir_interpret::{push_base, Context, IRInterpreter};
-use super::util::{floatX, FastLog2u16};
-use super::weights::{Weights, BLEND_FIXED_POINT_PRECISION};
+pub use super::ir_interpret::{Context, IRInterpreter, push_base};
+use super::util::{FastLog2u16, floatX};
+use super::weights::{BLEND_FIXED_POINT_PRECISION, Weights};
 use super::{find_stride, interface};
 use crate::enc::combined_alloc::alloc_if;
 
@@ -96,7 +96,7 @@ fn compute_combined_cost(
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
     let nibble = nibble_u8 as usize & 0xf;
     let mut stride_pdf = [0u16; NUM_SPEEDS_TO_TRY];
-    stride_pdf.clone_from_slice(
+    stride_pdf.copy_from_slice(
         cdfs.split_at(NUM_SPEEDS_TO_TRY * nibble)
             .1
             .split_at(NUM_SPEEDS_TO_TRY)
@@ -105,7 +105,7 @@ fn compute_combined_cost(
     let mut cm_pdf: u16 = mixing_cdf[nibble];
     if nibble_u8 != 0 {
         let mut tmp = [0u16; NUM_SPEEDS_TO_TRY];
-        tmp.clone_from_slice(
+        tmp.copy_from_slice(
             cdfs.split_at(NUM_SPEEDS_TO_TRY * (nibble - 1))
                 .1
                 .split_at(NUM_SPEEDS_TO_TRY)
@@ -117,7 +117,7 @@ fn compute_combined_cost(
         cm_pdf -= mixing_cdf[nibble - 1]
     }
     let mut stride_max = [0u16; NUM_SPEEDS_TO_TRY];
-    stride_max.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
+    stride_max.copy_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
     let cm_max = mixing_cdf[15];
     for i in 0..NUM_SPEEDS_TO_TRY {
         if stride_pdf[i] == 0 {
@@ -141,7 +141,7 @@ fn compute_cost(singleton_cost: &mut [floatX; NUM_SPEEDS_TO_TRY], cdfs: &[u16], 
     assert_eq!(cdfs.len(), 16 * NUM_SPEEDS_TO_TRY);
     let nibble = nibble_u8 as usize & 0xf;
     let mut pdf = [0u16; NUM_SPEEDS_TO_TRY];
-    pdf.clone_from_slice(
+    pdf.copy_from_slice(
         cdfs.split_at(NUM_SPEEDS_TO_TRY * nibble)
             .1
             .split_at(NUM_SPEEDS_TO_TRY)
@@ -149,7 +149,7 @@ fn compute_cost(singleton_cost: &mut [floatX; NUM_SPEEDS_TO_TRY], cdfs: &[u16], 
     );
     if nibble_u8 != 0 {
         let mut tmp = [0u16; NUM_SPEEDS_TO_TRY];
-        tmp.clone_from_slice(
+        tmp.copy_from_slice(
             cdfs.split_at(NUM_SPEEDS_TO_TRY * (nibble - 1))
                 .1
                 .split_at(NUM_SPEEDS_TO_TRY)
@@ -160,7 +160,7 @@ fn compute_cost(singleton_cost: &mut [floatX; NUM_SPEEDS_TO_TRY], cdfs: &[u16], 
         }
     }
     let mut max = [0u16; NUM_SPEEDS_TO_TRY];
-    max.clone_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
+    max.copy_from_slice(cdfs.split_at(NUM_SPEEDS_TO_TRY * 15).1);
     for i in 0..NUM_SPEEDS_TO_TRY {
         if pdf[i] == 0 {
             assert_ne!(pdf[i], 0);

@@ -5,23 +5,24 @@ use core::cmp::{max, min};
 #[cfg(feature = "std")]
 use std::io::Write;
 
+use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
 };
 use super::super::transform::TransformDictionaryWord;
-use super::super::{alloc, core};
 use super::block_split::BlockSplit;
 use super::combined_alloc::BrotliAlloc;
 use super::command::{Command, GetCopyLengthCode, GetInsertLengthCode};
 use super::constants::{
-    kCodeLengthBits, kCodeLengthDepth, kCopyBase, kCopyExtra, kInsBase, kInsExtra,
-    kNonZeroRepsBits, kNonZeroRepsDepth, kSigned3BitContextLookup, kStaticCommandCodeBits,
-    kStaticCommandCodeDepth, kStaticDistanceCodeBits, kStaticDistanceCodeDepth, kUTF8ContextLookup,
-    kZeroRepsBits, kZeroRepsDepth, BROTLI_CONTEXT_LUT, BROTLI_NUM_BLOCK_LEN_SYMBOLS,
-    BROTLI_NUM_COMMAND_SYMBOLS, BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_NUM_LITERAL_SYMBOLS,
+    BROTLI_CONTEXT_LUT, BROTLI_NUM_BLOCK_LEN_SYMBOLS, BROTLI_NUM_COMMAND_SYMBOLS,
+    BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS, BROTLI_NUM_LITERAL_SYMBOLS, kCodeLengthBits,
+    kCodeLengthDepth, kCopyBase, kCopyExtra, kInsBase, kInsExtra, kNonZeroRepsBits,
+    kNonZeroRepsDepth, kSigned3BitContextLookup, kStaticCommandCodeBits, kStaticCommandCodeDepth,
+    kStaticDistanceCodeBits, kStaticDistanceCodeDepth, kUTF8ContextLookup, kZeroRepsBits,
+    kZeroRepsDepth,
 };
-use super::context_map_entropy::{speed_to_tuple, ContextMapEntropy, SpeedAndMax};
+use super::context_map_entropy::{ContextMapEntropy, SpeedAndMax, speed_to_tuple};
 use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, BrotliSetDepth,
     BrotliWriteHuffmanTree, HuffmanComparator, HuffmanTree, SortHuffmanTreeItems,
@@ -34,9 +35,9 @@ use super::interface::StaticCommand;
 use super::static_dict::kNumDistanceCacheEntries;
 use super::util::floatX;
 use super::{find_stride, interface, prior_eval, stride_eval};
+use crate::VERSION;
 use crate::enc::backward_references::BrotliEncoderParams;
 use crate::enc::combined_alloc::{alloc_default, alloc_or_default, allocate};
-use crate::VERSION;
 
 pub struct PrefixCodeRange {
     pub offset: u32,
@@ -155,7 +156,7 @@ impl<'a, Alloc: BrotliAlloc> interface::CommandProcessor<'a> for CommandQueue<'a
             tmp.slice_mut()
                 .split_at_mut(self.queue.slice().len())
                 .0
-                .clone_from_slice(self.queue.slice());
+                .copy_from_slice(self.queue.slice());
             <Alloc as Allocator<StaticCommand>>::free_cell(
                 self.mc,
                 core::mem::replace(&mut self.queue, tmp),
@@ -229,7 +230,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
 ) -> RecoderState {
     let mut input_iter = input;
     let mut local_dist_cache = [0i32; kNumDistanceCacheEntries];
-    local_dist_cache.clone_from_slice(&dist_cache[..]);
+    local_dist_cache.copy_from_slice(&dist_cache[..]);
     let mut btypel_counter = 0usize;
     let mut btypec_counter = 0usize;
     let mut btyped_counter = 0usize;
@@ -376,8 +377,8 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
             if prev_dist_index != 1 || dist_offset != 0 {
                 // update distance cache unless it's the "0 distance symbol"
                 let mut tmp_dist_cache = [0i32; kNumDistanceCacheEntries - 1];
-                tmp_dist_cache.clone_from_slice(&local_dist_cache[..kNumDistanceCacheEntries - 1]);
-                local_dist_cache[1..].clone_from_slice(&tmp_dist_cache[..]);
+                tmp_dist_cache.copy_from_slice(&local_dist_cache[..kNumDistanceCacheEntries - 1]);
+                local_dist_cache[1..].copy_from_slice(&tmp_dist_cache[..]);
                 local_dist_cache[0] = final_distance as i32;
             }
         }
@@ -417,6 +418,7 @@ fn process_command_queue<'a, CmdProcessor: interface::CommandProcessor<'a>>(
     recoder_state
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn LogMetaBlock<'a, Alloc: BrotliAlloc, Cb>(
     alloc: &mut Alloc,
     commands: &[Command],
@@ -1153,12 +1155,12 @@ pub struct MetaBlockSplit<
     pub distance_histograms_size: usize,
 }
 impl<
-        Alloc: alloc::Allocator<u8>
-            + alloc::Allocator<u32>
-            + alloc::Allocator<HistogramLiteral>
-            + alloc::Allocator<HistogramCommand>
-            + alloc::Allocator<HistogramDistance>,
-    > Default for MetaBlockSplit<Alloc>
+    Alloc: alloc::Allocator<u8>
+        + alloc::Allocator<u32>
+        + alloc::Allocator<HistogramLiteral>
+        + alloc::Allocator<HistogramCommand>
+        + alloc::Allocator<HistogramDistance>,
+> Default for MetaBlockSplit<Alloc>
 {
     fn default() -> Self {
         Self {
@@ -1180,12 +1182,12 @@ impl<
 }
 
 impl<
-        Alloc: alloc::Allocator<u8>
-            + alloc::Allocator<u32>
-            + alloc::Allocator<HistogramLiteral>
-            + alloc::Allocator<HistogramCommand>
-            + alloc::Allocator<HistogramDistance>,
-    > MetaBlockSplit<Alloc>
+    Alloc: alloc::Allocator<u8>
+        + alloc::Allocator<u32>
+        + alloc::Allocator<HistogramLiteral>
+        + alloc::Allocator<HistogramCommand>
+        + alloc::Allocator<HistogramDistance>,
+> MetaBlockSplit<Alloc>
 {
     pub fn new() -> Self {
         Self::default()
@@ -1369,11 +1371,7 @@ fn NextBlockTypeCode(calculator: &mut BlockTypeCodeCalculator, type_: u8) -> usi
 
 fn BlockLengthPrefixCode(len: u32) -> u32 {
     let mut code: u32 = (if len >= 177u32 {
-        if len >= 753u32 {
-            20i32
-        } else {
-            14i32
-        }
+        if len >= 753u32 { 20i32 } else { 14i32 }
     } else if len >= 41u32 {
         7i32
     } else {
@@ -2032,6 +2030,7 @@ pub fn JumpToByteBoundary(storage_ix: &mut usize, storage: &mut [u8]) {
     storage[(*storage_ix >> 3)] = 0u8;
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub(crate) fn store_meta_block<Alloc: BrotliAlloc, Cb>(
     alloc: &mut Alloc,
     input: &[u8],
@@ -2346,6 +2345,7 @@ fn StoreDataWithHuffmanCodes(
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub(crate) fn store_meta_block_trivial<Alloc: BrotliAlloc, Cb>(
     alloc: &mut Alloc,
     input: &[u8],
@@ -2575,6 +2575,7 @@ impl RecoderState {
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub(crate) fn store_meta_block_fast<Cb, Alloc: BrotliAlloc>(
     m: &mut Alloc,
     input: &[u8],
@@ -2797,10 +2798,10 @@ pub(crate) fn store_uncompressed_meta_block<Cb, Alloc: BrotliAlloc>(
     BrotliStoreUncompressedMetaBlockHeader(len, storage_ix, storage);
     JumpToByteBoundary(storage_ix, storage);
     let dst_start0 = (*storage_ix >> 3);
-    storage[dst_start0..(dst_start0 + input0.len())].clone_from_slice(input0);
+    storage[dst_start0..(dst_start0 + input0.len())].copy_from_slice(input0);
     *storage_ix = storage_ix.wrapping_add(input0.len() << 3);
     let dst_start1 = (*storage_ix >> 3);
-    storage[dst_start1..(dst_start1 + input1.len())].clone_from_slice(input1);
+    storage[dst_start1..(dst_start1 + input1.len())].copy_from_slice(input1);
     *storage_ix = storage_ix.wrapping_add(input1.len() << 3);
     BrotliWriteBitsPrepareStorage(*storage_ix, storage);
     if params.log_meta_block && !suppress_meta_block_logging {
@@ -2897,7 +2898,7 @@ pub fn BrotliWriteMetadataMetaBlock(
 
 #[cfg(test)]
 mod test {
-    use crate::enc::brotli_bit_stream::{encode_base_128, MAX_SIZE_ENCODING};
+    use crate::enc::brotli_bit_stream::{MAX_SIZE_ENCODING, encode_base_128};
 
     #[test]
     fn test_encode_base_128() {

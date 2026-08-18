@@ -3,7 +3,7 @@
 // Unit tests for the parent `threading` module. These exercise CompressMulti's
 // error-draining behavior
 use super::*;
-use alloc::SliceWrapper;
+use crate::alloc::SliceWrapper;
 use alloc_stdlib::StandardAlloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 

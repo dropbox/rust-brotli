@@ -37,10 +37,8 @@ impl<T: Clone + Default> Allocator<T> for BrotliSubclassableAllocator {
 }
 
 impl BrotliAlloc for BrotliSubclassableAllocator {}
-#[cfg(not(feature = "safe"))]
 unsafe impl Send for BrotliSubclassableAllocator {}
 
-#[cfg(not(feature = "safe"))]
 unsafe impl<T: Clone + Default> Send for SendableMemoryBlock<T> {}
 
 #[cfg(not(feature = "std"))]

@@ -130,6 +130,7 @@ fn ComputeDistanceCost(
     true
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliBuildMetaBlock<Alloc: BrotliAlloc>(
     alloc: &mut Alloc,
     ringbuffer: &[u8],
@@ -425,7 +426,7 @@ fn InitBlockSplitter<
             new_array = allocate::<u8, _>(alloc, _new_size);
             if (!split.types.slice().is_empty()) {
                 new_array.slice_mut()[..split.types.slice().len()]
-                    .clone_from_slice(split.types.slice());
+                    .copy_from_slice(split.types.slice());
             }
             <Alloc as Allocator<u8>>::free_cell(
                 alloc,
@@ -445,7 +446,7 @@ fn InitBlockSplitter<
             }
             let mut new_array = allocate::<u32, _>(alloc, _new_size);
             new_array.slice_mut()[..split.lengths.slice().len()]
-                .clone_from_slice(split.lengths.slice());
+                .copy_from_slice(split.lengths.slice());
             <Alloc as Allocator<u32>>::free_cell(
                 alloc,
                 core::mem::replace(&mut split.lengths, new_array),
@@ -509,7 +510,7 @@ fn InitContextBlockSplitter<
             let mut new_array = allocate::<u8, _>(alloc, _new_size);
             if (!split.types.slice().is_empty()) {
                 new_array.slice_mut()[..split.types.slice().len()]
-                    .clone_from_slice(split.types.slice());
+                    .copy_from_slice(split.types.slice());
             }
             <Alloc as Allocator<u8>>::free_cell(
                 alloc,
@@ -530,7 +531,7 @@ fn InitContextBlockSplitter<
             let mut new_array = allocate::<u32, _>(alloc, _new_size);
             if (!split.lengths.slice().is_empty()) {
                 new_array.slice_mut()[..split.lengths.slice().len()]
-                    .clone_from_slice(split.lengths.slice());
+                    .copy_from_slice(split.lengths.slice());
             }
             <Alloc as Allocator<u32>>::free_cell(
                 alloc,
@@ -1019,6 +1020,7 @@ pub fn BrotliBuildMetaBlockGreedyInternal<
         MapStaticContexts(alloc, num_contexts, static_context_map, mb);
     }
 }
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliBuildMetaBlockGreedy<
     Alloc: alloc::Allocator<u8>
         + alloc::Allocator<u32>
@@ -1073,6 +1075,7 @@ pub fn BrotliBuildMetaBlockGreedy<
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliOptimizeHistograms<
     Alloc: alloc::Allocator<u8>
         + alloc::Allocator<u32>

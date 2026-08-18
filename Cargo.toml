@@ -1,6 +1,6 @@
 [package]
 name = "brotli"
-version = "8.0.4"
+version = "9.0.0"
 authors = ["Daniel Reiter Horn <danielrh@dropbox.com>", "The Brotli Authors"]
 description = "A brotli compressor and decompressor that with an interface avoiding the rust stdlib. This makes it suitable for embedded devices and kernels. It is designed with a pluggable allocator so that the standard lib's allocator may be employed. The default build also includes a stdlib allocator and stream interface. Disable this with --features=no-stdlib. All included code is safe."
 license = "BSD-3-Clause AND MIT"
@@ -11,8 +11,9 @@ keywords = ["brotli", "decompression", "lz77", "huffman", "nostd"]
 categories = ["compression", "no-std"]
 readme = "README.md"
 autobins = false
-edition = "2015"
-rust-version = "1.59.0"
+edition = "2024"
+# Bounded by `fearless_simd`, which the encoder's vectorized paths use unconditionally.
+rust-version = "1.89.0"
 include = [
   "/src/**/*.rs",
   "/examples/**/*.rs",
@@ -35,11 +36,21 @@ lto = true
 incremental = false
 
 [dependencies]
+# Pinned to 2.x/0.2.x by `brotli-decompressor`, which requires `alloc-no-stdlib >=2.0.4, <3` as of
+# 5.0.3. Our allocators are handed straight to its decompressor types, so moving to 3.x/0.3.x here
+# would link both majors and leave `HeapAllocator` failing `brotli_decompressor::Allocator`.
+# Bump both together once brotli-decompressor releases against 3.x.
 "alloc-no-stdlib" = { version = ">=2.0.4, <3" }
 "alloc-stdlib" = { version = "~0.2", optional = true }
 "brotli-decompressor" = { version = "~5.0", default-features = false }
+# `libm` is what makes the no-stdlib build possible; the `std` feature below overrides it.
+"fearless_simd" = { version = "~0.7", default-features = false, features = ["libm"] }
 
-"sha2" = { version = "~0.10", optional = true }
+"sha2" = { version = "~0.11", optional = true }
+
+# Profiling instrumentation. Inert unless the `hotpath` feature is on: every call site is
+# behind `cfg_attr`, so a default build never links it.
+"hotpath" = { version = "~0.23", optional = true }
 
 [dev-dependencies]
 # The test suite (src/enc/test.rs) builds calloc-backed memory pools, which on
@@ -57,10 +68,16 @@ external-literal-probability = []
 ffi-api = ["brotli-decompressor/ffi-api"]
 float64 = []
 floating_point_context_mixing = []
+# Wall-clock profiling of the encoder pipeline. Requires `std`; run the `brotli` binary with
+# `--features hotpath` and it prints a per-stage table on exit.
+hotpath = ["dep:hotpath", "hotpath/hotpath", "std"]
+# Same, but measuring allocation counts/bytes instead of time (installs a counting allocator).
+hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
+# Same, but measuring CPU time instead of wall-clock.
+hotpath-cpu = ["hotpath", "hotpath/hotpath-cpu"]
 no-stdlib-ffi-binding = []
 pass-through-ffi-panics = []
 seccomp = ["brotli-decompressor/seccomp"]
-simd = []
-std = ["alloc-stdlib", "brotli-decompressor/std"]
+std = ["alloc-stdlib", "brotli-decompressor/std", "fearless_simd/std"]
 validation = ["sha2"]
 vector_scratch_space = []

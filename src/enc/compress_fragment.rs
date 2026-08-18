@@ -9,12 +9,12 @@ use core::cmp::min;
 use super::super::alloc;
 use super::backward_references::kHashMul32;
 use super::brotli_bit_stream::{BrotliBuildAndStoreHuffmanTreeFast, BrotliStoreHuffmanTree};
-use super::compress_fragment_two_pass::{memcpy, BrotliWriteBits};
+use super::compress_fragment_two_pass::{BrotliWriteBits, memcpy};
 use super::entropy_encode::{
     BrotliConvertBitDepthsToSymbols, BrotliCreateHuffmanTree, HuffmanTree,
 };
 use super::static_dict::{
-    FindMatchLengthWithLimit, BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
+    BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, FindMatchLengthWithLimit,
 };
 use super::util::{FastLog2, Log2FloorNonZero};
 use crate::enc::compress_fragment_two_pass::store_meta_block_header;
@@ -647,6 +647,7 @@ fn BuildAndStoreCommandPrefixCode(
 }
 
 #[allow(unused_assignments)]
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn compress_fragment_fast_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     m: &mut AllocHT,
     input_ptr: &[u8],
@@ -707,7 +708,7 @@ fn compress_fragment_fast_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
     'continue_to_next_block: loop {
         let mut ip_index: usize;
         if code_block_selection == CodeBlockState::EMIT_COMMANDS {
-            cmd_histo[..128].clone_from_slice(&kCmdHistoSeed[..]);
+            cmd_histo[..128].copy_from_slice(&kCmdHistoSeed[..]);
             ip_index = input_index;
             last_distance = -1i32;
             ip_end = input_index.wrapping_add(block_size);
@@ -1049,7 +1050,7 @@ fn compress_fragment_fast_impl<AllocHT: alloc::Allocator<HuffmanTree>>(
 }
 
 macro_rules! compress_specialization {
-    ($table_bits : expr, $fname: ident) => {
+    ($table_bits : expr_2021, $fname: ident) => {
         fn $fname<AllocHT: alloc::Allocator<HuffmanTree>>(
             mht: &mut AllocHT,
             input: &[u8],

@@ -9,11 +9,11 @@ use alloc_no_stdlib::{Allocator, SliceWrapper};
 use brotli::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
 };
+use brotli::enc::BrotliAlloc;
 use brotli::enc::threading::{
     AnyBoxConstructor, BatchSpawnable, BatchSpawnableLite, BrotliEncoderThreadError, InternalOwned,
     InternalSendAlloc, Joinable, Owned, OwnedRetriever, PoisonedThreadError, SendAlloc,
 };
-use brotli::enc::BrotliAlloc;
 use brotli::interface;
 use brotli::transform::TransformDictionaryWord;
 
@@ -116,24 +116,25 @@ pub fn write_one<T: SliceWrapper<u8>>(cmd: &interface::Command<T>) {
                     res + " " + &val.to_string()
                 });
             if prediction.has_context_speeds() {
-                println_stderr!("prediction {} lcontextmap{} dcontextmap{} mixingvalues{} cmspeedinc {} {} cmspeedmax {} {} stspeedinc {} {} stspeedmax {} {} mxspeedinc {} {} mxspeedmax {} {}",
-                                prediction_mode,
-                                lit_cm,
-                                dist_cm,
-                                mixing_values,
-                                prediction.context_map_speed()[0].0,
-                                prediction.context_map_speed()[1].0,
-                                prediction.context_map_speed()[0].1,
-                                prediction.context_map_speed()[1].1,
-                                prediction.stride_context_speed()[0].0,
-                                prediction.stride_context_speed()[1].0,
-                                prediction.stride_context_speed()[0].1,
-                                prediction.stride_context_speed()[1].1,
-                                prediction.combined_stride_context_speed()[0].0,
-                                prediction.combined_stride_context_speed()[1].0,
-                                prediction.combined_stride_context_speed()[0].1,
-                                prediction.combined_stride_context_speed()[0].1,
-                                );
+                println_stderr!(
+                    "prediction {} lcontextmap{} dcontextmap{} mixingvalues{} cmspeedinc {} {} cmspeedmax {} {} stspeedinc {} {} stspeedmax {} {} mxspeedinc {} {} mxspeedmax {} {}",
+                    prediction_mode,
+                    lit_cm,
+                    dist_cm,
+                    mixing_values,
+                    prediction.context_map_speed()[0].0,
+                    prediction.context_map_speed()[1].0,
+                    prediction.context_map_speed()[0].1,
+                    prediction.context_map_speed()[1].1,
+                    prediction.stride_context_speed()[0].0,
+                    prediction.stride_context_speed()[1].0,
+                    prediction.stride_context_speed()[0].1,
+                    prediction.stride_context_speed()[1].1,
+                    prediction.combined_stride_context_speed()[0].0,
+                    prediction.combined_stride_context_speed()[1].0,
+                    prediction.combined_stride_context_speed()[0].1,
+                    prediction.combined_stride_context_speed()[0].1,
+                );
             } else {
                 println_stderr!(
                     "prediction {} lcontextmap{} dcontextmap{} mixingvalues{}",
@@ -256,11 +257,11 @@ where
 }
 
 impl<
-        T: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > BatchSpawnable<T, ExtraInput, Alloc, U> for MTSpawner
+    T: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> BatchSpawnable<T, ExtraInput, Alloc, U> for MTSpawner
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {
@@ -292,11 +293,11 @@ where
     }
 }
 impl<
-        T: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > BatchSpawnableLite<T, ExtraInput, Alloc, U> for MTSpawner
+    T: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> BatchSpawnableLite<T, ExtraInput, Alloc, U> for MTSpawner
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {

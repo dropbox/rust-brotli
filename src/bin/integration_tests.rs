@@ -233,7 +233,7 @@ impl io::Read for Buffer {
         let bytes_to_read = min(buf.len(), self.data.len() - self.read_offset);
         if bytes_to_read > 0 {
             buf[0..bytes_to_read]
-                .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+                .copy_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
         }
         self.read_offset += bytes_to_read;
         Ok(bytes_to_read)
@@ -256,7 +256,7 @@ impl io::Read for UnlimitedBuffer {
         let bytes_to_read = min(buf.len(), self.data.len() - self.read_offset);
         if bytes_to_read > 0 {
             buf[0..bytes_to_read]
-                .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+                .copy_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
         }
         self.read_offset += bytes_to_read;
         Ok(bytes_to_read)
@@ -869,7 +869,7 @@ impl<'a> LimitedBuffer<'a> {
     fn reset(&mut self) {
         self.write_offset = 0;
         self.read_offset = 0;
-        self.data.split_at_mut(32).0.clone_from_slice(&[0u8; 32]); // clear the first 256 bits
+        self.data.split_at_mut(32).0.copy_from_slice(&[0u8; 32]); // clear the first 256 bits
     }
     fn reset_read(&mut self) {
         self.read_offset = 0;
@@ -883,7 +883,7 @@ impl<'a> io::Read for LimitedBuffer<'a> {
         let bytes_to_read = min(buf.len(), self.data.len() - self.read_offset);
         if bytes_to_read > 0 {
             buf[0..bytes_to_read]
-                .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+                .copy_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
         }
         self.read_offset += bytes_to_read;
         Ok(bytes_to_read)
@@ -895,7 +895,7 @@ impl<'a> io::Write for LimitedBuffer<'a> {
         let bytes_to_write = min(buf.len(), self.data.len() - self.write_offset);
         if bytes_to_write > 0 {
             self.data[self.write_offset..self.write_offset + bytes_to_write]
-                .clone_from_slice(&buf[..bytes_to_write]);
+                .copy_from_slice(&buf[..bytes_to_write]);
         } else {
             return Err(io::Error::new(io::ErrorKind::WriteZero, "OutOfBufferSpace"));
         }
@@ -1406,7 +1406,7 @@ impl io::Read for SoonErrorReader {
         self.1 = false;
         if first {
             let len = min(self.0.len(), data.len());
-            data[..len].clone_from_slice(&self.0[..len]);
+            data[..len].copy_from_slice(&self.0[..len]);
             return Ok(len);
         }
         Err(io::Error::new(io::ErrorKind::PermissionDenied, "err"))

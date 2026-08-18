@@ -1,27 +1,30 @@
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use crate::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
 use core::cmp::{max, min};
 
+use fearless_simd::Simd;
+
 use super::hash_to_binary_tree::{
-    kInfinity, Allocable, BackwardMatch, BackwardMatchMut, H10Params, StoreAndFindMatchesH10,
-    Union1, ZopfliNode, H10,
+    Allocable, BackwardMatch, BackwardMatchMut, H10, H10Params, StoreAndFindMatchesH10Simd, Union1,
+    ZopfliNode, kInfinity,
 };
 use super::{
-    fix_unbroken_len, kDistanceCacheIndex, kDistanceCacheOffset, kInvalidMatch, AnyHasher,
-    BrotliEncoderParams,
+    AnyHasher, BrotliEncoderParams, fix_unbroken_len, kDistanceCacheIndex, kDistanceCacheOffset,
+    kInvalidMatch,
 };
 use crate::enc::combined_alloc::{alloc_if, alloc_or_default};
 use crate::enc::command::{
-    combine_length_codes, BrotliDistanceParams, Command, GetCopyLengthCode, GetInsertLengthCode,
-    PrefixEncodeCopyDistance,
+    BrotliDistanceParams, Command, GetCopyLengthCode, GetInsertLengthCode,
+    PrefixEncodeCopyDistance, combine_length_codes,
 };
 use crate::enc::constants::{kCopyExtra, kInsExtra};
 use crate::enc::encode;
 use crate::enc::literal_cost::BrotliEstimateBitCostsForLiterals;
 use crate::enc::static_dict::{
-    BrotliDictionary, BrotliFindAllStaticDictionaryMatches, FindMatchLengthWithLimit,
+    BrotliDictionary, BrotliFindAllStaticDictionaryMatches, FindMatchLengthWithLimitSimd,
 };
-use crate::enc::util::{floatX, FastLog2, FastLog2f64};
+use crate::enc::util::{FastLog2, FastLog2f64, floatX};
+use crate::enc::vectorization::detect_level;
 
 const BROTLI_WINDOW_GAP: usize = 16;
 const BROTLI_MAX_STATIC_DICTIONARY_MATCH_LEN: usize = 37;
@@ -94,6 +97,7 @@ impl ZopfliNode {
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliZopfliCreateCommands(
     num_bytes: usize,
     block_start: usize,
@@ -267,6 +271,34 @@ pub fn StitchToPreviousBlockH10<
 ) where
     Buckets: PartialEq<Buckets>,
 {
+    dispatch!(detect_level(), simd => StitchToPreviousBlockH10Simd(
+        simd,
+        handle,
+        num_bytes,
+        position,
+        ringbuffer,
+        ringbuffer_mask,
+        ringbuffer_break,
+    ))
+}
+
+/// [`StitchToPreviousBlockH10`] on an already-detected instruction set: the stitch walks
+/// up to `max_tree_comp_length` positions, so detection is hoisted out of that loop.
+#[inline(always)]
+fn StitchToPreviousBlockH10Simd<
+    S: Simd,
+    AllocU32: Allocator<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32> + PartialEq<Buckets>,
+    Params: H10Params,
+>(
+    simd: S,
+    handle: &mut H10<AllocU32, Buckets, Params>,
+    num_bytes: usize,
+    position: usize,
+    ringbuffer: &[u8],
+    ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
+) {
     if (num_bytes >= handle.HashTypeLength() - 1
         && position >= Params::max_tree_comp_length() as usize)
     {
@@ -285,7 +317,8 @@ pub fn StitchToPreviousBlockH10<
             /* We know that i + MAX_TREE_COMP_LENGTH <= position + num_bytes, i.e. the
             end of the current block and that we have at least
             MAX_TREE_COMP_LENGTH tail in the ring-buffer. */
-            StoreAndFindMatchesH10(
+            StoreAndFindMatchesH10Simd(
+                simd,
                 handle,
                 ringbuffer,
                 i,
@@ -299,6 +332,12 @@ pub fn StitchToPreviousBlockH10<
         }
     }
 }
+/// Every match this position can reach: recent short matches, the binary tree, then the
+/// static dictionary.
+///
+/// Detection is hoisted into this function rather than the match-length comparisons it
+/// drives, which run tens of times per position.
+#[inline(always)]
 fn FindAllMatchesH10<
     AllocU32: Allocator<u32>,
     Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
@@ -319,6 +358,43 @@ fn FindAllMatchesH10<
 where
     Buckets: PartialEq<Buckets>,
 {
+    dispatch!(detect_level(), simd => FindAllMatchesH10Simd(
+        simd,
+        handle,
+        dictionary,
+        data,
+        ring_buffer_mask,
+        ring_buffer_break,
+        cur_ix,
+        max_length,
+        max_backward,
+        gap,
+        params,
+        matches,
+    ))
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn FindAllMatchesH10Simd<
+    S: Simd,
+    AllocU32: Allocator<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32> + PartialEq<Buckets>,
+    Params: H10Params,
+>(
+    simd: S,
+    handle: &mut H10<AllocU32, Buckets, Params>,
+    dictionary: Option<&BrotliDictionary>,
+    data: &[u8],
+    ring_buffer_mask: usize,
+    ring_buffer_break: Option<core::num::NonZeroUsize>,
+    cur_ix: usize,
+    max_length: usize,
+    max_backward: usize,
+    gap: usize,
+    params: &BrotliEncoderParams,
+    matches: &mut [u64],
+) -> usize {
     let mut matches_offset = 0usize;
     let cur_ix_masked: usize = cur_ix & ring_buffer_mask;
     let mut best_len: usize = 1usize;
@@ -344,8 +420,12 @@ where
         if data[cur_ix_masked] == data[prev_ix]
             && data[cur_ix_masked.wrapping_add(1)] == data[prev_ix.wrapping_add(1)]
         {
-            let len =
-                FindMatchLengthWithLimit(&data[prev_ix..], &data[cur_ix_masked..], max_length);
+            let len = FindMatchLengthWithLimitSimd(
+                simd,
+                &data[prev_ix..],
+                &data[cur_ix_masked..],
+                max_length,
+            );
             if len > best_len {
                 best_len = len;
                 BackwardMatchMut(&mut matches[matches_offset]).init(backward, len);
@@ -355,7 +435,8 @@ where
         i = i.wrapping_sub(1);
     }
     if best_len < max_length {
-        let loc_offset = StoreAndFindMatchesH10(
+        let loc_offset = StoreAndFindMatchesH10Simd(
+            simd,
             handle,
             data,
             cur_ix,
@@ -633,15 +714,20 @@ impl BackwardMatch {
     #[inline(always)]
     fn length_code(&self) -> usize {
         let code = (self.length_and_code() & 31u32) as usize;
-        if code != 0 {
-            code
-        } else {
-            self.length()
-        }
+        if code != 0 { code } else { self.length() }
     }
 }
 
-fn UpdateNodes<AllocF: Allocator<floatX>>(
+/// Extends the shortest-path search from `pos`, both through the distance cache and
+/// through this position's candidate matches.
+///
+/// Takes an already-detected instruction set: the match-length comparisons below run once
+/// per distance-cache slot and once per candidate match, far too often to probe the CPU
+/// for each one.
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn UpdateNodesSimd<S: Simd, AllocF: Allocator<floatX>>(
+    simd: S,
     num_bytes: usize,
     block_start: usize,
     pos: usize,
@@ -736,7 +822,8 @@ fn UpdateNodes<AllocF: Allocator<floatX>>(
                 continue;
             }
             len = fix_unbroken_len(
-                FindMatchLengthWithLimit(
+                FindMatchLengthWithLimitSimd(
+                    simd,
                     &ringbuffer[prev_ix..],
                     &ringbuffer[cur_ix_masked..],
                     max_len,
@@ -854,6 +941,123 @@ fn ComputeShortestPathFromNodes(num_bytes: usize, nodes: &mut [ZopfliNode]) -> u
 }
 
 const MAX_NUM_MATCHES_H10: usize = 128;
+
+/// The per-position sweep of [`BrotliZopfliComputeShortestPath`], on an already-detected
+/// instruction set.
+///
+/// Split out so the whole block costs one detection: every position here reaches the match
+/// finder, the node update and the hasher store, and each of those would otherwise probe
+/// the CPU on its own.
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+fn ShortestPathPositionsSimd<
+    S: Simd,
+    AllocU32: Allocator<u32>,
+    Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32> + PartialEq<Buckets>,
+    Params: H10Params,
+    AllocF: Allocator<floatX>,
+>(
+    simd: S,
+    handle: &mut H10<AllocU32, Buckets, Params>,
+    dictionary: Option<&BrotliDictionary>,
+    num_bytes: usize,
+    position: usize,
+    ringbuffer: &[u8],
+    ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
+    params: &BrotliEncoderParams,
+    max_backward_limit: usize,
+    dist_cache: &[i32],
+    model: &mut ZopfliCostModel<AllocF>,
+    queue: &mut StartPosQueue,
+    nodes: &mut [ZopfliNode],
+    matches: &mut [u64],
+    store_end: usize,
+    max_zopfli_len: usize,
+    gap: usize,
+) {
+    let mut i = 0usize;
+    while i.wrapping_add(handle.HashTypeLength()).wrapping_sub(1) < num_bytes {
+        {
+            let pos: usize = position.wrapping_add(i);
+            let max_distance: usize = min(pos, max_backward_limit);
+            let mut skip: usize;
+            let mut num_matches: usize = FindAllMatchesH10Simd(
+                simd,
+                handle,
+                dictionary,
+                ringbuffer,
+                ringbuffer_mask,
+                ringbuffer_break,
+                pos,
+                num_bytes.wrapping_sub(i),
+                max_distance,
+                gap,
+                params,
+                matches,
+            );
+            if num_matches > 0
+                && BackwardMatch(matches[num_matches.wrapping_sub(1)]).length() > max_zopfli_len
+            {
+                matches[0] = matches[num_matches.wrapping_sub(1)];
+                num_matches = 1usize;
+            }
+            skip = UpdateNodesSimd(
+                simd,
+                num_bytes,
+                position,
+                i,
+                ringbuffer,
+                ringbuffer_mask,
+                ringbuffer_break,
+                params,
+                max_backward_limit,
+                dist_cache,
+                num_matches,
+                matches,
+                model,
+                queue,
+                nodes,
+            );
+            if skip < 16384usize {
+                skip = 0usize;
+            }
+            if num_matches == 1 && BackwardMatch(matches[0]).length() > max_zopfli_len {
+                skip = max(BackwardMatch(matches[0]).length(), skip);
+            }
+            if skip > 1usize {
+                handle.store_range_simd(
+                    simd,
+                    ringbuffer,
+                    ringbuffer_mask,
+                    pos.wrapping_add(1),
+                    min(pos.wrapping_add(skip), store_end),
+                );
+                skip = skip.wrapping_sub(1);
+                while skip != 0 {
+                    i = i.wrapping_add(1);
+                    if i.wrapping_add(handle.HashTypeLength()).wrapping_sub(1) >= num_bytes {
+                        break;
+                    }
+                    EvaluateNode(
+                        position,
+                        i,
+                        max_backward_limit,
+                        gap,
+                        dist_cache,
+                        model,
+                        queue,
+                        nodes,
+                    );
+                    skip = skip.wrapping_sub(1);
+                }
+            }
+        }
+        i = i.wrapping_add(1);
+    }
+}
+
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliZopfliComputeShortestPath<
     AllocU32: Allocator<u32>,
     Buckets: Allocable<u32, AllocU32> + SliceWrapperMut<u32> + SliceWrapper<u32>,
@@ -888,7 +1092,6 @@ where
     } else {
         position
     };
-    let mut i: usize;
     let gap: usize = 0usize;
     let lz_matches_offset: usize = 0usize;
     (nodes[0]).length = 0u32;
@@ -899,88 +1102,33 @@ where
     }
     model.set_from_literal_costs(position, ringbuffer, ringbuffer_mask);
     queue = StartPosQueue::default();
-    i = 0usize;
-    while i.wrapping_add(handle.HashTypeLength()).wrapping_sub(1) < num_bytes {
-        {
-            let pos: usize = position.wrapping_add(i);
-            let max_distance: usize = min(pos, max_backward_limit);
-            let mut skip: usize;
-            let mut num_matches: usize = FindAllMatchesH10(
-                handle,
-                dictionary,
-                ringbuffer,
-                ringbuffer_mask,
-                ringbuffer_break,
-                pos,
-                num_bytes.wrapping_sub(i),
-                max_distance,
-                gap,
-                params,
-                &mut matches[lz_matches_offset..],
-            );
-            if num_matches > 0
-                && BackwardMatch(matches[num_matches.wrapping_sub(1)]).length() > max_zopfli_len
-            {
-                matches[0] = matches[num_matches.wrapping_sub(1)];
-                num_matches = 1usize;
-            }
-            skip = UpdateNodes(
-                num_bytes,
-                position,
-                i,
-                ringbuffer,
-                ringbuffer_mask,
-                ringbuffer_break,
-                params,
-                max_backward_limit,
-                dist_cache,
-                num_matches,
-                &matches[..],
-                &mut model,
-                &mut queue,
-                nodes,
-            );
-            if skip < 16384usize {
-                skip = 0usize;
-            }
-            if num_matches == 1 && BackwardMatch(matches[0]).length() > max_zopfli_len {
-                skip = max(BackwardMatch(matches[0]).length(), skip);
-            }
-            if skip > 1usize {
-                handle.StoreRange(
-                    ringbuffer,
-                    ringbuffer_mask,
-                    pos.wrapping_add(1),
-                    min(pos.wrapping_add(skip), store_end),
-                );
-                skip = skip.wrapping_sub(1);
-                while skip != 0 {
-                    i = i.wrapping_add(1);
-                    if i.wrapping_add(handle.HashTypeLength()).wrapping_sub(1) >= num_bytes {
-                        break;
-                    }
-                    EvaluateNode(
-                        position,
-                        i,
-                        max_backward_limit,
-                        gap,
-                        dist_cache,
-                        &mut model,
-                        &mut queue,
-                        nodes,
-                    );
-                    skip = skip.wrapping_sub(1);
-                }
-            }
-        }
-        i = i.wrapping_add(1);
-    }
+    dispatch!(detect_level(), simd => ShortestPathPositionsSimd(
+        simd,
+        handle,
+        dictionary,
+        num_bytes,
+        position,
+        ringbuffer,
+        ringbuffer_mask,
+        ringbuffer_break,
+        params,
+        max_backward_limit,
+        dist_cache,
+        &mut model,
+        &mut queue,
+        nodes,
+        &mut matches[lz_matches_offset..],
+        store_end,
+        max_zopfli_len,
+        gap,
+    ));
 
     model.cleanup(m);
 
     ComputeShortestPathFromNodes(num_bytes, nodes)
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliCreateZopfliBackwardReferences<
     Alloc: Allocator<u32> + Allocator<floatX> + Allocator<ZopfliNode>,
     Buckets: Allocable<u32, Alloc> + SliceWrapperMut<u32> + SliceWrapper<u32>,
@@ -1043,6 +1191,7 @@ pub fn BrotliCreateZopfliBackwardReferences<
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn SetCost(histogram: &[u32], histogram_size: usize, literal_histogram: bool, cost: &mut [floatX]) {
     let mut sum: u64 = 0;
     for i in 0..histogram_size {
@@ -1154,7 +1303,47 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
     }
 }
 
+/// Detects once for the whole block; the per-position node update it drives measures
+/// match lengths tens of times per position.
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn ZopfliIterate<AllocF: Allocator<floatX>>(
+    num_bytes: usize,
+    position: usize,
+    ringbuffer: &[u8],
+    ringbuffer_mask: usize,
+    ringbuffer_break: Option<core::num::NonZeroUsize>,
+    params: &BrotliEncoderParams,
+    max_backward_limit: usize,
+    gap: usize,
+    dist_cache: &[i32],
+    model: &ZopfliCostModel<AllocF>,
+    num_matches: &[u32],
+    matches: &[u64],
+    nodes: &mut [ZopfliNode],
+) -> usize {
+    dispatch!(detect_level(), simd => ZopfliIterateSimd(
+        simd,
+        num_bytes,
+        position,
+        ringbuffer,
+        ringbuffer_mask,
+        ringbuffer_break,
+        params,
+        max_backward_limit,
+        gap,
+        dist_cache,
+        model,
+        num_matches,
+        matches,
+        nodes,
+    ))
+}
+
+#[inline(always)]
+#[allow(clippy::too_many_arguments)]
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
+fn ZopfliIterateSimd<S: Simd, AllocF: Allocator<floatX>>(
+    simd: S,
     num_bytes: usize,
     position: usize,
     ringbuffer: &[u8],
@@ -1179,7 +1368,8 @@ fn ZopfliIterate<AllocF: Allocator<floatX>>(
     i = 0usize;
     while i.wrapping_add(3) < num_bytes {
         {
-            let mut skip: usize = UpdateNodes(
+            let mut skip: usize = UpdateNodesSimd(
+                simd,
                 num_bytes,
                 position,
                 i,
@@ -1234,6 +1424,7 @@ fn ZopfliIterate<AllocF: Allocator<floatX>>(
     ComputeShortestPathFromNodes(num_bytes, nodes)
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliCreateHqZopfliBackwardReferences<
     Alloc: Allocator<u32> + Allocator<u64> + Allocator<floatX> + Allocator<ZopfliNode>,
     Buckets: Allocable<u32, Alloc> + SliceWrapperMut<u32> + SliceWrapper<u32>,

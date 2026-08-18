@@ -91,7 +91,7 @@ impl<'a, InputType: Read + 'a> Read for ShaReader<'a, InputType> {
     }
 }
 #[cfg(feature = "validation")]
-fn make_sha_reader<InputType: Read>(r: &mut InputType) -> ShaReader<InputType> {
+fn make_sha_reader<InputType: Read>(r: &mut InputType) -> ShaReader<'_, InputType> {
     ShaReader {
         reader: r,
         checksum: Checksum::default(),

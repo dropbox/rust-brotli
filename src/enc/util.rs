@@ -1,7 +1,7 @@
 #![allow(clippy::excessive_precision)]
 
-use crate::enc::log_table_16::logs_16;
 use crate::enc::log_table_8::logs_8;
+use crate::enc::log_table_16::logs_16;
 
 #[cfg(feature = "float64")]
 pub type floatX = f64;

@@ -22,15 +22,15 @@ use std::fs::File;
 use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 
 use alloc_no_stdlib::{Allocator, SliceWrapper, SliceWrapperMut};
+use brotli::CustomRead;
 use brotli::enc::backward_references::BrotliEncoderMode;
 use brotli::enc::threading::{
     BrotliEncoderThreadError, CompressMulti, CompressionThreadResult, Owned, SendAlloc,
 };
 use brotli::enc::{
-    compress_worker_pool, new_work_pool, BrotliEncoderMaxCompressedSizeMulti, BrotliEncoderParams,
-    UnionHasher, WorkerPool,
+    BrotliEncoderMaxCompressedSizeMulti, BrotliEncoderParams, UnionHasher, WorkerPool,
+    compress_worker_pool, new_work_pool,
 };
-use brotli::CustomRead;
 
 const MAX_THREADS: usize = 16;
 
@@ -529,6 +529,9 @@ fn has_stdlib() -> bool {
     false
 }
 
+// With `--features hotpath` this wraps `main` in a profiler guard that prints a per-stage
+// table of the encoder pipeline on exit. Inert otherwise.
+#[cfg_attr(feature = "hotpath", hotpath::main)]
 fn main() {
     let mut buffer_size = 65536;
     let mut do_compress = false;
@@ -830,7 +833,9 @@ fn main() {
                 continue;
             }
             if argument == "-h" || argument == "-help" || argument == "--help" && !double_dash {
-                println_stderr!("Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q9.5y or -q[0-11] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n\nStream concatenation options:\n-catable     Create stream that can be concatenated with other catable streams\n-appendable  Create stream that can have catable streams appended to it\n-bytealign   Align output to byte boundaries (requires -catable or -appendable)\n-bare        Output bare stream without wrapper (requires -catable or -appendable)\n\nThe -i parameter produces a cross human readdable IR representation of the file.\nThis can be ingested by other compressors.\nIR-specific options include:\n-findprior\n-speed=<inc,max,inc,max,inc,max,inc,max>");
+                println_stderr!(
+                    "Decompression:\nbrotli [input_file] [output_file]\nCompression:brotli -c -q9.5 -w22 [input_file] [output_file]\nQuality may be one of -q9.5 -q9.5x -q9.5y or -q[0-11] for standard brotli settings.\nOptional size hint -s<size> to direct better compression\n\nStream concatenation options:\n-catable     Create stream that can be concatenated with other catable streams\n-appendable  Create stream that can have catable streams appended to it\n-bytealign   Align output to byte boundaries (requires -catable or -appendable)\n-bare        Output bare stream without wrapper (requires -catable or -appendable)\n\nThe -i parameter produces a cross human readdable IR representation of the file.\nThis can be ingested by other compressors.\nIR-specific options include:\n-findprior\n-speed=<inc,max,inc,max,inc,max,inc,max>"
+                );
                 return;
             }
             if filenames[0].is_empty() {
@@ -929,9 +934,12 @@ fn main() {
                             custom_dictionary = dict.clone();
                         }
                         match decompress(&mut input, &mut output, buffer_size, dict.into()) {
-              Ok(_) => {}
-              Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
-            }
+                            Ok(_) => {}
+                            Err(e) => panic!(
+                                "Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.",
+                                e
+                            ),
+                        }
                     }
                     if i + 1 != num_benchmarks {
                         input.seek(SeekFrom::Start(0)).unwrap();
@@ -980,10 +988,18 @@ fn main() {
                         Err(e) => panic!("Error {:?}", e),
                     }
                 } else {
-                    match decompress(&mut input, &mut io::stdout(), buffer_size, custom_dictionary.into()) {
-            Ok(_) => {}
-            Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
-          }
+                    match decompress(
+                        &mut input,
+                        &mut io::stdout(),
+                        buffer_size,
+                        custom_dictionary.into(),
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => panic!(
+                            "Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.",
+                            e
+                        ),
+                    }
                 }
             }
             drop(input);
@@ -1028,17 +1044,33 @@ fn main() {
                     Err(e) => panic!("Error {:?}", e),
                 }
             } else {
-                match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
-          Ok(_) => return,
-          Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
-        }
+                match decompress(
+                    &mut io::stdin(),
+                    &mut io::stdout(),
+                    buffer_size,
+                    custom_dictionary.into(),
+                ) {
+                    Ok(_) => return,
+                    Err(e) => panic!(
+                        "Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.",
+                        e
+                    ),
+                }
             }
         }
     } else {
         assert_eq!(num_benchmarks, 1);
-        match decompress(&mut io::stdin(), &mut io::stdout(), buffer_size, custom_dictionary.into()) {
-      Ok(_) => (),
-      Err(e) => panic!("Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.", e),
-    }
+        match decompress(
+            &mut io::stdin(),
+            &mut io::stdout(),
+            buffer_size,
+            custom_dictionary.into(),
+        ) {
+            Ok(_) => (),
+            Err(e) => panic!(
+                "Error: {:} during brotli decompress\nTo compress with Brotli, specify the -c flag.",
+                e
+            ),
+        }
     }
 }
