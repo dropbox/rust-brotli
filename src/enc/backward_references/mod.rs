@@ -1,6 +1,7 @@
 mod benchmark;
 pub mod hash_to_binary_tree;
 pub mod hq;
+mod tagged;
 mod test;
 
 use core::cmp::{max, min};
@@ -8,13 +9,16 @@ use core::cmp::{max, min};
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::command::{BrotliDistanceParams, Command, ComputeDistanceCode};
 use super::dictionary_hash::kStaticDictionaryHash;
-use super::hash_to_binary_tree::{H10Buckets, H10DefaultParams, ZopfliNode, H10};
+use super::hash_to_binary_tree::{H10, H10Buckets, H10DefaultParams, ZopfliNode};
 use super::static_dict::{
-    BrotliDictionary, FindMatchLengthWithLimit, FindMatchLengthWithLimitMin4,
-    BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64,
+    BROTLI_UNALIGNED_LOAD32, BROTLI_UNALIGNED_LOAD64, BrotliDictionary, FindMatchLengthWithLimit,
+    FindMatchLengthWithLimitMin4,
 };
-use super::util::{floatX, Log2FloorNonZero};
+use super::util::{Log2FloorNonZero, floatX};
 use crate::enc::combined_alloc::allocate;
+use crate::enc::vectorization::detect_level;
+
+pub use tagged::{H58Sub, H68Sub, TaggedHasher, TaggedHasherSimd};
 
 pub static kInvalidMatch: u32 = 0x0fff_ffff;
 static kCutoffTransformsCount: u32 = 10;
@@ -941,9 +945,9 @@ pub struct AdvHasher<
 }
 
 impl<
-        Specialization: AdvHashSpecialization + Sized + Clone,
-        Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
-    > PartialEq<AdvHasher<Specialization, Alloc>> for AdvHasher<Specialization, Alloc>
+    Specialization: AdvHashSpecialization + Sized + Clone,
+    Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
+> PartialEq<AdvHasher<Specialization, Alloc>> for AdvHasher<Specialization, Alloc>
 {
     fn eq(&self, other: &Self) -> bool {
         self.GetHasherCommon == other.GetHasherCommon
@@ -1154,9 +1158,9 @@ fn BackwardReferencePenaltyUsingLastDistance(distance_short_code: usize) -> u64 
 }
 
 impl<
-        Specialization: AdvHashSpecialization + Clone,
-        Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
-    > AdvHasher<Specialization, Alloc>
+    Specialization: AdvHashSpecialization + Clone,
+    Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
+> AdvHasher<Specialization, Alloc>
 {
     // 7 opt
     // returns a new ix_start
@@ -1256,7 +1260,7 @@ impl<
             let shift = self.specialization.hash_shift();
             for chunk_id in 0..del {
                 let ix_offset = ix_start + chunk_id * REG_SIZE;
-                data64[..REG_SIZE + lookahead4 - 1].clone_from_slice(
+                data64[..REG_SIZE + lookahead4 - 1].copy_from_slice(
                     data.split_at(ix_offset)
                         .1
                         .split_at(REG_SIZE + lookahead4 - 1)
@@ -1345,7 +1349,7 @@ impl<
             for chunk_id in 0..del {
                 let ix_offset = ix_start + chunk_id * REG_SIZE;
                 data64[..REG_SIZE + lookahead4]
-                    .clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
+                    .copy_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
                 for quad_index in 0..(REG_SIZE >> 2) {
                     let i = quad_index << 2;
                     let ffffffff = 0xffff_ffff;
@@ -1429,7 +1433,7 @@ impl<
             for chunk_id in 0..del {
                 let ix_offset = ix_start + chunk_id * REG_SIZE;
                 data64[..REG_SIZE + lookahead4]
-                    .clone_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
+                    .copy_from_slice(data.split_at(ix_offset).1.split_at(REG_SIZE + lookahead4).0);
                 for i in 0..REG_SIZE {
                     let mixed_word = ((u32::from(data64[i])
                         | (u32::from(data64[i + 1]) << 8)
@@ -1468,9 +1472,9 @@ impl<
 }
 
 impl<
-        Specialization: AdvHashSpecialization + Clone,
-        Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
-    > AnyHasher for AdvHasher<Specialization, Alloc>
+    Specialization: AdvHashSpecialization + Clone,
+    Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
+> AnyHasher for AdvHasher<Specialization, Alloc>
 {
     fn Opts(&self) -> H9Opts {
         self.h9_opts
@@ -1681,6 +1685,7 @@ impl<
         }
     }
 
+    #[cfg_attr(feature = "hotpath", hotpath::measure)]
     fn FindLongestMatch(
         &mut self,
         dictionary: Option<&BrotliDictionary>,
@@ -2001,7 +2006,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
         ret.buckets_
             .buckets_
             .slice_mut()
-            .clone_from_slice(self.buckets_.buckets_.slice());
+            .copy_from_slice(self.buckets_.buckets_.slice());
         ret
     }
 }
@@ -2019,7 +2024,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
         ret.buckets_
             .buckets_
             .slice_mut()
-            .clone_from_slice(self.buckets_.buckets_.slice());
+            .copy_from_slice(self.buckets_.buckets_.slice());
         ret
     }
 }
@@ -2037,7 +2042,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
         ret.buckets_
             .buckets_
             .slice_mut()
-            .clone_from_slice(self.buckets_.buckets_.slice());
+            .copy_from_slice(self.buckets_.buckets_.slice());
         ret
     }
 }
@@ -2055,16 +2060,16 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
         ret.buckets_
             .buckets_
             .slice_mut()
-            .clone_from_slice(self.buckets_.buckets_.slice());
+            .copy_from_slice(self.buckets_.buckets_.slice());
         ret
     }
 }
 impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc> for H9<Alloc> {
     fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
         let mut num = allocate::<u16, _>(m, self.num_.len());
-        num.slice_mut().clone_from_slice(self.num_.slice());
+        num.slice_mut().copy_from_slice(self.num_.slice());
         let mut buckets = allocate::<u32, _>(m, self.buckets_.len());
-        buckets.slice_mut().clone_from_slice(self.buckets_.slice());
+        buckets.slice_mut().copy_from_slice(self.buckets_.slice());
         H9::<Alloc> {
             num_: num,
             buckets_: buckets,
@@ -2074,15 +2079,15 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
     }
 }
 impl<
-        Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
-        Special: AdvHashSpecialization + Sized + Clone,
-    > CloneWithAlloc<Alloc> for AdvHasher<Special, Alloc>
+    Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>,
+    Special: AdvHashSpecialization + Sized + Clone,
+> CloneWithAlloc<Alloc> for AdvHasher<Special, Alloc>
 {
     fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
         let mut num = allocate::<u16, _>(m, self.num.len());
-        num.slice_mut().clone_from_slice(self.num.slice());
+        num.slice_mut().copy_from_slice(self.num.slice());
         let mut buckets = allocate::<u32, _>(m, self.buckets.len());
-        buckets.slice_mut().clone_from_slice(self.buckets.slice());
+        buckets.slice_mut().copy_from_slice(self.buckets.slice());
         AdvHasher::<Special, Alloc> {
             GetHasherCommon: self.GetHasherCommon.clone(),
             specialization: self.specialization.clone(),
@@ -2093,7 +2098,8 @@ impl<
     }
 }
 
-pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
+#[non_exhaustive]
+pub enum UnionHasher<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + alloc::Allocator<u32>> {
     Uninit,
     H2(BasicHasher<H2Sub<Alloc>>),
     H3(BasicHasher<H3Sub<Alloc>>),
@@ -2103,11 +2109,13 @@ pub enum UnionHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> {
     H5q7(AdvHasher<HQ7Sub, Alloc>),
     H5q5(AdvHasher<HQ5Sub, Alloc>),
     H6(AdvHasher<H6Sub, Alloc>),
+    H58(TaggedHasher<H58Sub, Alloc>),
+    H68(TaggedHasher<H68Sub, Alloc>),
     H9(H9<Alloc>),
     H10(H10<Alloc, H10Buckets<Alloc>, H10DefaultParams>),
 }
-impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<UnionHasher<Alloc>>
-    for UnionHasher<Alloc>
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + alloc::Allocator<u32>>
+    PartialEq<UnionHasher<Alloc>> for UnionHasher<Alloc>
 {
     fn eq(&self, other: &UnionHasher<Alloc>) -> bool {
         match *self {
@@ -2143,6 +2151,14 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<UnionHasher
                 UnionHasher::H6(ref otherh) => *hasher == *otherh,
                 _ => false,
             },
+            UnionHasher::H58(ref hasher) => match *other {
+                UnionHasher::H58(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
+            UnionHasher::H68(ref hasher) => match *other {
+                UnionHasher::H68(ref otherh) => *hasher == *otherh,
+                _ => false,
+            },
             UnionHasher::H9(ref hasher) => match *other {
                 UnionHasher::H9(ref otherh) => *hasher == *otherh,
                 _ => false,
@@ -2158,8 +2174,8 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> PartialEq<UnionHasher
         }
     }
 }
-impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
-    for UnionHasher<Alloc>
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + alloc::Allocator<u32>>
+    CloneWithAlloc<Alloc> for UnionHasher<Alloc>
 {
     fn clone_with_alloc(&self, m: &mut Alloc) -> Self {
         match *self {
@@ -2170,6 +2186,8 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
             UnionHasher::H5q7(ref hasher) => UnionHasher::H5q7(hasher.clone_with_alloc(m)),
             UnionHasher::H5q5(ref hasher) => UnionHasher::H5q5(hasher.clone_with_alloc(m)),
             UnionHasher::H6(ref hasher) => UnionHasher::H6(hasher.clone_with_alloc(m)),
+            UnionHasher::H58(ref hasher) => UnionHasher::H58(hasher.clone_with_alloc(m)),
+            UnionHasher::H68(ref hasher) => UnionHasher::H68(hasher.clone_with_alloc(m)),
             UnionHasher::H54(ref hasher) => UnionHasher::H54(hasher.clone_with_alloc(m)),
             UnionHasher::H9(ref hasher) => UnionHasher::H9(hasher.clone_with_alloc(m)),
             UnionHasher::H10(ref hasher) => UnionHasher::H10(hasher.clone_with_alloc(m)),
@@ -2178,7 +2196,7 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> CloneWithAlloc<Alloc>
     }
 }
 macro_rules! match_all_hashers_mut {
-    ($xself : expr, $func_call : ident, $( $args:expr),*) => {
+    ($xself : expr_2021, $func_call : ident, $( $args:expr_2021),*) => {
         match $xself {
      &mut UnionHasher::H2(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H3(ref mut hasher) => hasher.$func_call($($args),*),
@@ -2187,6 +2205,8 @@ macro_rules! match_all_hashers_mut {
      &mut UnionHasher::H5q7(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H5q5(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H6(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H58(ref mut hasher) => hasher.$func_call($($args),*),
+     &mut UnionHasher::H68(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H54(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H9(ref mut hasher) => hasher.$func_call($($args),*),
      &mut UnionHasher::H10(ref mut hasher) => hasher.$func_call($($args),*),
@@ -2195,7 +2215,7 @@ macro_rules! match_all_hashers_mut {
     };
 }
 macro_rules! match_all_hashers {
-    ($xself : expr, $func_call : ident, $( $args:expr),*) => {
+    ($xself : expr_2021, $func_call : ident, $( $args:expr_2021),*) => {
         match $xself {
      &UnionHasher::H2(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H3(ref hasher) => hasher.$func_call($($args),*),
@@ -2204,6 +2224,8 @@ macro_rules! match_all_hashers {
      &UnionHasher::H5q7(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H5q5(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H6(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H58(ref hasher) => hasher.$func_call($($args),*),
+     &UnionHasher::H68(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H54(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H9(ref hasher) => hasher.$func_call($($args),*),
      &UnionHasher::H10(ref hasher) => hasher.$func_call($($args),*),
@@ -2211,16 +2233,18 @@ macro_rules! match_all_hashers {
         }
     };
 }
-impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for UnionHasher<Alloc> {
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher
+    for UnionHasher<Alloc>
+{
     fn Opts(&self) -> H9Opts {
         match_all_hashers!(self, Opts,)
     }
     fn GetHasherCommon(&mut self) -> &mut Struct1 {
         match_all_hashers_mut!(self, GetHasherCommon,)
     } /*
-      fn GetH10Tree(&mut self) -> Option<&mut H10<AllocU32, H10Buckets, H10DefaultParams>> {
-        return match_all_hashers_mut!(self, GetH10Tree,);
-      }*/
+    fn GetH10Tree(&mut self) -> Option<&mut H10<AllocU32, H10Buckets, H10DefaultParams>> {
+    return match_all_hashers_mut!(self, GetH10Tree,);
+    }*/
     fn Prepare(&mut self, one_shot: bool, input_size: usize, data: &[u8]) -> HowPrepared {
         match_all_hashers_mut!(self, Prepare, one_shot, input_size, data)
     }
@@ -2295,7 +2319,9 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for UnionHa
     }
 }
 
-impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> UnionHasher<Alloc> {
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + alloc::Allocator<u32>>
+    UnionHasher<Alloc>
+{
     pub fn free(&mut self, alloc: &mut Alloc) {
         match self {
             &mut UnionHasher::H2(ref mut hasher) => {
@@ -2338,6 +2364,16 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> UnionHasher<Alloc> {
                 <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::take(&mut hasher.num));
                 <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::take(&mut hasher.buckets));
             }
+            &mut UnionHasher::H58(ref mut hasher) => {
+                <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::take(&mut hasher.num));
+                <Alloc as Allocator<u8>>::free_cell(alloc, core::mem::take(&mut hasher.tags));
+                <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::take(&mut hasher.buckets));
+            }
+            &mut UnionHasher::H68(ref mut hasher) => {
+                <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::take(&mut hasher.num));
+                <Alloc as Allocator<u8>>::free_cell(alloc, core::mem::take(&mut hasher.tags));
+                <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::take(&mut hasher.buckets));
+            }
             &mut UnionHasher::H9(ref mut hasher) => {
                 <Alloc as Allocator<u16>>::free_cell(alloc, core::mem::take(&mut hasher.num_));
                 <Alloc as Allocator<u32>>::free_cell(alloc, core::mem::take(&mut hasher.buckets_));
@@ -2351,7 +2387,9 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> UnionHasher<Alloc> {
     }
 }
 
-impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> Default for UnionHasher<Alloc> {
+impl<Alloc: alloc::Allocator<u8> + alloc::Allocator<u16> + alloc::Allocator<u32>> Default
+    for UnionHasher<Alloc>
+{
     fn default() -> Self {
         UnionHasher::Uninit
     }
@@ -2437,55 +2475,51 @@ fn CreateBackwardReferences<AH: AnyHasher>(
         ) {
             let mut delayed_backward_references_in_row: i32 = 0i32;
             max_length = max_length.wrapping_sub(1);
-            'break6: loop {
-                'continue7: loop {
-                    let cost_diff_lazy: u64 = 175;
+            loop {
+                let cost_diff_lazy: u64 = 175;
 
-                    let mut sr2 = HasherSearchResult {
-                        len: 0,
-                        len_x_code: 0,
-                        distance: 0,
-                        score: 0,
-                    };
-                    sr2.len = if params.quality < 5 {
-                        min(sr.len.wrapping_sub(1), max_length)
-                    } else {
-                        0usize
-                    };
-                    sr2.len_x_code = 0usize;
-                    sr2.distance = 0usize;
-                    sr2.score = kMinScore;
-                    max_distance = min(position.wrapping_add(1), max_backward_limit);
-                    let is_match_found: bool = hasher.FindLongestMatch(
-                        dictionary,
-                        dictionary_hash,
-                        ringbuffer,
-                        ringbuffer_mask,
-                        ringbuffer_break,
-                        dist_cache,
-                        position.wrapping_add(1),
-                        max_length,
-                        max_distance,
-                        gap,
-                        params.dist.max_distance,
-                        &mut sr2,
-                    );
-                    if is_match_found && (sr2.score >= sr.score.wrapping_add(cost_diff_lazy)) {
-                        position = position.wrapping_add(1);
-                        insert_length = insert_length.wrapping_add(1);
-                        sr = sr2;
-                        if {
-                            delayed_backward_references_in_row += 1;
-                            delayed_backward_references_in_row
-                        } < 4i32
-                            && (position.wrapping_add(hasher.HashTypeLength()) < pos_end)
-                        {
-                            break 'continue7;
-                        }
+                let mut sr2 = HasherSearchResult {
+                    len: 0,
+                    len_x_code: 0,
+                    distance: 0,
+                    score: 0,
+                };
+                sr2.len = if params.quality < 5 {
+                    min(sr.len.wrapping_sub(1), max_length)
+                } else {
+                    0usize
+                };
+                sr2.len_x_code = 0usize;
+                sr2.distance = 0usize;
+                sr2.score = kMinScore;
+                max_distance = min(position.wrapping_add(1), max_backward_limit);
+                let is_match_found: bool = hasher.FindLongestMatch(
+                    dictionary,
+                    dictionary_hash,
+                    ringbuffer,
+                    ringbuffer_mask,
+                    ringbuffer_break,
+                    dist_cache,
+                    position.wrapping_add(1),
+                    max_length,
+                    max_distance,
+                    gap,
+                    params.dist.max_distance,
+                    &mut sr2,
+                );
+                if is_match_found && (sr2.score >= sr.score.wrapping_add(cost_diff_lazy)) {
+                    position = position.wrapping_add(1);
+                    insert_length = insert_length.wrapping_add(1);
+                    sr = sr2;
+                    delayed_backward_references_in_row += 1;
+                    if delayed_backward_references_in_row < 4
+                        && position.wrapping_add(hasher.HashTypeLength()) < pos_end
+                    {
+                        max_length = max_length.wrapping_sub(1);
+                        continue;
                     }
-                    break 'break6;
                 }
-                max_length = max_length.wrapping_sub(1);
+                break;
             }
             apply_random_heuristics = position
                 .wrapping_add((2usize).wrapping_mul(sr.len))
@@ -2550,8 +2584,10 @@ fn CreateBackwardReferences<AH: AnyHasher>(
     *last_insert_len = insert_length;
     *num_commands = num_commands.wrapping_add(new_commands_count);
 }
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliCreateBackwardReferences<
-    Alloc: alloc::Allocator<u16>
+    Alloc: alloc::Allocator<u8>
+        + alloc::Allocator<u16>
         + alloc::Allocator<u32>
         + alloc::Allocator<u64>
         + alloc::Allocator<floatX>
@@ -2759,6 +2795,48 @@ pub fn BrotliCreateBackwardReferences<
             num_commands,
             num_literals,
         ),
+        &mut UnionHasher::H58(ref mut hasher) => {
+            dispatch!(detect_level(), simd => {
+                let mut hasher = TaggedHasherSimd::new(simd, hasher);
+                CreateBackwardReferences(
+                    if params.use_dictionary { Some(dictionary) } else { None },
+                    &kStaticDictionaryHash[..],
+                    num_bytes,
+                    position,
+                    ringbuffer,
+                    ringbuffer_mask,
+                    ringbuffer_break,
+                    params,
+                    &mut hasher,
+                    dist_cache,
+                    last_insert_len,
+                    commands,
+                    num_commands,
+                    num_literals,
+                )
+            })
+        }
+        &mut UnionHasher::H68(ref mut hasher) => {
+            dispatch!(detect_level(), simd => {
+                let mut hasher = TaggedHasherSimd::new(simd, hasher);
+                CreateBackwardReferences(
+                    if params.use_dictionary { Some(dictionary) } else { None },
+                    &kStaticDictionaryHash[..],
+                    num_bytes,
+                    position,
+                    ringbuffer,
+                    ringbuffer_mask,
+                    ringbuffer_break,
+                    params,
+                    &mut hasher,
+                    dist_cache,
+                    last_insert_len,
+                    commands,
+                    num_commands,
+                    num_literals,
+                )
+            })
+        }
         &mut UnionHasher::H9(ref mut hasher) => CreateBackwardReferences(
             if params.use_dictionary {
                 Some(dictionary)

@@ -1,4 +1,4 @@
-use alloc::{Allocator, SliceWrapper, SliceWrapperMut};
+use crate::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use core;
 
 use super::histogram;
@@ -149,7 +149,7 @@ impl<SliceType: SliceWrapper<u8> + SliceWrapperMut<u8>> PredictionModeContextMap
     pub fn set_mixing_values(&mut self, mixing_mask: &[u8; NUM_MIXING_VALUES]) {
         let cm_slice = self.predmode_speed_and_distance_context_map.slice_mut();
         cm_slice[MIXING_OFFSET..(MIXING_OFFSET + NUM_MIXING_VALUES)]
-            .clone_from_slice(&mixing_mask[..]);
+            .copy_from_slice(&mixing_mask[..]);
     }
     #[inline]
     pub fn get_mixing_values_mut(&mut self) -> &mut [u8] {
@@ -481,8 +481,8 @@ impl<SliceType: SliceWrapper<u8> + Default> Command<SliceType> {
         F: FnMut(SliceType),
     {
         match self {
-            Command::Literal(ref mut lit) => apply_func(core::mem::take(&mut lit.data)),
-            Command::PredictionMode(ref mut pm) => {
+            Command::Literal(lit) => apply_func(core::mem::take(&mut lit.data)),
+            Command::PredictionMode(pm) => {
                 apply_func(core::mem::take(&mut pm.literal_context_map));
                 apply_func(core::mem::take(
                     &mut pm.predmode_speed_and_distance_context_map,
@@ -674,44 +674,44 @@ pub trait CommandProcessor<'a> {
 impl<SliceType: Unfreezable + SliceWrapper<u8>> Command<SliceType> {
     pub fn thaw_pair<'a>(&self, data: &InputPair<'a>) -> Command<InputReference<'a>> {
         match self {
-            Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+            Command::Literal(lit) => Command::Literal(LiteralCommand {
                 data: lit.data.thaw_pair(data).unwrap(),
                 prob: FeatureFlagSliceType::default(),
                 high_entropy: lit.high_entropy,
             }),
-            Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+            Command::PredictionMode(pm) => Command::PredictionMode(PredictionModeContextMap {
                 literal_context_map: pm.literal_context_map.thaw_pair(data).unwrap(),
                 predmode_speed_and_distance_context_map: pm
                     .predmode_speed_and_distance_context_map
                     .thaw_pair(data)
                     .unwrap(),
             }),
-            Command::Dict(ref d) => Command::Dict(*d),
-            Command::Copy(ref c) => Command::Copy(*c),
-            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
-            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
-            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
+            Command::Dict(d) => Command::Dict(*d),
+            Command::Copy(c) => Command::Copy(*c),
+            Command::BlockSwitchCommand(c) => Command::BlockSwitchCommand(*c),
+            Command::BlockSwitchLiteral(c) => Command::BlockSwitchLiteral(*c),
+            Command::BlockSwitchDistance(c) => Command::BlockSwitchDistance(*c),
         }
     }
 
     pub fn thaw<'a>(&self, data: &'a [u8]) -> Command<InputReference<'a>> {
         match self {
-            Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+            Command::Literal(lit) => Command::Literal(LiteralCommand {
                 data: lit.data.thaw(data),
                 prob: FeatureFlagSliceType::default(),
                 high_entropy: lit.high_entropy,
             }),
-            Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+            Command::PredictionMode(pm) => Command::PredictionMode(PredictionModeContextMap {
                 literal_context_map: pm.literal_context_map.thaw(data),
                 predmode_speed_and_distance_context_map: pm
                     .predmode_speed_and_distance_context_map
                     .thaw(data),
             }),
-            Command::Dict(ref d) => Command::Dict(*d),
-            Command::Copy(ref c) => Command::Copy(*c),
-            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
-            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
-            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
+            Command::Dict(d) => Command::Dict(*d),
+            Command::Copy(c) => Command::Copy(*c),
+            Command::BlockSwitchCommand(c) => Command::BlockSwitchCommand(*c),
+            Command::BlockSwitchLiteral(c) => Command::BlockSwitchLiteral(*c),
+            Command::BlockSwitchDistance(c) => Command::BlockSwitchDistance(*c),
         }
     }
 }
@@ -719,22 +719,22 @@ impl<SliceType: Unfreezable + SliceWrapper<u8>> Command<SliceType> {
 impl<SliceType: SliceWrapper<u8> + Freezable> Command<SliceType> {
     pub fn freeze(&self) -> Command<SliceOffset> {
         match self {
-            Command::Literal(ref lit) => Command::Literal(LiteralCommand {
+            Command::Literal(lit) => Command::Literal(LiteralCommand {
                 data: lit.data.freeze(),
                 prob: FeatureFlagSliceType::default(),
                 high_entropy: lit.high_entropy,
             }),
-            Command::PredictionMode(ref pm) => Command::PredictionMode(PredictionModeContextMap {
+            Command::PredictionMode(pm) => Command::PredictionMode(PredictionModeContextMap {
                 literal_context_map: pm.literal_context_map.freeze(),
                 predmode_speed_and_distance_context_map: pm
                     .predmode_speed_and_distance_context_map
                     .freeze(),
             }),
-            Command::Dict(ref d) => Command::Dict(*d),
-            Command::Copy(ref c) => Command::Copy(*c),
-            Command::BlockSwitchCommand(ref c) => Command::BlockSwitchCommand(*c),
-            Command::BlockSwitchLiteral(ref c) => Command::BlockSwitchLiteral(*c),
-            Command::BlockSwitchDistance(ref c) => Command::BlockSwitchDistance(*c),
+            Command::Dict(d) => Command::Dict(*d),
+            Command::Copy(c) => Command::Copy(*c),
+            Command::BlockSwitchCommand(c) => Command::BlockSwitchCommand(*c),
+            Command::BlockSwitchLiteral(c) => Command::BlockSwitchLiteral(*c),
+            Command::BlockSwitchDistance(c) => Command::BlockSwitchDistance(*c),
         }
     }
 }

@@ -1,62 +1,114 @@
-#![allow(unknown_lints)]
-#![allow(unused_macros)]
+//! Fixed-width vector storage for the encoder.
+//!
+//! The types here are plain arrays: `Default` + `Copy`, so they can live in the
+//! encoder's allocator-backed slices and be handed to `Allocator<T>`. They carry no
+//! arithmetic of their own. Math is done on [`fearless_simd`] vectors instead: inside a
+//! `dispatch!` region, [`Mem256f::to_simd`] (and friends) loads a register and
+//! [`Mem256f::from_simd`] stores it back.
 
-use crate::enc::util::FastLog2;
-use crate::enc::{s8, v8};
-pub type Mem256f = v8;
-pub type Mem256i = s8;
-pub type v256 = v8;
-pub type v256i = s8;
-pub fn sum8(x: v256) -> f32 {
-    x[0] + x[1] + x[2] + x[3] + x[4] + x[5] + x[6] + x[7]
+use core::ops::{Index, IndexMut};
+use core::slice::SliceIndex;
+
+use fearless_simd::{Level, Simd, SimdBase, SimdInto, f32x8, i16x16, i32x8, u32x8};
+
+/// The instruction set the vectorized encoder paths run on.
+///
+/// Detected at runtime where the platform allows it (`std` builds, wasm), otherwise the
+/// best level this crate was compiled for. The `std` answer is cached: probing costs a
+/// dozen feature tests, and callers such as [`crate::enc::bit_cost::BrotliPopulationCost`]
+/// dispatch once per histogram, deep inside the clustering loops.
+#[cfg(feature = "std")]
+#[inline]
+pub fn detect_level() -> Level {
+    static LEVEL: std::sync::LazyLock<Level> = std::sync::LazyLock::new(|| Level::try_detect().unwrap_or_else(Level::baseline));
+    *LEVEL
 }
 
-pub fn sum8i(x: v256i) -> i32 {
-    x[0].wrapping_add(x[1])
-        .wrapping_add(x[2])
-        .wrapping_add(x[3])
-        .wrapping_add(x[4])
-        .wrapping_add(x[5])
-        .wrapping_add(x[6])
-        .wrapping_add(x[7])
+/// See the `std` variant above; without `std` there is nothing to cache, as
+/// `try_detect` cannot probe the CPU and always resolves to the compiled-for level.
+#[cfg(not(feature = "std"))]
+#[inline]
+pub fn detect_level() -> Level {
+    Level::try_detect().unwrap_or_else(Level::baseline)
 }
 
-pub fn log2i(x: v256i) -> v256 {
-    [
-        FastLog2(x[0] as u64),
-        FastLog2(x[1] as u64),
-        FastLog2(x[2] as u64),
-        FastLog2(x[3] as u64),
-        FastLog2(x[4] as u64),
-        FastLog2(x[5] as u64),
-        FastLog2(x[6] as u64),
-        FastLog2(x[7] as u64),
-    ]
-    .into()
+/// The smallest lane of `v`, folded in `log2(8)` steps.
+#[inline(always)]
+pub fn min_lane_f32x8<S: Simd>(v: f32x8<S>) -> f32 {
+    let v = v.min(v.slide::<4>(v));
+    let v = v.min(v.slide::<2>(v));
+    let v = v.min(v.slide::<1>(v));
+    v[0]
 }
-pub fn cast_i32_to_f32(x: v256i) -> v256 {
-    [
-        x[0] as f32,
-        x[1] as f32,
-        x[2] as f32,
-        x[3] as f32,
-        x[4] as f32,
-        x[5] as f32,
-        x[6] as f32,
-        x[7] as f32,
-    ]
-    .into()
+
+/// The smallest lane of `v`, folded in `log2(8)` steps.
+#[inline(always)]
+pub fn min_lane_u32x8<S: Simd>(v: u32x8<S>) -> u32 {
+    let v = v.min(v.slide::<4>(v));
+    let v = v.min(v.slide::<2>(v));
+    let v = v.min(v.slide::<1>(v));
+    v[0]
 }
-pub fn cast_f32_to_i32(x: v256) -> v256i {
-    [
-        x[0] as i32,
-        x[1] as i32,
-        x[2] as i32,
-        x[3] as i32,
-        x[4] as i32,
-        x[5] as i32,
-        x[6] as i32,
-        x[7] as i32,
-    ]
-    .into()
+
+macro_rules! define_vector {
+    ($(#[$attr:meta])* $name:ident, $elem:ty, $lanes:literal, $simd:ident) => {
+        $(#[$attr])*
+        #[derive(Default, Copy, Clone, Debug)]
+        pub struct $name([$elem; $lanes]);
+
+        impl $name {
+            /// Load the lanes into a SIMD register.
+            #[inline(always)]
+            pub fn to_simd<S: Simd>(self, simd: S) -> $simd<S> {
+                self.0.simd_into(simd)
+            }
+
+            /// Store a SIMD register back into plain memory.
+            #[inline(always)]
+            pub fn from_simd<S: Simd>(value: $simd<S>) -> Self {
+                Self(value.into())
+            }
+        }
+
+        impl From<[$elem; $lanes]> for $name {
+            #[inline(always)]
+            fn from(value: [$elem; $lanes]) -> Self {
+                Self(value)
+            }
+        }
+
+        impl<I: SliceIndex<[$elem]>> Index<I> for $name {
+            type Output = I::Output;
+
+            #[inline(always)]
+            fn index(&self, index: I) -> &Self::Output {
+                &self.0[index]
+            }
+        }
+
+        impl<I: SliceIndex<[$elem]>> IndexMut<I> for $name {
+            #[inline(always)]
+            fn index_mut(&mut self, index: I) -> &mut Self::Output {
+                &mut self.0[index]
+            }
+        }
+    };
 }
+
+define_vector!(Mem256f, f32, 8, f32x8);
+define_vector!(Mem256i, i32, 8, i32x8);
+define_vector!(Mem16x16, i16, 16, i16x16);
+define_vector!(
+    /// A 16-bucket probability distribution.
+    ///
+    /// Same shape as [`Mem16x16`], but deliberately a separate type: `BrotliAlloc`
+    /// requires `Allocator<PDF>` and `Allocator<s16>` as distinct bounds, so the two
+    /// cannot be aliases of each other. Re-exported as [`crate::enc::pdf::PDF`].
+    PDF,
+    i16,
+    16,
+    i16x16
+);
+
+pub type v256 = Mem256f;
+pub type v256i = Mem256i;

@@ -1,6 +1,6 @@
 #![cfg(feature = "std")]
 
-use alloc::{Allocator, SliceWrapper};
+use crate::alloc::{Allocator, SliceWrapper};
 use core::marker::PhantomData;
 use core::mem;
 use std;
@@ -88,11 +88,11 @@ where
 }
 
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > BatchSpawnable<ReturnValue, ExtraInput, Alloc, U> for MultiThreadedSpawner
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> BatchSpawnable<ReturnValue, ExtraInput, Alloc, U> for MultiThreadedSpawner
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {
@@ -120,11 +120,11 @@ where
     }
 }
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U> for MultiThreadedSpawner
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U> for MultiThreadedSpawner
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
     <Alloc as Allocator<u16>>::AllocatedMemory: Send + Sync,

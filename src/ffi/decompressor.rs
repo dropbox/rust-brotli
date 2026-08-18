@@ -1,12 +1,12 @@
 pub use brotli_decompressor::ffi::interface::{brotli_alloc_func, brotli_free_func, c_void};
-pub use brotli_decompressor::{ffi, BrotliDecoderReturnInfo, HuffmanCode};
+pub use brotli_decompressor::{BrotliDecoderReturnInfo, HuffmanCode, ffi};
 
 pub unsafe extern "C" fn CBrotliDecoderCreateInstance(
     alloc_func: brotli_alloc_func,
     free_func: brotli_free_func,
     opaque: *mut c_void,
 ) -> *mut ffi::BrotliDecoderState {
-    ffi::BrotliDecoderCreateInstance(alloc_func, free_func, opaque)
+    unsafe { ffi::BrotliDecoderCreateInstance(alloc_func, free_func, opaque) }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderSetParameter(
@@ -14,7 +14,7 @@ pub unsafe extern "C" fn CBrotliDecoderSetParameter(
     selector: ffi::interface::BrotliDecoderParameter,
     value: u32,
 ) {
-    ffi::BrotliDecoderSetParameter(state_ptr, selector, value)
+    unsafe { ffi::BrotliDecoderSetParameter(state_ptr, selector, value) }
 }
 
 #[cfg(feature = "std")] // this requires a default allocator
@@ -24,7 +24,9 @@ pub unsafe extern "C" fn CBrotliDecoderDecompress(
     decoded_size: *mut usize,
     decoded_buffer: *mut u8,
 ) -> ffi::interface::BrotliDecoderResult {
-    ffi::BrotliDecoderDecompress(encoded_size, encoded_buffer, decoded_size, decoded_buffer)
+    unsafe {
+        ffi::BrotliDecoderDecompress(encoded_size, encoded_buffer, decoded_size, decoded_buffer)
+    }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderDecompressStream(
@@ -35,14 +37,16 @@ pub unsafe extern "C" fn CBrotliDecoderDecompressStream(
     output_buf_ptr: *mut *mut u8,
     total_out: *mut usize,
 ) -> ffi::interface::BrotliDecoderResult {
-    ffi::BrotliDecoderDecompressStream(
-        state_ptr,
-        available_in,
-        input_buf_ptr,
-        available_out,
-        output_buf_ptr,
-        total_out,
-    )
+    unsafe {
+        ffi::BrotliDecoderDecompressStream(
+            state_ptr,
+            available_in,
+            input_buf_ptr,
+            available_out,
+            output_buf_ptr,
+            total_out,
+        )
+    }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderDecompressStreaming(
@@ -52,13 +56,15 @@ pub unsafe extern "C" fn CBrotliDecoderDecompressStreaming(
     available_out: *mut usize,
     output_buf_ptr: *mut u8,
 ) -> ffi::interface::BrotliDecoderResult {
-    ffi::BrotliDecoderDecompressStreaming(
-        state_ptr,
-        available_in,
-        input_buf_ptr,
-        available_out,
-        output_buf_ptr,
-    )
+    unsafe {
+        ffi::BrotliDecoderDecompressStreaming(
+            state_ptr,
+            available_in,
+            input_buf_ptr,
+            available_out,
+            output_buf_ptr,
+        )
+    }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderDecompressWithReturnInfo(
@@ -67,12 +73,14 @@ pub unsafe extern "C" fn CBrotliDecoderDecompressWithReturnInfo(
     available_out_and_scratch: usize,
     output_buf_and_scratch: *mut u8,
 ) -> BrotliDecoderReturnInfo {
-    ffi::BrotliDecoderDecompressWithReturnInfo(
-        available_in,
-        input_buf_ptr,
-        available_out_and_scratch,
-        output_buf_and_scratch,
-    )
+    unsafe {
+        ffi::BrotliDecoderDecompressWithReturnInfo(
+            available_in,
+            input_buf_ptr,
+            available_out_and_scratch,
+            output_buf_and_scratch,
+        )
+    }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderDecompressPrealloc(
@@ -87,25 +95,27 @@ pub unsafe extern "C" fn CBrotliDecoderDecompressPrealloc(
     available_hc: usize,
     hc_ptr: *mut HuffmanCode,
 ) -> BrotliDecoderReturnInfo {
-    ffi::BrotliDecoderDecompressPrealloc(
-        available_in,
-        input_buf_ptr,
-        available_out,
-        output_buf_ptr,
-        available_u8,
-        u8_ptr,
-        available_u32,
-        u32_ptr,
-        available_hc,
-        hc_ptr,
-    )
+    unsafe {
+        ffi::BrotliDecoderDecompressPrealloc(
+            available_in,
+            input_buf_ptr,
+            available_out,
+            output_buf_ptr,
+            available_u8,
+            u8_ptr,
+            available_u32,
+            u32_ptr,
+            available_hc,
+            hc_ptr,
+        )
+    }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderMallocU8(
     state_ptr: *mut ffi::BrotliDecoderState,
     size: usize,
 ) -> *mut u8 {
-    ffi::BrotliDecoderMallocU8(state_ptr, size)
+    unsafe { ffi::BrotliDecoderMallocU8(state_ptr, size) }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderFreeU8(
@@ -113,14 +123,14 @@ pub unsafe extern "C" fn CBrotliDecoderFreeU8(
     data: *mut u8,
     size: usize,
 ) {
-    ffi::BrotliDecoderFreeU8(state_ptr, data, size)
+    unsafe { ffi::BrotliDecoderFreeU8(state_ptr, data, size) }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderMallocUsize(
     state_ptr: *mut ffi::BrotliDecoderState,
     size: usize,
 ) -> *mut usize {
-    ffi::BrotliDecoderMallocUsize(state_ptr, size)
+    unsafe { ffi::BrotliDecoderMallocUsize(state_ptr, size) }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderFreeUsize(
@@ -128,56 +138,56 @@ pub unsafe extern "C" fn CBrotliDecoderFreeUsize(
     data: *mut usize,
     size: usize,
 ) {
-    ffi::BrotliDecoderFreeUsize(state_ptr, data, size)
+    unsafe { ffi::BrotliDecoderFreeUsize(state_ptr, data, size) }
 }
 
 pub unsafe extern "C" fn CBrotliDecoderDestroyInstance(state_ptr: *mut ffi::BrotliDecoderState) {
-    ffi::BrotliDecoderDestroyInstance(state_ptr)
+    unsafe { ffi::BrotliDecoderDestroyInstance(state_ptr) }
 }
 
 pub extern "C" fn CBrotliDecoderVersion() -> u32 {
     ffi::BrotliDecoderVersion()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn CBrotliDecoderErrorString(c: ffi::BrotliDecoderErrorCode) -> *const u8 {
     ffi::BrotliDecoderErrorString(c)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn CBrotliDecoderHasMoreOutput(
     state_ptr: *const ffi::BrotliDecoderState,
 ) -> i32 {
-    ffi::BrotliDecoderHasMoreOutput(state_ptr)
+    unsafe { ffi::BrotliDecoderHasMoreOutput(state_ptr) }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn CBrotliDecoderTakeOutput(
     state_ptr: *mut ffi::BrotliDecoderState,
     size: *mut usize,
 ) -> *const u8 {
-    ffi::BrotliDecoderTakeOutput(state_ptr, size)
+    unsafe { ffi::BrotliDecoderTakeOutput(state_ptr, size) }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn CBrotliDecoderIsUsed(state_ptr: *const ffi::BrotliDecoderState) -> i32 {
-    ffi::BrotliDecoderIsUsed(state_ptr)
+    unsafe { ffi::BrotliDecoderIsUsed(state_ptr) }
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn CBrotliDecoderIsFinished(
     state_ptr: *const ffi::BrotliDecoderState,
 ) -> i32 {
-    ffi::BrotliDecoderIsFinished(state_ptr)
+    unsafe { ffi::BrotliDecoderIsFinished(state_ptr) }
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn CBrotliDecoderGetErrorCode(
     state_ptr: *const ffi::BrotliDecoderState,
 ) -> ffi::BrotliDecoderErrorCode {
-    ffi::BrotliDecoderGetErrorCode(state_ptr)
+    unsafe { ffi::BrotliDecoderGetErrorCode(state_ptr) }
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn CBrotliDecoderGetErrorString(
     state_ptr: *const ffi::BrotliDecoderState,
 ) -> *const u8 {
-    ffi::BrotliDecoderGetErrorString(state_ptr)
+    unsafe { ffi::BrotliDecoderGetErrorString(state_ptr) }
 }

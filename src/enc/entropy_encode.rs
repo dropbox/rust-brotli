@@ -139,7 +139,7 @@ pub fn BrotliCreateHuffmanTree(
 ) {
     let sentinel = HuffmanTree::new(u32::MAX, -1, -1);
     let mut count_limit = 1u32;
-    'break1: loop {
+    loop {
         {
             let mut n: usize = 0usize;
             let mut i: usize;
@@ -157,7 +157,7 @@ pub fn BrotliCreateHuffmanTree(
             if n == 1 {
                 depth[((tree[0]).index_right_or_value_ as usize)] = 1u8;
                 {
-                    break 'break1;
+                    break;
                 }
             }
             SortHuffmanTreeItems(tree, n, SortHuffmanTree {});
@@ -202,7 +202,7 @@ pub fn BrotliCreateHuffmanTree(
                 depth,
                 tree_limit,
             ) {
-                break 'break1;
+                break;
             }
         }
         count_limit = count_limit.wrapping_mul(2);
@@ -480,12 +480,12 @@ pub fn BrotliWriteHuffmanTree(
     let mut use_rle_for_zero = false;
     let mut new_length: usize = length;
     i = 0usize;
-    'break27: while i < length {
+    while i < length {
         {
             if depth[length.wrapping_sub(i).wrapping_sub(1)] as i32 == 0i32 {
                 new_length = new_length.wrapping_sub(1);
             } else {
-                break 'break27;
+                break;
             }
         }
         i = i.wrapping_add(1);

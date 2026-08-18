@@ -21,7 +21,7 @@ pub struct BroccoliState {
 impl Clone for BroccoliState {
     fn clone(&self) -> BroccoliState {
         let mut cd = [0u8; 120];
-        cd.clone_from_slice(&self.current_data[..]);
+        cd.copy_from_slice(&self.current_data[..]);
         BroccoliState {
             more_data: self.more_data,
             current_data: cd,
@@ -52,33 +52,35 @@ impl From<BroccoliState> for BroCatli {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn BroccoliCreateInstance() -> BroccoliState {
     BroCatli::new().into()
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn BroccoliCreateInstanceWithWindowSize(window_size: u8) -> BroccoliState {
     match BroCatli::try_new_with_window_size(window_size) {
         Ok(bro_catli) => bro_catli.into(),
         Err(_) => BroCatli::new().into(),
     }
 }
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn BroccoliDestroyInstance(_state: BroccoliState) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn BroccoliNewBrotliFile(state: *mut BroccoliState) {
-    if let Err(panic_err) = catch_panic(|| {
-        let mut bro_catli: BroCatli = (*state).into();
-        bro_catli.new_brotli_file();
-        *state = BroccoliState::from(bro_catli);
-        BroCatliResult::Success
-    }) {
-        error_print(panic_err);
+    unsafe {
+        if let Err(panic_err) = catch_panic(|| {
+            let mut bro_catli: BroCatli = (*state).into();
+            bro_catli.new_brotli_file();
+            *state = BroccoliState::from(bro_catli);
+            BroCatliResult::Success
+        }) {
+            error_print(panic_err);
+        }
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn BroccoliConcatStream(
     state: *mut BroccoliState,
     available_in: *mut usize,
@@ -86,27 +88,30 @@ pub unsafe extern "C" fn BroccoliConcatStream(
     available_out: *mut usize,
     output_buf_ptr: *mut *mut u8,
 ) -> BroccoliResult {
-    catch_panic(|| {
-        let input_buf = slice_from_raw_parts_or_nil(*input_buf_ptr, *available_in);
-        let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
-        let mut input_offset = 0usize;
-        let mut output_offset = 0usize;
-        let mut bro_catli: BroCatli = (*state).into();
-        let ret = bro_catli.stream(input_buf, &mut input_offset, output_buf, &mut output_offset);
-        *input_buf_ptr = (*input_buf_ptr).add(input_offset);
-        *output_buf_ptr = (*output_buf_ptr).add(output_offset);
-        *available_in -= input_offset;
-        *available_out -= output_offset;
-        *state = BroccoliState::from(bro_catli);
-        ret
-    })
-    .unwrap_or_else(|panic_err| {
-        error_print(panic_err);
-        BroCatliResult::BrotliFileNotCraftedForConcatenation
-    })
+    unsafe {
+        catch_panic(|| {
+            let input_buf = slice_from_raw_parts_or_nil(*input_buf_ptr, *available_in);
+            let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
+            let mut input_offset = 0usize;
+            let mut output_offset = 0usize;
+            let mut bro_catli: BroCatli = (*state).into();
+            let ret =
+                bro_catli.stream(input_buf, &mut input_offset, output_buf, &mut output_offset);
+            *input_buf_ptr = (*input_buf_ptr).add(input_offset);
+            *output_buf_ptr = (*output_buf_ptr).add(output_offset);
+            *available_in -= input_offset;
+            *available_out -= output_offset;
+            *state = BroccoliState::from(bro_catli);
+            ret
+        })
+        .unwrap_or_else(|panic_err| {
+            error_print(panic_err);
+            BroCatliResult::BrotliFileNotCraftedForConcatenation
+        })
+    }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn BroccoliConcatStreaming(
     state: *mut BroccoliState,
     available_in: *mut usize,
@@ -114,56 +119,62 @@ pub unsafe extern "C" fn BroccoliConcatStreaming(
     available_out: *mut usize,
     mut output_buf: *mut u8,
 ) -> BroccoliResult {
-    catch_panic(|| {
-        BroccoliConcatStream(
-            state,
-            available_in,
-            &mut input_buf,
-            available_out,
-            &mut output_buf,
-        )
-    })
-    .unwrap_or_else(|panic_err| {
-        error_print(panic_err);
-        BroCatliResult::BrotliFileNotCraftedForConcatenation
-    })
+    unsafe {
+        catch_panic(|| {
+            BroccoliConcatStream(
+                state,
+                available_in,
+                &mut input_buf,
+                available_out,
+                &mut output_buf,
+            )
+        })
+        .unwrap_or_else(|panic_err| {
+            error_print(panic_err);
+            BroCatliResult::BrotliFileNotCraftedForConcatenation
+        })
+    }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn BroccoliConcatFinish(
     state: *mut BroccoliState,
     available_out: *mut usize,
     output_buf_ptr: *mut *mut u8,
 ) -> BroCatliResult {
-    catch_panic(|| {
-        let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
-        let mut output_offset = 0usize;
-        let mut bro_catli: BroCatli = (*state).into();
-        let ret = bro_catli.finish(output_buf, &mut output_offset);
-        *output_buf_ptr = (*output_buf_ptr).add(output_offset);
-        *available_out -= output_offset;
-        *state = BroccoliState::from(bro_catli);
-        ret
-    })
-    .unwrap_or_else(|panic_err| {
-        error_print(panic_err);
-        BroCatliResult::BrotliFileNotCraftedForConcatenation
-    })
+    unsafe {
+        catch_panic(|| {
+            let output_buf = slice_from_raw_parts_or_nil_mut(*output_buf_ptr, *available_out);
+            let mut output_offset = 0usize;
+            let mut bro_catli: BroCatli = (*state).into();
+            let ret = bro_catli.finish(output_buf, &mut output_offset);
+            *output_buf_ptr = (*output_buf_ptr).add(output_offset);
+            *available_out -= output_offset;
+            *state = BroccoliState::from(bro_catli);
+            ret
+        })
+        .unwrap_or_else(|panic_err| {
+            error_print(panic_err);
+            BroCatliResult::BrotliFileNotCraftedForConcatenation
+        })
+    }
 }
 
 // exactly the same as BrotliConcatFinish but without the indirect
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn BroccoliConcatFinished(
     state: *mut BroccoliState,
     available_out: *mut usize,
     mut output_buf: *mut u8,
 ) -> BroCatliResult {
-    catch_panic(|| BroccoliConcatFinish(state, available_out, &mut output_buf)).unwrap_or_else(
-        |panic_err| {
-            error_print(panic_err);
-            BroCatliResult::BrotliFileNotCraftedForConcatenation
-        },
-    )
+    unsafe {
+        catch_panic(|| BroccoliConcatFinish(state, available_out, &mut output_buf)).unwrap_or_else(
+            |panic_err| {
+                error_print(panic_err);
+                BroCatliResult::BrotliFileNotCraftedForConcatenation
+            },
+        )
+    }
 }
 
 #[cfg(all(feature = "std", not(feature = "pass-through-ffi-panics")))]

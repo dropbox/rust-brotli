@@ -1,4 +1,4 @@
-extern crate brotli;
+extern crate simd_brotli;
 #[cfg(not(feature = "std"))]
 fn main() {
     panic!("For no-stdlib examples please see the tests")
@@ -9,7 +9,7 @@ fn main() {
     use std::io::{Read, Write};
     let stdout = &mut io::stdout();
     {
-        let mut writer = brotli::CompressorWriter::new(stdout, 4096, 11, 22);
+        let mut writer = simd_brotli::CompressorWriter::new(stdout, 4096, 11, 22);
         let mut buf = [0u8; 4096];
         loop {
             match io::stdin().read(&mut buf[..]) {

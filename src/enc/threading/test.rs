@@ -3,7 +3,7 @@
 // Unit tests for the parent `threading` module. These exercise CompressMulti's
 // error-draining behavior
 use super::*;
-use alloc::SliceWrapper;
+use crate::alloc::SliceWrapper;
 use alloc_stdlib::StandardAlloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -204,6 +204,142 @@ impl
             joined_count: self.joined_count,
         });
     }
+}
+
+const SCOPED_INPUT_LEN: usize = 1 << 16;
+
+/// Deterministic input with enough structure to compress and enough variation
+/// that the per-chunk custom dictionaries actually matter.
+const fn scoped_input() -> [u8; SCOPED_INPUT_LEN] {
+    let mut data = [0u8; SCOPED_INPUT_LEN];
+    let mut index = 0;
+    while index < SCOPED_INPUT_LEN {
+        data[index] = b'a' + ((index * 7 + (index >> 6) * 13) % 23) as u8;
+        index += 1;
+    }
+    data
+}
+
+static SCOPED_INPUT: [u8; SCOPED_INPUT_LEN] = scoped_input();
+
+fn scoped_params(favor_cpu_efficiency: bool) -> BrotliEncoderParams {
+    let mut params = BrotliEncoderParams::default();
+    params.quality = 5;
+    params.lgwin = 18;
+    params.favor_cpu_efficiency = favor_cpu_efficiency;
+    params
+}
+
+/// Compresses via the pre-existing `CompressMulti` path, for byte-comparison
+/// against the scoped path.
+fn compress_multi_reference(params: &BrotliEncoderParams, num_threads: usize) -> std::vec::Vec<u8> {
+    let mut alloc_per_thread = std::vec::Vec::new();
+    for _ in 0..num_threads {
+        alloc_per_thread.push(SendAlloc::new(
+            StandardAlloc::default(),
+            UnionHasher::Uninit,
+        ));
+    }
+    let mut owned_input = Owned::new(TestSlice(&SCOPED_INPUT));
+    let mut output = std::vec![0u8; SCOPED_INPUT_LEN * 2];
+    let size = crate::enc::multithreading::compress_multi(
+        params,
+        &mut owned_input,
+        &mut output[..],
+        &mut alloc_per_thread[..],
+    )
+    .unwrap();
+    output.truncate(size);
+    output
+}
+
+fn compress_scoped<Scope: ThreadScope>(
+    params: &BrotliEncoderParams,
+    num_threads: usize,
+    thread_scope: &Scope,
+) -> std::vec::Vec<u8> {
+    let mut alloc_per_thread = std::vec![Some(StandardAlloc::default()); num_threads];
+    let mut output = std::vec![0u8; SCOPED_INPUT_LEN * 2];
+    let size = CompressMultiScoped(
+        params,
+        &SCOPED_INPUT[..],
+        &mut output[..],
+        &mut alloc_per_thread[..],
+        thread_scope,
+    )
+    .unwrap();
+    // Every worker handed its allocator back.
+    assert!(alloc_per_thread.iter().all(Option::is_some));
+    output.truncate(size);
+    output
+}
+
+/// `ThreadScope` that runs each task on the calling thread as it is spawned.
+/// It exercises the trait against something that is not `std::thread::scope`,
+/// and keeps the comparison deterministic.
+struct InlineThreadScope;
+
+struct InlineSpawner;
+
+impl<'env> ScopedSpawner<'env> for InlineSpawner {
+    fn spawn<Task: FnOnce() + Send + 'env>(&self, task: Task) {
+        task();
+    }
+}
+
+impl ThreadScope for InlineThreadScope {
+    fn scope<'env, Body: ScopeBody<'env>>(&self, body: Body) -> Body::Output {
+        body.run(&InlineSpawner)
+    }
+}
+
+#[test]
+fn compress_multi_scoped_matches_compress_multi() {
+    for favor_cpu_efficiency in [false, true] {
+        let params = scoped_params(favor_cpu_efficiency);
+        for num_threads in 1..5 {
+            let expected = compress_multi_reference(&params, num_threads);
+            assert_eq!(
+                compress_scoped(&params, num_threads, &StdThreadScope),
+                expected,
+                "std scope, {num_threads} threads, favor_cpu_efficiency={favor_cpu_efficiency}",
+            );
+            assert_eq!(
+                compress_scoped(&params, num_threads, &InlineThreadScope),
+                expected,
+                "inline scope, {num_threads} threads, favor_cpu_efficiency={favor_cpu_efficiency}",
+            );
+        }
+    }
+}
+
+#[test]
+fn compress_multi_scoped_roundtrips() {
+    for favor_cpu_efficiency in [false, true] {
+        let compressed = compress_scoped(&scoped_params(favor_cpu_efficiency), 4, &StdThreadScope);
+        let mut decompressed = std::vec::Vec::<u8>::new();
+        crate::BrotliDecompress(&mut &compressed[..], &mut decompressed).unwrap();
+        assert_eq!(decompressed, &SCOPED_INPUT[..]);
+    }
+}
+
+#[test]
+fn compress_multi_scoped_reports_insufficient_output_space() {
+    let mut alloc_per_thread = std::vec![Some(StandardAlloc::default()); 3];
+    let mut output = [0u8; 4];
+    let result = CompressMultiScoped(
+        &scoped_params(false),
+        &SCOPED_INPUT[..],
+        &mut output[..],
+        &mut alloc_per_thread[..],
+        &StdThreadScope,
+    );
+    assert!(matches!(
+        result,
+        Err(BrotliEncoderThreadError::InsufficientOutputSpace)
+    ));
+    // The allocators still come back even on the error path.
+    assert!(alloc_per_thread.iter().all(Option::is_some));
 }
 
 #[test]

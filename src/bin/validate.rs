@@ -3,10 +3,10 @@ use core;
 use std::io::{self, Error, ErrorKind, Read, Write};
 
 use alloc_no_stdlib::{Allocator, SliceWrapper};
-use brotli::enc::BrotliEncoderParams;
-use brotli::{CustomWrite, DecompressorWriterCustomIo};
 #[cfg(feature = "validation")]
 use sha2::{Digest, Sha256};
+use simd_brotli::enc::BrotliEncoderParams;
+use simd_brotli::{CustomWrite, DecompressorWriterCustomIo};
 
 use super::{HeapAllocator, IoWriterWrapper, Rebox};
 #[cfg(feature = "validation")]
@@ -91,7 +91,7 @@ impl<'a, InputType: Read + 'a> Read for ShaReader<'a, InputType> {
     }
 }
 #[cfg(feature = "validation")]
-fn make_sha_reader<InputType: Read>(r: &mut InputType) -> ShaReader<InputType> {
+fn make_sha_reader<InputType: Read>(r: &mut InputType) -> ShaReader<'_, InputType> {
     ShaReader {
         reader: r,
         checksum: Checksum::default(),

@@ -1,4 +1,4 @@
-use alloc::{Allocator, SliceWrapper};
+use crate::alloc::{Allocator, SliceWrapper};
 use core::marker::PhantomData;
 use core::mem;
 #[cfg(feature = "std")]
@@ -60,11 +60,11 @@ impl<U: Send + 'static> OwnedRetriever<U> for SingleThreadedOwnedRetriever<U> {
 pub struct SingleThreadedSpawner {}
 
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > BatchSpawnable<ReturnValue, ExtraInput, Alloc, U> for SingleThreadedSpawner
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> BatchSpawnable<ReturnValue, ExtraInput, Alloc, U> for SingleThreadedSpawner
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {
@@ -92,11 +92,11 @@ where
 }
 
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U> for SingleThreadedSpawner
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U> for SingleThreadedSpawner
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,
 {

@@ -192,7 +192,7 @@ impl BroCatli {
         let xlen = possible_new_stream_pending.bytes_so_far.len();
         possible_new_stream_pending
             .bytes_so_far
-            .clone_from_slice(&buffer[16..16 + xlen]);
+            .copy_from_slice(&buffer[16..16 + xlen]);
         let new_stream_pending: Option<NewStreamData> = if has_new_stream_pending {
             Some(possible_new_stream_pending)
         } else {
@@ -211,7 +211,7 @@ impl BroCatli {
             return Err(());
         }
         let xlen = ret.last_bytes.len();
-        ret.last_bytes.clone_from_slice(&buffer[..xlen]);
+        ret.last_bytes.copy_from_slice(&buffer[..xlen]);
         Ok(ret)
     }
     #[inline(always)]
@@ -219,7 +219,7 @@ impl BroCatli {
         if 16 + NUM_STREAM_HEADER_BYTES > buffer.len() {
             return Err(());
         }
-        buffer[..self.last_bytes.len()].clone_from_slice(&self.last_bytes[..]);
+        buffer[..self.last_bytes.len()].copy_from_slice(&self.last_bytes[..]);
         buffer[8] = self.last_bytes_len;
         buffer[9] = (self.last_byte_sanitized as u8)
             | ((self.new_stream_pending.is_some() as u8) << 6)
@@ -234,7 +234,7 @@ impl BroCatli {
             buffer[13] = new_stream_pending.num_bytes_written.unwrap_or(0);
             // 14, 15 reserved
             buffer[16..16 + new_stream_pending.bytes_so_far.len()]
-                .clone_from_slice(&new_stream_pending.bytes_so_far[..]);
+                .copy_from_slice(&new_stream_pending.bytes_so_far[..]);
         }
         Ok(())
     }
@@ -421,7 +421,7 @@ impl BroCatli {
                 new_stream_pending.num_bytes_written = Some(0);
                 new_stream_pending
                     .bytes_so_far
-                    .clone_from_slice(&realigned_header[1..]);
+                    .copy_from_slice(&realigned_header[1..]);
             }
         } else {
             assert_ne!(self.window_size, 0);
@@ -437,7 +437,7 @@ impl BroCatli {
             .1
             .split_at_mut(to_copy)
             .0
-            .clone_from_slice(
+            .copy_from_slice(
                 new_stream_pending
                     .bytes_so_far
                     .split_at(usize::from(new_stream_pending.num_bytes_written.unwrap()))
@@ -484,7 +484,7 @@ impl BroCatli {
                             [usize::from(new_stream_pending.num_bytes_read)..];
                         let to_copy = min(dst.len(), in_bytes.len() - *in_offset);
                         dst[..to_copy]
-                            .clone_from_slice(in_bytes.split_at(*in_offset).1.split_at(to_copy).0);
+                            .copy_from_slice(in_bytes.split_at(*in_offset).1.split_at(to_copy).0);
                         *in_offset += to_copy;
                         new_stream_pending.num_bytes_read += to_copy as u8;
                     }
@@ -559,7 +559,7 @@ impl BroCatli {
             .1
             .split_at_mut(2)
             .0
-            .clone_from_slice(&self.last_bytes[..]);
+            .copy_from_slice(&self.last_bytes[..]);
         *out_offset += 2;
         let (new_in_offset, last_two) = in_bytes
             .split_at(*in_offset)
@@ -567,7 +567,7 @@ impl BroCatli {
             .split_at(to_copy)
             .0
             .split_at(to_copy - 2);
-        self.last_bytes.clone_from_slice(last_two);
+        self.last_bytes.copy_from_slice(last_two);
         *in_offset += 2; // add this after the clone since we grab the last 2 bytes, not the first
         to_copy -= 2;
         out_bytes
@@ -575,7 +575,7 @@ impl BroCatli {
             .1
             .split_at_mut(to_copy)
             .0
-            .clone_from_slice(new_in_offset);
+            .copy_from_slice(new_in_offset);
         *out_offset += to_copy;
         *in_offset += to_copy;
         if *out_offset == out_bytes.len() {

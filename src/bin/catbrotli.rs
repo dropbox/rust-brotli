@@ -1,11 +1,11 @@
-extern crate brotli;
 extern crate core;
+extern crate simd_brotli;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::{env, io};
 
-use brotli::concat::{BroCatli, BroCatliResult};
+use simd_brotli::concat::{BroCatli, BroCatliResult};
 fn usage() {
     writeln!(
         &mut ::std::io::stderr(),

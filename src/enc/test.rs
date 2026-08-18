@@ -2,15 +2,15 @@
 
 extern crate alloc_no_stdlib;
 extern crate brotli_decompressor;
-extern "C" {
+unsafe extern "C" {
     fn calloc(n_elem: usize, el_size: usize) -> *mut u8;
 }
-extern "C" {
+unsafe extern "C" {
     fn free(ptr: *mut u8);
 }
 
 // FIXME: Remove this after https://github.com/dropbox/rust-alloc-no-stdlib/issues/19 is fixed
-use alloc::{
+use crate::alloc::{
     declare_stack_allocator_struct, define_allocator_memory_pool, define_stack_allocator_traits,
     static_array,
 };
@@ -21,7 +21,7 @@ use core::ops;
 use brotli_decompressor::HuffmanCode;
 
 use super::super::alloc::{
-    bzero, AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator,
+    AllocatedStackMemory, Allocator, SliceWrapper, SliceWrapperMut, StackAllocator, bzero,
 };
 pub use super::super::{BrotliDecompressStream, BrotliResult, BrotliState};
 use super::cluster::HistogramPair;
@@ -31,7 +31,7 @@ use super::encode::{BrotliEncoderOperation, BrotliEncoderParameter};
 use super::entropy_encode::HuffmanTree;
 use super::histogram::{ContextType, HistogramCommand, HistogramDistance, HistogramLiteral};
 use super::pdf::PDF;
-use super::{interface, s16, v8, StaticCommand, ZopfliNode};
+use super::{StaticCommand, ZopfliNode, interface, s16, v8};
 use crate::enc::encode::BrotliEncoderStateStruct;
 
 declare_stack_allocator_struct!(MemPool, 128, stack);
@@ -345,7 +345,7 @@ fn test_roundtrip_10x10y() {
 }
 
 macro_rules! test_roundtrip_file {
-    ($filedata : expr, $bufsize: expr, $quality: expr, $lgwin: expr, $magic: expr, $in_buf:expr, $out_buf:expr) => {{
+    ($filedata : expr_2021, $bufsize: expr_2021, $quality: expr_2021, $lgwin: expr_2021, $magic: expr_2021, $in_buf:expr_2021, $out_buf:expr_2021) => {{
         let stack_u8_buffer = unsafe {
             alloc::define_allocator_memory_pool!(4096, u8, [0; 18 * 1024 * 1024], calloc)
         };
@@ -628,7 +628,7 @@ impl io::Read for Buffer {
     let bytes_to_read = min(buf.len(), self.data.len() - self.read_offset);
     if bytes_to_read > 0 {
       buf[0..bytes_to_read]
-        .clone_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
+        .copy_from_slice(&self.data[self.read_offset..self.read_offset + bytes_to_read]);
     }
     self.read_offset += bytes_to_read;
     return Ok(bytes_to_read);

@@ -51,7 +51,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
     fn clone_from(&mut self, other: &EntropyBucketPopulation<AllocU32>) {
         self.bucket_populations
             .slice_mut()
-            .clone_from_slice(other.bucket_populations.slice());
+            .copy_from_slice(other.bucket_populations.slice());
     }
     fn add_assign(&mut self, other: &EntropyBucketPopulation<AllocU32>) {
         assert_eq!(
@@ -93,7 +93,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
                 if do_clear && !found_any {
                     self.bucket_populations
                         .slice_mut()
-                        .clone_from_slice(item.bucket_populations.slice());
+                        .copy_from_slice(item.bucket_populations.slice());
                     found_any = true;
                 } else {
                     for (dst, src) in self
@@ -125,7 +125,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyBucketPopulation<AllocU32> {
         scratch
             .bucket_populations
             .slice_mut()
-            .clone_from_slice(self.bucket_populations.slice());
+            .copy_from_slice(self.bucket_populations.slice());
         scratch.bucket_populations.slice_mut()[65535] += 1; // to demonstrate that we have
         scratch.bucket_populations.slice_mut()[65535] -= 1; // to demonstrate that we have write capability
         let mut stray_count = 0.0 as floatY;
@@ -227,7 +227,7 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyPyramid<AllocU32> {
     }
     pub fn stride_last_level_range(&self) -> [u8; NUM_LEAF_NODES] {
         let mut ret = [0u8; NUM_LEAF_NODES];
-        ret.clone_from_slice(self.stride.split_at(self.stride.len() - NUM_LEAF_NODES).1);
+        ret.copy_from_slice(self.stride.split_at(self.stride.len() - NUM_LEAF_NODES).1);
         ret
     }
     pub fn free(&mut self, m32: &mut AllocU32) {
@@ -723,8 +723,8 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyTally<AllocU32> {
             }
             {
                 let mut tmp = [0u8; NUM_STRIDES - 1];
-                tmp.clone_from_slice(&priors[..(NUM_STRIDES - 1)]);
-                priors[1..].clone_from_slice(&tmp[..]);
+                tmp.copy_from_slice(&priors[..(NUM_STRIDES - 1)]);
+                priors[1..].copy_from_slice(&tmp[..]);
                 priors[0] = *val;
             }
         }
@@ -823,8 +823,8 @@ impl<AllocU32: alloc::Allocator<u32>> EntropyTally<AllocU32> {
                             {
                                 //reset prior values for the next item
                                 let mut tmp = [0u8; 7];
-                                tmp.clone_from_slice(&priors[..7]);
-                                priors[1..].clone_from_slice(&tmp[..]);
+                                tmp.copy_from_slice(&priors[..7]);
+                                priors[1..].copy_from_slice(&tmp[..]);
                                 priors[0] = *val;
                             }
                         }

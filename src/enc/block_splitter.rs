@@ -1,7 +1,7 @@
 use core;
 use core::cmp::{max, min};
-#[cfg(feature = "simd")]
-use core::simd::prelude::{SimdFloat, SimdPartialOrd};
+
+use fearless_simd::{Select, Simd, SimdBase, SimdMask, f32x8, u32x8};
 
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::backward_references::BrotliEncoderParams;
@@ -14,9 +14,12 @@ use super::histogram::{
     HistogramClear, HistogramCommand, HistogramDistance, HistogramLiteral,
 };
 use super::util::FastLog2;
-use super::vectorization::{sum8i, v256, v256i, Mem256f};
+use super::vectorization::{Mem256f, detect_level, min_lane_f32x8, min_lane_u32x8};
 use crate::enc::combined_alloc::allocate;
 use crate::enc::floatX;
+
+/// Lane offsets, added to a vector's base index to recover a histogram id.
+static LANE_INDICES: [u32; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
 
 static kMaxLiteralHistograms: usize = 100usize;
 
@@ -45,7 +48,8 @@ static kIterMulForRefining: usize = 2usize;
 static kMinItersForRefining: usize = 100usize;
 
 #[inline(always)]
-fn update_cost_and_signal(
+fn update_cost_and_signal<S: Simd>(
+    simd: S,
     num_histograms32: u32,
     ix: usize,
     min_cost: floatX,
@@ -53,34 +57,19 @@ fn update_cost_and_signal(
     cost: &mut [Mem256f],
     switch_signal: &mut [u8],
 ) {
-    let ymm_min_cost = v256::splat(min_cost);
-    let ymm_block_switch_cost = v256::splat(block_switch_cost);
-    let ymm_and_mask = v256i::from([
-        1 << 0,
-        1 << 1,
-        1 << 2,
-        1 << 3,
-        1 << 4,
-        1 << 5,
-        1 << 6,
-        1 << 7,
-    ]);
+    let ymm_min_cost = f32x8::splat(simd, min_cost);
+    let ymm_block_switch_cost = f32x8::splat(simd, block_switch_cost);
 
     for (index, cost_it) in cost[..((num_histograms32 as usize + 7) >> 3)]
         .iter_mut()
         .enumerate()
     {
-        let mut ymm_cost = *cost_it;
-        let costk_minus_min_cost = ymm_cost - ymm_min_cost;
-        let ymm_cmpge: v256i = costk_minus_min_cost
+        let costk_minus_min_cost = cost_it.to_simd(simd) - ymm_min_cost;
+        // One bit per lane that is at least a block switch away from the cheapest histogram.
+        switch_signal[ix + index] |= costk_minus_min_cost
             .simd_ge(ymm_block_switch_cost)
-            .to_simd();
-        let ymm_bits = ymm_cmpge & ymm_and_mask;
-        let result = sum8i(ymm_bits);
-        //super::vectorization::sum8(ymm_bits) as u8;
-        switch_signal[ix + index] |= result as u8;
-        ymm_cost = costk_minus_min_cost.simd_min(ymm_block_switch_cost);
-        *cost_it = Mem256f::from(ymm_cost);
+            .to_bitmask() as u8;
+        *cost_it = Mem256f::from_simd(costk_minus_min_cost.min(ymm_block_switch_cost));
         //println_stderr!("{:} ss {:} c {:?}", (index << 3) + 7, switch_signal[ix + index],*cost_it);
     }
 }
@@ -107,14 +96,14 @@ fn CopyLiteralsToByteArray(
         if from_pos.wrapping_add(insert_len) > mask {
             let head_size: usize = mask.wrapping_add(1).wrapping_sub(from_pos);
             literals[pos..(pos + head_size)]
-                .clone_from_slice(&data[from_pos..(from_pos + head_size)]);
+                .copy_from_slice(&data[from_pos..(from_pos + head_size)]);
             from_pos = 0usize;
             pos = pos.wrapping_add(head_size);
             insert_len = insert_len.wrapping_sub(head_size);
         }
         if insert_len > 0usize {
             literals[pos..(pos + insert_len)]
-                .clone_from_slice(&data[from_pos..(from_pos + insert_len)]);
+                .copy_from_slice(&data[from_pos..(from_pos + insert_len)]);
             pos = pos.wrapping_add(insert_len);
         }
         from_pos = from_pos
@@ -132,6 +121,7 @@ fn MyRand(seed: &mut u32) -> u32 {
     *seed
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn InitialEntropyCodes<
     HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
     IntegerType: Sized + Clone,
@@ -181,6 +171,7 @@ fn RandomSample<
     HistogramAddVector(sample, &data[pos..], stride);
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn RefineEntropyCodes<
     HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors + core::default::Default,
     IntegerType: Sized + Clone,
@@ -222,10 +213,46 @@ fn BitCost(count: usize) -> floatX {
     }
 }
 
+/// Entry point into the vectorized cost loop: picks the best instruction set available
+/// and runs [`FindBlocksSimd`] with it.
 fn FindBlocks<
     HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
     IntegerType: Sized + Clone,
 >(
+    data: &[IntegerType],
+    length: usize,
+    block_switch_bitcost: floatX,
+    num_histograms: usize,
+    histograms: &[HistogramType],
+    insert_cost: &mut [floatX],
+    cost: &mut [Mem256f],
+    switch_signal: &mut [u8],
+    block_id: &mut [u8],
+) -> usize
+where
+    u64: core::convert::From<IntegerType>,
+{
+    dispatch!(detect_level(), simd => FindBlocksSimd(
+        simd,
+        data,
+        length,
+        block_switch_bitcost,
+        num_histograms,
+        histograms,
+        insert_cost,
+        cost,
+        switch_signal,
+        block_id,
+    ))
+}
+
+#[inline(always)]
+fn FindBlocksSimd<
+    S: Simd,
+    HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors,
+    IntegerType: Sized + Clone,
+>(
+    simd: S,
     data: &[IntegerType],
     length: usize,
     block_switch_bitcost: floatX,
@@ -281,23 +308,35 @@ where
         let mut block_switch_cost: floatX = block_switch_bitcost;
         // main (vectorized) loop
         let insert_cost_slice = insert_cost.split_at(insert_cost_ix).1;
-        for (v_index, cost_iter) in cost
-            .split_at_mut(num_histograms >> 3)
-            .0
-            .iter_mut()
-            .enumerate()
-        {
+        let num_vectors = num_histograms >> 3;
+        // Running per-lane winner, reduced across lanes once the row is done rather than
+        // once per vector.
+        let mut min_lanes = f32x8::splat(simd, min_cost);
+        let mut id_lanes = u32x8::splat(simd, u32::MAX);
+        for (v_index, cost_iter) in cost.split_at_mut(num_vectors).0.iter_mut().enumerate() {
             let base_index = v_index << 3;
-            let mut local_insert_cost = [0.0; 8];
-            local_insert_cost
-                .clone_from_slice(insert_cost_slice.split_at(base_index).1.split_at(8).0);
-            for sub_index in 0usize..8usize {
-                cost_iter[sub_index] += local_insert_cost[sub_index];
-                let final_cost = cost_iter[sub_index];
-                if final_cost < min_cost {
-                    min_cost = final_cost;
-                    *block_id_ptr = (base_index + sub_index) as u8;
-                }
+            let updated = cost_iter.to_simd(simd)
+                + f32x8::from_slice(simd, insert_cost_slice.split_at(base_index).1.split_at(8).0);
+            *cost_iter = Mem256f::from_simd(updated);
+            // Strictly less, so a lane keeps the earliest histogram it tied with, exactly
+            // as the scalar scan this replaces did.
+            let improved = updated.simd_lt(min_lanes);
+            min_lanes = improved.select(updated, min_lanes);
+            id_lanes = improved.select(
+                u32x8::from_slice(simd, &LANE_INDICES) + base_index as u32,
+                id_lanes,
+            );
+        }
+        if num_vectors != 0 {
+            let best = min_lane_f32x8(min_lanes);
+            if best < min_cost {
+                min_cost = best;
+                // Ties between lanes go to the lowest histogram id, again matching a scan.
+                *block_id_ptr = min_lane_u32x8(
+                    min_lanes
+                        .simd_eq(f32x8::splat(simd, best))
+                        .select(id_lanes, u32x8::splat(simd, u32::MAX)),
+                ) as u8;
             }
         }
         let vectorized_offset = ((num_histograms >> 3) << 3);
@@ -322,6 +361,7 @@ where
             block_switch_cost *= (0.77 + 0.07 * (byte_ix as floatX) / 2000.0);
         }
         update_cost_and_signal(
+            simd,
             num_histograms as u32,
             ix,
             min_cost,
@@ -398,6 +438,7 @@ fn BuildBlockHistograms<
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn ClusterBlocks<
     HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors + core::default::Default + Clone,
     Alloc: alloc::Allocator<u8>
@@ -525,7 +566,7 @@ fn ClusterBlocks<
                     }
                     let mut new_array = allocate::<u32, _>(alloc, _new_size);
                     new_array.slice_mut()[..cluster_size_capacity]
-                        .clone_from_slice(&cluster_size.slice()[..cluster_size_capacity]);
+                        .copy_from_slice(&cluster_size.slice()[..cluster_size_capacity]);
                     <Alloc as Allocator<u32>>::free_cell(
                         alloc,
                         core::mem::replace(&mut cluster_size, new_array),
@@ -640,7 +681,7 @@ fn ClusterBlocks<
             }
             let mut new_array = allocate::<u8, _>(alloc, _new_size);
             new_array.slice_mut()[..split.types_alloc_size()]
-                .clone_from_slice(&split.types.slice()[..split.types_alloc_size()]);
+                .copy_from_slice(&split.types.slice()[..split.types_alloc_size()]);
             <Alloc as Allocator<u8>>::free_cell(
                 alloc,
                 core::mem::replace(&mut split.types, new_array),
@@ -659,7 +700,7 @@ fn ClusterBlocks<
             }
             let mut new_array = allocate::<u32, _>(alloc, _new_size);
             new_array.slice_mut()[..split.lengths_alloc_size()]
-                .clone_from_slice(split.lengths.slice());
+                .copy_from_slice(split.lengths.slice());
             <Alloc as Allocator<u32>>::free_cell(
                 alloc,
                 core::mem::replace(&mut split.lengths, new_array),
@@ -691,6 +732,7 @@ fn ClusterBlocks<
     <Alloc as Allocator<u32>>::free_cell(alloc, histogram_symbols);
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn SplitByteVector<
     HistogramType: SliceWrapper<u32> + SliceWrapperMut<u32> + CostAccessors + core::default::Default + Clone,
     Alloc: alloc::Allocator<u8>
@@ -737,7 +779,7 @@ fn SplitByteVector<
                 }
                 let mut new_array = allocate::<u8, _>(alloc, _new_size);
                 new_array.slice_mut()[..split.types_alloc_size()]
-                    .clone_from_slice(&split.types.slice()[..split.types_alloc_size()]);
+                    .copy_from_slice(&split.types.slice()[..split.types_alloc_size()]);
                 <Alloc as Allocator<u8>>::free_cell(
                     alloc,
                     core::mem::replace(&mut split.types, new_array),
@@ -756,7 +798,7 @@ fn SplitByteVector<
                 }
                 let mut new_array = allocate::<u32, _>(alloc, _new_size);
                 new_array.slice_mut()[..split.lengths_alloc_size()]
-                    .clone_from_slice(&split.lengths.slice()[..split.lengths_alloc_size()]);
+                    .copy_from_slice(&split.lengths.slice()[..split.lengths_alloc_size()]);
                 <Alloc as Allocator<u32>>::free_cell(
                     alloc,
                     core::mem::replace(&mut split.lengths, new_array),
@@ -838,6 +880,7 @@ fn SplitByteVector<
     }
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub fn BrotliSplitBlock<
     Alloc: alloc::Allocator<u8>
         + alloc::Allocator<u16>

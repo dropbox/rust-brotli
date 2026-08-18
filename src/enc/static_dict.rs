@@ -1,12 +1,16 @@
 use core::cmp::{max, min};
+
+use fearless_simd::{Simd, SimdBase, SimdMask, u8x32};
+
 pub const kNumDistanceCacheEntries: usize = 4;
 
 use super::super::dictionary::{
     kBrotliDictionary, kBrotliDictionaryOffsetsByLength, kBrotliDictionarySizeBitsByLength,
 };
 use super::static_dict_lut::{
-    kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets, kStaticDictionaryWords, DictWord,
+    DictWord, kDictHashMul32, kDictNumBits, kStaticDictionaryBuckets, kStaticDictionaryWords,
 };
+use super::vectorization::detect_level;
 #[allow(unused)]
 static kUppercaseFirst: u8 = 10u8;
 
@@ -32,7 +36,7 @@ pub fn BrotliGetDictionary() -> &'static BrotliDictionary {
 #[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD32(sl: &[u8]) -> u32 {
     let mut p = [0u8; 4];
-    p[..].clone_from_slice(sl.split_at(4).0);
+    p[..].copy_from_slice(sl.split_at(4).0);
     (p[0] as u32) | ((p[1] as u32) << 8) | ((p[2] as u32) << 16) | ((p[3] as u32) << 24)
 }
 #[inline(always)]
@@ -43,7 +47,7 @@ pub fn Hash(data: &[u8]) -> u32 {
 #[inline(always)]
 pub fn BROTLI_UNALIGNED_LOAD64(sl: &[u8]) -> u64 {
     let mut p = [0u8; 8];
-    p[..].clone_from_slice(sl.split_at(8).0);
+    p[..].copy_from_slice(sl.split_at(8).0);
     (p[0] as u64)
         | ((p[1] as u64) << 8)
         | ((p[2] as u64) << 16)
@@ -65,16 +69,16 @@ pub fn BROTLI_UNALIGNED_STORE64(outp: &mut [u8], v: u64) {
         ((v >> 48) & 0xff) as u8,
         ((v >> 56) & 0xff) as u8,
     ];
-    outp.split_at_mut(8).0.clone_from_slice(&p[..]);
+    outp.split_at_mut(8).0.copy_from_slice(&p[..]);
 }
 
 macro_rules! sub_match {
-    ($s1 : expr, $s2 : expr, $limit : expr, $matched : expr, $split_pair1 : expr, $split_pair2 : expr, $s1_lo : expr, $s2_lo : expr, $s1_as_64 : expr, $s2_as_64 : expr, $vec_len: expr) => {
+    ($s1 : expr_2021, $s2 : expr_2021, $limit : expr_2021, $matched : expr_2021, $split_pair1 : expr_2021, $split_pair2 : expr_2021, $s1_lo : expr_2021, $s2_lo : expr_2021, $s1_as_64 : expr_2021, $s2_as_64 : expr_2021, $vec_len: expr_2021) => {
         $split_pair1 = $s1.split_at($vec_len);
-        $s1_lo[..$vec_len].clone_from_slice($split_pair1.0);
+        $s1_lo[..$vec_len].copy_from_slice($split_pair1.0);
         $s1 = $split_pair1.1;
         $split_pair2 = $s2.split_at($vec_len);
-        $s2_lo[..$vec_len].clone_from_slice($split_pair2.0);
+        $s2_lo[..$vec_len].copy_from_slice($split_pair2.0);
         $s2 = $split_pair2.1;
         $limit -= $vec_len;
         for index in 0..($vec_len >> 3) {
@@ -93,7 +97,7 @@ macro_rules! sub_match {
 }
 
 macro_rules! sub_match8 {
-    ($s1 : expr, $s2 : expr, $limit : expr, $matched : expr, $s1_as_64 : expr, $s2_as_64 : expr) => {
+    ($s1 : expr_2021, $s2 : expr_2021, $limit : expr_2021, $matched : expr_2021, $s1_as_64 : expr_2021, $s2_as_64 : expr_2021) => {
         $limit -= 8;
         $s1_as_64 = BROTLI_UNALIGNED_LOAD64($s1);
         $s1 = $s1.split_at(8).1;
@@ -120,16 +124,127 @@ pub fn SlowerFindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usi
     }
     limit
 }
-// factor of 5 slower (example takes 90 seconds)
+/// Length of the common prefix of `s1` and `s2`, capped at `limit`.
+///
+/// Resolves short matches -- almost all of them -- without ever looking at the CPU's
+/// feature set, and only detects an instruction set once a match has proven long enough
+/// for wide compares to pay for that detection. Callers that already hold an instruction
+/// set should use [`FindMatchLengthWithLimitSimd`].
 #[allow(unused)]
+#[inline]
 pub fn FindMatchLengthWithLimit(s1: &[u8], s2: &[u8], limit: usize) -> usize {
-    for (index, pair) in s1[..limit].iter().zip(s2[..limit].iter()).enumerate() {
+    let s1 = &s1[..limit];
+    let s2 = &s2[..limit];
+    match narrow_common_prefix(s1, s2, limit) {
+        Ok(len) => len,
+        Err(matched) => {
+            matched + detect_and_wide_common_prefix(&s1[matched..], &s2[matched..], limit - matched)
+        }
+    }
+}
+
+/// Kept out of line so the caller only inlines the first stage, which is the one the
+/// match finders run millions of times. Reaching here means the match has already run
+/// [`WIDE_COMPARE_THRESHOLD`] bytes, which is long enough to absorb a CPU probe.
+#[inline(never)]
+fn detect_and_wide_common_prefix(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+    dispatch!(detect_level(), simd => wide_common_prefix(simd, s1, s2, limit))
+}
+
+/// [`FindMatchLengthWithLimit`] on an already-detected instruction set.
+#[inline(always)]
+pub fn FindMatchLengthWithLimitSimd<S: Simd>(simd: S, s1: &[u8], s2: &[u8], limit: usize) -> usize {
+    let s1 = &s1[..limit];
+    let s2 = &s2[..limit];
+    match narrow_common_prefix(s1, s2, limit) {
+        Ok(len) => len,
+        Err(matched) => {
+            matched + wide_common_prefix(simd, &s1[matched..], &s2[matched..], limit - matched)
+        }
+    }
+}
+
+/// How far a match must already have run before wide compares are worth their setup.
+const WIDE_COMPARE_THRESHOLD: usize = 32;
+
+/// The first stage of the match-length scan, in 64-bit steps.
+///
+/// Most candidates differ within the first handful of bytes, and a 64-bit compare settles
+/// that in a couple of cycles -- a wide compare would still be waiting on the horizontal
+/// reduction that turns its result into a mask. Returns `Ok` with the answer whenever the
+/// scan finishes here, and `Err(matched)` when the inputs are still equal after
+/// [`WIDE_COMPARE_THRESHOLD`] bytes and at least 32 more remain to check.
+#[inline(always)]
+fn narrow_common_prefix(s1: &[u8], s2: &[u8], limit: usize) -> Result<usize, usize> {
+    let mut matched = 0usize;
+    while matched < WIDE_COMPARE_THRESHOLD && limit - matched >= 8 {
+        if let Some(offset) = first_differing_byte(&s1[matched..], &s2[matched..]) {
+            return Ok(matched + offset);
+        }
+        matched += 8;
+    }
+    if limit - matched >= 32 {
+        return Err(matched);
+    }
+    Ok(matched + scalar_common_prefix(&s1[matched..], &s2[matched..], limit - matched))
+}
+
+/// The second stage, 32 bytes a step, for a match already known to be long.
+///
+/// The branch is predictable by now and throughput is what matters, so a mismatch is
+/// located as one `trailing_ones` over the compare mask.
+#[inline(always)]
+fn wide_common_prefix<S: Simd>(simd: S, s1: &[u8], s2: &[u8], limit: usize) -> usize {
+    let mut matched = 0usize;
+    while limit - matched >= 32 {
+        let equal = u8x32::from_slice(simd, &s1[matched..matched + 32])
+            .simd_eq(u8x32::from_slice(simd, &s2[matched..matched + 32]))
+            .to_bitmask() as u32;
+        if equal != u32::MAX {
+            return matched + equal.trailing_ones() as usize;
+        }
+        matched += 32;
+    }
+    matched + scalar_common_prefix(&s1[matched..], &s2[matched..], limit - matched)
+}
+
+/// Common prefix length of fewer than 32 remaining bytes: 64-bit steps, then bytes.
+#[inline(always)]
+fn scalar_common_prefix(s1: &[u8], s2: &[u8], limit: usize) -> usize {
+    let mut matched = 0usize;
+    while limit - matched >= 8 {
+        if let Some(offset) = first_differing_byte(&s1[matched..], &s2[matched..]) {
+            return matched + offset;
+        }
+        matched += 8;
+    }
+    for (index, pair) in s1[matched..limit]
+        .iter()
+        .zip(s2[matched..limit].iter())
+        .enumerate()
+    {
         if *pair.0 != *pair.1 {
-            return index;
+            return matched + index;
         }
     }
     limit
 }
+
+/// Offset of the first byte where the leading eight bytes of `s1` and `s2` differ, or
+/// `None` if all eight match.
+///
+/// [`BROTLI_UNALIGNED_LOAD64`] assembles its word little-endian on every target, so the
+/// lowest differing bit always belongs to the earliest differing byte.
+#[inline(always)]
+fn first_differing_byte(s1: &[u8], s2: &[u8]) -> Option<usize> {
+    let diff = BROTLI_UNALIGNED_LOAD64(s1) ^ BROTLI_UNALIGNED_LOAD64(s2);
+    if diff == 0 {
+        None
+    } else {
+        Some((diff.trailing_zeros() >> 3) as usize)
+    }
+}
+
 #[allow(unused)]
 pub fn FindMatchLengthWithLimitMin4(s1: &[u8], s2: &[u8], limit: usize) -> usize {
     let (s1_start, s1_rest) = s1.split_at(5);
@@ -1307,7 +1422,7 @@ pub fn BrotliFindAllStaticDictionaryMatches(
 mod test {
     #[allow(unused)]
     fn construct_situation(seed: &[u8], mut output: &mut [u8], limit: usize, matchfor: usize) {
-        output[..].clone_from_slice(seed);
+        output[..].copy_from_slice(seed);
         if matchfor >= limit {
             return;
         }

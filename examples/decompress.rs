@@ -1,4 +1,4 @@
-extern crate brotli;
+extern crate simd_brotli;
 #[cfg(not(feature = "std"))]
 fn main() {
     panic!("For no-stdlib examples please see the tests")
@@ -9,7 +9,7 @@ fn main() {
     let stdin = &mut io::stdin();
     {
         use std::io::{Read, Write};
-        let mut reader = brotli::Decompressor::new(
+        let mut reader = simd_brotli::Decompressor::new(
             stdin, 4096, // buffer size
         );
         let mut buf = [0u8; 4096];

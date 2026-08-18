@@ -1,14 +1,15 @@
 use core;
 use core::cmp::min;
-#[cfg(feature = "simd")]
-use core::simd::prelude::SimdPartialOrd;
+
+use fearless_simd::{Level, Select, Simd, SimdBase, f32x8, i16x16};
 
 use super::super::alloc;
 use super::super::alloc::{Allocator, SliceWrapper, SliceWrapperMut};
 use super::backward_references::BrotliEncoderParams;
 use super::input_pair::{InputPair, InputReference, InputReferenceMut};
-use super::ir_interpret::{push_base, IRInterpreter};
-use super::util::{floatX, FastLog2u16};
+use super::ir_interpret::{IRInterpreter, push_base};
+use super::util::{FastLog2u16, floatX};
+use super::vectorization::detect_level;
 use super::{find_stride, interface, s16, v8};
 use crate::enc::combined_alloc::{alloc_default, alloc_if};
 
@@ -40,15 +41,16 @@ pub trait Prior {
         high_nibble: Option<u8>,
     ) -> usize;
     #[inline(always)]
-    fn lookup_mut(
+    fn lookup_mut<S: Simd>(
+        simd: S,
         data: &mut [s16],
         stride_byte: u8,
         selected_context: u8,
         actual_context: usize,
         high_nibble: Option<u8>,
-    ) -> CDF<'_> {
+    ) -> CDF<'_, S> {
         let index = Self::lookup_lin(stride_byte, selected_context, actual_context, high_nibble);
-        CDF::from(&mut data[index])
+        CDF::new(simd, &mut data[index])
     }
     #[inline(always)]
     fn lookup(
@@ -327,11 +329,18 @@ impl Prior for AdvPrior {
     }
 }
 
-pub struct CDF<'a> {
+const ONE_TO_16: [i16; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+
+pub struct CDF<'a, S: Simd> {
     cdf: &'a mut s16,
+    simd: S,
 }
 
-impl<'a> CDF<'a> {
+impl<'a, S: Simd> CDF<'a, S> {
+    #[inline(always)]
+    pub fn new(simd: S, cdf: &'a mut s16) -> Self {
+        CDF { cdf, simd }
+    }
     #[inline(always)]
     pub fn cost(&self, nibble_u8: u8) -> floatX {
         let nibble = nibble_u8 as usize & 0xf;
@@ -343,25 +352,19 @@ impl<'a> CDF<'a> {
     }
     #[inline(always)]
     pub fn update(&mut self, nibble_u8: u8, speed: (u16, u16)) {
-        let mut cdf = *self.cdf;
-        let increment_v = s16::splat(speed.0 as i16);
-        let one_to_16 = s16::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
-        let mask_v: s16 = one_to_16
-            .simd_gt(s16::splat(i16::from(nibble_u8)))
-            .to_simd();
-        cdf = cdf + (increment_v & mask_v);
-        if cdf[15] >= speed.1 as i16 {
-            let cdf_bias = one_to_16;
-            cdf = cdf + cdf_bias - ((cdf + cdf_bias) >> 2);
+        let simd = self.simd;
+        let one_to_16 = i16x16::from_slice(simd, &ONE_TO_16);
+        let increment = i16x16::splat(simd, speed.0 as i16);
+        // Bump every bucket at or above the coded nibble.
+        let above_nibble = one_to_16.simd_gt(i16x16::splat(simd, i16::from(nibble_u8)));
+        let mut cdf =
+            self.cdf.to_simd(simd) + above_nibble.select(increment, i16x16::splat(simd, 0));
+        if cdf.as_slice()[15] >= speed.1 as i16 {
+            // Renormalize: scale the whole cdf down by 3/4, biased to keep it monotonic.
+            let biased = cdf + one_to_16;
+            cdf = biased - (biased >> 2);
         }
-        *self.cdf = cdf;
-    }
-}
-
-impl<'a> From<&'a mut s16> for CDF<'a> {
-    #[inline(always)]
-    fn from(cdf: &'a mut s16) -> CDF<'a> {
-        CDF { cdf }
+        *self.cdf = s16::from_simd(cdf);
     }
 }
 
@@ -390,6 +393,8 @@ pub struct PriorEval<
     cm_speed: [(u16, u16); 2],
     stride_speed: [(u16, u16); 2],
     cur_stride: u8,
+    /// Detected once, so the per-literal cost update doesn't have to probe the CPU.
+    level: Level,
 }
 
 impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator<v8>>
@@ -452,6 +457,7 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
             score: alloc_if::<v8, _>(do_alloc, alloc, 8192),
             cm_speed,
             stride_speed,
+            level: detect_level(),
         };
         init_cdfs(ret.cm_priors.slice_mut());
         init_cdfs(ret.slow_cm_priors.slice_mut());
@@ -566,16 +572,17 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
             },
         )
     }
-    fn update_cost_base(
+    fn update_cost_base<S: Simd>(
         &mut self,
+        simd: S,
         stride_prior: [u8; 8],
         stride_prior_offset: usize,
         selected_bits: u8,
         cm_prior: usize,
         literal: u8,
     ) {
-        let mut l_score = v8::splat(0.0);
-        let mut h_score = v8::splat(0.0);
+        let mut l_score = f32x8::splat(simd, 0.0);
+        let mut h_score = f32x8::splat(simd, 0.0);
         let base_stride_prior =
             stride_prior[stride_prior_offset.wrapping_sub(self.cur_stride as usize) & 7];
         let hscore_index = upper_score_index(base_stride_prior, selected_bits, cm_prior);
@@ -584,176 +591,190 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
         {
             type CurPrior = CMPrior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.cm_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.cm_speed[1]);
         }
         {
             type CurPrior = CMPrior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.cm_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.cm_speed[0]);
         }
         {
             type CurPrior = SlowCMPrior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.slow_cm_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, (0, 1024));
         }
         {
             type CurPrior = SlowCMPrior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.slow_cm_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, (0, 1024));
         }
         {
             type CurPrior = FastCMPrior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.fast_cm_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.cm_speed[0]);
         }
         {
             type CurPrior = FastCMPrior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.fast_cm_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.cm_speed[0]);
         }
         {
             type CurPrior = Stride1Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[0].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
             type CurPrior = Stride1Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[0].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         {
             type CurPrior = Stride2Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[1].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
             type CurPrior = Stride2Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[1].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         {
             type CurPrior = Stride3Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[2].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
             type CurPrior = Stride3Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[2].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         {
             type CurPrior = Stride4Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[3].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
             type CurPrior = Stride4Prior;
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.stride_priors[3].slice_mut(),
                 stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset()) & 7],
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
         /*       {
                    type CurPrior = Stride8Prior;
                    let mut cdf = CurPrior::lookup_mut(self.stride_priors[4].slice_mut(),
                                                       stride_prior[stride_prior_offset.wrapping_sub(CurPrior::offset())&7], selected_bits, cm_prior, None);
-                   h_score[CurPrior::which()] = cdf.cost(literal>>4);
+                   h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal>>4);
                    cdf.update(literal >> 4, self.stride_speed[1]);
                }
                {
@@ -763,35 +784,38 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
                                                       selected_bits,
                                                       cm_prior,
                                                       Some(literal >> 4));
-                   l_score[CurPrior::which()] = cdf.cost(literal&0xf);
+                   l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal&0xf);
                    cdf.update(literal&0xf, self.stride_speed[0]);
                }
         */
         type CurPrior = AdvPrior;
         {
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.adv_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 None,
             );
-            h_score[CurPrior::which()] = cdf.cost(literal >> 4);
+            h_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal >> 4);
             cdf.update(literal >> 4, self.stride_speed[1]);
         }
         {
             let mut cdf = CurPrior::lookup_mut(
+                simd,
                 self.adv_priors.slice_mut(),
                 base_stride_prior,
                 selected_bits,
                 cm_prior,
                 Some(literal >> 4),
             );
-            l_score[CurPrior::which()] = cdf.cost(literal & 0xf);
+            l_score.as_mut_slice()[CurPrior::which()] = cdf.cost(literal & 0xf);
             cdf.update(literal & 0xf, self.stride_speed[0]);
         }
-        self.score.slice_mut()[lscore_index] += l_score;
-        self.score.slice_mut()[hscore_index] += h_score;
+        let score = self.score.slice_mut();
+        score[lscore_index] = v8::from_simd(score[lscore_index].to_simd(simd) + l_score);
+        score[hscore_index] = v8::from_simd(score[hscore_index].to_simd(simd) + h_score);
     }
 }
 impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator<v8>> IRInterpreter
@@ -836,13 +860,15 @@ impl<'a, Alloc: alloc::Allocator<s16> + alloc::Allocator<u32> + alloc::Allocator
         literal: u8,
     ) {
         //let stride = self.cur_stride as usize;
-        self.update_cost_base(
+        let level = self.level;
+        dispatch!(level, simd => self.update_cost_base(
+            simd,
             stride_prior,
             stride_prior_offset,
             selected_bits,
             cm_prior,
             literal,
-        )
+        ))
     }
 }
 

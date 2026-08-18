@@ -1,6 +1,6 @@
 #![cfg(feature = "std")]
 
-use alloc::{Allocator, SliceWrapper};
+use crate::alloc::{Allocator, SliceWrapper};
 use core::mem;
 use std;
 // in-place thread create
@@ -49,11 +49,11 @@ struct WorkQueue<
     cur_work_id: u64,
 }
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > Default for WorkQueue<ReturnValue, ExtraInput, Alloc, U>
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> Default for WorkQueue<ReturnValue, ExtraInput, Alloc, U>
 {
     fn default() -> Self {
         WorkQueue {
@@ -84,11 +84,11 @@ pub struct WorkerPool<
 }
 
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > Drop for WorkerPool<ReturnValue, ExtraInput, Alloc, U>
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> Drop for WorkerPool<ReturnValue, ExtraInput, Alloc, U>
 {
     fn drop(&mut self) {
         {
@@ -105,11 +105,11 @@ impl<
     }
 }
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > WorkerPool<ReturnValue, ExtraInput, Alloc, U>
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> WorkerPool<ReturnValue, ExtraInput, Alloc, U>
 {
     fn do_work(queue: Arc<(Mutex<WorkQueue<ReturnValue, ExtraInput, Alloc, U>>, Condvar)>) {
         loop {
@@ -126,19 +126,24 @@ impl<
                     if local_queue.immediate_shutdown {
                         break;
                     }
-                    possible_job = if let Some(res) = local_queue.jobs.pop() {
-                        cvar.notify_all();
-                        local_queue.num_in_progress += 1;
-                        res
-                    } else if local_queue.shutdown {
-                        break;
-                    } else {
-                        let _lock = cvar.wait(local_queue); // unlock immediately, unfortunately
-                        continue;
+                    possible_job = match local_queue.jobs.pop() {
+                        Some(res) => {
+                            cvar.notify_all();
+                            local_queue.num_in_progress += 1;
+                            res
+                        }
+                        _ => {
+                            if local_queue.shutdown {
+                                break;
+                            } else {
+                                let _lock = cvar.wait(local_queue); // unlock immediately, unfortunately
+                                continue;
+                            }
+                        }
                     };
                 }
-                ret = if let Ok(job_data) = possible_job.data.read() {
-                    JobReply {
+                ret = match possible_job.data.read() {
+                    Ok(job_data) => JobReply {
                         result: (possible_job.func)(
                             possible_job.extra_input,
                             possible_job.index,
@@ -147,9 +152,10 @@ impl<
                             possible_job.alloc,
                         ),
                         work_id: possible_job.work_id,
+                    },
+                    _ => {
+                        break; // poisoned lock
                     }
-                } else {
-                    break; // poisoned lock
                 };
             }
             {
@@ -311,11 +317,11 @@ pub struct WorkerJoinable<
     work_id: u64,
 }
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > Joinable<ReturnValue, BrotliEncoderThreadError>
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> Joinable<ReturnValue, BrotliEncoderThreadError>
     for WorkerJoinable<ReturnValue, ExtraInput, Alloc, U>
 {
     fn join(self) -> Result<ReturnValue, BrotliEncoderThreadError> {
@@ -339,11 +345,11 @@ impl<
 }
 
 impl<
-        ReturnValue: Send + 'static,
-        ExtraInput: Send + 'static,
-        Alloc: BrotliAlloc + Send + 'static,
-        U: Send + 'static + Sync,
-    > BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U>
+    ReturnValue: Send + 'static,
+    ExtraInput: Send + 'static,
+    Alloc: BrotliAlloc + Send + 'static,
+    U: Send + 'static + Sync,
+> BatchSpawnableLite<ReturnValue, ExtraInput, Alloc, U>
     for WorkerPool<ReturnValue, ExtraInput, Alloc, U>
 where
     <Alloc as Allocator<u8>>::AllocatedMemory: Send + 'static,

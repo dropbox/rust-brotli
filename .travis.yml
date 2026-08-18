@@ -9,7 +9,6 @@ os:
   - osx
 
 script:
-  - rustc --version | grep nightly && cargo test --features=simd || ( echo skip && rustc --version | grep -v nightly )
   - cargo test --no-default-features
   - cargo test --no-default-features --features=std
   - cargo test --no-default-features --features=std --release

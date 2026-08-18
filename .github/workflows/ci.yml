@@ -33,6 +33,12 @@ jobs:
         run: just ci-test
       - name: Check if changes break public API and need a new version. Use `just semver-checks` to run locally.
         uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          # The default heuristic enables every feature, including `benchmark`. The published
+          # baseline cannot be documented with it: `benchmark` pulls in a module that
+          # `include_bytes!`es from `/testdata`, which the `include` list above excludes from the
+          # packaged crate. Check the default feature set instead.
+          feature-group: default-features
   msrv:
     name: Test MSRV
     runs-on: ubuntu-latest
