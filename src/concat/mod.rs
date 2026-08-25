@@ -261,7 +261,10 @@ impl BroCatli {
             last_bytes = [17u8, log_window_size | 64 | 128];
             last_bytes_len = 2;
         } else if log_window_size == 16 {
-            last_bytes = [1 | 2 | 4, 0];
+            // Window size 16 is encoded as a single `0` bit, so bit 0 must stay clear;
+            // only the two trailing ISLAST/ISLASTEMPTY bits are set (`0b110`). The previous
+            // `1 | 2 | 4` set the window bit too, yielding an invalid empty stream.
+            last_bytes = [2 | 4, 0];
             last_bytes_len = 1;
         } else if log_window_size > 17 {
             last_bytes = [(3 + (log_window_size - 18) * 2) | (16 | 32), 0];
@@ -339,6 +342,13 @@ impl BroCatli {
                 } else {
                     return BroCatliResult::NeedsMoreOutput;
                 }
+            } else {
+                // All remaining useful bits live in the first byte, so the second byte
+                // (masked out above) no longer carries data. Drop it from the length,
+                // otherwise the stale byte survives with a bit offset of up to 7 and later
+                // makes `append_eof_metablock_to_last_bytes` compute a bit position of 15,
+                // where `3u16 << 15` overflows and corrupts the final metablock.
+                self.last_bytes_len = 1;
             }
             self.last_byte_bit_offset = index;
             assert!(index < 8);
@@ -878,5 +888,47 @@ mod test {
         let result = bcat.finish(&mut output, &mut output_offset);
         assert_eq!(result, super::BroCatliResult::Success);
         assert_eq!(&output[..output_offset], &first_catable[..]);
+    }
+
+    fn concat_single_stream_with_window(window: u8, stream: &[u8], output: &mut [u8; 32]) -> usize {
+        let mut bcat = BroCatli::new_with_window_size(window);
+        let mut output_offset = 0;
+        bcat.new_brotli_file();
+        let mut input_offset = 0;
+        let result = bcat.stream(stream, &mut input_offset, output, &mut output_offset);
+        assert_eq!(result, super::BroCatliResult::NeedsMoreInput);
+        assert_eq!(input_offset, stream.len());
+        let result = bcat.finish(output, &mut output_offset);
+        assert_eq!(result, super::BroCatliResult::Success);
+        output_offset
+    }
+
+    #[test]
+    fn test_cat_empty_stream_with_small_window_size() {
+        // Regression test: `new_with_window_size` for windows 10..=17 used to turn a valid
+        // empty brotli stream into an undecodable one (reporting Success while doing so).
+        //
+        // Each `stream` below is an empty brotli stream for the given window as produced by
+        // this crate's own encoder; the expected output is the canonical short empty stream
+        // for that window (window bits followed by ISLAST + ISLASTEMPTY). All expected
+        // outputs decode to zero bytes with a conformant brotli decoder.
+        //
+        // Windows 10/17 exercise the two-byte pre-seeded `last_bytes` path (the length was
+        // left at 2, so `append_eof_metablock_to_last_bytes` overflowed `3u16 << 15`).
+        // Window 16 exercises its own pre-seed, whose window bit was incorrectly set.
+        let cases: [(u8, &[u8], &[u8]); 3] = [
+            (10, &[0x21, 0x03, 0x03], &[0xa1, 0x01]),
+            (16, &[0x0c, 0x03], &[0x06]),
+            (17, &[0x01, 0x03, 0x03], &[0x81, 0x01]),
+        ];
+        for (window, stream, expected) in cases {
+            let mut output = [0u8; 32];
+            let len = concat_single_stream_with_window(window, stream, &mut output);
+            assert_eq!(
+                &output[..len],
+                expected,
+                "unexpected concatenation output for window {window}",
+            );
+        }
     }
 }
