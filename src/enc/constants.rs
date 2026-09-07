@@ -104,7 +104,10 @@ static kContextLookup: [u8; 2048] = [
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7,
 ];
+#[cfg(not(feature = "disallow_large_window_size"))]
 pub const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS: usize = 544;
+#[cfg(feature = "disallow_large_window_size")]
+pub const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS: usize = 520;
 pub const BROTLI_NUM_LITERAL_SYMBOLS: usize = 256;
 pub const BROTLI_NUM_COMMAND_SYMBOLS: usize = 704;
 pub const BROTLI_WINDOW_GAP: usize = 16;
