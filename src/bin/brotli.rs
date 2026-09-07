@@ -852,13 +852,15 @@ fn main() {
             }
             panic!("Unknown Argument {:}", argument);
         }
-        if params.bare_stream && !params.appendable {
+        // -catable implies -appendable, but SanitizeParams only derives that later
+        let concatenable = params.appendable || params.catable;
+        if params.bare_stream && !concatenable {
             println_stderr!("bare streams only supported when catable or appendable!");
-            return;
+            std::process::exit(1);
         }
-        if params.byte_align && !params.appendable {
+        if params.byte_align && !concatenable {
             println_stderr!("byte aligned streams only supported when catable or appendable!");
-            return;
+            std::process::exit(1);
         }
         if filenames[0] != "" {
             let mut input = match File::open(Path::new(&filenames[0])) {
