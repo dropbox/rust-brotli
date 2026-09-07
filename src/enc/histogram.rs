@@ -5,7 +5,9 @@ use super::super::alloc;
 use super::super::alloc::{SliceWrapper, SliceWrapperMut};
 use super::block_split::BlockSplit;
 use super::command::Command;
-use super::constants::{kSigned3BitContextLookup, kUTF8ContextLookup};
+use super::constants::{
+    kSigned3BitContextLookup, kUTF8ContextLookup, BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS,
+};
 use super::util::floatX;
 use super::vectorization::Mem256i;
 
@@ -62,11 +64,6 @@ impl Default for HistogramCommand {
     }
 }
 //#[derive(Clone)] // #derive is broken for arrays > 32
-
-#[cfg(not(feature = "disallow_large_window_size"))]
-const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS: usize = 544;
-#[cfg(feature = "disallow_large_window_size")]
-const BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS: usize = 520;
 
 pub struct HistogramDistance {
     pub data_: [u32; BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS],
