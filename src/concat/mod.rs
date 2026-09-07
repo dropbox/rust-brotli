@@ -363,6 +363,7 @@ impl BroCatli {
         out_bytes: &mut [u8],
         out_offset: &mut usize,
     ) -> BroCatliResult {
+        let mut header_bytes_this_call = 0usize;
         if new_stream_pending.num_bytes_written.is_none() {
             let (window_size, window_offset) = if let Ok(results) = parse_window_size(
                 &new_stream_pending.bytes_so_far[..usize::from(new_stream_pending.num_bytes_read)],
@@ -379,6 +380,7 @@ impl BroCatli {
                 new_stream_pending.num_bytes_written = Some(1);
                 self.any_bytes_emitted = true;
                 *out_offset += 1;
+                header_bytes_this_call = 1;
             } else {
                 if window_size > self.window_size {
                     return BroCatliResult::WindowSizeLargerThanPreviousFile;
@@ -425,6 +427,7 @@ impl BroCatli {
                 out_bytes[*out_offset] = realigned_header[0];
                 self.any_bytes_emitted = true;
                 *out_offset += 1;
+                header_bytes_this_call = 1;
                 // subtract one since that has just been written out and we're only copying realigned_header[1..]
                 new_stream_pending.num_bytes_read =
                     (whole_byte_destination + num_whole_bytes_to_copy) as u8 - 1;
@@ -456,6 +459,7 @@ impl BroCatli {
                     .0,
             );
         *out_offset += to_copy;
+        header_bytes_this_call += to_copy;
         if to_copy != 0 {
             self.any_bytes_emitted = true;
         }
@@ -470,10 +474,15 @@ impl BroCatli {
         self.last_byte_bit_offset = 0;
         self.last_bytes_len = 0;
         self.last_bytes = [0, 0];
-        //now unwrite from the stream, since the last byte may need to be adjusted to be EOF
-        *out_offset -= 1;
+        //now unwrite from the stream, since the last bytes may need to be adjusted to be EOF
+        //(both bytes when an empty stream's ISLAST/ISLASTEMPTY pair straddles the byte boundary)
+        let retain = min(2, header_bytes_this_call);
+        *out_offset -= retain;
         self.last_bytes[0] = out_bytes[*out_offset];
-        self.last_bytes_len = 1;
+        if retain == 2 {
+            self.last_bytes[1] = out_bytes[*out_offset + 1];
+        }
+        self.last_bytes_len = retain as u8;
         BroCatliResult::Success
     }
     pub fn stream(
@@ -803,6 +812,29 @@ mod test {
         assert_eq!(res, super::BroCatliResult::Success);
         assert_ne!(out_offset, 0);
         assert_eq!(&out_bytes[..out_offset], &[b';']);
+    }
+    #[test]
+    fn test_cat_empty_stream_between_streams_with_straddled_final_bits() {
+        // window 15 puts an empty stream's ISLAST/ISLASTEMPTY pair at bits 7 and 8, and
+        // new_with_window_size(15) realigns the next stream onto bit offset 7
+        let empty_w15 = [0x71u8 | 0x80, 1];
+        let mut bcat = super::BroCatli::new_with_window_size(15);
+        let mut out_bytes = [0u8; 32];
+        let mut out_offset = 0usize;
+        for _ in 0..3 {
+            let mut in_offset = 0usize;
+            bcat.new_brotli_file();
+            let res = bcat.stream(
+                &empty_w15[..],
+                &mut in_offset,
+                &mut out_bytes[..],
+                &mut out_offset,
+            );
+            assert_eq!(res, super::BroCatliResult::NeedsMoreInput);
+        }
+        let res = bcat.finish(&mut out_bytes[..], &mut out_offset);
+        assert_eq!(res, super::BroCatliResult::Success);
+        assert_ne!(out_offset, 0);
     }
     #[test]
     fn test_cat_truncated_metadata_header_fails() {
