@@ -51,6 +51,9 @@ incremental = false
 # only; the library itself uses no calloc path.
 "alloc-no-stdlib" = { version = ">=3.0.0, <4.0.0", features = ["unsafe"] }
 
+[build-dependencies]
+man = "0.3.0"
+
 [features]
 default = ["std"]
 benchmark = ["brotli-decompressor/benchmark"]
