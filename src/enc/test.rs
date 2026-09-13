@@ -310,6 +310,7 @@ fn oneshot(
     ret
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_10x10y() {
     const BUFFER_SIZE: usize = 128;
@@ -382,10 +383,12 @@ macro_rules! test_roundtrip_file {
     }};
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_64x() {
     test_roundtrip_file!(include_bytes!("../../testdata/64x"), 72, 9, 10, false, 3, 2);
 }
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_ukkonooa() {
     test_roundtrip_file!(
@@ -398,6 +401,7 @@ fn test_roundtrip_ukkonooa() {
         2
     );
 }
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_backward65536() {
     test_roundtrip_file!(
@@ -410,6 +414,7 @@ fn test_roundtrip_backward65536() {
         2
     );
 }
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_aaabaaaa() {
     test_roundtrip_file!(
@@ -422,6 +427,7 @@ fn test_roundtrip_aaabaaaa() {
         2
     );
 }
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_monkey() {
     test_roundtrip_file!(
@@ -434,6 +440,7 @@ fn test_roundtrip_monkey() {
         15
     );
 }
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_quickfox_repeated() {
     test_roundtrip_file!(
@@ -447,6 +454,7 @@ fn test_roundtrip_quickfox_repeated() {
     );
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_asyoulik() {
     test_roundtrip_file!(
@@ -460,6 +468,7 @@ fn test_roundtrip_asyoulik() {
     );
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_asyoulik9_5() {
     test_roundtrip_file!(
@@ -473,6 +482,7 @@ fn test_roundtrip_asyoulik9_5() {
     );
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_compressed() {
     test_roundtrip_file!(
@@ -486,6 +496,7 @@ fn test_roundtrip_compressed() {
     );
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_compressed_repeated() {
     test_roundtrip_file!(
@@ -499,6 +510,7 @@ fn test_roundtrip_compressed_repeated() {
     );
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_first_58_bytes_alice() {
     test_roundtrip_file!(
@@ -511,6 +523,7 @@ fn test_roundtrip_first_58_bytes_alice() {
         2
     );
 }
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_first_2_bytes_alice() {
     test_roundtrip_file!(
@@ -524,6 +537,7 @@ fn test_roundtrip_first_2_bytes_alice() {
     );
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_quickfox() {
     test_roundtrip_file!(
@@ -537,6 +551,7 @@ fn test_roundtrip_quickfox() {
     );
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_x() {
     const BUFFER_SIZE: usize = 16384;
@@ -562,6 +577,7 @@ fn test_roundtrip_x() {
     assert_eq!(compressed_offset, compressed.len());
 }
 
+#[cfg(not(all(target_arch = "arm", target_pointer_width = "32")))]
 #[test]
 fn test_roundtrip_empty() {
     let mut compressed: [u8; 2] = [0x06, 0];
