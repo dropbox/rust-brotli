@@ -342,3 +342,21 @@ where
     read_err?;
     Ok(total_out.unwrap())
 }
+
+#[macro_export]
+macro_rules! wrapping_add {
+    ($expr:expr, $increment:expr) => {{
+        let _rhs = $increment;
+        let _lhs = &mut $expr;
+        *_lhs = (*_lhs).wrapping_add(_rhs);
+    }};
+}
+
+#[macro_export]
+macro_rules! wrapping_sub {
+    ($expr:expr, $increment:expr) => {{
+        let _rhs = $increment;
+        let _lhs = &mut $expr;
+        *_lhs = (*_lhs).wrapping_sub(_rhs);
+    }};
+}
