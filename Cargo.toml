@@ -20,6 +20,7 @@ include = [
   "/README.md",
   "/LICENSE.BSD-3-Clause",
   "/LICENSE.MIT",
+  "/testdata/**",
 ]
 
 [[bin]]
