@@ -3,6 +3,18 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+# What's new in 9.1.0
+
+* Configurable metadata metablock callback
+* Return correct error code for inputs that would trigger CVE-2026-111497 on the C decoder
+* Decoder Performance improvements for dictionaries, small reads, and large streams
+* Dynamic ring buffer: ring buffer is only allocated as needed
+* Ability to select previous mechanisms at init time.
+* Copy performance optimization
+* Optimize huffman tree sizes
+* Bit reader optimizations
+
+
 # What's new in 9.0.0
 
 * Custom dictionaries. Depends on brotli-decompressor 6.0.0, whose dictionary

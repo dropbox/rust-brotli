@@ -309,6 +309,40 @@ BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompressStreaming(
   size_t* available_out, uint8_t* next_out);
 
 /**
+ * Callback invoked once at the start of each metadata meta-block.
+ *
+ * @param opaque the value passed to ::BrotliDecoderSetMetadataCallbacks
+ * @param size total length of the metadata block payload, possibly 0
+ */
+typedef void (*brotli_decoder_metadata_start_func)(void* opaque, size_t size);
+
+/**
+ * Callback invoked zero or more times per metadata meta-block with consecutive
+ * pieces of its payload; the pieces sum to the size given to the start
+ * callback. @p data is only valid for the duration of the call.
+ */
+typedef void (*brotli_decoder_metadata_chunk_func)(void* opaque,
+                                                   const uint8_t* data,
+                                                   size_t size);
+
+/**
+ * Registers callbacks that receive the contents of metadata meta-blocks, which
+ * are otherwise skipped by the decoder and never appear in its output.
+ *
+ * Either callback may be NULL. Should be called before decoding starts.
+ *
+ * @param state decoder instance
+ * @param start_func called with the length of each metadata block
+ * @param chunk_func called with the payload bytes of each metadata block
+ * @param opaque passed through to both callbacks
+ */
+BROTLI_DEC_API void BrotliDecoderSetMetadataCallbacks(
+    BrotliDecoderState* state,
+    brotli_decoder_metadata_start_func start_func,
+    brotli_decoder_metadata_chunk_func chunk_func,
+    void* opaque);
+
+/**
  * Checks if decoder has more output.
  *
  * @param state decoder instance
