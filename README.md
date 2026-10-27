@@ -3,6 +3,15 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+# What's new in 9.1.1
+
+* Unify definitions of BROTLI_NUM_HISTOGRAM_DISTANCE_SYMBOLS
+* Fix for empty catable brotli streams that straddle a byte boundary
+* Fix for resuming after NeedsMoreOutput after a header is parsed for brocatli.
+* Fix for very short inputs being dropped in brocatli
+* Refactor Brocatli to be easier to reason about.
+
+
 # What's new in 9.1.0
 
 * Configurable metadata metablock callback
