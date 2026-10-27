@@ -1,4 +1,25 @@
-use core::cmp::{max, min};
+//! Joins brotli streams that were compressed to be concatenated (`-appendable` for the first
+//! stream, `-catable` for the rest) into one stream.
+//!
+//! A brotli stream is a sequence of bits, least significant bit first: a window size, then
+//! meta-blocks. It ends with an empty meta-block, which is just the two bits ISLAST and
+//! ISLASTEMPTY, followed by zero padding to the end of the byte. A catable stream starts with a
+//! meta-block whose header leaves the stream byte aligned (an uncompressed or metadata
+//! meta-block, or the stream's final empty one), and it never refers back to data before itself.
+//!
+//! So appending stream B to output A only takes changing a few bits where they meet:
+//!
+//! ```text
+//!   A:            ... | ISLAST ISLASTEMPTY | padding
+//!   B:                                       window size | header | padding | aligned bytes ...
+//!   A then B:     ... | header | padding | aligned bytes ...
+//! ```
+//!
+//! A's ISLAST/ISLASTEMPTY pair always lies in its last two bytes, so `BroCatli` holds the last two
+//! bytes of the output back (the *tail*) until it knows whether another stream follows, and copies
+//! everything else straight through.
+
+use core::cmp::min;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -12,149 +33,219 @@ pub enum BroCatliResult {
     BrotliFileNotCraftedForConcatenation = 127,
 }
 
+/// How many bytes of a new stream are buffered to find where it becomes byte aligned.
 const NUM_STREAM_HEADER_BYTES: usize = 5;
 
-#[derive(Clone, Copy)]
-struct NewStreamData {
-    bytes_so_far: [u8; NUM_STREAM_HEADER_BYTES],
-    num_bytes_read: u8,
-    num_bytes_written: Option<u8>,
-    // the file ended before its header was long enough to be sufficient(): bytes_so_far holds
-    // the whole file, and a fresh NewStreamData takes over once it has been written out
-    input_complete: bool,
-}
-impl NewStreamData {
-    pub fn new() -> NewStreamData {
-        NewStreamData {
-            bytes_so_far: [0, 0, 0, 0, 0],
-            num_bytes_read: 0,
-            num_bytes_written: None,
-            input_complete: false,
-        }
+/// The most bytes of a new stream that are read before giving up on finding where it becomes
+/// byte aligned: 4, or 5 for a large window size. That fits an uncompressed first meta-block of up
+/// to 1 MiB (five length nibbles), or metadata with up to two length bytes.
+fn max_header_bytes(header: &[u8]) -> usize {
+    match header.first() {
+        Some(byte) if byte & 0x7f == 0x11 => 5, // large window size marker
+        _ => 4,
     }
-    fn sufficient(&self) -> bool {
-        if self.num_bytes_read == 4 && (127 & self.bytes_so_far[0]) != 17 {
-            return true;
+}
+
+/// The value of bits `start..end` of `bytes`, least significant bit first.
+fn bit_range(bytes: &[u8], start: usize, end: usize) -> u64 {
+    let all = bytes
+        .iter()
+        .rev()
+        .fold(0u64, |value, byte| (value << 8) | u64::from(*byte));
+    (all >> start) & ((1u64 << (end - start)) - 1)
+}
+
+enum ParseError {
+    /// More bytes of the stream are needed.
+    Incomplete,
+    Invalid(BroCatliResult),
+}
+
+/// Reads bits from the buffered start of a stream.
+struct BitReader<'a> {
+    bytes: &'a [u8],
+    position: usize,
+}
+
+impl<'a> BitReader<'a> {
+    fn read(&mut self, num_bits: usize) -> Result<u64, ParseError> {
+        let end = self.position + num_bits;
+        if end > self.bytes.len() * 8 {
+            return Err(ParseError::Incomplete);
         }
-        if self.num_bytes_read == 5 {
-            return true;
+        let value = bit_range(self.bytes, self.position, end);
+        self.position = end;
+        Ok(value)
+    }
+
+    /// Reads the window size (log2 of the window in bytes) that starts every stream.
+    fn read_window_size(&mut self) -> Result<u8, ParseError> {
+        let invalid = ParseError::Invalid(BroCatliResult::InvalidWindowSize);
+        if self.read(1)? == 0 {
+            return Ok(16);
         }
-        let num_bytes_read = usize::from(self.num_bytes_read);
-        // A complete empty stream can be shorter than the usual 4- or 5-byte prefix.
-        // Recognize it as soon as the window, ISLAST, and ISLASTEMPTY bits are buffered.
-        if num_bytes_read != 0 {
-            if let Ok((_, window_offset)) = parse_window_size(&self.bytes_so_far) {
-                if window_offset + 2 <= num_bytes_read * 8 {
-                    let mut header = 0u64;
-                    for (index, byte) in self.bytes_so_far.iter().enumerate() {
-                        header |= u64::from(*byte) << (index * 8);
-                    }
-                    if (header >> window_offset) & 3 == 3 {
-                        return true;
-                    }
+        let size = self.read(3)? as u8;
+        if size != 0 {
+            return Ok(17 + size);
+        }
+        match self.read(3)? as u8 {
+            0 => Ok(17),
+            1 => {
+                // large window size: a zero bit, then six bits of size
+                if self.read(1)? != 0 {
+                    return Err(invalid);
+                }
+                let size = self.read(6)? as u8;
+                if (10..=30).contains(&size) {
+                    Ok(size)
+                } else {
+                    Err(invalid)
                 }
             }
+            size => Ok(8 + size),
         }
-        false
+    }
+
+    /// Reads the header of a catable stream's first meta-block, after which the stream is byte
+    /// aligned.
+    fn read_first_metablock_header(&mut self) -> Result<(), ParseError> {
+        let not_catable = ParseError::Invalid(BroCatliResult::BrotliFileNotCraftedForConcatenation);
+        let is_last = self.read(1)? == 1;
+        if is_last && self.read(1)? == 1 {
+            return Ok(()); // ISLASTEMPTY: the stream is empty
+        }
+        let mlen_nibbles = self.read(2)?;
+        if mlen_nibbles == 3 {
+            // metadata: a reserved zero bit, then the byte count of its length, then its length
+            if self.read(1)? != 0 {
+                return Err(not_catable);
+            }
+            let length_bytes = self.read(2)? as usize;
+            self.read(8 * length_bytes)?;
+            return Ok(());
+        }
+        self.read(4 * (4 + mlen_nibbles as usize))?;
+        // only a meta-block that is not the last has an ISUNCOMPRESSED bit; a compressed one is
+        // not byte aligned
+        if is_last || self.read(1)? == 0 {
+            return Err(not_catable);
+        }
+        Ok(())
     }
 }
 
-fn parse_window_size(bytes_so_far: &[u8]) -> Result<(u8, usize), ()> {
-    // returns window_size and offset in stream in bits
-    if bytes_so_far[0] & 1 == 0 {
-        return Ok((16, 1));
-    }
-    match bytes_so_far[0] & 15 {
-        0x3 => return Ok((18, 4)),
-        0x5 => return Ok((19, 4)),
-        0x7 => return Ok((20, 4)),
-        0x9 => return Ok((21, 4)),
-        0xb => return Ok((22, 4)),
-        0xd => return Ok((23, 4)),
-        0xf => return Ok((24, 4)),
-        _ => match bytes_so_far[0] & 127 {
-            0x71 => return Ok((15, 7)),
-            0x61 => return Ok((14, 7)),
-            0x51 => return Ok((13, 7)),
-            0x41 => return Ok((12, 7)),
-            0x31 => return Ok((11, 7)),
-            0x21 => return Ok((10, 7)),
-            0x1 => return Ok((17, 7)),
-            _ => {}
-        },
-    }
-    if (bytes_so_far[0] & 0x80) != 0 || bytes_so_far.len() < 2 {
-        return Err(());
-    }
-    let ret = bytes_so_far[1] & 0x3f;
-    if !(10..=30).contains(&ret) {
-        return Err(());
-    }
-    Ok((ret, 14))
+/// Assembles bits into bytes, least significant bit first.
+#[derive(Default)]
+struct BitWriter {
+    bits: u64,
+    num_bits: usize,
 }
 
-fn detect_varlen_offset(bytes_so_far: &[u8]) -> Result<(usize), ()> {
-    // returns offfset in bits
-    let (_, mut offset) = match parse_window_size(bytes_so_far) {
-        Ok(x) => x,
-        Err(_) => return Err(()),
-    };
-    let mut bytes = 0u64;
-    for (index, item) in bytes_so_far.iter().enumerate() {
-        bytes |= u64::from(*item) << (index * 8);
+impl BitWriter {
+    fn write(&mut self, value: u64, num_bits: usize) {
+        assert!(self.num_bits + num_bits <= 64);
+        self.bits |= value << self.num_bits;
+        self.num_bits += num_bits;
     }
-    bytes >>= offset;
-    offset += 1;
-    if (bytes & 1) != 0 {
-        // ISLAST
-        bytes >>= 1;
-        offset += 1;
-        if (bytes & 1) != 0 {
-            // ISLASTEMPTY
-            return Ok(offset);
+
+    fn write_bytes(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            self.write(u64::from(*byte), 8);
         }
     }
-    bytes >>= 1;
-    let mut mnibbles = bytes & 3;
-    bytes >>= 2;
-    offset += 2;
-    if mnibbles == 3 {
-        // metadata block
-        if (bytes & 1) != 0 {
-            return Err(()); // reserved, must be zero
-        }
-        bytes >>= 1;
-        offset += 1;
-        let mskipbytes = bytes & ((1 << 2) - 1);
-        offset += 2;
-        offset += (mskipbytes as usize) * 8; // next item is byte aligned
-        return Ok(offset);
+
+    /// Writes zero bits up to the next byte boundary.
+    fn pad_to_byte(&mut self) {
+        self.num_bits = (self.num_bits + 7) / 8 * 8;
     }
-    mnibbles += 4;
-    offset += (mnibbles as usize) * 4;
-    bytes >>= mnibbles * 4;
-    offset += 1;
-    if (bytes & 1) == 0 {
-        // not UNCOMPRESSED
-        Err(()) // not valid bitstream for concatenation
-    } else {
-        // UNCOMPRESSED: now things are aligend
-        Ok(offset)
+
+    /// Pads the bits to a whole byte, returning the bytes and their count.
+    fn finish(mut self) -> ([u8; 8], usize) {
+        self.pad_to_byte();
+        (self.bits.to_le_bytes(), self.num_bits / 8)
+    }
+}
+
+/// Splits the final bytes of a stream into the bits before its closing ISLAST + ISLASTEMPTY pair,
+/// returning them with their count, or `None` if the bytes don't end that way.
+fn remove_final_empty_metablock(final_bytes: &[u8]) -> Option<(u64, usize)> {
+    let bits = bit_range(final_bytes, 0, final_bytes.len() * 8);
+    if bits == 0 {
+        return None;
+    }
+    let islastempty = 63 - bits.leading_zeros() as usize; // the highest set bit
+    if islastempty == 0 || (bits >> (islastempty - 1)) != 0b11 {
+        return None;
+    }
+    let num_bits = islastempty - 1;
+    Some((bit_range(final_bytes, 0, num_bits), num_bits))
+}
+
+/// A few buffered bytes.
+#[derive(Clone, Copy, Default)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+struct ByteBuf {
+    bytes: [u8; NUM_STREAM_HEADER_BYTES],
+    len: u8,
+}
+
+impl ByteBuf {
+    fn from_slice(bytes: &[u8]) -> ByteBuf {
+        let mut buf = ByteBuf::default();
+        buf.bytes[..bytes.len()].copy_from_slice(bytes);
+        buf.len = bytes.len() as u8;
+        buf
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        &self.bytes[..usize::from(self.len)]
+    }
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+enum Phase {
+    /// Copying the current stream through to the output.
+    PassThrough,
+    /// Buffering the start of a new stream until it can be spliced onto the output.
+    ReadHeader(ByteBuf),
+    /// The new stream has been spliced on; these bytes of the splice are waiting for output space.
+    WriteSplice { bytes: ByteBuf, written: u8 },
+    /// The new stream ended before its first meta-block header did.
+    Truncated,
+}
+
+impl Default for Phase {
+    fn default() -> Phase {
+        Phase::PassThrough
     }
 }
 
 // eat your vegetables
 #[derive(Default)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct BroCatli {
-    last_bytes: [u8; 2],
-    last_bytes_len: u8,
-    last_byte_sanitized: bool,
-    any_bytes_emitted: bool,
-    last_byte_bit_offset: u8,
-    // need to make sure that window sizes stay similar or get smaller
+    /// The last bytes of the output (at most two), held back because they hold the ISLAST and
+    /// ISLASTEMPTY bits that end the stream, which have to go if another stream is appended.
+    tail: [u8; 2],
+    tail_len: u8,
+    /// The first stream's window size, or 0 before it is known; later streams may not exceed it.
     window_size: u8,
-    new_stream_pending: Option<NewStreamData>,
+    /// Whether any bytes were written; if none are, `finish` writes an empty stream.
+    any_bytes_emitted: bool,
+    phase: Phase,
 }
+
+// Serialized layout, which the FFI also uses to hold its state:
+//   [0..2]    tail                      [8]   tail_len
+//   [9]       flags (below)             [10]  open tail bit offset (old versions only)
+//   [11]      window_size               [12]  number of buffered bytes
+//   [13]      buffered bytes written    [16..16 + NUM_STREAM_HEADER_BYTES]  buffered bytes
+const FLAG_OPEN_TAIL: u8 = 1 << 0; // old versions only: the tail's final empty meta-block is removed
+const FLAG_TRUNCATED: u8 = 1 << 1;
+const FLAG_ANY_BYTES_EMITTED: u8 = 1 << 5;
+const FLAG_NEW_STREAM: u8 = 1 << 6; // the phase is not PassThrough
+const FLAG_WRITE_SPLICE: u8 = 1 << 7;
 
 impl BroCatli {
     pub fn new() -> Self {
@@ -165,88 +256,98 @@ impl BroCatli {
         if 16 + NUM_STREAM_HEADER_BYTES > buffer.len() {
             return Err(());
         }
-        let last_bytes_len = buffer[8];
-        let last_byte_bit_offset = buffer[10];
+        let tail_len = buffer[8];
+        let flags = buffer[9];
+        let open_tail_bit_offset = buffer[10];
         let window_size = buffer[11];
-        let has_new_stream_pending = (buffer[9] & (1 << 6)) != 0;
-        let has_num_bytes_written = (buffer[9] & (1 << 7)) != 0;
-        let input_complete = (buffer[9] & (1 << 1)) != 0;
-        if last_bytes_len > 2 || last_byte_bit_offset >= 8 {
+        if tail_len > 2 || open_tail_bit_offset >= 8 {
             return Err(());
         }
         if window_size != 0 && BroCatli::try_new_with_window_size(window_size).is_err() {
             return Err(());
         }
-        if has_new_stream_pending {
-            if usize::from(buffer[12]) > NUM_STREAM_HEADER_BYTES {
+        let mut buffered = ByteBuf::default();
+        buffered
+            .bytes
+            .copy_from_slice(&buffer[16..16 + NUM_STREAM_HEADER_BYTES]);
+        buffered.len = buffer[12];
+        let written = buffer[13];
+        let phase = if flags & FLAG_NEW_STREAM == 0 {
+            Phase::PassThrough
+        } else if usize::from(buffered.len) > NUM_STREAM_HEADER_BYTES {
+            return Err(());
+        } else if flags & FLAG_WRITE_SPLICE != 0 {
+            if written > buffered.len {
                 return Err(());
             }
-            if has_num_bytes_written && buffer[13] > buffer[12] {
-                return Err(());
+            Phase::WriteSplice {
+                bytes: buffered,
+                written,
             }
-        }
-        let mut possible_new_stream_pending = NewStreamData {
-            num_bytes_read: buffer[12],
-            num_bytes_written: if has_num_bytes_written {
-                Some(buffer[13])
-            } else {
-                None
-            },
-            bytes_so_far: [0; NUM_STREAM_HEADER_BYTES],
-            input_complete,
-        };
-        let xlen = possible_new_stream_pending.bytes_so_far.len();
-        possible_new_stream_pending
-            .bytes_so_far
-            .clone_from_slice(&buffer[16..16 + xlen]);
-        let new_stream_pending: Option<NewStreamData> = if has_new_stream_pending {
-            Some(possible_new_stream_pending)
+        } else if flags & FLAG_TRUNCATED != 0 {
+            Phase::Truncated
         } else {
-            None
+            Phase::ReadHeader(buffered)
         };
         let mut ret = BroCatli {
-            last_bytes: [0, 0],
-            last_bytes_len,
-            last_byte_sanitized: (buffer[9] & 0x1) != 0,
-            last_byte_bit_offset,
-            any_bytes_emitted: (buffer[9] & (1 << 5)) != 0,
+            tail: [buffer[0], buffer[1]],
+            tail_len,
             window_size,
-            new_stream_pending,
+            any_bytes_emitted: flags & FLAG_ANY_BYTES_EMITTED != 0,
+            phase,
         };
-        if ret.last_bytes.len() > 8 {
-            return Err(());
+        if flags & FLAG_OPEN_TAIL != 0 && tail_len != 0 {
+            // Old versions removed the tail's final empty meta-block as soon as a new stream
+            // started. Put it back; it is removed again when the new stream is spliced on.
+            let num_bits = usize::from(tail_len - 1) * 8 + usize::from(open_tail_bit_offset);
+            let mut tail = BitWriter::default();
+            tail.write(bit_range(&ret.tail, 0, num_bits), num_bits);
+            tail.write(0b11, 2);
+            let (bytes, len) = tail.finish();
+            if len > 2 {
+                return Err(());
+            }
+            ret.set_tail(&bytes[..len]);
         }
-        let xlen = ret.last_bytes.len();
-        ret.last_bytes.clone_from_slice(&buffer[..xlen]);
         Ok(ret)
     }
+
     #[inline(always)]
     pub fn serialize_to_buffer(&self, buffer: &mut [u8]) -> Result<(), ()> {
         if 16 + NUM_STREAM_HEADER_BYTES > buffer.len() {
             return Err(());
         }
-        buffer[..self.last_bytes.len()].clone_from_slice(&self.last_bytes[..]);
-        buffer[8] = self.last_bytes_len;
-        buffer[9] = (self.last_byte_sanitized as u8)
-            | ((self.new_stream_pending.is_some() as u8) << 6)
-            | ((self.any_bytes_emitted as u8) << 5);
-        buffer[10] = self.last_byte_bit_offset;
-        buffer[11] = self.window_size;
-        if let Some(new_stream_pending) = self.new_stream_pending {
-            if new_stream_pending.num_bytes_written.is_some() {
-                buffer[9] |= (1 << 7);
-            }
-            if new_stream_pending.input_complete {
-                buffer[9] |= (1 << 1);
-            }
-            buffer[12] = new_stream_pending.num_bytes_read;
-            buffer[13] = new_stream_pending.num_bytes_written.unwrap_or(0);
-            // 14, 15 reserved
-            buffer[16..16 + new_stream_pending.bytes_so_far.len()]
-                .clone_from_slice(&new_stream_pending.bytes_so_far[..]);
+        let mut flags = 0;
+        if self.any_bytes_emitted {
+            flags |= FLAG_ANY_BYTES_EMITTED;
         }
+        let (buffered, written) = match self.phase {
+            Phase::PassThrough => (None, 0),
+            Phase::ReadHeader(header) => (Some(header), 0),
+            Phase::WriteSplice { bytes, written } => {
+                flags |= FLAG_WRITE_SPLICE;
+                (Some(bytes), written)
+            }
+            Phase::Truncated => {
+                flags |= FLAG_TRUNCATED;
+                (Some(ByteBuf::default()), 0)
+            }
+        };
+        buffer[..2].copy_from_slice(&self.tail);
+        buffer[8] = self.tail_len;
+        buffer[10] = 0;
+        buffer[11] = self.window_size;
+        if let Some(buffered) = buffered {
+            flags |= FLAG_NEW_STREAM;
+            buffer[12] = buffered.len;
+            buffer[13] = written;
+            // 14, 15 reserved
+            buffer[16..16 + NUM_STREAM_HEADER_BYTES].copy_from_slice(&buffered.bytes);
+        }
+        buffer[9] = flags;
         Ok(())
     }
+
     /// Creates a `BroCatli` with an initial window size.
     ///
     /// Panics for invalid window sizes. Use `try_new_with_window_size` to detect
@@ -257,245 +358,40 @@ impl BroCatli {
 
     /// Creates a `BroCatli` with an initial window size, or returns an error for invalid sizes.
     pub fn try_new_with_window_size(log_window_size: u8) -> Result<BroCatli, BroCatliResult> {
-        // in this case setup the last_bytes of the stream to perfectly mimic what would
-        // appear in an empty stream with the selected window size...
-        // this means the window size followed by 2 sequential 1 bits (LAST_METABLOCK, EMPTY)
-        // the new_stream code should naturally find the sequential 1 bits and mask them
-        // out and then prepend the window size... then the following window sizes should
-        // be checked to be shorter
-        let last_bytes_len;
-        let last_bytes;
-
-        if log_window_size > 24 {
-            last_bytes = [17u8, log_window_size | 64 | 128];
-            last_bytes_len = 2;
-        } else if log_window_size == 16 {
-            // Window size 16 is encoded as a single `0` bit, so bit 0 must stay clear;
-            // only the two trailing ISLAST/ISLASTEMPTY bits are set (`0b110`). The previous
-            // `1 | 2 | 4` set the window bit too, yielding an invalid empty stream.
-            last_bytes = [2 | 4, 0];
-            last_bytes_len = 1;
-        } else if log_window_size > 17 {
-            last_bytes = [(3 + (log_window_size - 18) * 2) | (16 | 32), 0];
-            last_bytes_len = 1;
-        } else {
-            match log_window_size {
-                15 => last_bytes = [0x71 | 0x80, 1],
-                14 => last_bytes = [0x61 | 0x80, 1],
-                13 => last_bytes = [0x51 | 0x80, 1],
-                12 => last_bytes = [0x41 | 0x80, 1],
-                11 => last_bytes = [0x31 | 0x80, 1],
-                10 => last_bytes = [0x21 | 0x80, 1],
-                17 => last_bytes = [0x1 | 0x80, 1],
-                _ => return Err(BroCatliResult::InvalidWindowSize),
+        // Start as if an empty stream with this window size had already been written: the first
+        // stream is then spliced onto it, checking its window size like any later stream's.
+        let mut empty_stream = BitWriter::default();
+        let window_size = u64::from(log_window_size);
+        match log_window_size {
+            16 => empty_stream.write(0, 1),
+            17 => empty_stream.write(0b0000001, 7),
+            18..=24 => empty_stream.write(1 | ((window_size - 17) << 1), 4),
+            10..=15 => empty_stream.write(1 | ((window_size - 8) << 4), 7),
+            25..=30 => {
+                empty_stream.write(0x11, 8);
+                empty_stream.write(window_size, 6);
             }
-            last_bytes_len = 2;
+            _ => return Err(BroCatliResult::InvalidWindowSize),
         }
-        Ok(BroCatli {
-            last_bytes,
-            last_bytes_len,
-            last_byte_bit_offset: 0,
-            last_byte_sanitized: false,
-            any_bytes_emitted: false,
-            new_stream_pending: None,
+        empty_stream.write(0b11, 2); // ISLAST, ISLASTEMPTY
+        let (bytes, len) = empty_stream.finish();
+        let mut ret = BroCatli {
             window_size: log_window_size,
-        })
+            ..BroCatli::default()
+        };
+        ret.set_tail(&bytes[..len]);
+        Ok(ret)
     }
 
     pub fn new_brotli_file(&mut self) {
-        if let Some(new_stream_pending) = &mut self.new_stream_pending {
-            if new_stream_pending.num_bytes_read != 0
-                && new_stream_pending.num_bytes_written.is_none()
-            {
-                // the previous file was too short to be recognized as a complete header: keep it
-                // pending so the next stream() writes it out before starting this file
-                new_stream_pending.input_complete = true;
-                return;
-            }
-        }
-        self.new_stream_pending = Some(NewStreamData::new());
-    }
-    fn flush_previous_stream(
-        &mut self,
-        out_bytes: &mut [u8],
-        out_offset: &mut usize,
-    ) -> BroCatliResult {
-        if !self.last_byte_sanitized {
-            // if the previous stream hasn't had the last metablock (bit 1,1) sanitized
-            if self.last_bytes_len == 0 {
-                // first stream or otherwise sanitized
-                self.last_byte_sanitized = true;
-                return BroCatliResult::Success;
-            }
-            // create a 16 bit integer with the last 2 bytes of data
-            let mut last_bytes = self.last_bytes[0] as u16 + ((self.last_bytes[1] as u16) << 8);
-            let max = self.last_bytes_len * 8;
-            let mut index = max - 1;
-            for i in 0..max {
-                index = max - 1 - i;
-                if ((1 << index) & last_bytes) != 0 {
-                    break; // find the highest set bit
-                }
-            }
-            if index == 0 {
-                // if the bit is too low, return failure, since both bits could not possibly have been set
-                return BroCatliResult::BrotliFileNotCraftedForAppend;
-            }
-            if (last_bytes >> (index - 1)) != 3 {
-                // last two bits need to be set for the final metablock
-                return BroCatliResult::BrotliFileNotCraftedForAppend;
-            }
-            index -= 1; // discard the final two bits
-            if index >= 8 && out_bytes.len() == *out_offset {
-                // bail out before touching last_bytes: masking twice would strip two more bits
-                return BroCatliResult::NeedsMoreOutput;
-            }
-            last_bytes &= (1 << index) - 1; // mask them out
-            self.last_bytes[0] = last_bytes as u8; // reset the last_bytes pair
-            self.last_bytes[1] = (last_bytes >> 8) as u8;
-            if index >= 8 {
-                // if both bits and one useful bit were in the second block, then write that
-                if out_bytes.len() > *out_offset {
-                    out_bytes[*out_offset] = self.last_bytes[0];
-                    self.last_bytes[0] = self.last_bytes[1];
-                    *out_offset += 1;
-                    self.any_bytes_emitted = true;
-                    index -= 8;
-                    self.last_bytes_len -= 1;
-                } else {
-                    return BroCatliResult::NeedsMoreOutput;
-                }
-            } else {
-                // All remaining useful bits live in the first byte, so the second byte
-                // (masked out above) no longer carries data. Drop it from the length,
-                // otherwise the stale byte survives with a bit offset of up to 7 and later
-                // makes `append_eof_metablock_to_last_bytes` compute a bit position of 15,
-                // where `3u16 << 15` overflows and corrupts the final metablock.
-                self.last_bytes_len = 1;
-            }
-            self.last_byte_bit_offset = index;
-            assert!(index < 8);
-            self.last_byte_sanitized = true;
-        }
-        BroCatliResult::Success
+        self.phase = match self.phase {
+            // a stream is spliced as soon as its header is complete, so this one was cut short
+            Phase::ReadHeader(header) if header.len != 0 => Phase::Truncated,
+            Phase::Truncated => Phase::Truncated,
+            _ => Phase::ReadHeader(ByteBuf::default()),
+        };
     }
 
-    fn shift_and_check_new_stream_header(
-        &mut self,
-        mut new_stream_pending: NewStreamData,
-        out_bytes: &mut [u8],
-        out_offset: &mut usize,
-    ) -> BroCatliResult {
-        if new_stream_pending.num_bytes_written.is_none() {
-            let (window_size, window_offset) = if let Ok(results) = parse_window_size(
-                &new_stream_pending.bytes_so_far[..usize::from(new_stream_pending.num_bytes_read)],
-            ) {
-                results
-            } else {
-                return BroCatliResult::InvalidWindowSize;
-            };
-            if self.window_size == 0 {
-                // parse window size and just copy everything
-                self.window_size = window_size;
-                assert_eq!(self.last_byte_bit_offset, 0); // we are first stream
-                new_stream_pending.num_bytes_written = Some(0);
-            } else {
-                if window_size > self.window_size {
-                    return BroCatliResult::WindowSizeLargerThanPreviousFile;
-                }
-                let mut realigned_header: [u8; NUM_STREAM_HEADER_BYTES + 1] =
-                    [self.last_bytes[0], 0, 0, 0, 0, 0];
-                let varlen_offset = if let Ok(voffset) = detect_varlen_offset(
-                    &new_stream_pending.bytes_so_far
-                        [..usize::from(new_stream_pending.num_bytes_read)],
-                ) {
-                    voffset
-                } else {
-                    return BroCatliResult::BrotliFileNotCraftedForConcatenation;
-                };
-                let mut bytes_so_far = 0u64;
-                for index in 0..usize::from(new_stream_pending.num_bytes_read) {
-                    bytes_so_far |=
-                        u64::from(new_stream_pending.bytes_so_far[index]) << (index * 8);
-                }
-                bytes_so_far >>= window_offset; // mask out the window size
-                bytes_so_far &= (1u64 << (varlen_offset - window_offset)) - 1;
-                let var_len_bytes = (((varlen_offset - window_offset) + 7) / 8);
-                for byte_index in 0..var_len_bytes {
-                    let cur_byte = (bytes_so_far >> (byte_index * 8));
-                    realigned_header[byte_index] |=
-                        ((cur_byte & ((1 << (8 - self.last_byte_bit_offset)) - 1))
-                            << self.last_byte_bit_offset) as u8;
-                    realigned_header[byte_index + 1] =
-                        (cur_byte >> (8 - self.last_byte_bit_offset)) as u8;
-                }
-                let whole_byte_destination =
-                    ((usize::from(self.last_byte_bit_offset) + varlen_offset - window_offset) + 7)
-                        / 8;
-                let whole_byte_source = (varlen_offset + 7) / 8;
-                if whole_byte_source > usize::from(new_stream_pending.num_bytes_read) {
-                    return BroCatliResult::BrotliFileNotCraftedForConcatenation;
-                }
-                let num_whole_bytes_to_copy =
-                    usize::from(new_stream_pending.num_bytes_read) - whole_byte_source;
-                for aligned_index in 0..num_whole_bytes_to_copy {
-                    realigned_header[whole_byte_destination + aligned_index] =
-                        new_stream_pending.bytes_so_far[whole_byte_source + aligned_index];
-                }
-                let realigned_len = whole_byte_destination + num_whole_bytes_to_copy;
-                // the realigned header can be one byte longer than bytes_so_far holds; that only
-                // happens when it is at least 6 bytes long, so its first byte is never one of the
-                // final bytes held back below and can be written out now
-                let realigned_start = if realigned_len > NUM_STREAM_HEADER_BYTES {
-                    out_bytes[*out_offset] = realigned_header[0];
-                    self.any_bytes_emitted = true;
-                    *out_offset += 1;
-                    1
-                } else {
-                    0
-                };
-                new_stream_pending.num_bytes_read = (realigned_len - realigned_start) as u8;
-                new_stream_pending.num_bytes_written = Some(0);
-                new_stream_pending.bytes_so_far.clone_from_slice(
-                    &realigned_header[realigned_start..realigned_start + NUM_STREAM_HEADER_BYTES],
-                );
-            }
-        } else {
-            assert_ne!(self.window_size, 0);
-        }
-        let num_bytes_read = usize::from(new_stream_pending.num_bytes_read);
-        let num_bytes_written = usize::from(new_stream_pending.num_bytes_written.unwrap());
-        // hold the final two header bytes back in last_bytes rather than writing them out:
-        // they may carry this stream's ISLAST/ISLASTEMPTY bits (both of them, when an empty
-        // stream's pair straddles a byte boundary), which the next file must be able to clear
-        let emit_end = max(num_bytes_written, num_bytes_read - min(2, num_bytes_read));
-        let to_copy = min(out_bytes.len() - *out_offset, emit_end - num_bytes_written);
-        out_bytes[*out_offset..*out_offset + to_copy].clone_from_slice(
-            &new_stream_pending.bytes_so_far[num_bytes_written..num_bytes_written + to_copy],
-        );
-        *out_offset += to_copy;
-        if to_copy != 0 {
-            self.any_bytes_emitted = true;
-        }
-        new_stream_pending.num_bytes_written = Some((num_bytes_written + to_copy) as u8);
-        if num_bytes_written + to_copy != emit_end {
-            self.new_stream_pending = Some(new_stream_pending);
-            return BroCatliResult::NeedsMoreOutput;
-        }
-        self.new_stream_pending = if new_stream_pending.input_complete {
-            Some(NewStreamData::new())
-        } else {
-            None
-        };
-        self.last_byte_sanitized = false;
-        self.last_byte_bit_offset = 0;
-        let held = num_bytes_read - emit_end;
-        self.last_bytes = [0, 0];
-        self.last_bytes[..held]
-            .clone_from_slice(&new_stream_pending.bytes_so_far[emit_end..num_bytes_read]);
-        self.last_bytes_len = held as u8;
-        BroCatliResult::Success
-    }
     pub fn stream(
         &mut self,
         in_bytes: &[u8],
@@ -503,183 +399,182 @@ impl BroCatli {
         out_bytes: &mut [u8],
         out_offset: &mut usize,
     ) -> BroCatliResult {
-        if let Some(mut new_stream_pending) = self.new_stream_pending {
-            let flush_result = self.flush_previous_stream(out_bytes, out_offset);
-            if let BroCatliResult::Success = flush_result {
-                // once the header has been parsed, bytes_so_far holds the realigned header waiting
-                // for output space: it must not take more input or be parsed again
-                let header_parsed = new_stream_pending.num_bytes_written.is_some();
-                let input_complete = new_stream_pending.input_complete;
-                if !header_parsed
-                    && !input_complete
-                    && usize::from(new_stream_pending.num_bytes_read)
-                        < new_stream_pending.bytes_so_far.len()
-                {
+        loop {
+            match self.phase {
+                Phase::PassThrough => {
+                    return self.pass_through(in_bytes, in_offset, out_bytes, out_offset)
+                }
+                Phase::Truncated => return BroCatliResult::BrotliFileNotCraftedForConcatenation,
+                Phase::ReadHeader(mut header) => {
+                    while usize::from(header.len) < max_header_bytes(header.as_slice())
+                        && *in_offset < in_bytes.len()
                     {
-                        let dst = &mut new_stream_pending.bytes_so_far
-                            [usize::from(new_stream_pending.num_bytes_read)..];
-                        let to_copy = min(dst.len(), in_bytes.len() - *in_offset);
-                        dst[..to_copy]
-                            .clone_from_slice(in_bytes.split_at(*in_offset).1.split_at(to_copy).0);
-                        *in_offset += to_copy;
-                        new_stream_pending.num_bytes_read += to_copy as u8;
+                        header.bytes[usize::from(header.len)] = in_bytes[*in_offset];
+                        header.len += 1;
+                        *in_offset += 1;
                     }
-                    self.new_stream_pending = Some(new_stream_pending); // write back changes
+                    self.phase = Phase::ReadHeader(header);
+                    match self.splice(header.as_slice()) {
+                        Ok(Some(bytes)) => self.phase = Phase::WriteSplice { bytes, written: 0 },
+                        Ok(None) => return BroCatliResult::NeedsMoreInput,
+                        Err(err) => return err,
+                    }
                 }
-                if !header_parsed && !input_complete && !new_stream_pending.sufficient() {
-                    return BroCatliResult::NeedsMoreInput;
+                Phase::WriteSplice { bytes, written } => {
+                    let unwritten = &bytes.as_slice()[usize::from(written)..];
+                    let written = written + self.write_out(unwritten, out_bytes, out_offset) as u8;
+                    if written != bytes.len {
+                        self.phase = Phase::WriteSplice { bytes, written };
+                        return BroCatliResult::NeedsMoreOutput;
+                    }
+                    self.phase = Phase::PassThrough;
                 }
-                if out_bytes.len() == *out_offset {
-                    return BroCatliResult::NeedsMoreOutput;
-                }
-                let shift_result = self.shift_and_check_new_stream_header(
-                    new_stream_pending,
-                    out_bytes,
-                    out_offset,
-                );
-                if let BroCatliResult::Success = shift_result {
-                } else {
-                    return shift_result;
-                }
-                if self.new_stream_pending.is_some() {
-                    // a complete short file was just written out; now start on the next one
-                    return self.stream(in_bytes, in_offset, out_bytes, out_offset);
-                }
-            } else {
-                return flush_result;
             }
-            if *out_offset == out_bytes.len() {
-                return BroCatliResult::NeedsMoreOutput; // need to be able to write at least one byte of data to make progress
-            }
-        }
-        assert!(self.new_stream_pending.is_none()); // this should have been handled above
-        if self.last_bytes_len != 2 {
-            if out_bytes.len() == *out_offset {
-                return BroCatliResult::NeedsMoreOutput;
-            }
-            if in_bytes.len() == *in_offset {
-                return BroCatliResult::NeedsMoreInput;
-            }
-            self.last_bytes[usize::from(self.last_bytes_len)] = in_bytes[*in_offset];
-            *in_offset += 1;
-            self.last_bytes_len += 1;
-            if self.last_bytes_len != 2 {
-                if out_bytes.len() == *out_offset {
-                    return BroCatliResult::NeedsMoreOutput;
-                }
-                if in_bytes.len() == *in_offset {
-                    return BroCatliResult::NeedsMoreInput;
-                }
-                self.last_bytes[usize::from(self.last_bytes_len)] = in_bytes[*in_offset];
-                self.last_bytes_len += 1;
-                *in_offset += 1;
-            }
-        }
-        if out_bytes.len() == *out_offset {
-            return BroCatliResult::NeedsMoreOutput;
-        }
-        if in_bytes.len() == *in_offset {
-            return BroCatliResult::NeedsMoreInput;
-        }
-        let mut to_copy = min(out_bytes.len() - *out_offset, in_bytes.len() - *in_offset);
-        assert_ne!(to_copy, 0);
-        if to_copy == 1 {
-            out_bytes[*out_offset] = self.last_bytes[0];
-            self.last_bytes[0] = self.last_bytes[1];
-            self.last_bytes[1] = in_bytes[*in_offset];
-            *in_offset += 1;
-            *out_offset += 1;
-            if *out_offset == out_bytes.len() {
-                return BroCatliResult::NeedsMoreOutput;
-            }
-            return BroCatliResult::NeedsMoreInput;
-        }
-        out_bytes
-            .split_at_mut(*out_offset)
-            .1
-            .split_at_mut(2)
-            .0
-            .clone_from_slice(&self.last_bytes[..]);
-        *out_offset += 2;
-        let (new_in_offset, last_two) = in_bytes
-            .split_at(*in_offset)
-            .1
-            .split_at(to_copy)
-            .0
-            .split_at(to_copy - 2);
-        self.last_bytes.clone_from_slice(last_two);
-        *in_offset += 2; // add this after the clone since we grab the last 2 bytes, not the first
-        to_copy -= 2;
-        out_bytes
-            .split_at_mut(*out_offset)
-            .1
-            .split_at_mut(to_copy)
-            .0
-            .clone_from_slice(new_in_offset);
-        *out_offset += to_copy;
-        *in_offset += to_copy;
-        if *out_offset == out_bytes.len() {
-            return BroCatliResult::NeedsMoreOutput;
-        }
-        BroCatliResult::NeedsMoreInput
-    }
-    fn append_eof_metablock_to_last_bytes(&mut self) {
-        assert!(self.last_byte_sanitized);
-        let mut last_bytes = self.last_bytes[0] as u16 | ((self.last_bytes[1] as u16) << 8);
-        let bit_end = (self.last_bytes_len - 1) * 8 + self.last_byte_bit_offset;
-        last_bytes |= 3 << bit_end;
-        self.last_bytes[0] = last_bytes as u8;
-        self.last_bytes[1] = (last_bytes >> 8) as u8;
-        self.last_byte_sanitized = false;
-        self.last_byte_bit_offset += 2;
-        if self.last_byte_bit_offset >= 8 {
-            self.last_byte_bit_offset -= 8;
-            self.last_bytes_len += 1;
         }
     }
+
     pub fn finish(&mut self, out_bytes: &mut [u8], out_offset: &mut usize) -> BroCatliResult {
-        if let Some(mut new_stream_pending) = self.new_stream_pending {
-            if new_stream_pending.num_bytes_read != 0 {
-                // the last file is either a parsed header still waiting for output space, or a
-                // file too short to have been recognized as a complete header until now
-                if new_stream_pending.num_bytes_written.is_none() {
-                    new_stream_pending.input_complete = true;
-                }
-                if *out_offset == out_bytes.len() {
-                    return BroCatliResult::NeedsMoreOutput;
-                }
-                let shift_result = self.shift_and_check_new_stream_header(
-                    new_stream_pending,
-                    out_bytes,
-                    out_offset,
-                );
-                if shift_result != BroCatliResult::Success {
-                    return shift_result;
-                }
+        // Write out whatever of the last stream is still pending.
+        if let Phase::ReadHeader(header) = self.phase {
+            if header.len != 0 {
+                self.phase = Phase::Truncated;
             }
         }
-        if self.last_byte_sanitized && self.last_bytes_len != 0 {
-            self.append_eof_metablock_to_last_bytes();
+        match self.stream(&[], &mut 0, out_bytes, out_offset) {
+            BroCatliResult::NeedsMoreInput => {}
+            result => return result,
         }
-        while self.last_bytes_len != 0 {
-            if *out_offset == out_bytes.len() {
+        // The tail holds the final empty meta-block, which now does end the stream.
+        while self.tail_len != 0 {
+            let byte = self.tail[0];
+            if self.write_out(&[byte], out_bytes, out_offset) == 0 {
                 return BroCatliResult::NeedsMoreOutput;
             }
-            out_bytes[*out_offset] = self.last_bytes[0];
-            *out_offset += 1;
-            self.last_bytes_len -= 1;
-            self.last_bytes[0] = self.last_bytes[1];
-            self.any_bytes_emitted = true;
+            self.tail = [self.tail[1], 0];
+            self.tail_len -= 1;
         }
         if !self.any_bytes_emitted {
-            if out_bytes.len() == *out_offset {
+            // No streams at all: write an empty one.
+            if self.write_out(b";", out_bytes, out_offset) == 0 {
                 return BroCatliResult::NeedsMoreOutput;
             }
-            self.any_bytes_emitted = true;
-            out_bytes[*out_offset] = b';';
-            *out_offset += 1;
         }
         BroCatliResult::Success
+    }
+
+    /// Reads as much of a new stream as splicing it on takes: its window size and, unless it is the
+    /// first stream, its first meta-block header. Returns the window size and where that header
+    /// starts and ends, in bits.
+    fn read_stream_start(&self, header: &[u8]) -> Result<(u8, usize, usize), ParseError> {
+        let mut reader = BitReader {
+            bytes: header,
+            position: 0,
+        };
+        let window_size = reader.read_window_size()?;
+        let metablock_header_start = reader.position;
+        if self.window_size != 0 {
+            if window_size > self.window_size {
+                return Err(ParseError::Invalid(
+                    BroCatliResult::WindowSizeLargerThanPreviousFile,
+                ));
+            }
+            reader.read_first_metablock_header()?;
+        }
+        Ok((window_size, metablock_header_start, reader.position))
+    }
+
+    /// Splices the stream that starts with `header` onto the output: the output loses its final
+    /// empty meta-block, the stream loses its window size, and the two are joined bit by bit. The
+    /// last two bytes of the result become the new tail; the rest is returned, ready to write.
+    /// Returns `Ok(None)` if more of the stream is needed to find where it becomes byte aligned.
+    fn splice(&mut self, header: &[u8]) -> Result<Option<ByteBuf>, BroCatliResult> {
+        let (window_size, start, end) = match self.read_stream_start(header) {
+            Ok(parsed) => parsed,
+            Err(ParseError::Incomplete) if header.len() < max_header_bytes(header) => {
+                return Ok(None)
+            }
+            Err(ParseError::Incomplete) => {
+                return Err(BroCatliResult::BrotliFileNotCraftedForConcatenation)
+            }
+            Err(ParseError::Invalid(err)) => return Err(err),
+        };
+        let mut spliced = BitWriter::default();
+        if self.window_size == 0 {
+            // The first stream is copied as is.
+            self.window_size = window_size;
+            spliced.write_bytes(header);
+        } else {
+            let tail = &self.tail[..usize::from(self.tail_len)];
+            let (output_bits, num_output_bits) = remove_final_empty_metablock(tail)
+                .ok_or(BroCatliResult::BrotliFileNotCraftedForAppend)?;
+            spliced.write(output_bits, num_output_bits);
+            spliced.write(bit_range(header, start, end), end - start);
+            // the stream is padded to a byte boundary after this header, so the rest of it can be
+            // copied byte by byte
+            spliced.pad_to_byte();
+            spliced.write_bytes(&header[(end + 7) / 8..]);
+        }
+        let (bytes, len) = spliced.finish();
+        let tail_len = min(2, len);
+        self.set_tail(&bytes[len - tail_len..len]);
+        Ok(Some(ByteBuf::from_slice(&bytes[..len - tail_len])))
+    }
+
+    /// Copies the current stream through to the output, keeping its last two bytes in the tail.
+    fn pass_through(
+        &mut self,
+        in_bytes: &[u8],
+        in_offset: &mut usize,
+        out_bytes: &mut [u8],
+        out_offset: &mut usize,
+    ) -> BroCatliResult {
+        loop {
+            let input = &in_bytes[*in_offset..];
+            if input.is_empty() {
+                return BroCatliResult::NeedsMoreInput;
+            }
+            if self.tail_len < 2 {
+                self.tail[usize::from(self.tail_len)] = input[0];
+                self.tail_len += 1;
+                *in_offset += 1;
+                continue;
+            }
+            if *out_offset == out_bytes.len() {
+                return BroCatliResult::NeedsMoreOutput;
+            }
+            // Of the tail followed by the next `count` input bytes, the first `count` go out and
+            // the last two become the tail.
+            let count = min(input.len(), out_bytes.len() - *out_offset);
+            let output = &mut out_bytes[*out_offset..*out_offset + count];
+            if count == 1 {
+                output[0] = self.tail[0];
+                self.tail = [self.tail[1], input[0]];
+            } else {
+                output[..2].copy_from_slice(&self.tail);
+                output[2..].copy_from_slice(&input[..count - 2]);
+                self.tail.copy_from_slice(&input[count - 2..count]);
+            }
+            *in_offset += count;
+            *out_offset += count;
+            self.any_bytes_emitted = true;
+        }
+    }
+
+    /// Writes as much of `bytes` as fits, returning how many bytes that was.
+    fn write_out(&mut self, bytes: &[u8], out_bytes: &mut [u8], out_offset: &mut usize) -> usize {
+        let count = min(bytes.len(), out_bytes.len() - *out_offset);
+        out_bytes[*out_offset..*out_offset + count].copy_from_slice(&bytes[..count]);
+        *out_offset += count;
+        if count != 0 {
+            self.any_bytes_emitted = true;
+        }
+        count
+    }
+
+    fn set_tail(&mut self, bytes: &[u8]) {
+        self.tail = [0, 0];
+        self.tail[..bytes.len()].copy_from_slice(bytes);
+        self.tail_len = bytes.len() as u8;
     }
 }
 
@@ -700,76 +595,42 @@ mod test {
     #[test]
     fn test_deserialization() {
         let broccoli = BroCatli {
-            new_stream_pending: Some(super::NewStreamData {
-                bytes_so_far: [0x33; super::NUM_STREAM_HEADER_BYTES],
-                num_bytes_read: super::NUM_STREAM_HEADER_BYTES as u8,
-                num_bytes_written: Some(3),
-                input_complete: false,
-            }),
-            last_bytes: [0x45, 0x46],
-            last_bytes_len: 1,
-            last_byte_sanitized: true,
-            any_bytes_emitted: false,
-            last_byte_bit_offset: 7,
+            tail: [0x45, 0x46],
+            tail_len: 1,
             window_size: 22,
+            any_bytes_emitted: false,
+            phase: super::Phase::WriteSplice {
+                bytes: super::ByteBuf {
+                    bytes: [0x33; super::NUM_STREAM_HEADER_BYTES],
+                    len: super::NUM_STREAM_HEADER_BYTES as u8,
+                },
+                written: 3,
+            },
         };
         let mut buffer = [0u8; 248];
         broccoli.serialize_to_buffer(&mut buffer[..]).unwrap();
         let bc = BroCatli::deserialize_from_buffer(&buffer[..]).unwrap();
-        assert_eq!(broccoli.last_bytes, bc.last_bytes);
-        assert_eq!(broccoli.last_bytes_len, bc.last_bytes_len);
-        assert_eq!(broccoli.last_byte_sanitized, bc.last_byte_sanitized);
-        assert_eq!(broccoli.last_byte_bit_offset, bc.last_byte_bit_offset);
-        assert_eq!(broccoli.window_size, bc.window_size);
-        assert_eq!(
-            broccoli.new_stream_pending.unwrap().bytes_so_far,
-            bc.new_stream_pending.unwrap().bytes_so_far
-        );
-        assert_eq!(
-            broccoli.new_stream_pending.unwrap().num_bytes_read,
-            bc.new_stream_pending.unwrap().num_bytes_read
-        );
-        assert_eq!(
-            broccoli.new_stream_pending.unwrap().num_bytes_written,
-            bc.new_stream_pending.unwrap().num_bytes_written
-        );
+        assert_eq!(broccoli, bc);
     }
     #[test]
     fn test_deserialization_any_written() {
         let broccoli = BroCatli {
-            new_stream_pending: Some(super::NewStreamData {
-                bytes_so_far: [0x33; super::NUM_STREAM_HEADER_BYTES],
-                num_bytes_read: super::NUM_STREAM_HEADER_BYTES as u8,
-                num_bytes_written: Some(3),
-                input_complete: false,
-            }),
-            last_bytes: [0x45, 0x46],
-            last_bytes_len: 1,
-            last_byte_sanitized: true,
-            any_bytes_emitted: true,
-            last_byte_bit_offset: 7,
+            tail: [0x45, 0x46],
+            tail_len: 1,
             window_size: 22,
+            any_bytes_emitted: true,
+            phase: super::Phase::WriteSplice {
+                bytes: super::ByteBuf {
+                    bytes: [0x33; super::NUM_STREAM_HEADER_BYTES],
+                    len: super::NUM_STREAM_HEADER_BYTES as u8,
+                },
+                written: 3,
+            },
         };
         let mut buffer = [0u8; 248];
         broccoli.serialize_to_buffer(&mut buffer[..]).unwrap();
         let bc = BroCatli::deserialize_from_buffer(&buffer[..]).unwrap();
-        assert_eq!(broccoli.last_bytes, bc.last_bytes);
-        assert_eq!(broccoli.last_bytes_len, bc.last_bytes_len);
-        assert_eq!(broccoli.last_byte_sanitized, bc.last_byte_sanitized);
-        assert_eq!(broccoli.last_byte_bit_offset, bc.last_byte_bit_offset);
-        assert_eq!(broccoli.window_size, bc.window_size);
-        assert_eq!(
-            broccoli.new_stream_pending.unwrap().bytes_so_far,
-            bc.new_stream_pending.unwrap().bytes_so_far
-        );
-        assert_eq!(
-            broccoli.new_stream_pending.unwrap().num_bytes_read,
-            bc.new_stream_pending.unwrap().num_bytes_read
-        );
-        assert_eq!(
-            broccoli.new_stream_pending.unwrap().num_bytes_written,
-            bc.new_stream_pending.unwrap().num_bytes_written
-        );
+        assert_eq!(broccoli, bc);
     }
     #[test]
     fn test_serialization() {
