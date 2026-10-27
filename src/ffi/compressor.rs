@@ -394,9 +394,13 @@ pub unsafe extern "C" fn BrotliEncoderMallocUsize(
     size: usize,
 ) -> *mut usize {
     if let Some(alloc_fn) = (*state_ptr).custom_allocator.alloc_func {
+        let alloc_size = match size.checked_mul(core::mem::size_of::<usize>()) {
+            Some(alloc_size) => alloc_size,
+            None => return core::ptr::null_mut(),
+        };
         core::mem::transmute::<*mut c_void, *mut usize>(alloc_fn(
             (*state_ptr).custom_allocator.opaque,
-            size * core::mem::size_of::<usize>(),
+            alloc_size,
         ))
     } else {
         alloc_util::alloc_stdlib(size)
@@ -471,5 +475,37 @@ mod test {
             )
         };
         assert!(state.is_null());
+    }
+
+    static ALLOC_CALLS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
+
+    extern "C" fn counting_alloc(_opaque: *mut c_void, _size: usize) -> *mut c_void {
+        ALLOC_CALLS.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
+        core::ptr::null_mut()
+    }
+
+    // A count whose byte size does not fit in usize must fail without asking
+    // the C allocator for the wrapped-around (tiny) size.
+    #[test]
+    fn test_malloc_usize_rejects_byte_count_overflow() {
+        let allocators = CAllocator {
+            alloc_func: Some(counting_alloc),
+            free_func: Some(failing_free),
+            opaque: core::ptr::null_mut(),
+        };
+        let mut state = BrotliEncoderState {
+            custom_allocator: allocators.clone(),
+            compressor: BrotliEncoderStateStruct::new(BrotliSubclassableAllocator::new(unsafe {
+                SubclassableAllocator::new(allocators)
+            })),
+        };
+        let calls_before = ALLOC_CALLS.load(core::sync::atomic::Ordering::SeqCst);
+        let too_many = usize::MAX / core::mem::size_of::<usize>() + 1;
+        let ptr = unsafe { BrotliEncoderMallocUsize(&mut state, too_many) };
+        assert!(ptr.is_null());
+        assert_eq!(
+            ALLOC_CALLS.load(core::sync::atomic::Ordering::SeqCst),
+            calls_before
+        );
     }
 }
