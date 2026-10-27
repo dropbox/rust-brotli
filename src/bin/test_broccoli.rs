@@ -303,6 +303,46 @@ fn test_empty_then_cat_works() {
 }
 
 #[test]
+fn test_empty_streams_with_small_windows_and_buffers() {
+    // empty streams in windows 10..=15 and 17 end with an ISLAST/ISLASTEMPTY pair that
+    // straddles a byte boundary once realigned, and byte-aligned empty streams are shorter
+    // than a full stream header; mix both with data at tiny buffer sizes
+    for byte_align in [false, true] {
+        for lgwin in [10, 12, 15, 16, 17, 18, 22, 24] {
+            for data_first in [false, true] {
+                let data: [&[u8]; 6] = if data_first {
+                    [QUICKFOX, &[], &[], &[8], &[], &[]]
+                } else {
+                    [&[], &[], QUICKFOX, &[], &[8], &[]]
+                };
+                let mut files = data.map(UnlimitedBuffer::new);
+                let mut ufiles = [(); 6].map(|_| UnlimitedBuffer::new(&[]));
+                let mut first = true;
+                for (src, dst) in files.iter_mut().zip(ufiles.iter_mut()) {
+                    let mut params0 = BrotliEncoderParams::default();
+                    params0.lgwin = lgwin;
+                    params0.byte_align = byte_align;
+                    params0.appendable = first;
+                    params0.catable = !first;
+                    params0.use_dictionary = first;
+                    super::compress(src, dst, 4096, &params0, &[], 1).unwrap();
+                    src.reset_read();
+                    first = false;
+                }
+                for bs in 1..=4 {
+                    concat(&mut files[..], &mut ufiles[..], None, bs);
+                    if !data_first {
+                        // a window override acts as a previous stream, so it can only precede
+                        // the empty first file, never the appendable (non-catable) data stream
+                        concat(&mut files[..], &mut ufiles[..], Some(lgwin as u8), bs);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn test_concat() {
     let mut files = [
         UnlimitedBuffer::new(ALICE),
