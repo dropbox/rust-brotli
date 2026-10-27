@@ -13,6 +13,7 @@
 #define BROTLI_DEC_DECODE_H_
 
 #include "port.h"
+#include "shared_dictionary.h"
 #include "types.h"
 
 #if defined(__cplusplus) || defined(c_plusplus)
@@ -85,8 +86,8 @@ typedef enum {
   BROTLI_ERROR_CODE(_ERROR_FORMAT_, PADDING_2, -15) SEPARATOR              \
   BROTLI_ERROR_CODE(_ERROR_FORMAT_, DISTANCE, -16) SEPARATOR               \
                                                                            \
-  /* -17..-18 codes are reserved */                                        \
-                                                                           \
+  /* -17 code is reserved */                                               \
+  BROTLI_ERROR_CODE(_ERROR_, COMPOUND_DICTIONARY, -18) SEPARATOR           \
   BROTLI_ERROR_CODE(_ERROR_, DICTIONARY_NOT_SET, -19) SEPARATOR            \
   BROTLI_ERROR_CODE(_ERROR_, INVALID_ARGUMENTS, -20) SEPARATOR             \
                                                                            \
@@ -117,6 +118,21 @@ typedef enum {
 } BrotliDecoderErrorCode;
 #undef BROTLI_ERROR_CODE_ENUM_ITEM_
 #undef BROTLI_COMMA_
+
+typedef struct HuffmanCodeStruct {
+    uint16_t value;
+    uint8_t bits;
+} HuffmanCode;
+
+
+
+typedef struct BrotliDecoderReturnInfoStruct {
+    size_t decoded_size;
+    char error[256];
+    BrotliDecoderResult result;
+    BrotliDecoderErrorCode code;
+} BrotliDecoderReturnInfo;
+
 
 /**
  * The value of the last error code, negative integer.
@@ -153,6 +169,28 @@ typedef enum BrotliDecoderParameter {
  */
 BROTLI_DEC_API BROTLI_BOOL BrotliDecoderSetParameter(
     BrotliDecoderState* state, BrotliDecoderParameter param, uint32_t value);
+
+/**
+ * Adds LZ77 prefix dictionary, adds or replaces built-in static dictionary and
+ * transforms.
+ *
+ * Attached dictionary ownership is not transferred.
+ * Data provided to this method should be kept accessible until
+ * decoding is finished and decoder instance is destroyed.
+ *
+ * @note Dictionaries can NOT be attached after actual decoding is started.
+ *
+ * @param state decoder instance
+ * @param type dictionary data format
+ * @param data_size length of memory region pointed by @p data
+ * @param data dictionary data in format corresponding to @p type
+ * @returns ::BROTLI_FALSE if dictionary is corrupted,
+ *          dictionary count limit is reached, or @p type is invalid
+ * @returns ::BROTLI_TRUE if dictionary is accepted / attached
+ */
+BROTLI_DEC_API BROTLI_BOOL BrotliDecoderAttachDictionary(
+    BrotliDecoderState* state, BrotliSharedDictionaryType type,
+    size_t data_size, const uint8_t data[BROTLI_ARRAY_PARAM(data_size)]);
 
 /**
  * Creates an instance of ::BrotliDecoderState and initializes it.
@@ -205,6 +243,25 @@ BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompress(
     size_t* decoded_size,
     uint8_t decoded_buffer[BROTLI_ARRAY_PARAM(*decoded_size)]);
 
+BROTLI_DEC_API BrotliDecoderReturnInfo BrotliDecoderDecompressWithReturnInfo(
+    size_t encoded_size,
+    const uint8_t encoded_buffer[BROTLI_ARRAY_PARAM(encoded_size)],
+    size_t decoded_size,
+    uint8_t decoded_buffer[BROTLI_ARRAY_PARAM(decoded_size)]);
+
+BROTLI_DEC_API BrotliDecoderReturnInfo BrotliDecoderDecompressPrealloc(
+    size_t encoded_size,
+    const uint8_t encoded_buffer[BROTLI_ARRAY_PARAM(encoded_size)],
+    size_t decoded_size,
+    uint8_t decoded_buffer[BROTLI_ARRAY_PARAM(decoded_size)],
+    size_t scratch_u8_size,
+    uint8_t scratch_u8_buffer[BROTLI_ARRAY_PARAM(scratch_u8_size)],
+    size_t scratch_u32_size,
+    uint32_t scratch_u32_buffer[BROTLI_ARRAY_PARAM(scratch_u32_size)],
+    size_t scratch_hc_size,
+    HuffmanCode scratch_hc_buffer[BROTLI_ARRAY_PARAM(scratch_hc_size)]
+    );
+
 /**
  * Decompresses the input stream to the output stream.
  *
@@ -246,6 +303,44 @@ BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompress(
 BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompressStream(
   BrotliDecoderState* state, size_t* available_in, const uint8_t** next_in,
   size_t* available_out, uint8_t** next_out, size_t* total_out);
+
+BROTLI_DEC_API BrotliDecoderResult BrotliDecoderDecompressStreaming(
+  BrotliDecoderState* state, size_t* available_in, const uint8_t* next_in,
+  size_t* available_out, uint8_t* next_out);
+
+/**
+ * Callback invoked once at the start of each metadata meta-block.
+ *
+ * @param opaque the value passed to ::BrotliDecoderSetMetadataCallbacks
+ * @param size total length of the metadata block payload, possibly 0
+ */
+typedef void (*brotli_decoder_metadata_start_func)(void* opaque, size_t size);
+
+/**
+ * Callback invoked zero or more times per metadata meta-block with consecutive
+ * pieces of its payload; the pieces sum to the size given to the start
+ * callback. @p data is only valid for the duration of the call.
+ */
+typedef void (*brotli_decoder_metadata_chunk_func)(void* opaque,
+                                                   const uint8_t* data,
+                                                   size_t size);
+
+/**
+ * Registers callbacks that receive the contents of metadata meta-blocks, which
+ * are otherwise skipped by the decoder and never appear in its output.
+ *
+ * Either callback may be NULL. Should be called before decoding starts.
+ *
+ * @param state decoder instance
+ * @param start_func called with the length of each metadata block
+ * @param chunk_func called with the payload bytes of each metadata block
+ * @param opaque passed through to both callbacks
+ */
+BROTLI_DEC_API void BrotliDecoderSetMetadataCallbacks(
+    BrotliDecoderState* state,
+    brotli_decoder_metadata_start_func start_func,
+    brotli_decoder_metadata_chunk_func chunk_func,
+    void* opaque);
 
 /**
  * Checks if decoder has more output.
