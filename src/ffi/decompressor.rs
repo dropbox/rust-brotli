@@ -256,7 +256,7 @@ mod test {
             assert_eq!(
                 BrotliEncoderCompressStream(
                     state,
-                    op(),
+                    op() as u32,
                     &mut available_in,
                     &mut next_in,
                     &mut available_out,
