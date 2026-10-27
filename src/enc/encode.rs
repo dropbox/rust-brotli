@@ -285,12 +285,77 @@ pub fn set_parameter(
     true
 }
 
+/// Translates a C-supplied parameter selector into the typed
+/// `BrotliEncoderParameter`, returning `None` for any value that is not a
+/// recognized parameter. The FFI receives the selector as an integer and calls
+/// this, so an out-of-range value coming from C cannot form an invalid enum
+/// discriminant at the ABI boundary.
+#[cfg(feature = "ffi-api")]
+pub(crate) fn encoder_parameter_from_u32(selector: u32) -> Option<BrotliEncoderParameter> {
+    use crate::enc::parameters::BrotliEncoderParameter::*;
+    Some(match selector {
+        x if x == BROTLI_PARAM_MODE as u32 => BROTLI_PARAM_MODE,
+        x if x == BROTLI_PARAM_QUALITY as u32 => BROTLI_PARAM_QUALITY,
+        x if x == BROTLI_PARAM_LGWIN as u32 => BROTLI_PARAM_LGWIN,
+        x if x == BROTLI_PARAM_LGBLOCK as u32 => BROTLI_PARAM_LGBLOCK,
+        x if x == BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING as u32 => {
+            BROTLI_PARAM_DISABLE_LITERAL_CONTEXT_MODELING
+        }
+        x if x == BROTLI_PARAM_SIZE_HINT as u32 => BROTLI_PARAM_SIZE_HINT,
+        x if x == BROTLI_PARAM_LARGE_WINDOW as u32 => BROTLI_PARAM_LARGE_WINDOW,
+        x if x == BROTLI_PARAM_Q9_5 as u32 => BROTLI_PARAM_Q9_5,
+        x if x == BROTLI_METABLOCK_CALLBACK as u32 => BROTLI_METABLOCK_CALLBACK,
+        x if x == BROTLI_PARAM_STRIDE_DETECTION_QUALITY as u32 => {
+            BROTLI_PARAM_STRIDE_DETECTION_QUALITY
+        }
+        x if x == BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY as u32 => {
+            BROTLI_PARAM_HIGH_ENTROPY_DETECTION_QUALITY
+        }
+        x if x == BROTLI_PARAM_LITERAL_BYTE_SCORE as u32 => BROTLI_PARAM_LITERAL_BYTE_SCORE,
+        x if x == BROTLI_PARAM_CDF_ADAPTATION_DETECTION as u32 => {
+            BROTLI_PARAM_CDF_ADAPTATION_DETECTION
+        }
+        x if x == BROTLI_PARAM_PRIOR_BITMASK_DETECTION as u32 => {
+            BROTLI_PARAM_PRIOR_BITMASK_DETECTION
+        }
+        x if x == BROTLI_PARAM_SPEED as u32 => BROTLI_PARAM_SPEED,
+        x if x == BROTLI_PARAM_SPEED_MAX as u32 => BROTLI_PARAM_SPEED_MAX,
+        x if x == BROTLI_PARAM_CM_SPEED as u32 => BROTLI_PARAM_CM_SPEED,
+        x if x == BROTLI_PARAM_CM_SPEED_MAX as u32 => BROTLI_PARAM_CM_SPEED_MAX,
+        x if x == BROTLI_PARAM_SPEED_LOW as u32 => BROTLI_PARAM_SPEED_LOW,
+        x if x == BROTLI_PARAM_SPEED_LOW_MAX as u32 => BROTLI_PARAM_SPEED_LOW_MAX,
+        x if x == BROTLI_PARAM_CM_SPEED_LOW as u32 => BROTLI_PARAM_CM_SPEED_LOW,
+        x if x == BROTLI_PARAM_CM_SPEED_LOW_MAX as u32 => BROTLI_PARAM_CM_SPEED_LOW_MAX,
+        x if x == BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH as u32 => {
+            BROTLI_PARAM_AVOID_DISTANCE_PREFIX_SEARCH
+        }
+        x if x == BROTLI_PARAM_CATABLE as u32 => BROTLI_PARAM_CATABLE,
+        x if x == BROTLI_PARAM_APPENDABLE as u32 => BROTLI_PARAM_APPENDABLE,
+        x if x == BROTLI_PARAM_MAGIC_NUMBER as u32 => BROTLI_PARAM_MAGIC_NUMBER,
+        x if x == BROTLI_PARAM_FAVOR_EFFICIENCY as u32 => BROTLI_PARAM_FAVOR_EFFICIENCY,
+        x if x == BROTLI_PARAM_BYTE_ALIGN as u32 => BROTLI_PARAM_BYTE_ALIGN,
+        x if x == BROTLI_PARAM_BARE_STREAM as u32 => BROTLI_PARAM_BARE_STREAM,
+        _ => return None,
+    })
+}
+
 impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
     pub fn set_parameter(&mut self, p: BrotliEncoderParameter, value: u32) -> bool {
         if self.is_initialized_ {
             false
         } else {
             set_parameter(&mut self.params, p, value)
+        }
+    }
+
+    /// Like `set_parameter`, but takes the selector as the integer the C FFI
+    /// receives. Unrecognized selectors return `false` rather than being turned
+    /// into an invalid `BrotliEncoderParameter` discriminant.
+    #[cfg(feature = "ffi-api")]
+    pub(crate) fn set_parameter_u32(&mut self, selector: u32, value: u32) -> bool {
+        match encoder_parameter_from_u32(selector) {
+            Some(p) => self.set_parameter(p, value),
+            None => false,
         }
     }
 }

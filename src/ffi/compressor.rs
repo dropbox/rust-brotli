@@ -116,10 +116,10 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
 #[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderSetParameter(
     state_ptr: *mut BrotliEncoderState,
-    param: ::enc::encode::BrotliEncoderParameter,
+    param: u32,
     value: u32,
 ) -> i32 {
-    if (*state_ptr).compressor.set_parameter(param, value) {
+    if (*state_ptr).compressor.set_parameter_u32(param, value) {
         1
     } else {
         0
@@ -196,7 +196,7 @@ pub extern "C" fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
 pub unsafe extern "C" fn BrotliEncoderCompress(
     quality: i32,
     lgwin: i32,
-    mode: BrotliEncoderMode,
+    mode: u32,
     input_size: usize,
     input_buffer: *const u8,
     encoded_size: *mut usize,
@@ -210,28 +210,20 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
             free_func: None,
             opaque: core::ptr::null_mut(),
         };
+        // `mode` arrives as a plain C int; match it rather than forming a
+        // `BrotliEncoderMode` from it, so an out-of-range value cannot become an
+        // invalid enum discriminant. Unknown modes fall back to generic, as the
+        // parameter setter already does.
+        use enc::backward_references::BrotliEncoderMode as InternalMode;
         let translated_mode = match mode {
-            BrotliEncoderMode::BROTLI_MODE_GENERIC => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_GENERIC
-            }
-            BrotliEncoderMode::BROTLI_MODE_TEXT => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_TEXT
-            }
-            BrotliEncoderMode::BROTLI_MODE_FONT => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_MODE_FONT
-            }
-            BrotliEncoderMode::BROTLI_MODE_FORCE_LSB_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_LSB_PRIOR
-            }
-            BrotliEncoderMode::BROTLI_MODE_FORCE_MSB_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_MSB_PRIOR
-            }
-            BrotliEncoderMode::BROTLI_MODE_FORCE_UTF8_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_UTF8_PRIOR
-            }
-            BrotliEncoderMode::BROTLI_MODE_FORCE_SIGNED_PRIOR => {
-                ::enc::backward_references::BrotliEncoderMode::BROTLI_FORCE_SIGNED_PRIOR
-            }
+            0 => InternalMode::BROTLI_MODE_GENERIC,
+            1 => InternalMode::BROTLI_MODE_TEXT,
+            2 => InternalMode::BROTLI_MODE_FONT,
+            3 => InternalMode::BROTLI_FORCE_LSB_PRIOR,
+            4 => InternalMode::BROTLI_FORCE_MSB_PRIOR,
+            5 => InternalMode::BROTLI_FORCE_UTF8_PRIOR,
+            6 => InternalMode::BROTLI_FORCE_SIGNED_PRIOR,
+            _ => InternalMode::BROTLI_MODE_GENERIC,
         };
         let mut m8 =
             BrotliSubclassableAllocator::new(SubclassableAllocator::new(allocators.clone()));
@@ -261,7 +253,7 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
 #[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderCompressStreaming(
     state_ptr: *mut BrotliEncoderState,
-    op: BrotliEncoderOperation,
+    op: u32,
     available_in: *mut usize,
     mut input_buf: *const u8,
     available_out: *mut usize,
@@ -281,7 +273,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressStreaming(
 #[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderCompressStream(
     state_ptr: *mut BrotliEncoderState,
-    op: BrotliEncoderOperation,
+    op: u32,
     available_in: *mut usize,
     input_buf_ptr: *mut *const u8,
     available_out: *mut usize,
@@ -292,19 +284,16 @@ pub unsafe extern "C" fn BrotliEncoderCompressStream(
         let mut input_offset = 0usize;
         let mut output_offset = 0usize;
         let result;
+        // `op` arrives as a plain C int; match it rather than forming a
+        // `BrotliEncoderOperation` from it, so an out-of-range value cannot
+        // become an invalid enum discriminant. Unknown operations are rejected.
+        use enc::encode::BrotliEncoderOperation as InternalOp;
         let translated_op = match op {
-            BrotliEncoderOperation::BROTLI_OPERATION_PROCESS => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_PROCESS
-            }
-            BrotliEncoderOperation::BROTLI_OPERATION_FLUSH => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FLUSH
-            }
-            BrotliEncoderOperation::BROTLI_OPERATION_FINISH => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_FINISH
-            }
-            BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA => {
-                ::enc::encode::BrotliEncoderOperation::BROTLI_OPERATION_EMIT_METADATA
-            }
+            0 => InternalOp::BROTLI_OPERATION_PROCESS,
+            1 => InternalOp::BROTLI_OPERATION_FLUSH,
+            2 => InternalOp::BROTLI_OPERATION_FINISH,
+            3 => InternalOp::BROTLI_OPERATION_EMIT_METADATA,
+            _ => return 0,
         };
         {
             let (input_buf, input_any): (&[u8], bool) = if *available_in != 0 {
@@ -471,5 +460,78 @@ mod test {
             )
         };
         assert!(state.is_null());
+    }
+
+    // An operation value outside 0..=3 used to be turned into a
+    // BrotliEncoderOperation by the caller-supplied int, forming an invalid
+    // enum discriminant. It is now rejected instead.
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_compress_stream_rejects_out_of_range_operation() {
+        unsafe {
+            let state = BrotliEncoderCreateInstance(None, None, core::ptr::null_mut());
+            assert!(!state.is_null());
+            let input = [0u8; 0];
+            let mut available_in = 0usize;
+            let mut input_ptr = input.as_ptr();
+            let mut output = [0u8; 64];
+            let mut available_out = output.len();
+            let mut output_ptr = output.as_mut_ptr();
+            let ret = BrotliEncoderCompressStream(
+                state,
+                4,
+                &mut available_in,
+                &mut input_ptr,
+                &mut available_out,
+                &mut output_ptr,
+                core::ptr::null_mut(),
+            );
+            assert_eq!(ret, 0);
+            BrotliEncoderDestroyInstance(state);
+        }
+    }
+
+    // A selector that is not a recognized parameter must be rejected rather
+    // than becoming an invalid BrotliEncoderParameter discriminant.
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_set_parameter_rejects_out_of_range_selector() {
+        unsafe {
+            let state = BrotliEncoderCreateInstance(None, None, core::ptr::null_mut());
+            assert!(!state.is_null());
+            assert_eq!(BrotliEncoderSetParameter(state, 0xffff, 0), 0);
+            assert_eq!(
+                BrotliEncoderSetParameter(
+                    state,
+                    ::enc::encode::BrotliEncoderParameter::BROTLI_PARAM_QUALITY as u32,
+                    5,
+                ),
+                1
+            );
+            BrotliEncoderDestroyInstance(state);
+        }
+    }
+
+    // A mode value outside 0..=6 used to form an invalid BrotliEncoderMode
+    // discriminant. It now falls back to generic, like the parameter setter.
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_compress_out_of_range_mode_falls_back_to_generic() {
+        unsafe {
+            let input = [b'a'; 64];
+            let mut encoded = [0u8; 128];
+            let mut encoded_size = encoded.len();
+            let ret = BrotliEncoderCompress(
+                5,
+                22,
+                99,
+                input.len(),
+                input.as_ptr(),
+                &mut encoded_size,
+                encoded.as_mut_ptr(),
+            );
+            assert_eq!(ret, 1);
+            assert!(encoded_size > 0);
+        }
     }
 }

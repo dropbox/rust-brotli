@@ -53,7 +53,7 @@ fn test_compress_workpool() {
         let inner_ret = BrotliEncoderCompressWorkPool(
             wp,
             params.len(),
-            params[..].as_ptr(),
+            params[..].as_ptr() as *const u32,
             values[..].as_ptr(),
             input.len(),
             input[..].as_ptr(),
@@ -107,7 +107,7 @@ fn test_compress_empty_workpool() {
         let inner_ret = BrotliEncoderCompressWorkPool(
             wp,
             params.len(),
-            params[..].as_ptr(),
+            params[..].as_ptr() as *const u32,
             values[..].as_ptr(),
             input.len(),
             input[..].as_ptr(),
@@ -160,7 +160,7 @@ fn test_compress_empty_multi_raw() {
     let ret = unsafe {
         BrotliEncoderCompressMulti(
             params.len(),
-            params[..].as_ptr(),
+            params[..].as_ptr() as *const u32,
             values[..].as_ptr(),
             input.len(),
             input[..].as_ptr(),
@@ -210,7 +210,7 @@ fn test_compress_null_multi_raw() {
     let ret = unsafe {
         BrotliEncoderCompressMulti(
             params.len(),
-            params[..].as_ptr(),
+            params[..].as_ptr() as *const u32,
             values[..].as_ptr(),
             0,
             core::ptr::null(),
@@ -261,7 +261,7 @@ fn test_compress_empty_multi_raw_one_thread() {
     let ret = unsafe {
         BrotliEncoderCompressMulti(
             params.len(),
-            params[..].as_ptr(),
+            params[..].as_ptr() as *const u32,
             values[..].as_ptr(),
             input.len(),
             input[..].as_ptr(),
@@ -312,7 +312,7 @@ fn test_compress_empty_multi_catable() {
     let ret = unsafe {
         BrotliEncoderCompressMulti(
             params.len(),
-            params[..].as_ptr(),
+            params[..].as_ptr() as *const u32,
             values[..].as_ptr(),
             input.len(),
             input[..].as_ptr(),
