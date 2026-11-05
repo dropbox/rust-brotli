@@ -231,7 +231,7 @@ pub fn StoreLookaheadThenStore<T: AnyHasher>(hasher: &mut T, size: usize, dict: 
 pub trait BasicHashComputer {
     fn HashBytes(&self, data: &[u8]) -> u32;
     fn BUCKET_BITS(&self) -> i32;
-    fn USE_DICTIONARY(&self) -> i32;
+    fn use_dictionary(&self) -> bool;
     fn BUCKET_SWEEP(&self) -> i32;
 }
 pub struct BasicHasher<Buckets: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> {
@@ -462,7 +462,7 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                 }
             }
         }
-        if dictionary.is_some() && self.buckets_.USE_DICTIONARY() != 0 && !is_match_found {
+        if dictionary.is_some() && self.buckets_.use_dictionary() && !is_match_found {
             is_match_found = SearchInStaticDictionary(
                 dictionary.unwrap(),
                 dictionary_hash,
@@ -493,8 +493,8 @@ impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H2Sub<AllocU32> {
     fn BUCKET_SWEEP(&self) -> i32 {
         1
     }
-    fn USE_DICTIONARY(&self) -> i32 {
-        1
+    fn use_dictionary(&self) -> bool {
+        true
     }
 }
 impl<AllocU32: alloc::Allocator<u32>> SliceWrapperMut<u32> for H2Sub<AllocU32> {
@@ -527,8 +527,8 @@ impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H3Sub<AllocU32> {
     fn BUCKET_SWEEP(&self) -> i32 {
         2
     }
-    fn USE_DICTIONARY(&self) -> i32 {
-        0
+    fn use_dictionary(&self) -> bool {
+        false
     }
     fn HashBytes(&self, data: &[u8]) -> u32 {
         let h: u64 =
@@ -546,8 +546,8 @@ impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H4Sub<AllocU32> {
     fn BUCKET_SWEEP(&self) -> i32 {
         4
     }
-    fn USE_DICTIONARY(&self) -> i32 {
-        1
+    fn use_dictionary(&self) -> bool {
+        true
     }
     fn HashBytes(&self, data: &[u8]) -> u32 {
         let h: u64 =
@@ -575,8 +575,8 @@ impl<AllocU32: alloc::Allocator<u32>> BasicHashComputer for H54Sub<AllocU32> {
     fn BUCKET_SWEEP(&self) -> i32 {
         4
     }
-    fn USE_DICTIONARY(&self) -> i32 {
-        0
+    fn use_dictionary(&self) -> bool {
+        false
     }
     fn HashBytes(&self, data: &[u8]) -> u32 {
         let h: u64 =
