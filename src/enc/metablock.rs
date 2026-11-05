@@ -627,11 +627,10 @@ fn BlockSplitterFinishBlock<
             xself.merge_last_count_ = 0usize;
             xself.target_block_size_ = xself.min_block_size_;
         } else {
-            {
-                let _rhs = xself.block_size_ as u32;
-                let _lhs = &mut split.lengths.slice_mut()[xself.num_blocks_.wrapping_sub(1)];
-                *_lhs = (*_lhs).wrapping_add(_rhs);
-            }
+            ::wrapping_add!(
+                split.lengths.slice_mut()[xself.num_blocks_.wrapping_sub(1)],
+                xself.block_size_ as u32
+            );
             histograms[xself.last_histogram_ix_[0]] = combined_histo[0].clone();
             xself.last_entropy_[0] = combined_entropy[0];
             if split.num_types == 1 {
