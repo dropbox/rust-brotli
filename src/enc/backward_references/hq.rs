@@ -344,8 +344,14 @@ where
         if data[cur_ix_masked] == data[prev_ix]
             && data[cur_ix_masked.wrapping_add(1)] == data[prev_ix.wrapping_add(1)]
         {
-            let len =
-                FindMatchLengthWithLimit(&data[prev_ix..], &data[cur_ix_masked..], max_length);
+            // A copy must not run from a custom dictionary into the input;
+            // decoders reject it.
+            let len = fix_unbroken_len(
+                FindMatchLengthWithLimit(&data[prev_ix..], &data[cur_ix_masked..], max_length),
+                prev_ix,
+                cur_ix_masked,
+                ring_buffer_break,
+            );
             if len > best_len {
                 best_len = len;
                 BackwardMatchMut(&mut matches[matches_offset]).init(backward, len);
