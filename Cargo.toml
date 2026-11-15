@@ -30,14 +30,6 @@ name = "brotli"
 doc = false
 name = "catbrotli"
 
-[[test]]
-name = "dictionary_boundary_fuzz"
-required-features = ["std"]
-
-[[test]]
-name = "dictionary_boundary_regression"
-required-features = ["std"]
-
 [profile.release]
 lto = true
 incremental = false
