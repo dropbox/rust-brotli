@@ -39,6 +39,8 @@ pub enum BrotliEncoderMode {
 ///  "ring_buffer_break"point. This marks where a backwards reference cannot pull data through.
 /// A match must stop at the end of the dictionary and cannot span the end of the dictionary
 /// and beginning of the file.  ring_buffer_break is only set true for custom LZ77 dictionary.
+/// IMPORTANT: This can shorten a >= 4 byte match to 1, 2, or 3 bytes.
+/// Match finders must check the minimum supported copy length AFTER calling it.
 fn fix_unbroken_len(
     unbroken_len: usize,
     prev_ix: usize,
@@ -388,9 +390,9 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                     &data[cur_ix_masked..],
                     max_length,
                 );
-                if unbroken_len != 0 {
-                    let len =
-                        fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                let len =
+                    fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                if len >= 4 {
                     best_score = BackwardReferenceScoreUsingLastDistance(len, opts);
                     best_len = len;
                     out.len = len;
@@ -420,8 +422,8 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
             }
             let unbroken_len: usize =
                 FindMatchLengthWithLimitMin4(&data[prev_ix..], &data[cur_ix_masked..], max_length);
-            if unbroken_len != 0 {
-                let len = fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+            let len = fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+            if len >= 4 {
                 out.len = len;
                 out.distance = backward;
                 out.score = BackwardReferenceScore(len, backward, opts);
@@ -446,9 +448,9 @@ impl<T: SliceWrapperMut<u32> + SliceWrapper<u32> + BasicHashComputer> AnyHasher 
                     max_length,
                 );
 
-                if unbroken_len != 0 {
-                    let len =
-                        fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                let len =
+                    fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                if len >= 4 {
                     let score: u64 = BackwardReferenceScore(len, backward, opts);
                     if best_score < score {
                         best_score = score;
@@ -777,9 +779,9 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
             {
                 let unbroken_len: usize =
                     FindMatchLengthWithLimit(&data[prev_ix..], &data[cur_ix_masked..], max_length);
-                if unbroken_len >= 3 || (unbroken_len == 2 && i < 2) {
-                    let len =
-                        fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                let len =
+                    fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                if len >= 3 || (len == 2 && i < 2) {
                     let score = BackwardReferenceScoreUsingLastDistanceH9(len, i, self.h9_opts);
                     if best_score < score {
                         best_score = score;
@@ -830,13 +832,13 @@ impl<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>> AnyHasher for H9<Allo
                         data.split_at(cur_ix_masked).1,
                         max_length,
                     );
-                    if (unbroken_len >= 4) {
-                        let len = fix_unbroken_len(
-                            unbroken_len,
-                            prev_ix,
-                            cur_ix_masked,
-                            ring_buffer_break,
-                        );
+                    let len = fix_unbroken_len(
+                        unbroken_len,
+                        prev_ix,
+                        cur_ix_masked,
+                        ring_buffer_break,
+                    );
+                    if len >= 4 {
                         /* Comparing for >= 3 does not change the semantics, but just saves
                         for a few unnecessary binary logarithms in backward reference
                         score, since we are not interested in such short matches. */
@@ -1720,8 +1722,8 @@ impl<
             let prev_data = data.split_at(prev_ix).1;
 
             let unbroken_len = FindMatchLengthWithLimit(prev_data, cur_data, max_length);
-            if unbroken_len >= 3 || (unbroken_len == 2 && i < 2) {
-                let len = fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+            let len = fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+            if len >= 3 || (len == 2 && i < 2) {
                 let mut score: u64 = BackwardReferenceScoreUsingLastDistance(len, opts);
                 if best_score < score {
                     if i != 0 {
@@ -1776,9 +1778,9 @@ impl<
                 }
                 let prev_data = data.split_at(prev_ix).1;
                 let unbroken_len = FindMatchLengthWithLimitMin4(prev_data, cur_data, max_length);
-                if unbroken_len != 0 {
-                    let len =
-                        fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                let len =
+                    fix_unbroken_len(unbroken_len, prev_ix, cur_ix_masked, ring_buffer_break);
+                if len >= 4 {
                     let score: u64 = BackwardReferenceScore(len, backward, opts);
                     if best_score < score {
                         best_score = score;
