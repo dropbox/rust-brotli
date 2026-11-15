@@ -3,6 +3,10 @@
 [![crates.io](https://img.shields.io/crates/v/brotli.svg)](https://crates.io/crates/brotli)
 [![Build Status](https://travis-ci.org/dropbox/rust-brotli.svg?branch=master)](https://travis-ci.org/dropbox/rust-brotli)
 
+# What's new in 9.1.3
+
+* Ensure the BrotliEncoderVersion matches the crate version at build time.
+
 # What's new in 9.1.2
 
 * Fix Encoder panic with a custom dictionary: 1-byte copy at the dictionary boundary

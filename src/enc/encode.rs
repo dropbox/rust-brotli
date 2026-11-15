@@ -3030,7 +3030,7 @@ impl<Alloc: BrotliAlloc> BrotliEncoderStateStruct<Alloc> {
     }
 }
 
-const BROTLI_ENCODER_VERSION: u32 = 0x0900_1002;
+const BROTLI_ENCODER_VERSION: u32 = 0x0900_1003;
 
 const fn parse_version_component(component: &str) -> u32 {
     let bytes = component.as_bytes();
