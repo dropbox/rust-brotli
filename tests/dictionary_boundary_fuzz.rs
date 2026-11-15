@@ -1,9 +1,7 @@
 extern crate brotli;
 
-// Run: cargo run --release --example dictionary_boundary_fuzz -- cases=10000 seed=0
-// Reproduce issue #280: cases=1 seed=50 quality=9 shape=0 dict=16 len=4096 catable=0
+// Run a larger sweep with BROTLI_BOUNDARY_FUZZ_CASES=10000 cargo test --test dictionary_boundary_fuzz.
 
-#[cfg(feature = "std")]
 mod harness {
     use brotli::enc::encode::{
         BrotliEncoderOperation, BrotliEncoderParameter, BrotliEncoderStateStruct,
@@ -120,94 +118,41 @@ mod harness {
     }
 }
 
-#[cfg(feature = "std")]
-use std::env;
-#[cfg(feature = "std")]
-use std::panic::{catch_unwind, AssertUnwindSafe};
+#[test]
+fn dictionary_boundary_issue_280() {
+    let (dictionary, input) = harness::corpus(50, 16, 4096, 0);
+    for quality in 5..10 {
+        let catable = quality < 7;
+        harness::check_dict(&dictionary, &input, quality, catable).unwrap_or_else(|message| {
+            panic!(
+                "issue #280: quality={} catable={}: {}",
+                quality, catable, message
+            )
+        });
+    }
+}
 
-#[cfg(feature = "std")]
-fn number(arg: &str, default: u64) -> u64 {
-    env::args()
-        .find_map(|a| {
-            let (k, v) = a.split_once('=')?;
-            if k == arg {
-                v.parse::<u64>().ok()
-            } else {
-                None
-            }
+#[test]
+fn dictionary_boundary_seeded_cases() {
+    let cases = std::env::var("BROTLI_BOUNDARY_FUZZ_CASES")
+        .map(|value| {
+            value
+                .parse::<u64>()
+                .expect("invalid BROTLI_BOUNDARY_FUZZ_CASES")
         })
-        .unwrap_or(default)
-}
-
-#[cfg(feature = "std")]
-fn main() {
-    let cases = number("cases", 100) as usize;
-    let seed0 = number("seed", 0);
-    let quality_arg = number("quality", 99);
-    let shape_arg = number("shape", 99);
-    let dict_arg = number("dict", 0);
-    let len_arg = number("len", 0);
-    let catable_arg = number("catable", 99);
-    let mut failures = 0usize;
-    for i in 0..cases {
-        let seed = seed0.wrapping_add(i as u64);
-        let dict_len = if dict_arg != 0 {
-            dict_arg as usize
-        } else {
-            [2usize, 4, 8, 16, 31, 63, 127, 1024][(seed % 8) as usize]
-        };
-        let data_len = if len_arg != 0 {
-            len_arg as usize
-        } else {
-            [128usize, 1024, 4096, 8192][((seed / 8) % 4) as usize]
-        };
-        let q = if quality_arg <= 11 {
-            quality_arg as u32
-        } else {
-            (seed % 12) as u32
-        };
-        let shape = if shape_arg <= 5 {
-            shape_arg as u8
-        } else {
-            ((seed / 3) % 6) as u8
-        };
-        let catable = if catable_arg <= 1 {
-            catable_arg == 1
-        } else {
-            seed % 2 == 0
-        };
+        .unwrap_or(1000);
+    for seed in 0..cases {
+        let dict_len = [2usize, 4, 8, 16, 31, 63, 127, 1024][(seed % 8) as usize];
+        let data_len = [128usize, 1024, 4096, 8192][((seed / 8) % 4) as usize];
+        let quality = (seed % 12) as u32;
+        let shape = ((seed / 3) % 6) as u8;
+        let catable = seed % 2 == 0;
         let (dictionary, input) = harness::corpus(seed, dict_len, data_len, shape);
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            harness::check_dict(&dictionary, &input, q, catable)
-        }));
-        match result {
-            Ok(Ok(_)) => {}
-            Ok(Err(message)) => {
-                failures += 1;
-                eprintln!(
-                    "FAIL seed={} dict={} len={} shape={} q={} catable={}: {}",
-                    seed, dict_len, data_len, shape, q, catable, message
-                );
-            }
-            Err(_) => {
-                failures += 1;
-                eprintln!(
-                    "PANIC seed={} dict={} len={} shape={} q={} catable={}",
-                    seed, dict_len, data_len, shape, q, catable
-                );
-            }
-        }
-        if i % 100 == 0 {
-            eprintln!("checked {} / {}; failures={}", i + 1, cases, failures);
-        }
+        harness::check_dict(&dictionary, &input, quality, catable).unwrap_or_else(|message| {
+            panic!(
+                "seed={} dict={} len={} shape={} quality={} catable={}: {}",
+                seed, dict_len, data_len, shape, quality, catable, message
+            )
+        });
     }
-    println!("{} cases, {} failures", cases, failures);
-    if failures != 0 {
-        std::process::exit(1);
-    }
-}
-
-#[cfg(not(feature = "std"))]
-fn main() {
-    panic!("dictionary_boundary_fuzz requires the std feature");
 }

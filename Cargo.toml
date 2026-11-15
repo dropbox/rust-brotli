@@ -16,6 +16,7 @@ rust-version = "1.59.0"
 include = [
   "/src/**/*.rs",
   "/examples/**/*.rs",
+  "/tests/**/*.rs",
   "/Cargo.toml",
   "/README.md",
   "/LICENSE.BSD-3-Clause",
@@ -29,6 +30,10 @@ name = "brotli"
 [[bin]]
 doc = false
 name = "catbrotli"
+
+[[test]]
+name = "dictionary_boundary_fuzz"
+required-features = ["std"]
 
 [profile.release]
 lto = true
