@@ -113,8 +113,21 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
     })
 }
 
-#[no_mangle]
+// The encoder entry points that take an enum by value come in pairs. The pub
+// function keeps its typed signature for Rust callers, who can only pass a
+// declared variant. The exported C symbol is the private C-prefixed function,
+// which takes the value as a plain integer and checks it, so a value from C
+// that isn't a declared variant never forms an invalid enum discriminant.
 pub unsafe extern "C" fn BrotliEncoderSetParameter(
+    state_ptr: *mut BrotliEncoderState,
+    param: ::enc::encode::BrotliEncoderParameter,
+    value: u32,
+) -> i32 {
+    CBrotliEncoderSetParameter(state_ptr, param as u32, value)
+}
+
+#[export_name = "BrotliEncoderSetParameter"]
+unsafe extern "C" fn CBrotliEncoderSetParameter(
     state_ptr: *mut BrotliEncoderState,
     param: u32,
     value: u32,
@@ -192,8 +205,28 @@ pub extern "C" fn BrotliEncoderVersion() -> u32 {
 pub extern "C" fn BrotliEncoderMaxCompressedSize(input_size: usize) -> usize {
     ::enc::encode::BrotliEncoderMaxCompressedSize(input_size)
 }
-#[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderCompress(
+    quality: i32,
+    lgwin: i32,
+    mode: BrotliEncoderMode,
+    input_size: usize,
+    input_buffer: *const u8,
+    encoded_size: *mut usize,
+    encoded_buffer: *mut u8,
+) -> i32 {
+    CBrotliEncoderCompress(
+        quality,
+        lgwin,
+        mode as u32,
+        input_size,
+        input_buffer,
+        encoded_size,
+        encoded_buffer,
+    )
+}
+
+#[export_name = "BrotliEncoderCompress"]
+unsafe extern "C" fn CBrotliEncoderCompress(
     quality: i32,
     lgwin: i32,
     mode: u32,
@@ -250,8 +283,26 @@ pub unsafe extern "C" fn BrotliEncoderCompress(
     })
 }
 
-#[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderCompressStreaming(
+    state_ptr: *mut BrotliEncoderState,
+    op: BrotliEncoderOperation,
+    available_in: *mut usize,
+    input_buf: *const u8,
+    available_out: *mut usize,
+    output_buf: *mut u8,
+) -> i32 {
+    CBrotliEncoderCompressStreaming(
+        state_ptr,
+        op as u32,
+        available_in,
+        input_buf,
+        available_out,
+        output_buf,
+    )
+}
+
+#[export_name = "BrotliEncoderCompressStreaming"]
+unsafe extern "C" fn CBrotliEncoderCompressStreaming(
     state_ptr: *mut BrotliEncoderState,
     op: u32,
     available_in: *mut usize,
@@ -259,7 +310,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressStreaming(
     available_out: *mut usize,
     mut output_buf: *mut u8,
 ) -> i32 {
-    BrotliEncoderCompressStream(
+    CBrotliEncoderCompressStream(
         state_ptr,
         op,
         available_in,
@@ -270,8 +321,28 @@ pub unsafe extern "C" fn BrotliEncoderCompressStreaming(
     )
 }
 
-#[no_mangle]
 pub unsafe extern "C" fn BrotliEncoderCompressStream(
+    state_ptr: *mut BrotliEncoderState,
+    op: BrotliEncoderOperation,
+    available_in: *mut usize,
+    input_buf_ptr: *mut *const u8,
+    available_out: *mut usize,
+    output_buf_ptr: *mut *mut u8,
+    total_out: *mut usize,
+) -> i32 {
+    CBrotliEncoderCompressStream(
+        state_ptr,
+        op as u32,
+        available_in,
+        input_buf_ptr,
+        available_out,
+        output_buf_ptr,
+        total_out,
+    )
+}
+
+#[export_name = "BrotliEncoderCompressStream"]
+unsafe extern "C" fn CBrotliEncoderCompressStream(
     state_ptr: *mut BrotliEncoderState,
     op: u32,
     available_in: *mut usize,
@@ -482,7 +553,7 @@ mod test {
             let mut output = [0u8; 64];
             let mut available_out = output.len();
             let mut output_ptr = output.as_mut_ptr();
-            let ret = BrotliEncoderCompressStream(
+            let ret = CBrotliEncoderCompressStream(
                 state,
                 4,
                 &mut available_in,
@@ -504,11 +575,11 @@ mod test {
         unsafe {
             let state = BrotliEncoderCreateInstance(None, None, core::ptr::null_mut());
             assert!(!state.is_null());
-            assert_eq!(BrotliEncoderSetParameter(state, 0xffff, 0), 0);
+            assert_eq!(CBrotliEncoderSetParameter(state, 0xffff, 0), 0);
             assert_eq!(
                 BrotliEncoderSetParameter(
                     state,
-                    ::enc::encode::BrotliEncoderParameter::BROTLI_PARAM_QUALITY as u32,
+                    ::enc::encode::BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
                     5,
                 ),
                 1
@@ -526,7 +597,7 @@ mod test {
             let input = [b'a'; 64];
             let mut encoded = [0u8; 128];
             let mut encoded_size = encoded.len();
-            let ret = BrotliEncoderCompress(
+            let ret = CBrotliEncoderCompress(
                 5,
                 22,
                 99,
