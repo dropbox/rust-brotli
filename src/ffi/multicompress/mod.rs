@@ -21,7 +21,8 @@ use super::alloc_util::BrotliSubclassableAllocator;
 use super::compressor;
 use crate::enc::backward_references::{BrotliEncoderParams, UnionHasher};
 use crate::enc::encode::{
-    set_parameter, BrotliEncoderOperation, BrotliEncoderParameter, BrotliEncoderStateStruct,
+    encoder_parameter_from_u32, set_parameter, BrotliEncoderOperation, BrotliEncoderParameter,
+    BrotliEncoderStateStruct,
 };
 use crate::enc::threading::{Owned, SendAlloc};
 
@@ -55,8 +56,22 @@ pub extern "C" fn BrotliEncoderMaxCompressedSizeMulti(
     ::enc::encode::BrotliEncoderMaxCompressedSizeMulti(input_size, num_threads)
 }
 
-fn help_brotli_encoder_compress_single(
-    param_keys: &[BrotliEncoderParameter],
+// Reads entry `i` of the caller's key array as a plain integer, so a value
+// from C that isn't a declared variant never forms an invalid
+// BrotliEncoderParameter. The array keeps its enum pointer type, matching the C
+// header, and is read at the enum's own width: a C int on most targets, but a
+// byte on short-enum targets such as thumbv7em-none-eabi.
+unsafe fn param_key(param_keys: *const BrotliEncoderParameter, i: usize) -> u32 {
+    let entry = param_keys.add(i);
+    match core::mem::size_of::<BrotliEncoderParameter>() {
+        1 => core::ptr::read(entry as *const u8) as u32,
+        2 => core::ptr::read(entry as *const u16) as u32,
+        _ => core::ptr::read(entry as *const u32),
+    }
+}
+
+unsafe fn help_brotli_encoder_compress_single(
+    param_keys: *const BrotliEncoderParameter,
     param_values: &[u32],
     input: &[u8],
     output: &mut [u8],
@@ -64,8 +79,8 @@ fn help_brotli_encoder_compress_single(
     m8: BrotliSubclassableAllocator,
 ) -> bool {
     let mut encoder = BrotliEncoderStateStruct::new(m8);
-    for (p, v) in param_keys.iter().zip(param_values.iter()) {
-        encoder.set_parameter(*p, *v);
+    for (i, v) in param_values.iter().enumerate() {
+        encoder.set_parameter_u32(param_key(param_keys, i), *v);
     }
     let mut available_in = input.len();
     let mut next_in_offset = 0usize;
@@ -110,7 +125,6 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
     }
     let num_threads = min(desired_num_threads, MAX_THREADS);
     compressor::catch_panic(|| {
-        let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
         let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
         let input_slice = slice_from_raw_parts_or_nil(input, input_size);
         let output_slice = slice_from_raw_parts_or_nil_mut(encoded, *encoded_size);
@@ -127,7 +141,7 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
             let m8 =
                 BrotliSubclassableAllocator::new(SubclassableAllocator::new(allocators.clone()));
             return help_brotli_encoder_compress_single(
-                param_keys_slice,
+                param_keys,
                 param_values_slice,
                 input_slice,
                 output_slice,
@@ -143,9 +157,14 @@ pub unsafe extern "C" fn BrotliEncoderCompressMulti(
             slice_from_raw_parts_or_nil(alloc_opaque_per_thread, desired_num_threads)
         };
         let mut params = BrotliEncoderParams::default();
-        for (k, v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
-            if !set_parameter(&mut params, *k, *v) {
-                return 0;
+        for (i, v) in param_values_slice.iter().enumerate() {
+            match encoder_parameter_from_u32(param_key(param_keys, i)) {
+                Some(p) => {
+                    if !set_parameter(&mut params, p, *v) {
+                        return 0;
+                    }
+                }
+                None => return 0,
             }
         }
         let mut alloc_array: [_; MAX_THREADS] = [
@@ -357,12 +376,16 @@ pub unsafe extern "C" fn BrotliEncoderCompressWorkPool(
         } else {
             slice_from_raw_parts_or_nil(alloc_opaque_per_thread, desired_num_threads)
         };
-        let param_keys_slice = slice_from_raw_parts_or_nil(param_keys, num_params);
         let param_values_slice = slice_from_raw_parts_or_nil(param_values, num_params);
         let mut params = BrotliEncoderParams::default();
-        for (k, v) in param_keys_slice.iter().zip(param_values_slice.iter()) {
-            if !set_parameter(&mut params, *k, *v) {
-                return 0;
+        for (i, v) in param_values_slice.iter().enumerate() {
+            match encoder_parameter_from_u32(param_key(param_keys, i)) {
+                Some(p) => {
+                    if !set_parameter(&mut params, p, *v) {
+                        return 0;
+                    }
+                }
+                None => return 0,
             }
         }
         let num_threads = min(desired_num_threads, MAX_THREADS);

@@ -344,3 +344,32 @@ fn test_compress_empty_multi_catable() {
     assert_eq!(rt_size, input.len());
     assert_eq!(&rt_buffer[..rt_size], &input[..]);
 }
+
+// A key from C that isn't a declared BrotliEncoderParameter is read as a plain
+// integer and rejected, rather than forming an invalid enum discriminant.
+#[test]
+fn test_compress_multi_rejects_unknown_param_key() {
+    // The keys below are laid out as C ints, which is the enum's width here.
+    assert_eq!(core::mem::size_of::<BrotliEncoderParameter>(), 4);
+    let input = [b'a'; 64];
+    let keys = [BrotliEncoderParameter::BROTLI_PARAM_QUALITY as u32, 0xffff];
+    let values = [3u32, 0];
+    let mut encoded = [0u8; 256];
+    let mut encoded_size = encoded.len();
+    let ret = unsafe {
+        BrotliEncoderCompressMulti(
+            keys.len(),
+            keys.as_ptr() as *const BrotliEncoderParameter,
+            values.as_ptr(),
+            input.len(),
+            input.as_ptr(),
+            &mut encoded_size,
+            encoded.as_mut_ptr(),
+            4,
+            None,
+            None,
+            core::ptr::null_mut(),
+        )
+    };
+    assert_eq!(ret, 0);
+}
