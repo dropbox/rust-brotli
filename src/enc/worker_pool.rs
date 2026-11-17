@@ -309,6 +309,7 @@ pub struct WorkerJoinable<
 > {
     queue: GuardedQueue<ReturnValue, ExtraInput, Alloc, U>,
     work_id: u64,
+    joined: bool,
 }
 impl<
         ReturnValue: Send + 'static,
@@ -318,7 +319,7 @@ impl<
     > Joinable<ReturnValue, BrotliEncoderThreadError>
     for WorkerJoinable<ReturnValue, ExtraInput, Alloc, U>
 {
-    fn join(self) -> Result<ReturnValue, BrotliEncoderThreadError> {
+    fn join(mut self) -> Result<ReturnValue, BrotliEncoderThreadError> {
         let (lock, cvar) = &*self.queue.0;
         let mut local_queue = lock.lock().unwrap();
         loop {
@@ -331,9 +332,50 @@ impl<
                         false
                     }
                 }) {
-                Some(matched) => return Ok(matched.result),
+                Some(matched) => {
+                    self.joined = true;
+                    return Ok(matched.result);
+                }
                 None => local_queue = cvar.wait(local_queue).unwrap(),
             };
+        }
+    }
+}
+
+// The job borrows the caller's input and allocator, so it must not outlive this handle,
+// e.g. when a panic unwinds out of CompressMulti before every worker is joined. Cancel it
+// if no worker has picked it up yet, otherwise wait for it, like MultiThreadedJoinable.
+impl<
+        ReturnValue: Send + 'static,
+        ExtraInput: Send + 'static,
+        Alloc: BrotliAlloc + Send + 'static,
+        U: Send + 'static + Sync,
+    > Drop for WorkerJoinable<ReturnValue, ExtraInput, Alloc, U>
+{
+    fn drop(&mut self) {
+        if self.joined {
+            return;
+        }
+        let work_id = self.work_id;
+        let (lock, cvar) = &*self.queue.0;
+        let mut local_queue = lock.lock().unwrap();
+        if local_queue
+            .jobs
+            .remove(|job| job.as_ref().map_or(false, |job| job.work_id == work_id))
+            .is_some()
+        {
+            return;
+        }
+        while local_queue
+            .results
+            .remove(|reply| {
+                reply
+                    .as_ref()
+                    .map_or(false, |reply| reply.work_id == work_id)
+            })
+            .is_none()
+        {
+            local_queue = cvar.wait(local_queue).unwrap();
         }
     }
 }
@@ -391,6 +433,7 @@ where
                 *work = SendAlloc(InternalSendAlloc::Join(WorkerJoinable {
                     queue: GuardedQueue(self.queue.0.clone()),
                     work_id,
+                    joined: false,
                 }));
                 cvar.notify_all();
                 break;
