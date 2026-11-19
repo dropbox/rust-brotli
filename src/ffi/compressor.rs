@@ -76,6 +76,13 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
     free_func: brotli_free_func,
     opaque: *mut c_void,
 ) -> *mut BrotliEncoderState {
+    // The C API requires these callbacks to be supplied as a pair. With only
+    // free_func set, the state and BrotliEncoderMallocU8/MallocUsize would use
+    // the Rust allocator while BrotliEncoderFreeU8/FreeUsize pass the pointers
+    // to free_func, so reject the pair up front as the decoder does.
+    if alloc_func.is_some() != free_func.is_some() {
+        return core::ptr::null_mut();
+    }
     catch_panic_cstate(|| {
         let allocators = CAllocator {
             alloc_func,
@@ -89,9 +96,6 @@ pub unsafe extern "C" fn BrotliEncoderCreateInstance(
             )),
         };
         if let Some(alloc) = alloc_func {
-            if free_func.is_none() {
-                panic!("either both alloc and free must exist or neither");
-            }
             let ptr = alloc(
                 allocators.opaque,
                 core::mem::size_of::<BrotliEncoderState>(),
@@ -473,6 +477,19 @@ mod test {
                 Some(failing_free),
                 core::ptr::null_mut(),
             )
+        };
+        assert!(state.is_null());
+    }
+
+    // With only free_func set, BrotliEncoderMallocU8 used the Rust allocator
+    // and BrotliEncoderFreeU8 then passed that pointer to free_func.
+    #[test]
+    fn test_create_instance_rejects_unpaired_allocators() {
+        let state =
+            unsafe { BrotliEncoderCreateInstance(None, Some(failing_free), core::ptr::null_mut()) };
+        assert!(state.is_null());
+        let state = unsafe {
+            BrotliEncoderCreateInstance(Some(failing_alloc), None, core::ptr::null_mut())
         };
         assert!(state.is_null());
     }
