@@ -21,7 +21,8 @@ use super::alloc_util::BrotliSubclassableAllocator;
 use super::compressor;
 use crate::enc::backward_references::{BrotliEncoderParams, UnionHasher};
 use crate::enc::encode::{
-    set_parameter, BrotliEncoderOperation, BrotliEncoderParameter, BrotliEncoderStateStruct,
+    set_parameter, BrotliEncoderDestroyInstance, BrotliEncoderOperation, BrotliEncoderParameter,
+    BrotliEncoderStateStruct,
 };
 use crate::enc::threading::{Owned, SendAlloc};
 
@@ -87,6 +88,7 @@ fn help_brotli_encoder_compress_single(
         result = false;
     }
     *encoded_size = total_out.unwrap();
+    BrotliEncoderDestroyInstance(&mut encoder);
 
     result
 }

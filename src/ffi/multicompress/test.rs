@@ -3,6 +3,7 @@
 
 use core;
 
+use std::alloc::{alloc, dealloc, Layout};
 use std::panic;
 
 use super::*;
@@ -343,4 +344,69 @@ fn test_compress_empty_multi_catable() {
   }
     assert_eq!(rt_size, input.len());
     assert_eq!(&rt_buffer[..rt_size], &input[..]);
+}
+
+// Number of blocks a C allocator pair has handed out and not yet taken back.
+struct LiveBlocks(usize);
+
+extern "C" fn tracking_alloc(opaque: *mut c_void, size: usize) -> *mut c_void {
+    // The size goes in a header so tracking_free can rebuild the layout.
+    let layout = Layout::from_size_align(size + 16, 16).unwrap();
+    unsafe {
+        let ptr = alloc(layout);
+        if ptr.is_null() {
+            return core::ptr::null_mut();
+        }
+        *(ptr as *mut usize) = size;
+        (*(opaque as *mut LiveBlocks)).0 += 1;
+        ptr.add(16) as *mut c_void
+    }
+}
+
+extern "C" fn tracking_free(opaque: *mut c_void, address: *mut c_void) {
+    if address.is_null() {
+        return;
+    }
+    unsafe {
+        let ptr = (address as *mut u8).sub(16);
+        let size = *(ptr as *const usize);
+        dealloc(ptr, Layout::from_size_align(size + 16, 16).unwrap());
+        (*(opaque as *mut LiveBlocks)).0 -= 1;
+    }
+}
+
+// With one thread, BrotliEncoderCompressMulti runs the encoder on the calling
+// thread with a state of its own; every block that state took from the
+// caller's allocator must be back before the call returns.
+#[test]
+fn test_compress_multi_one_thread_frees_encoder_state() {
+    let input = b"the quick brown fox jumps over the lazy dog, the quick brown fox";
+    let params = [
+        BrotliEncoderParameter::BROTLI_PARAM_QUALITY,
+        BrotliEncoderParameter::BROTLI_PARAM_LGWIN,
+        BrotliEncoderParameter::BROTLI_PARAM_SIZE_HINT,
+    ];
+    let values = [11u32, 16, input.len() as u32];
+    let mut encoded_size = BrotliEncoderMaxCompressedSizeMulti(input.len(), 1);
+    let mut encoded = vec![0u8; encoded_size];
+    let mut live = LiveBlocks(0);
+    let mut opaque = &mut live as *mut LiveBlocks as *mut c_void;
+    let ret = unsafe {
+        BrotliEncoderCompressMulti(
+            params.len(),
+            params[..].as_ptr(),
+            values[..].as_ptr(),
+            input.len(),
+            input[..].as_ptr(),
+            &mut encoded_size,
+            encoded.as_mut_ptr(),
+            1,
+            Some(tracking_alloc),
+            Some(tracking_free),
+            &mut opaque,
+        )
+    };
+    assert_eq!(ret, 1);
+    assert_ne!(encoded_size, 0);
+    assert_eq!(live.0, 0);
 }
