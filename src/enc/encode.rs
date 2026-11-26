@@ -1073,6 +1073,8 @@ fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
     m: &mut Alloc,
     params: &BrotliEncoderParams,
     ringbuffer_break: Option<core::num::NonZeroUsize>,
+    one_shot: bool,
+    input_size: usize,
 ) -> UnionHasher<Alloc> {
     let hasher_type: i32 = params.hasher.type_;
     if hasher_type == 2i32 {
@@ -1108,7 +1110,13 @@ fn BrotliMakeHasher<Alloc: alloc::Allocator<u16> + alloc::Allocator<u32>>(
         return UnionHasher::H54(InitializeH54(m, params));
     }
     if hasher_type == 10i32 {
-        return UnionHasher::H10(InitializeH10(m, false, params, ringbuffer_break, 0));
+        return UnionHasher::H10(InitializeH10(
+            m,
+            one_shot,
+            params,
+            ringbuffer_break,
+            input_size,
+        ));
     }
     // since we don't support all of these, fall back to something sane
     InitializeH6(m, params)
@@ -1142,7 +1150,7 @@ pub(crate) fn hasher_setup<Alloc: Allocator<u16> + Allocator<u32>>(
         ChooseHasher(&mut (*params));
         //alloc_size = HasherSize(params, one_shot, input_size);
         //xself = BrotliAllocate(m, alloc_size.wrapping_mul(::core::mem::size_of::<u8>()))
-        *handle = BrotliMakeHasher(m16, params, ringbuffer_break);
+        *handle = BrotliMakeHasher(m16, params, ringbuffer_break, one_shot, input_size);
         handle.GetHasherCommon().params = params.hasher;
         HasherReset(handle); // this sets everything to zero, unlike in C
         handle.GetHasherCommon().is_prepared_ = 1;
@@ -1481,7 +1489,7 @@ pub(crate) fn encoder_compress<
             params.q9_5 = true;
             params.quality = 10;
             ChooseHasher(&mut params);
-            s_orig.hasher_ = BrotliMakeHasher(m8, &params, None /*no custom dict */);
+            s_orig.hasher_ = BrotliMakeHasher(m8, &params, None /*no custom dict */, false, 0);
         }
         let mut result: bool;
         {
@@ -3164,5 +3172,35 @@ mod test {
         )
         .unwrap();
         assert_eq!(&roundtrip[..], input);
+    }
+
+    #[test]
+    fn test_one_shot_h10_forest_is_sized_by_input() {
+        use crate::enc::SliceWrapper;
+        let input = b"hello world";
+        let mut s = super::BrotliEncoderStateStruct::new(StandardAlloc::default());
+        s.set_parameter(super::BrotliEncoderParameter::BROTLI_PARAM_QUALITY, 11);
+        s.set_parameter(super::BrotliEncoderParameter::BROTLI_PARAM_LGWIN, 22);
+        let mut output = [0u8; 64];
+        let (mut available_in, mut in_offset) = (input.len(), 0);
+        let (mut available_out, mut out_offset) = (output.len(), 0);
+        let mut total_out = None;
+        assert!(s.compress_stream(
+            super::BrotliEncoderOperation::BROTLI_OPERATION_FINISH,
+            &mut available_in,
+            &input[..],
+            &mut in_offset,
+            &mut available_out,
+            &mut output[..],
+            &mut out_offset,
+            &mut total_out,
+            &mut |_, _, _, _| (),
+        ));
+        match s.hasher_ {
+            super::UnionHasher::H10(ref hasher) => {
+                assert_eq!(hasher.forest.len(), 2 * input.len())
+            }
+            _ => panic!("quality 11 uses H10"),
+        }
     }
 }
