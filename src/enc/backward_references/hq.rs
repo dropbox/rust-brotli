@@ -1088,7 +1088,7 @@ impl<AllocF: Allocator<floatX>> ZopfliCostModel<AllocF> {
     ) {
         let mut histogram_literal = [0u32; BROTLI_NUM_LITERAL_SYMBOLS];
         let mut histogram_cmd = [0u32; BROTLI_NUM_COMMAND_SYMBOLS];
-        let mut histogram_dist = [0u32; BROTLI_SIMPLE_DISTANCE_ALPHABET_SIZE];
+        let mut histogram_dist = [0u32; BROTLI_MAX_EFFECTIVE_DISTANCE_ALPHABET_SIZE];
         let mut cost_literal = [0.0; BROTLI_NUM_LITERAL_SYMBOLS];
         let mut pos: usize = position.wrapping_sub(last_insert_len);
         let mut min_cost_cmd: floatX = kInfinity;
