@@ -710,7 +710,7 @@ macro_rules! compress_specialization {
             storage_ix: &mut usize,
             storage: &mut [u8],
         ) {
-            let min_match = if $table_bits < 15 { 4 } else { 6 };
+            let min_match = if $table_bits <= 15 { 4 } else { 6 };
             compress_fragment_two_pass_impl(
                 mht,
                 input,
