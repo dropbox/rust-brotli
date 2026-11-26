@@ -292,3 +292,18 @@ fn test_bulk_store_range_pow2() {
     assert!(hasher_d == hasher_c);
     assert!(hasher_a == hasher_e);
 }
+
+#[test]
+fn test_quality_11_large_window_font_mode_roundtrip() {
+    let input = b"hello world";
+    let mut params = crate::enc::BrotliEncoderParams::default();
+    params.quality = 11;
+    params.lgwin = 30;
+    params.large_window = true;
+    params.mode = super::BrotliEncoderMode::BROTLI_MODE_FONT;
+    let mut compressed = std::vec::Vec::<u8>::new();
+    crate::enc::BrotliCompress(&mut &input[..], &mut compressed, &params).unwrap();
+    let mut output = std::vec::Vec::<u8>::new();
+    brotli_decompressor::BrotliDecompress(&mut &compressed[..], &mut output).unwrap();
+    assert_eq!(&output[..], &input[..]);
+}
